@@ -1,0 +1,16 @@
+# Out-of-source builds and local development artifacts
+/build*/
+/local/
+
+# Runtime outputs written in the launch directory
+/*.hbt
+/*.hbt.tmp
+/song.wav
+/homebeat-*.png
+/libreloop-*.png
+
+# Editor and OS artifacts
+*~
+*.swp
+*.swo
+.DS_Store

@@ -1,0 +1,66 @@
+# Architecture and scope
+
+LibreLoop is a small, self-contained Linux DAW in C. It borrows familiar FL
+Studio placement and workflows, with a simpler raylib interface. Priorities
+are a coherent mouse-driven workflow and minimal code and dependencies.
+
+## Repository map
+
+| Path | Responsibility |
+| --- | --- |
+| `src/main.c` | raylib UI, gestures, transport, sampler worker orchestration |
+| `src/engine.c`, `engine.h` | project model, synthesis, rendering, routing, save/load, export |
+| `src/arrangement.c`, `arrangement.h` | Playlist editing, selection, timeline and snap helpers |
+| `src/sampler.c` | non-destructive crop, normalize, reverse, polarity, pitch and time processing |
+| `src/audio.c`, `audio.h` | miniaudio playback, live notes and sample decoding |
+| `src/browser.c`, `browser.h` | folder trees, selection and saved roots |
+| `src/windows.c`, `windows.h` | floating editor rectangles, stacking and mouse ownership |
+| `tests/` | headless C tests |
+| `samples/` | generated demo one-shots |
+| `tools/` | sample generator |
+| `docs/` | usage, development notes and third-party notices |
+
+## Decisions
+
+- Instruments and effects ship with LibreLoop. The Sampler is the first
+  instrument; future instruments belong in the Rack and effects in Mixer slots.
+  Add a small internal interface when useful. External VST, CLAP and LV2 hosting
+  and a public custom plugin format are outside the planned scope.
+- Editor windows are virtual windows within raylib, sharing one small window
+  manager. Browser resizing and editor scrolling use the same mouse-first approach.
+- Patterns contain all channels' notes. Playlist clips reference patterns and
+  keep independent crop lengths; resizing a clip never deletes source notes.
+- Original sample audio is retained. Processing produces a separate sample,
+  using a background worker after knob release. Start/Length preview the crop
+  live; Pitch/Time retain the processed waveform until replacement audio is ready.
+- The audio callback allocates nothing. It uses a nonblocking mutex attempt;
+  a concurrent UI update may silence a buffer. This is a prototype limitation.
+- Project files currently use `.hbt` and the `HOMEBEAT` version-15 header for
+  compatibility. Versions 1–14 remain readable. Renaming the app did not change
+  the project format. Sample paths are absolute and projects are not portable bundles.
+- Browser roots are written under the `libreloop` configuration directory;
+  legacy `homebeat` roots are read when no new configuration exists.
+
+## Deliberate limits
+
+Up to 32 channels, eight patterns, 100 fixed Playlist tracks, 100 fixed mixer
+inserts and 128 note slots per channel per pattern, with up to 64 clips per
+Playlist track. Timeline and pattern lengths have no fixed bar count; zoom and
+horizontal navigation reveal additional empty bars. Drawing farther right
+extends the source pattern; existing Playlist copies keep their own crop lengths.
+Unused Rack steps stay grey until painted.
+Note starts and lengths use the selected snap grid; notes stay inside their
+pattern. The Piano Roll shows 25 pitches at a time and scrolls through MIDI pitches 0–127. Drum steps are one-shots; Piano Roll notes have duration gates with a
+short fade at note-off. Sampler processing can change pitch and duration; held notes stop at the
+processed sample's end. Mixer inserts can route to one other insert or Master; no effects,
+recording, MIDI device I/O, external plugins, automation, undo, or FLP import. WAV export ends at
+the arrangement boundary without an added tail; standard RIFF exports must
+fit below 4 GiB. This is a workflow prototype,
+not a production recording tool. The audio callback allocates nothing and
+uses a nonblocking mutex attempt; a concurrent UI update may silence a buffer.
+
+## UI layout
+
+The interface places the Browser on the left, with a compact top toolbar,
+Playlist, floating Channel Rack and Mixer, and a Piano Roll with keys on the
+left and velocity controls below.
