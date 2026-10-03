@@ -60,7 +60,8 @@ Mixer Master fader and does not affect WAV export.
   even when the channel list needs scrolling.
   Preview lines show actual notes. Brush spaces longer clips to avoid overlaps.
   Any of 100 tracks can hold any pattern; different tracks play together.
-  Playback loops through the final clip edge. Scroll the wheel over the grid
+  The narrow strip at each track header’s right edge flashes on note/audio
+  starts and stays dimly lit while a voice is sounding. Playback loops through the final clip edge. Scroll the wheel over the grid
   to zoom around the ruler start marker; drag the bottom scrollbar to pan.
   Use the right scrollbar to scroll vertically.
   Clip resize handles highlight on hover, and the cursor updates once per frame.
@@ -107,23 +108,36 @@ Mixer Master fader and does not affect WAV export.
   loops. The selected insert shows its cable. Use the wheel over strips or the
   bottom scrollbar to browse inserts. The fixed-width panel on the right has
   ten empty effect slots for the selected channel; plugins are not implemented yet.
+- Drop a WAV, FLAC or MP3 onto the Playlist grid to create a waveform clip
+  and a reusable Audio channel. Double-click the clip to open its sampler;
+  sampler changes affect every copy. Full-length clips follow trimmed sample
+  duration; copies cropped in the Playlist retain their independent cap. Audio clips can move, crop, copy, mute
+  and export alongside patterns, and their channels can also be sequenced.
+  Drag either highlighted clip edge to trim it; pulling the left edge back out
+  restores the cropped beginning without changing the shared sample or pattern.
+  Thin vertical waveform markers show the source audio boundaries. Drag the
+  divider beneath a track to change that track’s height (32–320 pixels).
+  The Rack title filter offers **All**, **Audio** and **Unsorted**. Rack sample
+  drops belong to Unsorted; Audio channel colors blend maroon to green with duration.
 - Drop a WAV, FLAC or MP3 onto a visible Rack row to replace its sample.
   Drop into empty Rack space or its bottom add area to create a channel.
   Up to 32 channels can be added; wheel over Rack rows to scroll. Right-click a
-  channel name for Piano Roll, mute or delete. Deleting removes its notes in
-  every pattern. Samples decode to mono at
-  48 kHz, maximum 60 seconds.
+  channel name for Piano Roll, rename, mute or delete. Deleting removes its notes in
+  every pattern and any Playlist audio clips using that channel. Samples decode to mono at
+  48 kHz and are held in memory. Songs longer than a minute are supported;
+  the processing frame limit is approximately 93 minutes per file.
 - Browser: an expandable folder tree with **LibreLoop samples** as its first
   root. **+ Add folder** adds another root, up to eight, saved between sessions.
   Click a folder to expand/collapse it. Supported WAV/FLAC/MP3 and `.hbt` files
   appear beneath their folders; folders sort before files. Click samples to
   select and preview, or drag them onto Rack channels to load them.
-  While Browser has focus, **Up/Down** or **k/j** move through visible nodes and
+  While hovering over the Browser (or after clicking it), **Up/Down** or **k/j** move through visible nodes and
   preview samples. **Right/l** expands a folder or enters its first child;
   **Left/h** collapses a folder or selects its parent. Trees replace `..`, Home,
   and filesystem-root navigation buttons; add `/` as a root if desired.
   The selected audio sample has a waveform preview at the bottom, with a moving
-  playback cursor. Click the waveform to replay it from the beginning.
+  playback cursor. Browser previews stop after five seconds (or at the file’s
+  end, if shorter). Click the waveform to replay it from the beginning.
   Scroll the wheel to browse. Drag the Browser's right edge to change its width;
   dragging below its minimum width collapses it to a narrow strip. Drag the
   strip's right edge outward to restore it.
@@ -166,7 +180,8 @@ It affects pattern/song playback and WAV exports; live audition stays immediate.
 ## Instruments and keyboard audition
 
 - Click a Rack instrument name to open its movable sampler window, with
-  waveform, volume and pan. Click the waveform to preview it; a playback line
+  waveform, volume and pan. Click the waveform to preview it, then click again
+  to stop; the top-bar pause/stop controls and Space also stop all previews. A playback line
   moves through it. The + beside the bottom Rack scrollbar opens a movable instrument picker
   containing Sampler. Selecting it adds an empty channel; drag a Browser
   sample onto its window to load it. Empty samplers persist when saved. A ghost row beneath the final channel
@@ -257,3 +272,11 @@ to select another palette color; the list and its Playlist clips share that save
 If the start marker is at or beyond the song/pattern end, playback starts at the
 beginning immediately while the marker stays where you placed it. Explicit loop
 selections still define their own playback region.
+
+Sampler channel controls at the top right share the Rack enable, pan, volume
+and mixer destination. Channel Pitch changes playback speed; drag its Range
+number to choose 1–48 semitones (default 2). The separate processing Pitch
+retains duration. Trim removes the quiet tail using an adjustable threshold;
+0 leaves it intact, a tiny turn removes silence, and higher values cut further
+into the quiet decay (threshold range −90 to −30 dBFS). Original
+audio stays intact, so reducing Trim restores the tail.

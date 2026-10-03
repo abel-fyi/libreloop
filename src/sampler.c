@@ -40,13 +40,22 @@ static float *stretch(const float *in,unsigned frames,unsigned length) {
     }
     return out;
 }
-int sampler_valid(Sampler s) { return isfinite(s.pitch) && fabsf(s.pitch)<=12 && isfinite(s.time) && s.time>=.25f && s.time<=4 && isfinite(s.start) && s.start>=0 && s.start<=1 && isfinite(s.length) && s.length>=0 && s.length<=1 && s.flags<=7 && s.stretch<=1; }
-int sampler_equal(Sampler a,Sampler b) { return a.pitch==b.pitch && a.time==b.time && a.start==b.start && a.length==b.length && a.flags==b.flags && a.stretch==b.stretch; }
+int sampler_valid(Sampler s) { return isfinite(s.pitch) && fabsf(s.pitch)<=12 && isfinite(s.time) && s.time>=.25f && s.time<=4 && isfinite(s.start) && s.start>=0 && s.start<=1 && isfinite(s.length) && s.length>=0 && s.length<=1 && isfinite(s.trim) && s.trim>=0 && s.trim<=1 && s.flags<=7 && s.stretch<=1; }
+int sampler_equal(Sampler a,Sampler b) { return a.pitch==b.pitch && a.time==b.time && a.start==b.start && a.length==b.length && a.trim==b.trim && a.flags==b.flags && a.stretch==b.stretch; }
+unsigned sample_trim_end(Sample source,float trim) {
+    if(trim>0) {
+        /* Silence first, then quiet tails: -90 to -30 dBFS, never full scale. */
+        float threshold=powf(10.f,-4.5f+3.f*trim);
+        while(source.frames && fabsf(source.data[source.frames-1])<=threshold) source.frames--;
+    }
+    return source.frames;
+}
 int sample_process(Sample source,Sampler settings,Sample *result) {
-    if(!sampler_valid(settings) || source.frames>RATE*60 || (source.frames && !source.data)) return 0;
+    if(!sampler_valid(settings) || source.frames>SAMPLE_MAX_FRAMES || (source.frames && !source.data)) return 0;
     unsigned offset=llround(source.frames*(double)settings.start);
     source.data=source.data?source.data+offset:NULL;
     source.frames=llround((source.frames-offset)*(double)settings.length);
+    source.frames=sample_trim_end(source,settings.trim);
     if(!source.frames) { *result=(Sample){0}; return 1; }
     float *input=malloc(source.frames*sizeof *input); if(!input) return 0;
     for(unsigned i=0;i<source.frames;i++) input[i]=source.data[(settings.flags&SAMPLE_REVERSE)?source.frames-1-i:i]*((settings.flags&SAMPLE_POLARITY)?-1:1);

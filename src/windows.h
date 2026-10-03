@@ -7,7 +7,7 @@ typedef struct { float x,y,w,h; } Rect;
 typedef struct { Rect rect,restore; float minw,minh; int visible,maximized,pinned; } Editor;
 typedef struct {
     Editor editors[EDITORS];
-    int order[EDITORS],owner,grab,resize;
+    int order[EDITORS],focused,owner,grab,resize;
     float dx,dy,title_x,title_y;
     double title_time;
     int title_id;

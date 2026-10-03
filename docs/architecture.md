@@ -42,15 +42,30 @@ are a coherent mouse-driven workflow and minimal code and dependencies.
 - Idle drawing waits for events; playback and gestures run at 60 FPS. Workers
   wake the UI when processing completes. Playlist copies reuse cached pattern
   previews; extreme zoom retains vector detail. See [performance checks](performance.md).
-- Patterns contain all channels' notes. Playlist clips reference patterns and
+- Patterns contain all channels' notes. Playlist clips reference patterns or Audio channels and
   keep independent crop lengths; resizing a clip never deletes source notes.
+- Dropping audio on the Playlist creates a waveform clip and an Audio Rack channel.
+  Playlist waveforms cache a hierarchy of min/max peaks over 256-frame blocks.
+  Drawing queries only each visible pixel’s frame range, scanning partial blocks
+  directly for exact detail down to individual samples. Coarse views reuse cached
+  peaks; zooming never rebuilds the cache. Sample changes invalidate it.
+  Rack drops create Unsorted samplers; the title filter shows All, Audio or Unsorted.
+  Both groups can be sequenced. Audio clip crop lengths are stored in seconds,
+  so changing tempo changes their grid footprint without changing sample speed.
+  Full-length clips follow sampler duration changes; manually cropped copies keep
+  their cap. Track header activity strips flash on starts and dim while voices sound.
+  Waveform envelopes are cached per channel; duration colors blend maroon to green.
+- Sampler headers share channel enable, pan, volume, pitch/range and mixer routing
+  with the Rack. Channel pitch changes playback speed over a saved 1–48 semitone
+  range; sampler processing Pitch preserves duration. All knobs share one size
+  and one cached arc atlas size bank.
 - Original sample audio is retained. Processing produces a separate sample,
-  using a background worker after knob release. Start/Length preview the crop
+  using a background worker after knob release. Start/Length and the quiet-tail Trim threshold preview the crop
   live; Pitch/Time retain the processed waveform until replacement audio is ready.
 - The audio callback allocates nothing. It uses a nonblocking mutex attempt;
   a concurrent UI update may silence a buffer. This is a prototype limitation.
-- Project files currently use `.hbt` and the `HOMEBEAT` version-22 header for
-  compatibility. Versions 1–21 remain readable. Renaming the app did not change
+- Project files currently use `.hbt` and the `HOMEBEAT` version-27 header for
+  compatibility. Versions 1–26 remain readable. Renaming the app did not change
   the project format. Sample paths are absolute and projects are not portable bundles.
 - Browser roots are written under the `libreloop` configuration directory;
   legacy `homebeat` roots are read when no new configuration exists.

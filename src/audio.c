@@ -20,12 +20,14 @@ static Sample preview;
 static double preview_position,preview_speed=1,preview_frame,preview_time,preview_rate=1;
 static float preview_gain=.7f;
 static unsigned preview_end;
+static unsigned preview_remaining;
 static Player player,live;
 static int playing, ready;
 static float output_volume=1;
 static atomic_uint_fast64_t position;
 static _Atomic float meter_peak[INSERTS+1][2];
 static atomic_int meter_active,metronome;
+static atomic_uchar track_active[LANES],track_trigger[LANES];
 static float clicks[2][1200];
 static unsigned click_position=1200;
 static int click_accent;
@@ -53,11 +55,15 @@ static void callback(ma_device *d, void *out, const void *in, ma_uint32 frames) 
         visual_end=end*step_frames;
     }
     else render_mixer(&live,NULL,&project,samples,out,frames,0,peaks);
+    for(int l=0;l<LANES;l++) {
+        atomic_store_explicit(&track_active[l],playing && player.song && player.lane_active[l],memory_order_relaxed);
+        if(playing && player.song && player.lane_trigger[l]) atomic_store_explicit(&track_trigger[l],1,memory_order_relaxed);
+    }
     live_time=monotonic_time(); live_frames=frames;
     float *buffer=out;
     double pitch_speed=pow(2,project.master_pitch/12.0);
     if(preview_position<preview_end) { preview_frame=preview_position; preview_time=live_time; preview_rate=pitch_speed*preview_speed; }
-    for(unsigned i=0;i<frames && preview_position<preview_end;i++,preview_position+=pitch_speed*preview_speed) {
+    for(unsigned i=0;i<frames && preview_position<preview_end && preview_remaining;i++,preview_position+=pitch_speed*preview_speed,preview_remaining--) {
         unsigned n=(unsigned)preview_position;
         float a=preview.data[n],b=n+1<preview.frames?preview.data[n+1]:0;
         float x=(a+(b-a)*(preview_position-n))*preview_gain;
@@ -135,12 +141,20 @@ void audio_channels(const Project *p,const Sample s[CHANNELS]) {
     memset(player.voices,0,sizeof player.voices); memset(live.voices,0,sizeof live.voices); pthread_mutex_unlock(&mutex);
 }
 void audio_preview(Sample s) {
-    pthread_mutex_lock(&mutex); preview=s; preview_position=preview_frame=0; preview_time=monotonic_time(); preview_speed=1; preview_gain=.7f; preview_end=s.frames; pthread_mutex_unlock(&mutex);
+    pthread_mutex_lock(&mutex); preview=s; preview_position=preview_frame=0; preview_time=monotonic_time(); preview_speed=1; preview_gain=.7f; preview_end=s.frames; preview_remaining=5*RATE; pthread_mutex_unlock(&mutex);
+}
+int audio_stop(void) {
+    pthread_mutex_lock(&mutex);
+    int active=playing || (preview_remaining && preview_position<preview_end);
+    for(int i=0;i<128;i++) active|=live.voices[i].gain!=0;
+    playing=0; preview=(Sample){0}; preview_end=preview_remaining=0; click_position=1200;
+    memset(player.voices,0,sizeof player.voices); memset(live.voices,0,sizeof live.voices);
+    pthread_mutex_unlock(&mutex); return active;
 }
 double audio_preview_position(Sample sample) {
     pthread_mutex_lock(&mutex);
     double progress=-1;
-    if(ready && sample.frames && preview.data==sample.data) {
+    if(ready && sample.frames && preview.data==sample.data && preview_remaining) {
         double frame=fmax(0,fmin(preview_position,preview_frame+(monotonic_time()-preview_time)*RATE*preview_rate));
         if(frame<preview_end) progress=fmin(1,frame/sample.frames);
     }
@@ -149,7 +163,7 @@ double audio_preview_position(Sample sample) {
 void audio_note(int c,Note n) {
     pthread_mutex_lock(&mutex);
     if(c>=0 && c<project.channel_count) {
-        preview=samples[c]; preview_position=0; preview_speed=pow(2,((int)n.pitch-60)/12.0);
+        preview=samples[c]; preview_position=0; preview_remaining=UINT_MAX; preview_speed=pow(2,((int)n.pitch-60)/12.0)*channel_speed(&project,c);
         preview_gain=n.velocity/127.f*project.volume[c]*project.master;
         preview_end=fmin(preview.frames,preview_speed*RATE*60.0/project.bpm/4*(n.length?n.length:1));
     }
@@ -169,7 +183,7 @@ double audio_key_position(int slot,int channel) {
     Voice v=live.voices[slot]; double progress=-1;
     if(v.gain && v.channel==channel && samples[channel].frames) {
         double behind=fmax(0,live_frames-(monotonic_time()-live_time)*RATE);
-        progress=fmin(1,fmax(0,v.position-behind*v.speed*pow(2,project.master_pitch/12.0))/samples[channel].frames);
+        progress=fmin(1,fmax(0,v.position-behind*v.speed*pow(2,project.master_pitch/12.0)*channel_speed(&project,channel))/samples[channel].frames);
     }
     pthread_mutex_unlock(&mutex); return progress;
 }
@@ -177,6 +191,12 @@ uint64_t audio_position(void) { return atomic_load(&position); }
 void audio_meters(float peaks[INSERTS+1][2]) {
     for(int id=0;id<=INSERTS;id++) for(int side=0;side<2;side++)
         peaks[id][side]=atomic_exchange_explicit(&meter_peak[id][side],0,memory_order_relaxed);
+}
+void audio_track_activity(uint8_t active[LANES],uint8_t triggered[LANES]) {
+    for(int l=0;l<LANES;l++) {
+        active[l]=atomic_load_explicit(&track_active[l],memory_order_relaxed);
+        triggered[l]=atomic_exchange_explicit(&track_trigger[l],0,memory_order_relaxed);
+    }
 }
 int audio_active(void) { return atomic_load_explicit(&meter_active,memory_order_relaxed); }
 double audio_visual_position(void) {
@@ -197,7 +217,7 @@ int sample_load(const char *path,Sample *s) {
     ma_decoder_config config=ma_decoder_config_init(ma_format_f32,1,RATE);
     if(ma_decoder_init_file(path,&config,&decoder)!=MA_SUCCESS) return 0;
     ma_uint64 frames=0,read=0;
-    int ok=ma_decoder_get_length_in_pcm_frames(&decoder,&frames)==MA_SUCCESS && frames>0 && frames<=RATE*60;
+    int ok=ma_decoder_get_length_in_pcm_frames(&decoder,&frames)==MA_SUCCESS && frames>0 && frames<=SAMPLE_MAX_FRAMES && frames<=SIZE_MAX/sizeof(float);
     float *data=ok?malloc((size_t)frames*sizeof(float)):NULL;
     ok=data && ma_decoder_read_pcm_frames(&decoder,data,frames,&read)==MA_SUCCESS && read==frames;
     ma_decoder_uninit(&decoder);

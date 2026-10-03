@@ -19,7 +19,7 @@ int windows_hit(const Windows *w,float x,float y) {
 void windows_focus(Windows *w,int id) {
     int i=0; while(i<EDITORS && w->order[i]!=id) i++;
     for(;i<EDITORS-1;i++) w->order[i]=w->order[i+1];
-    w->order[EDITORS-1]=id; w->editors[id].visible=1;
+    w->order[EDITORS-1]=id; w->editors[id].visible=1; w->focused=id;
     for(int pass=0;pass<EDITORS;pass++) for(int j=0;j<EDITORS-1;j++)
         if(w->editors[w->order[j]].pinned && !w->editors[w->order[j+1]].pinned) {
             int swap=w->order[j]; w->order[j]=w->order[j+1]; w->order[j+1]=swap;

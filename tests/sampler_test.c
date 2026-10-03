@@ -23,6 +23,15 @@ int main(void) {
     p.start=NAN; CHECK(!sample_process(input,p,&out));
     float silence[16]={0}; p=(Sampler){.time=1,.length=1,.flags=SAMPLE_NORMALIZE}; CHECK(sample_process((Sample){silence,16},p,&out));
     for(int i=0;i<16;i++) CHECK(out.data[i]==0); free(out.data);
+    float tail[]={0,.8f,-.4f,.1f,.01f,.001f,.0001f,0,0}; Sample padded={tail,9};
+    p=(Sampler){.time=1,.length=1}; CHECK(sample_process(padded,p,&out) && out.frames==9); free(out.data);
+    p.trim=.001f; CHECK(sample_process(padded,p,&out) && out.frames==7 && out.data[0]==0); free(out.data);
+    p.trim=.4f; CHECK(sample_process(padded,p,&out) && out.frames==6); free(out.data);
+    p.trim=1; CHECK(sample_process(padded,p,&out) && out.frames==4 && out.data[3]==.1f); free(out.data);
+    p.trim=NAN; CHECK(!sample_process(padded,p,&out));
+    p=(Sampler){.time=1,.length=1,.trim=.1f,.flags=SAMPLE_REVERSE};
+    CHECK(sample_process(padded,p,&out) && out.frames==7 && out.data[0]==.0001f); free(out.data);
+    CHECK(tail[8]==0 && tail[1]==.8f); /* reversible: original audio is intact */
     unsigned n=RATE; float *tone=malloc(n*sizeof *tone); CHECK(tone);
     for(unsigned i=0;i<n;i++) tone[i]=.4f*sinf(2*3.14159265359f*440*i/RATE);
     input=(Sample){tone,n};
@@ -33,7 +42,7 @@ int main(void) {
     p.pitch=-12; CHECK(sample_process(input,p,&out) && out.frames==n); CHECK(fabsf(frequency(out)-220)<5); free(out.data);
     p.time=.5f; p.pitch=0; p.stretch=1; CHECK(sample_process(input,p,&out) && out.frames==n/2); CHECK(fabsf(frequency(out)-440)<10); free(out.data);
     free(tone);
-    Project project,loaded; project_default(&project); project.sampler[0]=(Sampler){.pitch=7,.time=2,.start=.1f,.length=.6f,.flags=7,.stretch=1};
+    Project project,loaded; project_default(&project); project.sampler[0]=(Sampler){.pitch=7,.time=2,.start=.1f,.length=.6f,.trim=.15f,.flags=7,.stretch=1};
     CHECK(project_save("sampler.hbt",&project) && project_load("sampler.hbt",&loaded)); CHECK(memcmp(&project,&loaded,sizeof project)==0); remove("sampler.hbt");
     puts("Sampler transforms, trims, silence, pitch/duration independence and persistence passed."); return 0;
 }

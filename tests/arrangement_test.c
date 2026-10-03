@@ -23,9 +23,13 @@ int main(void) {
     arrangement_press(&a,&p,1.2,2.4,0,0,0,0); arrangement_drag(&a,&p,2.2,3.4); arrangement_release(&a);
     CHECK(p.clips[3][2] && p.clips[3][4] && !p.clips[2][1] && !p.clips[2][3]);
     CHECK(a.selected[3][2] && a.selected[3][4] && clip_length(&p,3,4)==32);
-    /* Invalid edge and occupied destinations leave the group intact. */
+    /* Overshooting the beginning clamps the group, keeping its spacing. */
     arrangement_press(&a,&p,2.2,3.4,0,0,0,0); arrangement_drag(&a,&p,-15.2,3.4); arrangement_release(&a);
+    CHECK(p.clips[3][0] && p.clips[3][2] && !p.clips[3][4]);
+    CHECK(p.clip_starts[3][0]==0 && p.clip_starts[3][2]==2 && a.selected[3][0] && a.selected[3][2]);
+    arrangement_press(&a,&p,.2,3.4,0,0,0,0); arrangement_drag(&a,&p,2.2,3.4); arrangement_release(&a);
     CHECK(p.clips[3][2] && p.clips[3][4]);
+    /* Occupied destinations still leave the group intact. */
     arrangement_press(&a,&p,2.2,3.4,0,0,0,0); arrangement_drag(&a,&p,5.2,2.4); arrangement_release(&a);
     CHECK(p.clips[3][2] && p.clips[3][4] && p.clips[2][5]);
     /* Header dragging selects tracks; erase finds the clip beneath its extended body. */

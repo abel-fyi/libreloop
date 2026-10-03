@@ -31,6 +31,17 @@ project saves, WAV exports, and
 smoke screenshots are written into the launch directory. Installation and
 portable release packaging are not implemented yet.
 
+## Build on macOS
+
+Install Apple's Command Line Tools (`xcode-select --install`) and CMake
+(`brew install cmake` if you use Homebrew), then use the same configure,
+build, test and launch commands above. CMake builds the bundled graphics
+dependencies and links the system CoreAudio frameworks; no system raylib
+installation is needed. Build natively on either Apple Silicon or Intel.
+
+This is a source build, not a packaged `.app`. CI is configured to build and test
+macOS; interactive audio, input and Retina rendering still need checking on a Mac.
+
 ## X11 and Wayland
 
 The default backend is X11; it can run on Wayland through XWayland. For a build
@@ -44,8 +55,9 @@ cmake --build build --parallel
 
 ## Tests
 
-The desktop build has six CTest tests: engine, arrangement, sampler, windows,
-decoder, and browser. They exercise rendering, project validation and backward
+The desktop build has nine CTest tests: engine, arrangement, audio_clip,
+clip_trim, sampler, waveform, windows, decoder, and browser.
+They exercise rendering, project validation and backward
 compatibility, crop boundaries, selection and movement, sampler processing,
 window ownership and stacking, sample decoding, and Browser persistence.
 They do not open an audio device or require a display.
@@ -68,7 +80,8 @@ ctest --test-dir build-asan --output-on-failure
 ```
 
 Use `-DBUILD_TESTING=OFF` to omit test executables. GitHub Actions builds and
-tests the desktop configuration and a sanitized core configuration on Linux.
+tests the desktop configuration on Linux and macOS, plus a sanitized core
+configuration on Linux.
 
 ## Visual checks
 

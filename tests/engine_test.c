@@ -336,18 +336,20 @@ int main(void) {
     CHECK(project_save("test-project.hbt",&p) && project_load("test-project.hbt",&q));
     CHECK(q.effect_mix[1][0]==.25f && q.effect_bypass[1][0]==1 && !strcmp(q.track_names[0],"Drums"));
     CHECK(!strcmp(q.insert_names[0],"Drum bus") && !strcmp(q.insert_names[99],"Insert 100"));
-    for(int version=19;version<=21;version++) {
+    for(int version=19;version<=26;version++) {
         FILE *current=fopen("test-project.hbt","r"),*old=fopen("recent-legacy.hbt","w"); CHECK(current && old);
         char line[2048]; int lines=0; while(fgets(line,sizeof line,current)) lines++;
-        int omitted=PATTERNS+(version<21?INSERTS:0)+(version<20?LANES+(INSERTS+1)*10:0);
+        int omitted=LANES*CLIPS+(version<26?CHANNELS:0)+(version<25?CHANNELS:0)+(version<23?CHANNELS:0)+(version<22?PATTERNS:0)+(version<21?INSERTS:0)+(version<20?LANES+(INSERTS+1)*10:0);
         rewind(current); fprintf(old,"HOMEBEAT %d\n",version); CHECK(fgets(line,sizeof line,current));
         for(int i=1;i<lines-omitted;i++) { CHECK(fgets(line,sizeof line,current)); fputs(line,old); }
         fclose(current); fclose(old);
         Project previous; CHECK(project_load("recent-legacy.hbt",&previous));
+        CHECK(previous.clip_offsets[0][0]==0);
         CHECK(!strcmp(previous.insert_names[0],version>=21?"Drum bus":"Insert 1"));
         CHECK(!strcmp(previous.track_names[0],version>=20?"Drums":"Track 1"));
         CHECK(previous.effect_mix[1][0]==(version>=20?.25f:1));
-        CHECK(previous.pattern_colors[0]==pattern_palette[0]);
+        CHECK(previous.pattern_colors[0]==pattern_palette[version>=22?5:0]);
+        CHECK(previous.channel_audio[0]==0 && previous.audio_seconds[0]==0);
         CHECK(!strcmp(previous.audio_io[0][1],"USB output"));
         remove("recent-legacy.hbt");
     }
@@ -364,5 +366,9 @@ int main(void) {
     p.insert_volume[0]=2.1f; CHECK(!project_save("bad-project.hbt",&p));
     for(int ch=0;ch<CHANNELS;ch++) free(s[ch].data);
     remove("test-project.hbt"); remove("legacy.hbt"); remove("bad-project.hbt"); remove("test-export.wav");
+    p.insert_volume[0]=2; p.channel_pitch[0]=-.5f; p.pitch_range[0]=48;
+    CHECK(project_save("pitch.hbt",&p) && project_load("pitch.hbt",&q));
+    CHECK(q.channel_pitch[0]==-.5f && q.pitch_range[0]==48); remove("pitch.hbt");
+    p.pitch_range[0]=1.5f; CHECK(!project_save("bad-project.hbt",&p)); p.pitch_range[0]=2;
     puts("Project versions 1-12, master pitch, clip lengths, extended patterns, chords and gates, routing, render consistency, mute and WAV duration passed."); return 0;
 }

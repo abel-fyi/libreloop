@@ -22,7 +22,7 @@ int main(void) {
     r=w.editors[0].rect; windows_update(&w,d,r.x+r.w-10,r.y+10,1,1,0); CHECK(!w.editors[0].visible);
     windows_focus(&w,0); CHECK(w.editors[0].visible && w.order[EDITORS-1]==0);
     windows_focus(&w,0); CHECK(w.editors[0].visible);
-    windows_pin(&w,0); windows_focus(&w,1); CHECK(w.order[EDITORS-1]==0 && windows_hit(&w,w.editors[0].rect.x+20,w.editors[0].rect.y+40)==0);
+    windows_pin(&w,0); windows_focus(&w,1); CHECK(w.focused==1 && w.order[EDITORS-1]==0 && windows_hit(&w,w.editors[0].rect.x+20,w.editors[0].rect.y+40)==0);
     windows_pin(&w,0); windows_focus(&w,1); CHECK(w.order[EDITORS-1]==1);
     windows_pin(&w,0); w.editors[0].visible=0; windows_focus(&w,1); CHECK(w.editors[1].visible);
     w.editors[0].pinned=0;
