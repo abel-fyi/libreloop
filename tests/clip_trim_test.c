@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
+#include "project_check.h"
 #include "arrangement.h"
 #include <math.h>
 #include <stdio.h>
@@ -31,7 +32,7 @@ int main(void) {
     a.tool=PENCIL; arrangement_press(&a,&p,2.5f,.4f,0,0,0,0); arrangement_drag(&a,&p,3.5f,2.4f); arrangement_release(&a);
     int moved=arrangement_hit(&p,2,3.2f); CHECK(moved>=0 && p.clip_offsets[2][moved]==2 && clip_length(&p,2,moved)==16);
     CHECK(project_save("trimmed-clips.hbt",&p) && project_load("trimmed-clips.hbt",&loaded));
-    CHECK(memcmp(&p,&loaded,sizeof p)==0); remove("trimmed-clips.hbt");
+    CHECK(project_equal(&p,&loaded)); remove("trimmed-clips.hbt");
     Arrangement quick={.source_pattern=-1,.snap=1};
     arrangement_press(&quick,&loaded,3.4f,2.4f,0,0,0,0);
     arrangement_drag(&quick,&loaded,2.4f,2.4f); /* last valid intermediate position */

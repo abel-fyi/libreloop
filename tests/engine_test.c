@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
+#include "project_check.h"
 #include "engine.h"
 #include <math.h>
 #include <stdio.h>
@@ -50,8 +51,13 @@ int main(void) {
     fine.volume[0]=fine.master=1; fine.route[0]=0;
     CHECK(note_add(&fine,0,0,.5f,60,.5f)); CHECK(note_add(&fine,0,0,4.f/3,64,2.f/3));
     fine.clips[0][0]=1; fine.clip_starts[0][0]=.0625f; fine.clip_steps[0][0]=2.5f;
+    /* Different padding must not make a save/load round trip fail. */
+    unsigned char *note_bytes=(unsigned char *)&fine.notes[0][0][0];
+    for(size_t i=offsetof(Note,velocity)+sizeof fine.notes[0][0][0].velocity;i<offsetof(Note,start);i++) note_bytes[i]=0xa5;
+    unsigned char *sampler_bytes=(unsigned char *)&fine.sampler[0];
+    for(size_t i=offsetof(Sampler,stretch)+sizeof fine.sampler[0].stretch;i<sizeof(Sampler);i++) sampler_bytes[i]=0x5a;
     CHECK(project_save("fractional.hbt",&fine) && project_load("fractional.hbt",&roundtrip));
-    CHECK(memcmp(&fine,&roundtrip,sizeof fine)==0); remove("fractional.hbt");
+    CHECK(project_equal(&fine,&roundtrip)); remove("fractional.hbt");
     float sustained[RATE]; for(int i=0;i<RATE;i++) sustained[i]=.25f;
     Sample exact[CHANNELS]={{sustained,RATE}}; float timed[20000],split[20000]; Player clock; player_reset(&clock);
     render(&clock,&fine,exact,timed,10000);
@@ -89,7 +95,7 @@ int main(void) {
     CHECK(note_add(&deleted,0,4,0,60,2)); CHECK(channel_delete(&deleted,1));
     CHECK(deleted.channel_count==4 && !strcmp(deleted.channel_names[3],"Extra") && deleted.route[3]==100);
     CHECK(note_at(&deleted,0,3,0,60)); CHECK(!channel_delete(&deleted,4));
-    CHECK(project_save("test-project.hbt",&deleted) && project_load("test-project.hbt",&reloaded)); CHECK(memcmp(&deleted,&reloaded,sizeof deleted)==0);
+    CHECK(project_save("test-project.hbt",&deleted) && project_load("test-project.hbt",&reloaded)); CHECK(project_equal(&deleted,&reloaded));
     project_default(&reloaded); reloaded.pattern_count=3;
     CHECK(note_add(&reloaded,1,0,2,62,1) && note_add(&reloaded,2,0,3,67,2));
     snprintf(reloaded.pattern_names[2],PATTERN_NAME,"Melody"); reloaded.pattern_steps[2]=32;
@@ -119,19 +125,19 @@ int main(void) {
     }
     p.pattern_count=3;
     CHECK(note_add(&p,2,3,4,60,3)); CHECK(note_add(&p,2,3,4,64,4)); CHECK(note_add(&p,2,3,4,67,3));
-    CHECK(project_save("test-project.hbt",&p)); CHECK(project_load("test-project.hbt",&q)); CHECK(memcmp(&p,&q,sizeof p)==0);
+    CHECK(project_save("test-project.hbt",&p)); CHECK(project_load("test-project.hbt",&q)); CHECK(project_equal(&p,&q));
     FILE *old,*legacy; char line[1100];
     for(int version=4;version<=15;version++) {
         CHECK(legacy_save("legacy.hbt",&p,version)); CHECK(project_load("legacy.hbt",&q));
         CHECK(q.pattern_count==(version>=9?p.pattern_count:PATTERNS)); q.pattern_count=p.pattern_count;
-        CHECK(memcmp(&p,&q,sizeof p)==0);
+        CHECK(project_equal(&p,&q));
     }
     FILE *f=fopen("bad-project.hbt","w"); CHECK(f); fputs("HOMEBEAT 4\n0 nan\n",f); fclose(f);
-    CHECK(!project_load("bad-project.hbt",&q)); CHECK(memcmp(&p,&q,sizeof p)==0);
+    CHECK(!project_load("bad-project.hbt",&q)); CHECK(project_equal(&p,&q));
     f=fopen("bad-project.hbt","w"); CHECK(f); fputs("HOMEBEAT 4\n120 .7\n",f);
     for(int c=0;c<CHANNELS;c++) fputs(".7 0 0\n",f);
     fputs("60 100 15 2\n",f); fclose(f); /* Note exceeds the pattern boundary. */
-    CHECK(!project_load("bad-project.hbt",&q)); CHECK(memcmp(&p,&q,sizeof p)==0);
+    CHECK(!project_load("bad-project.hbt",&q)); CHECK(project_equal(&p,&q));
     Sample s[CHANNELS]; samples_default(s); for(int c=0;c<4;c++) CHECK(s[c].data);
     Project routing; project_default(&routing); memset(routing.notes,0,sizeof routing.notes);
     routing.notes[0][0][0]=(Note){60,127,0,0}; routing.notes[0][1][0]=(Note){60,127,0,0};
@@ -154,10 +160,10 @@ int main(void) {
     CHECK(fabsf(pitched_out[2]-.3f)<.00001f);
     pitched.master_pitch=-12; render(&rp,&pitched,pitched_sample,result,1); CHECK(rp.voices[0].position==4.5 && rp.frame==3);
     CHECK(pitched.notes[0][0][0].pitch==60 && pitched.bpm==120);
-    CHECK(project_save("test-project.hbt",&pitched)); CHECK(project_load("test-project.hbt",&q)); CHECK(memcmp(&pitched,&q,sizeof q)==0);
+    CHECK(project_save("test-project.hbt",&pitched)); CHECK(project_load("test-project.hbt",&q)); CHECK(project_equal(&pitched,&q));
     old=fopen("test-project.hbt","r"); legacy=fopen("bad-project.hbt","w"); CHECK(old && legacy);
     for(int i=0;i<1+1+CHANNELS+PATTERNS*CHANNELS*NOTES+LANES*CLIPS+CHANNELS+PATTERNS+1+CHANNELS+INSERTS+PATTERNS+LANES*CLIPS;i++) { CHECK(fgets(line,sizeof line,old)); fputs(line,legacy); }
-    fputs("nan\n",legacy); fclose(old); fclose(legacy); CHECK(!project_load("bad-project.hbt",&q)); CHECK(memcmp(&pitched,&q,sizeof q)==0);
+    fputs("nan\n",legacy); fclose(old); fclose(legacy); CHECK(!project_load("bad-project.hbt",&q)); CHECK(project_equal(&pitched,&q));
     Project bus; project_default(&bus); memset(bus.notes,0,sizeof bus.notes);
     bus.notes[0][0][0]=(Note){60,127,0,0}; bus.notes[0][1][0]=(Note){60,127,0,0};
     bus.volume[0]=bus.volume[1]=bus.master=1; bus.insert_volume[0]=.5f; bus.insert_volume[1]=.25f; bus.insert_volume[2]=.4f; bus.insert_pan[2]=.5f;
@@ -167,12 +173,12 @@ int main(void) {
     CHECK(fabsf(result[0]-.02f)<.00001f); /* Solo one source, keep its bus audible. */
     bus.insert_mute[2]=2; player_reset(&rp); render(&rp,&bus,fixture,result,1);
     CHECK(fabsf(result[0]-.04f)<.00001f); /* Solo bus includes both routed sources. */
-    CHECK(project_save("test-project.hbt",&bus) && project_load("test-project.hbt",&q)); CHECK(memcmp(&bus,&q,sizeof q)==0);
+    CHECK(project_save("test-project.hbt",&bus) && project_load("test-project.hbt",&q)); CHECK(project_equal(&bus,&q));
     bus.insert_mute[0]=3; bus.insert_mute[2]=0; player_reset(&rp); render(&rp,&bus,fixture,result,1); CHECK(result[0]==0);
     bus.insert_mute[0]=0;
     CHECK(insert_connect(&bus,2,255)); player_reset(&rp); render(&rp,&bus,fixture,result,1); CHECK(fabsf(result[0]-.02f)<.00001f);
     bus.insert_mute[2]=1; player_reset(&rp); render(&rp,&bus,fixture,result,1); CHECK(result[0]==0 && result[1]==0);
-    bus.bpm=120.5f; bus.clips[99][0]=1; CHECK(project_save("test-project.hbt",&bus)); CHECK(project_load("test-project.hbt",&q)); CHECK(memcmp(&bus,&q,sizeof q)==0);
+    bus.bpm=120.5f; bus.clips[99][0]=1; CHECK(project_save("test-project.hbt",&bus)); CHECK(project_load("test-project.hbt",&q)); CHECK(project_equal(&bus,&q));
     CHECK(insert_reset(&bus,3)); CHECK(bus.insert_output[0]==3 && bus.insert_output[1]==255);
     /* Reject a saved feedback cycle without replacing the current project. */
     bus.insert_output[0]=2; bus.insert_output[1]=1; CHECK(project_save("bad-project.hbt",&bus)); CHECK(!project_load("bad-project.hbt",&q));
@@ -212,7 +218,7 @@ int main(void) {
     project_default(&p); memset(p.notes,0,sizeof p.notes); memset(p.clips,0,sizeof p.clips);
     p.pattern_steps[0]=48; p.clips[0][0]=1; p.clip_steps[0][0]=32;
     CHECK(note_add(&p,0,0,20,60,2)); CHECK(!note_add(&p,0,0,48,60,1));
-    CHECK(project_save("test-project.hbt",&p)); CHECK(project_load("test-project.hbt",&q)); CHECK(memcmp(&p,&q,sizeof p)==0);
+    CHECK(project_save("test-project.hbt",&p)); CHECK(project_load("test-project.hbt",&q)); CHECK(project_equal(&p,&q));
     player_reset(&a); a.song=1; a.frame=20*6000; render(&a,&p,s,result,1); CHECK(a.voices[0].gain>0);
     player_reset(&a); a.song=1; a.frame=19*6000; render(&a,&p,s,result,1); CHECK(a.voices[0].gain==0);
     CHECK(song_steps(&p)==32); CHECK(export_wav("test-export.wav",&p,s));
@@ -280,7 +286,7 @@ int main(void) {
     p.master_mute=1; player_reset(&a); render(&a,&p,live_samples,result,1); CHECK(result[0]==0);
     p.master_width=.4f; p.insert_width[99]=1.7f; p.mute[3]=2;
     CHECK(project_save("test-project.hbt",&p) && project_load("test-project.hbt",&q));
-    CHECK(memcmp(&p,&q,sizeof p)==0);
+    CHECK(project_equal(&p,&q));
     p.master_width=NAN; CHECK(!project_save("bad-project.hbt",&p));
     /* Fractional playback loops retrigger at the start, independent of block size. */
     project_default(&p); memset(p.notes,0,sizeof p.notes); p.volume[0]=p.master=1; p.route[0]=0;

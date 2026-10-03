@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
+#include "project_check.h"
 #include "engine.h"
 #include <math.h>
 #include <stdio.h>
@@ -43,6 +44,6 @@ int main(void) {
     p.time=.5f; p.pitch=0; p.stretch=1; CHECK(sample_process(input,p,&out) && out.frames==n/2); CHECK(fabsf(frequency(out)-440)<10); free(out.data);
     free(tone);
     Project project,loaded; project_default(&project); project.sampler[0]=(Sampler){.pitch=7,.time=2,.start=.1f,.length=.6f,.trim=.15f,.flags=7,.stretch=1};
-    CHECK(project_save("sampler.hbt",&project) && project_load("sampler.hbt",&loaded)); CHECK(memcmp(&project,&loaded,sizeof project)==0); remove("sampler.hbt");
+    CHECK(project_save("sampler.hbt",&project) && project_load("sampler.hbt",&loaded)); CHECK(project_equal(&project,&loaded)); remove("sampler.hbt");
     puts("Sampler transforms, trims, silence, pitch/duration independence and persistence passed."); return 0;
 }

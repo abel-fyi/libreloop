@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
+#include "project_check.h"
 #include "arrangement.h"
 #include <math.h>
 #include <stdio.h>
@@ -78,7 +79,7 @@ int main(void) {
     player.frame=26*6000; render(&player,&p,samples,out,1);
     CHECK(player.frame==25*6000+1 && fabsf(out[0]-pcm[6000])<.00001f);
     CHECK(project_save("audio-clips.hbt",&p) && project_load("audio-clips.hbt",&q));
-    CHECK(memcmp(&p,&q,sizeof p)==0);
+    CHECK(project_equal(&p,&q));
     /* An explicit cap must survive a source shrinking to the same length, then growing. */
     q.audio_seconds[0]=.5f;
     CHECK(project_save("cropped-audio.hbt",&q) && project_load("cropped-audio.hbt",&q));

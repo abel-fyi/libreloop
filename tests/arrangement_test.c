@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
+#include "project_check.h"
 #include "arrangement.h"
 #include <stdio.h>
 #include <math.h>
@@ -94,6 +95,6 @@ int main(void) {
     CHECK(clip_length(&long_song,0,far)==100*STEPS && long_song.pattern_steps[0]==100*STEPS);
     CHECK(note_add(&long_song,0,3,99*STEPS,60,2));
     CHECK(song_steps(&long_song)==5100.25f*STEPS);
-    CHECK(project_save("long-song.hbt",&long_song)); Project loaded; CHECK(project_load("long-song.hbt",&loaded)); CHECK(memcmp(&long_song,&loaded,sizeof loaded)==0); remove("long-song.hbt");
+    CHECK(project_save("long-song.hbt",&long_song)); Project loaded; CHECK(project_load("long-song.hbt",&loaded)); CHECK(project_equal(&long_song,&loaded)); remove("long-song.hbt");
     puts("Pencil, brush source and spacing, resize, selection, group movement and erase passed."); return 0;
 }
