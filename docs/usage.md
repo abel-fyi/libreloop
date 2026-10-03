@@ -7,9 +7,9 @@ Both settings are remembered between launches. Preferences are stored in
 
 ## First session
 
-The initial project has generated kick, snare, hat and pitched tone samples,
-one selected Pattern 1 and an empty Playlist with 100 tracks. Click Play to hear the current
-pattern. The stacked PATT/SONG button highlights Pattern in orange and Song in green.
+The initial project is empty, with one unloaded Sampler, Pattern 1 and a Playlist
+with 100 tracks. Load a sample from the Browser to get started. **FILE → Demo**
+loads an eight-bar drum and bass example using generated sounds; press Play to hear it. The stacked PATT/SONG button highlights Pattern in orange and Song in green.
 Switch to SONG to hear the Playlist, or click its ruler. Play
 and Space start from the ruler marker; stopping returns to it. Editing and
 transport use mouse controls, and the Browser retains navigation keys. Text fields
@@ -72,7 +72,8 @@ Mixer Master fader and does not affect WAV export.
   the Play button start from that marker; stopping returns to it. Zoom keeps
   the time beneath the pointer fixed where the timeline origin allows.
   Each modified wheel notch changes the visible range by about 8%. The toolbar Follow icon
-  keeps the smooth moving playhead in view in Song or PAT mode.
+  keeps the playhead centered in Song or PAT mode, with empty space before the
+  timeline origin when playback starts. Manual navigation and editing temporarily suspend following.
   Horizontal scrollbar thumbs remain at least 24 pixels wide and highlight on hover.
 - Snap menus in Playlist and Piano Roll are independent: Auto, Bar, Beat,
   1/2 beat, 1/3 beat, Step (1/4 beat), 1/6 beat, 1/2 step, 1/3 step,
@@ -146,6 +147,23 @@ Mixer Master fader and does not affect WAV export.
   `~/.config/libreloop/folders.txt` when XDG_CONFIG_HOME is unset. Old Homebeat
   folder settings are read when no LibreLoop settings file exists.
 
+- FILE → New starts an empty project with one unloaded Sampler and selects Pattern mode.
+  FILE → Demo loads the built-in eight-bar example and selects Song mode. Both stop
+  playback and clear previews; save your work first. New uses `project.hbt`; Demo uses
+  `demo.hbt`, rather than the previously opened project filename.
+- The three icons above the Playlist picker show Patterns (piano), Audio clips
+  (waveform), or Automation. Click a source to place copies, or drag it onto the
+  Playlist. Double-click a pattern to open the Channel Rack, or an audio item to
+  open its sampler. Drop a Browser or Finder/file-manager audio file into the Audio
+  picker to import it without placing a Playlist clip, even while viewing Patterns
+  or Automation. The picker highlights during the drag, then switches to Audio
+  and reveals the new item. Drag pattern or audio items onto the grid to place
+  clips; a green preview shows the drop position. Audio clips list the imported Audio channels. New patterns and Audio channels
+  choose an unused palette color in their own list, cycling once all eight colors
+  are used. Replacing a sample preserves its channel color. Right-click for Rename, Color or
+  Delete; changes apply to the Rack channel and every Playlist copy. Deleting
+  removes the channel and its clips, while leaving the source file on disk. Automation is an empty
+  placeholder for future support.
 - FILE → Save writes `project.hbt` in the launch directory. FILE → Open reloads it.
   Drop another `.hbt` to open that project; subsequent saves use that filename.
 - FILE → Export exports the entire Playlist to `song.wav`: 48 kHz, stereo PCM16.
@@ -157,10 +175,10 @@ existing target files. Project writes use a temporary file and rename.
 Dialogs open centred and remain draggable. Hover controls to see their function
 and relevant optional keys in the bottom helper.
 
-Project format version 28 saves polyphonic notes, durations, pattern names,
+Project format version 29 saves polyphonic notes, durations, pattern names,
 insert settings, routing, source lengths and individual clip lengths, master pitch, fractional BPM, insert outputs, pattern
-count, channel names/count, fractional note/clip timing, 100-track clips, sampler processing, stereo width, mute/solo states, global swing, boosted mixer gains, audio-device choices, track and insert names, pattern colors and reserved effect-slot settings. Versions
-1–27 still load; older projects keep their previous one-bar clip lengths.
+count, channel names/count, fractional note/clip timing, 100-track clips, sampler processing, stereo width, mute/solo states, global swing, boosted mixer gains, audio-device choices, track and insert names, pattern and Audio channel colors and reserved effect-slot settings. Versions
+1–28 still load; older projects keep their previous one-bar clip lengths.
 
 The Channel Rack Swing knob delays alternate sixteenth steps (up to half a step).
 It affects pattern/song playback and WAV exports; live audition stays immediate.
@@ -286,3 +304,6 @@ retains duration. Trim removes the quiet tail using an adjustable threshold;
 0 leaves it intact, a tiny turn removes silence, and higher values cut further
 into the quiet decay (threshold range −90 to −30 dBFS). Original
 audio stays intact, so reducing Trim restores the tail.
+
+Track height: drag the separator inside a Playlist track header. Only the header
+separator highlights and resizes the track; timeline grid lines remain visual.

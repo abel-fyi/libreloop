@@ -41,6 +41,7 @@ typedef struct {
     char paths[CHANNELS][1024],channel_names[CHANNELS][PATTERN_NAME];
     char pattern_names[PATTERNS][PATTERN_NAME];
     uint32_t pattern_colors[PATTERNS]; /* RGB */
+    uint32_t channel_colors[CHANNELS]; /* RGB; 0 uses automatic duration color */
     int insert_count;
     uint8_t route[CHANNELS],insert_mute[INSERTS]; /* route: 0 Master, 1..count insert; insert_mute bits: 1 mute, 2 solo */
     float insert_volume[INSERTS],insert_pan[INSERTS];
@@ -78,6 +79,8 @@ float snap_interval(int mode,float pixels_per_step);
 void timeline_zoom(float *span,float *start,float wheel,float anchor,float unit);
 float timeline_thumb(float width,float span,float range);
 void project_default(Project *p);
+void project_new(Project *p);
+void project_demo(Project *p);
 int insert_reset(Project *p,int id);
 int pattern_delete(Project *p,int pattern);
 int channel_delete(Project *p,int channel);

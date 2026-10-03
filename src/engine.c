@@ -53,11 +53,36 @@ void project_default(Project *p) {
         if(pat && i==15) p->notes[pat][1][i]=(Note){60,75,i,0};
     }
 }
+/* Keep legacy defaults for old project formats; new sessions start empty. */
+void project_new(Project *p) {
+    project_default(p); memset(p->notes,0,sizeof p->notes); p->channel_count=1;
+    memset(p->route,0,sizeof p->route);
+    for(int c=0;c<CHANNELS;c++) {
+        snprintf(p->paths[c],sizeof p->paths[c],"%s",SAMPLE_EMPTY);
+        snprintf(p->channel_names[c],PATTERN_NAME,"Channel %d",c+1);
+    }
+    snprintf(p->channel_names[0],PATTERN_NAME,"Sampler");
+}
+void project_demo(Project *p) {
+    project_default(p); p->bpm=110; p->pattern_count=2; p->pattern_steps[1]=32;
+    snprintf(p->pattern_names[0],PATTERN_NAME,"Intro"); snprintf(p->pattern_names[1],PATTERN_NAME,"Groove");
+    snprintf(p->channel_names[3],PATTERN_NAME,"Bass"); snprintf(p->track_names[0],PATTERN_NAME,"Demo groove");
+    for(int c=0;c<CHANNELS;c++) {
+        if(c<4) p->volume[c]=c==2?.18f:.35f;
+        else snprintf(p->paths[c],sizeof p->paths[c],"%s",SAMPLE_EMPTY);
+    }
+    for(int c=0;c<3;c++) for(int n=0;n<16;n++) if(p->notes[0][c][n].velocity) {
+        p->notes[1][c][n]=p->notes[0][c][n]; p->notes[1][c][n+16]=p->notes[0][c][n]; p->notes[1][c][n+16].start+=16;
+    }
+    const int pitches[]={60,60,67,63,65,65,67,58};
+    for(int n=0;n<8;n++) p->notes[1][3][n]=(Note){pitches[n],85,n*4,3};
+    for(int b=0;b<8;b+=b<2?1:2) { p->clips[0][b]=b<2?1:2; p->clip_steps[0][b]=b<2?16:32; }
+}
 int channel_delete(Project *p,int c) {
     if(c<0 || c>=p->channel_count) return 0;
     for(int i=c;i<p->channel_count-1;i++) {
         p->sampler[i]=p->sampler[i+1]; p->channel_pitch[i]=p->channel_pitch[i+1]; p->pitch_range[i]=p->pitch_range[i+1];
-        p->channel_audio[i]=p->channel_audio[i+1]; p->audio_seconds[i]=p->audio_seconds[i+1];
+        p->channel_colors[i]=p->channel_colors[i+1]; p->channel_audio[i]=p->channel_audio[i+1]; p->audio_seconds[i]=p->audio_seconds[i+1];
         p->volume[i]=p->volume[i+1]; p->pan[i]=p->pan[i+1]; p->mute[i]=p->mute[i+1]; p->route[i]=p->route[i+1];
         memcpy(p->paths[i],p->paths[i+1],sizeof p->paths[i]);
         memmove(p->channel_names[i],p->channel_names[i+1],PATTERN_NAME);
@@ -69,7 +94,7 @@ int channel_delete(Project *p,int c) {
         if(id==PATTERNS+c+1) { p->clips[l][b]=0; p->clip_steps[l][b]=0; }
         else if(id>PATTERNS+c+1) p->clips[l][b]--;
     }
-    int last=--p->channel_count; p->channel_pitch[last]=0; p->pitch_range[last]=2; p->channel_audio[last]=0; p->audio_seconds[last]=0; p->sampler[last]=(Sampler){.time=1,.length=1}; p->volume[last]=1; p->pan[last]=0; p->mute[last]=p->route[last]=0;
+    int last=--p->channel_count; p->channel_colors[last]=0; p->channel_pitch[last]=0; p->pitch_range[last]=2; p->channel_audio[last]=0; p->audio_seconds[last]=0; p->sampler[last]=(Sampler){.time=1,.length=1}; p->volume[last]=1; p->pan[last]=0; p->mute[last]=p->route[last]=0;
     memset(p->paths[last],0,sizeof p->paths[last]); memset(p->channel_names[last],0,PATTERN_NAME); snprintf(p->channel_names[last],PATTERN_NAME,"Channel %d",last+1);
     for(int pat=0;pat<PATTERNS;pat++) memset(p->notes[pat][last],0,sizeof p->notes[pat][last]);
     return 1;
@@ -348,6 +373,7 @@ int project_save(const char *path,const Project *p) {
     for(int l=0;l<LANES;l++) if(!p->track_names[l][0] || strnlen(p->track_names[l],PATTERN_NAME)==PATTERN_NAME || strchr(p->track_names[l],'\n') || strchr(p->track_names[l],'\r')) return 0;
     for(int i=0;i<INSERTS;i++) if(!p->insert_names[i][0] || strnlen(p->insert_names[i],PATTERN_NAME)==PATTERN_NAME || strchr(p->insert_names[i],'\n') || strchr(p->insert_names[i],'\r')) return 0;
     for(int i=0;i<PATTERNS;i++) if(p->pattern_colors[i]>0xffffff) return 0;
+    for(int c=0;c<CHANNELS;c++) if(p->channel_colors[c]>0xffffff) return 0;
     for(int c=0;c<CHANNELS;c++) if(p->channel_audio[c]>1 || !isfinite(p->audio_seconds[c]) || p->audio_seconds[c]<0 || p->audio_seconds[c]>SAMPLE_MAX_FRAMES*4.0/RATE) return 0;
     for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) if(p->clips[l][b]>PATTERNS) {
         int c=p->clips[l][b]-PATTERNS-1;
@@ -357,7 +383,7 @@ int project_save(const char *path,const Project *p) {
     char tmp[4096]; if(snprintf(tmp,sizeof tmp,"%s.tmp",path)>=(int)sizeof tmp) return 0;
     FILE *f=fopen(tmp,"w"); if(!f) return 0;
     for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) if(!isfinite(p->clip_offsets[l][b]) || p->clip_offsets[l][b]<0 || p->clip_offsets[l][b]>1e15f) { fclose(f); remove(tmp); return 0; }
-    fprintf(f,"HOMEBEAT 28\n%.9g %.9g %d\n",p->bpm,p->master,p->channel_count);
+    fprintf(f,"HOMEBEAT 29\n%.9g %.9g %d\n",p->bpm,p->master,p->channel_count);
     for(int c=0;c<CHANNELS;c++) fprintf(f,"%.9g %.9g %u\n",p->volume[c],p->pan[c],p->mute[c]);
     for(int a=0;a<PATTERNS;a++) for(int c=0;c<CHANNELS;c++) for(int i=0;i<NOTES;i++) {
         Note n=p->notes[a][c][i]; fprintf(f,"%u %u %.9g %.9g\n",n.pitch,n.velocity,n.start,n.length);
@@ -389,6 +415,7 @@ int project_save(const char *path,const Project *p) {
     for(int c=0;c<CHANNELS;c++) fprintf(f,"%.9g %.9g\n",p->channel_pitch[c],p->pitch_range[c]);
     for(int c=0;c<CHANNELS;c++) fprintf(f,"%.9g\n",p->sampler[c].trim);
     for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) fprintf(f,"%.9g\n",p->clip_offsets[l][b]);
+    for(int c=0;c<CHANNELS;c++) fprintf(f,"%u\n",p->channel_colors[c]);
     int ok=!ferror(f); if(fclose(f)) ok=0;
     if(ok && rename(tmp,path)==0) return 1;
     remove(tmp); return 0;
@@ -400,7 +427,7 @@ int project_load(const char *path,Project *p) {
     q.insert_count=4;
     for(int i=0;i<INSERTS;i++) q.insert_volume[i]=1;
     for(int c=0;c<4;c++) q.route[c]=c+1;
-    int ok=fscanf(f,"%31s %d",magic,&version)==2 && !strcmp(magic,"HOMEBEAT") && version>=1 && version<=28;
+    int ok=fscanf(f,"%31s %d",magic,&version)==2 && !strcmp(magic,"HOMEBEAT") && version>=1 && version<=29;
     ok=ok && fscanf(f,"%f %f",&q.bpm,&q.master)==2 && isfinite(q.bpm) && q.bpm>=30 && q.bpm<=300 && isfinite(q.master) && q.master>=0 && q.master<=(version>=18?MIXER_GAIN_MAX:1);
     if(version>=12) ok=ok && fscanf(f,"%d",&q.channel_count)==1 && q.channel_count>=0 && q.channel_count<=CHANNELS;
     int channels=version>=12?CHANNELS:4,inserts=version>=12?INSERTS:16,clips=version>=14?CLIPS:BARS;
@@ -490,6 +517,7 @@ int project_load(const char *path,Project *p) {
     if(version>=25) for(int c=0;ok && c<CHANNELS;c++) ok=fscanf(f,"%f %f",&q.channel_pitch[c],&q.pitch_range[c])==2 && isfinite(q.channel_pitch[c]) && fabsf(q.channel_pitch[c])<=1 && isfinite(q.pitch_range[c]) && q.pitch_range[c]>=1 && q.pitch_range[c]<=48 && q.pitch_range[c]==roundf(q.pitch_range[c]);
     if(version>=26) for(int c=0;ok && c<CHANNELS;c++) ok=fscanf(f,"%f",&q.sampler[c].trim)==1 && isfinite(q.sampler[c].trim) && q.sampler[c].trim>=0 && q.sampler[c].trim<=1;
     if(version>=27) for(int l=0;ok && l<LANES;l++) for(int b=0;ok && b<CLIPS;b++) ok=fscanf(f,"%f",&q.clip_offsets[l][b])==1 && isfinite(q.clip_offsets[l][b]) && q.clip_offsets[l][b]>=0 && q.clip_offsets[l][b]<=1e15f;
+    if(version>=29) for(int c=0;ok && c<CHANNELS;c++) { ok=fscanf(f,"%u",&x)==1 && x<=0xffffff; if(ok) q.channel_colors[c]=x; }
     /* Version 23 imported full clips with a fixed cap; convert only that old layout. */
     if(version==23 && ok) for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) if(q.clips[l][b]>PATTERNS) {
         int c=q.clips[l][b]-PATTERNS-1;

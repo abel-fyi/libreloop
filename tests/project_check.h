@@ -15,7 +15,7 @@ static int project_equal(const Project *a,const Project *b) {
         FIELD(notes[p][c][n].start); FIELD(notes[p][c][n].length);
     }
     FIELD(clips); FIELD(clip_steps); FIELD(clip_starts); FIELD(clip_offsets);
-    FIELD(channel_audio); FIELD(audio_seconds); FIELD(pattern_steps); FIELD(pattern_colors);
+    FIELD(channel_audio); FIELD(audio_seconds); FIELD(pattern_steps); FIELD(pattern_colors); FIELD(channel_colors);
     for(int c=0;c<CHANNELS;c++) { STRING(paths[c]); STRING(channel_names[c]); }
     for(int p=0;p<PATTERNS;p++) STRING(pattern_names[p]);
     FIELD(insert_count); FIELD(route); FIELD(insert_mute); FIELD(insert_volume); FIELD(insert_pan); FIELD(insert_output);

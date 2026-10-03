@@ -91,8 +91,9 @@ int main(void) {
     CHECK(!insert_reset(&deleted,0) && !insert_reset(&deleted,101));
     CHECK(insert_reset(&deleted,2)); CHECK(deleted.insert_count==100 && deleted.route[0]==2);
     CHECK(deleted.insert_volume[1]==1 && deleted.insert_mute[1]==0);
-    deleted.channel_count=5; strcpy(deleted.channel_names[4],"Extra"); deleted.route[4]=100;
+    deleted.channel_colors[4]=pattern_palette[2]; deleted.channel_count=5; strcpy(deleted.channel_names[4],"Extra"); deleted.route[4]=100;
     CHECK(note_add(&deleted,0,4,0,60,2)); CHECK(channel_delete(&deleted,1));
+    CHECK(deleted.channel_colors[3]==pattern_palette[2] && deleted.channel_colors[4]==0);
     CHECK(deleted.channel_count==4 && !strcmp(deleted.channel_names[3],"Extra") && deleted.route[3]==100);
     CHECK(note_at(&deleted,0,3,0,60)); CHECK(!channel_delete(&deleted,4));
     CHECK(project_save("test-project.hbt",&deleted) && project_load("test-project.hbt",&reloaded)); CHECK(project_equal(&deleted,&reloaded));
@@ -343,15 +344,15 @@ int main(void) {
     CHECK(project_save("test-project.hbt",&p) && project_load("test-project.hbt",&q));
     CHECK(q.effect_mix[1][0]==.25f && q.effect_bypass[1][0]==1 && !strcmp(q.track_names[0],"Drums"));
     CHECK(!strcmp(q.insert_names[0],"Drum bus") && !strcmp(q.insert_names[99],"Insert 100"));
-    for(int version=19;version<=27;version++) {
+    for(int version=19;version<=28;version++) {
         FILE *current=fopen("test-project.hbt","r"),*old=fopen("recent-legacy.hbt","w"); CHECK(current && old);
         char line[2048]; int lines=0; while(fgets(line,sizeof line,current)) lines++;
-        int omitted=(version<27?LANES*CLIPS:0)+(version<26?CHANNELS:0)+(version<25?CHANNELS:0)+(version<23?CHANNELS:0)+(version<22?PATTERNS:0)+(version<21?INSERTS:0)+(version<20?LANES+(INSERTS+1)*10:0);
+        int omitted=CHANNELS+(version<27?LANES*CLIPS:0)+(version<26?CHANNELS:0)+(version<25?CHANNELS:0)+(version<23?CHANNELS:0)+(version<22?PATTERNS:0)+(version<21?INSERTS:0)+(version<20?LANES+(INSERTS+1)*10:0);
         rewind(current); fprintf(old,"HOMEBEAT %d\n",version); CHECK(fgets(line,sizeof line,current));
         for(int i=1;i<lines-omitted;i++) { CHECK(fgets(line,sizeof line,current)); fputs(line,old); }
         fclose(current); fclose(old);
         Project previous; CHECK(project_load("recent-legacy.hbt",&previous));
-        CHECK(previous.clip_offsets[0][0]==0);
+        CHECK(previous.clip_offsets[0][0]==0 && previous.channel_colors[0]==0);
         CHECK(!strcmp(previous.insert_names[0],version>=21?"Drum bus":"Insert 1"));
         CHECK(!strcmp(previous.track_names[0],version>=20?"Drums":"Track 1"));
         CHECK(previous.effect_mix[1][0]==(version>=20?.25f:1));
@@ -389,5 +390,22 @@ int main(void) {
     p.volume[0]=NAN; CHECK(!project_save("invalid-boost.hbt",&p));
     p.volume[0]=-1; CHECK(!project_save("invalid-boost.hbt",&p));
     remove("boost.hbt"); remove("invalid-boost.hbt");
+    project_default(&p); p.channel_colors[0]=pattern_palette[3];
+    CHECK(project_save("color.hbt",&p) && project_load("color.hbt",&q) && project_equal(&p,&q)); remove("color.hbt");
+    p.channel_colors[0]=0x1000000; CHECK(!project_save("invalid-color.hbt",&p)); remove("invalid-color.hbt");
+    project_new(&p); CHECK(p.channel_count==1 && p.volume[0]==1 && !strcmp(p.channel_names[0],"Sampler"));
+    for(int c=0;c<CHANNELS;c++) CHECK(!strcmp(p.paths[c],SAMPLE_EMPTY));
+    for(int pat=0;pat<PATTERNS;pat++) for(int c=0;c<CHANNELS;c++) for(int n=0;n<NOTES;n++) CHECK(!p.notes[pat][c][n].velocity);
+    for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) CHECK(!p.clips[l][b]);
+    CHECK(project_save("new.hbt",&p) && project_load("new.hbt",&q) && project_equal(&p,&q)); remove("new.hbt");
+    project_demo(&p); CHECK(p.pattern_count==2 && song_steps(&p)==128);
+    CHECK(project_save("demo.hbt",&p) && project_load("demo.hbt",&q) && project_equal(&p,&q)); remove("demo.hbt");
+    Sample demo[CHANNELS]; samples_default(demo); Player demo_player; player_reset(&demo_player); demo_player.song=1;
+    float demo_pcm[512],peak=0;
+    for(int block=0;block<4000;block++) {
+        render(&demo_player,&p,demo,demo_pcm,256);
+        for(int n=0;n<512;n++) { CHECK(isfinite(demo_pcm[n]) && fabsf(demo_pcm[n])<=1); peak=fmaxf(peak,fabsf(demo_pcm[n])); }
+    }
+    CHECK(peak>.05f); for(int c=0;c<CHANNELS;c++) free(demo[c].data);
     puts("Project versions 1-12, master pitch, clip lengths, extended patterns, chords and gates, routing, render consistency, mute and WAV duration passed."); return 0;
 }

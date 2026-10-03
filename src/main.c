@@ -130,6 +130,8 @@ static int follow_playhead;
 static double visual_step;
 static Windows windows;
 static int input_enabled=1;
+static int picker_tab,picker_scroll,picker_drag=-1;
+static Vector2 picker_origin,picker_offset;
 static Arrangement arrangement={.source_steps=STEPS,.source_pattern=-1,.zoom=1};
 static float rack_view[PATTERNS],rack_range[PATTERNS];
 static int rack_hdrag; static float rack_hx,rack_hstart,rack_hscale;
@@ -185,7 +187,8 @@ static float audition_low[128],audition_high[128];
 static int browser_focus=1,sample_moved,browser_hidden,browser_resize;
 static float browser_width=174,last_sidebar=174;
 static char sample_drag[PATH_MAX];
-static Vector2 sample_origin;
+static Vector2 sample_origin,sample_offset;
+static float sample_drag_width,sample_text_offset;
 static float *control_drag,control_low,control_high,control_bottom,control_range;
 static int control_fader,control_reverse,control_integer,number_integer;
 static float control_raw;
@@ -210,7 +213,7 @@ static int navigation_drag=-1,navigation_active;
 static Vector2 navigation_last;
 static NavigationInput navigation_input;
 static float piano_scroll_remainder;
-static int captured(void) { return navigation_drag>=0 || track_resize>=0 || rack_hdrag || rack_vdrag || piano_key_drag || control_drag || route_drag>=0 || note_drag || velocity_drag>=0 || arrangement.gesture || playlist_pan || browser_resize || rack_paint>=0 || cable_drag>0 || playlist_vpan || mixer_pan || piano_scroll_drag || piano_vdrag || piano_gesture || marker_drag>=0; }
+static int captured(void) { return picker_drag>=0 || navigation_drag>=0 || track_resize>=0 || rack_hdrag || rack_vdrag || piano_key_drag || control_drag || route_drag>=0 || note_drag || velocity_drag>=0 || arrangement.gesture || playlist_pan || browser_resize || rack_paint>=0 || cable_drag>0 || playlist_vpan || mixer_pan || piano_scroll_drag || piano_vdrag || piano_gesture || marker_drag>=0; }
 static void sampler_queue(void) {
     sampler_update();
     if(sampler_job.busy || control_drag || pattern_popup==5) return;
@@ -281,7 +284,7 @@ static void circle(float x,float y,float radius,Color color) {
     DrawTexturePro(circle_texture,(Rectangle){0,0,64,64},(Rectangle){x-radius,y-radius,radius*2,radius*2},(Vector2){0},0,color);
 }
 /* Monochrome symbols rasterized once at 4x, then reduced for smooth edges. */
-enum { ICON_RACK,ICON_PLAYLIST,ICON_PIANO,ICON_MIXER,ICON_PENCIL,ICON_BRUSH,ICON_SELECT,ICON_METRO,ICON_PLAY,ICON_STOP,ICON_PAUSE,ICON_CLOSE,ICON_BACK,ICON_FOLLOW,ICON_KEYS,ICON_COUNT };
+enum { ICON_RACK,ICON_PLAYLIST,ICON_PIANO,ICON_MIXER,ICON_PENCIL,ICON_BRUSH,ICON_SELECT,ICON_METRO,ICON_PLAY,ICON_STOP,ICON_PAUSE,ICON_CLOSE,ICON_BACK,ICON_FOLLOW,ICON_KEYS,ICON_WAVE,ICON_AUTOMATION,ICON_COUNT };
 static Texture2D icons;
 static int icon_large,icon_small,icon_medium;
 static void icons_init(float scale) {
@@ -305,6 +308,7 @@ static void icons_init(float scale) {
             DrawRectangleLinesEx((Rectangle){4,6,20,16},1.5f,WHITE);
             for(int key=1;key<4;key++) DrawLineEx((Vector2){4+key*5,6},(Vector2){4+key*5,22},1,WHITE);
             for(int key=0;key<2;key++) DrawRectangle(7+key*5,6,4,9,WHITE);
+            DrawRectangle(21,6,3,9,WHITE); /* Keep the partial F-sharp distinct from the border at small sizes. */
         }
         if(id==ICON_MIXER) for(int strip=0;strip<3;strip++) {
             int x=7+strip*7,y=9+strip*4;
@@ -344,6 +348,8 @@ static void icons_init(float scale) {
             for(int row=0;row<2;row++) for(int key=0;key<5;key++) DrawRectangle(6+key*3.5f,10+row*4,2,2,WHITE);
             DrawRectangleRec((Rectangle){9,18,10,1.5f},WHITE);
         }
+        if(id==ICON_WAVE) for(int x=5;x<24;x+=3) DrawLineEx((Vector2){x,14-3-(x%3+1)*2},(Vector2){x,14+3+(x%5)},2,WHITE);
+        if(id==ICON_AUTOMATION) { DrawLineEx((Vector2){5,21},(Vector2){14,7},2,WHITE); DrawLineEx((Vector2){14,7},(Vector2){23,17},2,WHITE); DrawCircle(5,21,3,WHITE); DrawCircle(14,7,3,WHITE); DrawCircle(23,17,3,WHITE); }
         if(id==ICON_PLAY) DrawTriangle((Vector2){9,6},(Vector2){9,22},(Vector2){22,14},WHITE);
         if(id==ICON_BACK) DrawTriangle((Vector2){19,6},(Vector2){6,14},(Vector2){19,22},WHITE);
         if(id==ICON_STOP) DrawRectangle(7,7,14,14,WHITE);
@@ -446,7 +452,9 @@ static int button_color(const char *text,int x,int y,int w,int h,int active,Colo
     int over=hover(x,y,w,h);
     if(over && *text) {
         const char *description=text;
-        if(!strcmp(text,"Save")) description="Save the current project";
+        if(!strcmp(text,"New")) description="Start an empty project with one unloaded Sampler";
+        else if(!strcmp(text,"Demo")) description="Load the built-in drum and bass demo";
+        else if(!strcmp(text,"Save")) description="Save the current project";
         else if(!strcmp(text,"Open")) description="Reload the current project file";
         else if(!strcmp(text,"Export")) description="Export the Playlist to song.wav";
         else if(!strcmp(text,"HELP")) description="Show all current keybindings";
@@ -480,6 +488,12 @@ static int button_color(const char *text,int x,int y,int w,int h,int active,Colo
 /* One light everywhere: mute with left-click, toggle solo group membership with right-click. */
 static int button(const char *text,int x,int y,int w,int h,int active) {
     return button_color(text,x,y,w,h,active,cell);
+}
+static int picker_button(int y,Color color,int selected) {
+    int over=hover(4,y,112,50);
+    ui_surface((Rectangle){4,y,112,50},color);
+    if(over || selected) DrawRectangleLinesEx((Rectangle){4,y,112,50},2,accent);
+    return over && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
 }
 static void mute_light(int x,int y,uint8_t *states,int count,int selected,const char *name) {
     uint8_t state=states[selected]; int solo=count?solo_any(states,count):0;
@@ -569,6 +583,7 @@ static void device_button(int io,int x,int y,int width) {
     DrawTriangle((Vector2){x+width-16,y+8},(Vector2){x+width-12,y+14},(Vector2){x+width-8,y+8},muted);
 }
 static int load_project(const char *path);
+static void new_project(int demo);
 static void help_group(int x,int *y,const char *title) {
     label(title,x,*y,13,accent); *y+=26;
 }
@@ -579,15 +594,17 @@ static void draw_popup(void) {
     if(!pattern_popup) { popup_drag=0; return; }
     input_enabled=1;
     if(pattern_popup==1 || pattern_popup==9) {
-        int file=pattern_popup==1,x=file?8:116,y=34,w=180,h=file?86:34;
+        int file=pattern_popup==1,x=file?8:116,y=34,w=180,h=file?138:34;
         if(IsKeyPressed(KEY_ESCAPE) || (!popup_opened && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !hover(x,y,w,h))) { pattern_popup=0; return; }
         ui_frame((Rectangle){x,y,w,h});
-        const char *items[]={"Save","Open","Export"};
-        for(int i=0;i<(file?3:1);i++) if(button(file?items[i]:"Keybindings",x+4,y+4+i*26,w-8,24,0) && !popup_opened) {
+        const char *items[]={"New","Demo","Save","Open","Export"};
+        for(int i=0;i<(file?5:1);i++) if(button(file?items[i]:"Keybindings",x+4,y+4+i*26,w-8,24,0) && !popup_opened) {
             pattern_popup=0;
             if(!file) open_popup(4);
-            else if(i==0) snprintf(status,sizeof status,project_save(project_path,&project)?"Saved %.150s":"Save failed: %.150s",project_path);
-            else if(i==1) load_project(project_path);
+            else if(i==0) new_project(0);
+            else if(i==1) new_project(1);
+            else if(i==2) snprintf(status,sizeof status,project_save(project_path,&project)?"Saved %.150s":"Save failed: %.150s",project_path);
+            else if(i==3) load_project(project_path);
             else snprintf(status,sizeof status,(sampler_flush() && export_wav("song.wav",&project,samples))?"Exported song.wav (Playlist, 48 kHz stereo)":"Export failed");
             return;
         }
@@ -773,7 +790,16 @@ static void add_sampler(void) {
     sample_generation[c]++; sampler_generation[c]=sample_generation[c]; sampler_applied[c]=project.sampler[c];
     channel=instrument_channel=c; browser_focus=0; rack_reveal_last(); windows_focus(&windows,4);
 }
+static uint32_t next_source_color(const uint32_t *colors,int count) {
+    for(int color=0;color<PATTERNS;color++) {
+        int used=0;
+        for(int i=0;i<count;i++) if(colors[i]==pattern_palette[color]) used=1;
+        if(!used) return pattern_palette[color];
+    }
+    return pattern_palette[count%PATTERNS];
+}
 static Color audio_color(int c) {
+    if(project.channel_colors[c]) { unsigned rgb=project.channel_colors[c]; return (Color){rgb>>16,(rgb>>8)&255,rgb&255,255}; }
     float t=fminf(1,log1pf(samples[c].frames/(float)RATE)/log1pf(30));
     Color short_color={142,73,78,255},long_color={72,137,91,255};
     Color color={(unsigned char)(short_color.r+(long_color.r-short_color.r)*t),(unsigned char)(short_color.g+(long_color.g-short_color.g)*t),(unsigned char)(short_color.b+(long_color.b-short_color.b)*t),255};
@@ -804,29 +830,39 @@ static void drop_sample(const char *path) {
     if(target==1) {
         Rect r=windows.editors[1].rect;
         float gx=r.x+212,gy=r.y+82,gridw=r.w-236;
-        if(mouse.x<gx || mouse.x>=gx+gridw || mouse.y<gy || mouse.y>=r.y+r.h-42) { snprintf(status,sizeof status,"Drop audio onto the Playlist grid."); return; }
+        int list=mouse.x>=r.x+4 && mouse.x<r.x+116 && mouse.y>=gy && mouse.y<r.y+r.h-42;
+        if(!list && (mouse.x<gx || mouse.x>=gx+gridw || mouse.y<gy || mouse.y>=r.y+r.h-42)) { snprintf(status,sizeof status,"Drop audio onto the Playlist grid or Audio list."); return; }
         int c=project.channel_count;
         if(c>=CHANNELS) { snprintf(status,sizeof status,"Channel Rack limit: %d channels.",CHANNELS); return; }
         float pixels=gridw/BARS*arrangement.zoom,q=snap_interval(snap_mode[0],pixels/STEPS);
         float start=floorf((arrangement.view_start+(mouse.x-gx)/pixels)*STEPS/q)*q/STEPS;
         int lane=track_at(track_scroll+mouse.y-gy);
-        /* Check placement before decoding or creating a channel. */
-        Project next=project; next.channel_count++; next.channel_audio[c]=1; next.audio_seconds[c]=.001f;
-        int slot=arrangement_place(&next,lane,start,PATTERNS+c,.001f*project.bpm/15);
-        if(slot<0) { snprintf(status,sizeof status,"No space here: choose an empty part of the track."); return; }
-        if(!import_sample(path,c)) return;
-        float length=samples[c].frames/(float)RATE*project.bpm/15;
-        slot=arrangement_place(&project,lane,start,PATTERNS+c,length);
-        if(slot<0) { /* Discard the import without adding a channel. */
-            Sample empty={0}; audio_sample(c,empty); free(samples[c].data); free(originals[c].data); samples[c]=originals[c]=empty;
-            project.paths[c][0]=0; snprintf(status,sizeof status,"Audio overlaps another clip: choose an empty part of the track."); return;
+        int slot=-1;
+        if(!list) {
+            /* Check placement before decoding or creating a channel. */
+            Project next=project; next.channel_count++; next.channel_audio[c]=1; next.audio_seconds[c]=.001f;
+            slot=arrangement_place(&next,lane,start,PATTERNS+c,.001f*project.bpm/15);
+            if(slot<0) { snprintf(status,sizeof status,"No space here: choose an empty part of the track."); return; }
         }
+        if(!import_sample(path,c)) return;
+        if(!list) {
+            float length=samples[c].frames/(float)RATE*project.bpm/15;
+            slot=arrangement_place(&project,lane,start,PATTERNS+c,length);
+            if(slot<0) { /* Discard the import without adding a channel. */
+                Sample empty={0}; audio_sample(c,empty); free(samples[c].data); free(originals[c].data); samples[c]=originals[c]=empty;
+                project.paths[c][0]=0; snprintf(status,sizeof status,"Audio overlaps another clip: choose an empty part of the track."); return;
+            }
+        }
+        uint32_t colors[CHANNELS]; int count=0;
+        for(int i=0;i<project.channel_count;i++) if(project.channel_audio[i]) colors[count++]=project.channel_colors[i];
+        project.channel_colors[c]=next_source_color(colors,count);
         project.channel_audio[c]=1; project.channel_count++;
         channel=instrument_channel=c; rack_filter=1; rack_scroll=0;
-        arrangement.source_pattern=PATTERNS+c; arrangement.source_steps=project.audio_seconds[c];
-        memset(arrangement.selected,0,sizeof arrangement.selected); arrangement.selected[lane][slot]=1;
+        arrangement.source_pattern=PATTERNS+c; arrangement.source_steps=project.audio_seconds[c]; arrangement.source_offset=0;
+        if(!list) { memset(arrangement.selected,0,sizeof arrangement.selected); arrangement.selected[lane][slot]=1; }
+        picker_tab=1; picker_scroll=count;
         browser_focus=0; audio_channels(&project,samples); windows_focus(&windows,1);
-        snprintf(status,sizeof status,"Placed %.100s; available in the Rack Audio group.",project.channel_names[c]); return;
+        snprintf(status,sizeof status,list?"Imported %.100s into the Audio list; drag it to the Playlist when ready.":"Placed %.100s; available in the Audio list and Rack Audio group.",project.channel_names[c]); return;
     }
     if(target==4 && mouse.y>=windows.editors[4].rect.y+TITLE) {
         if(import_sample(path,instrument_channel)) {
@@ -872,6 +908,46 @@ static void delete_channel(int c) {
     arrangement.gesture=IDLE; arrangement.source_pattern=-1; memset(arrangement.selected,0,sizeof arrangement.selected);
     audio_channels(&project,samples); free(old.data); free(raw.data); reset=1;
 }
+static void install_project(Project next,Sample fresh[CHANNELS],Sample processed[CHANNELS],const char *filename) {
+    sample_epoch++; audio_stop();
+    free(audition.data); audition=(Sample){0}; audition_path[0]=0; browser_progress=-1;
+    memset(keyboard_notes,0,sizeof keyboard_notes);
+    picker_tab=picker_scroll=0; picker_drag=-1; sample_drag[0]=0;
+    rack_hdrag=rack_vdrag=playlist_pan=playlist_vpan=piano_scroll_drag=piano_vdrag=mixer_pan=0;
+    piano_scroll_remainder=0; memset(track_heights,0,sizeof track_heights);
+    navigation_active=0; navigation_drag=-1; track_resize=-1; ruler_loop_drag=0;
+    visual_step=0;
+    playing=0; pattern=(int)fminf(pattern,next.pattern_count-1); audio_update(&next,0,song,pattern,1,output_volume,0,0,0);
+    for(int c=0;c<CHANNELS;c++) next.audio_seconds[c]=processed[c].frames/(float)RATE;
+    audio_channels(&next,processed);
+    for(int c=0;c<CHANNELS;c++) {
+        Sample old=samples[c],raw=originals[c]; samples[c]=processed[c]; originals[c]=fresh[c]; free(old.data); free(raw.data);
+        sample_generation[c]++; sampler_generation[c]=sample_generation[c]; sampler_applied[c]=next.sampler[c];
+    }
+    project=next; memcpy(project_path,filename,strlen(filename)+1);
+    project.insert_count=INSERTS; rack_scroll=0; rack_filter=0; channel=fmaxf(0,fminf(channel,project.channel_count-1));
+    piano_channel=instrument_channel=channel;
+    for(int i=0;i<PATTERNS;i++) { piano_span[i]=fmaxf(STEPS,next.pattern_steps[i]); piano_pan[i]=0; piano_range[i]=0; }
+    memset(note_selected,0,sizeof note_selected); piano_gesture=PIANO_IDLE; playlist_start=0; memset(piano_start,0,sizeof piano_start); memset(song_loop,0,sizeof song_loop); memset(pattern_loop,0,sizeof pattern_loop); marker_drag=-1;
+    memset(piano_channels,0,sizeof piano_channels); mixer_selected=project.route[channel]; mixer_scroll=0;
+    piano_key_drag=0; piano_key=-1;
+    note_drag=NULL; velocity_drag=-1; control_drag=NULL; route_drag=-1; rack_paint=-1; cable_drag=-1;
+    memset(&arrangement,0,sizeof arrangement); arrangement.source_pattern=-1; arrangement.source_steps=STEPS; arrangement.zoom=1; playlist_pan=0; playlist_vpan=0; track_scroll=0; memset(rack_view,0,sizeof rack_view); memset(rack_range,0,sizeof rack_range);
+    snprintf(status,sizeof status,"Loaded %.150s",filename); reset=1;
+}
+static void new_project(int demo) {
+    Project next; Sample fresh[CHANNELS]={0},processed[CHANNELS]={0};
+    if(demo) { project_demo(&next); samples_default(fresh); }
+    else project_new(&next);
+    for(int c=0;c<CHANNELS;c++) {
+        if((demo && c<4 && !fresh[c].data) || !sample_process(fresh[c],next.sampler[c],&processed[c])) {
+            for(int i=0;i<CHANNELS;i++) { free(fresh[i].data); free(processed[i].data); }
+            snprintf(status,sizeof status,"Project unchanged: could not prepare samples."); return;
+        }
+    }
+    pattern=channel=0; song=demo; install_project(next,fresh,processed,demo?"demo.hbt":"project.hbt");
+    snprintf(status,sizeof status,demo?"Demo loaded: press Play to hear the eight-bar groove.":"New project: load a sample to get started.");
+}
 static int load_project(const char *path) {
     Project next; Sample fresh[CHANNELS]={0},processed[CHANNELS]={0};
     if(strlen(path)>=sizeof project_path || !project_load(path,&next)) { snprintf(status,sizeof status,"Invalid project: %.120s",path); return 0; }
@@ -883,23 +959,7 @@ static int load_project(const char *path) {
         else if(next.paths[c][0]) { Sample s; if(!sample_load(next.paths[c],&s)) goto failed; free(fresh[c].data); fresh[c]=s; }
     }
     for(int c=0;c<CHANNELS;c++) if(!sample_process(fresh[c],next.sampler[c],&processed[c])) goto failed;
-    sample_epoch++;
-    playing=0; pattern=(int)fminf(pattern,next.pattern_count-1); audio_update(&next,0,song,pattern,1,output_volume,0,0,0);
-    for(int c=0;c<CHANNELS;c++) {
-        Sample old=samples[c],raw=originals[c]; audio_sample(c,processed[c]); samples[c]=processed[c]; originals[c]=fresh[c]; free(old.data); free(raw.data);
-        sample_generation[c]++; sampler_generation[c]=sample_generation[c]; sampler_applied[c]=next.sampler[c];
-    }
-    for(int c=0;c<CHANNELS;c++) next.audio_seconds[c]=processed[c].frames/(float)RATE;
-    project=next; memcpy(project_path,filename,strlen(filename)+1);
-    project.insert_count=INSERTS; rack_scroll=0; rack_filter=0; channel=fmaxf(0,fminf(channel,project.channel_count-1));
-    piano_channel=instrument_channel=channel;
-    for(int i=0;i<PATTERNS;i++) { piano_span[i]=fmaxf(STEPS,next.pattern_steps[i]); piano_pan[i]=0; piano_range[i]=0; }
-    memset(note_selected,0,sizeof note_selected); piano_gesture=PIANO_IDLE; playlist_start=0; memset(piano_start,0,sizeof piano_start); memset(song_loop,0,sizeof song_loop); memset(pattern_loop,0,sizeof pattern_loop); marker_drag=-1;
-    memset(piano_channels,0,sizeof piano_channels); mixer_selected=project.route[channel]; mixer_scroll=0;
-    piano_key_drag=0; piano_key=-1;
-    note_drag=NULL; velocity_drag=-1; control_drag=NULL; route_drag=-1; rack_paint=-1; cable_drag=-1;
-    memset(&arrangement,0,sizeof arrangement); arrangement.source_pattern=-1; arrangement.source_steps=STEPS; arrangement.zoom=1; playlist_pan=0; playlist_vpan=0; track_scroll=0; memset(rack_view,0,sizeof rack_view); memset(rack_range,0,sizeof rack_range);
-    snprintf(status,sizeof status,"Loaded %.150s",filename); reset=1; return 1;
+    install_project(next,fresh,processed,filename); return 1;
 failed:
     for(int c=0;c<CHANNELS;c++) { free(fresh[c].data); free(processed[c].data); }
     snprintf(status,sizeof status,"Project unchanged: a referenced sample is missing or invalid."); return 0;
@@ -1160,6 +1220,32 @@ static void clip_preview(int pat,float x,float y,float left,float right,float pi
         }
     }
 }
+static void picker_notes(int p,float x,float y) {
+    for(int c=0;c<project.channel_count;c++) for(int n=0;n<NOTES;n++) {
+        Note note=project.notes[p][c][n]; if(!note.velocity || note.start>=project.pattern_steps[p]) continue;
+        float px=x+4+104*note.start/project.pattern_steps[p];
+        float length=fmaxf(1,104*fminf(note.length?note.length:1,project.pattern_steps[p]-note.start)/project.pattern_steps[p]-1);
+        float py=y+23+c*18.f/fmaxf(1,project.channel_count-1)+fmaxf(-2,fminf(2,(60-(int)note.pitch)*.2f));
+        DrawRectangleRec((Rectangle){px,py,length,2},ink);
+    }
+}
+static void draw_picker_drag(void) {
+    if(picker_drag<0 || (fabsf(mouse.x-picker_origin.x)<3 && fabsf(mouse.y-picker_origin.y)<3)) return;
+    int source=picker_drag,audio=source>=PATTERNS;
+    float x=mouse.x-picker_offset.x,y=mouse.y-picker_offset.y,steps=clip_source_steps(&project,source);
+    Color color=audio?audio_color(source-PATTERNS):pattern_color(source);
+    ui_surface((Rectangle){x,y,112,50},color);
+    if(audio) audio_waveform(source-PATTERNS,x+4,y+20,x+4,x+108,104/fmaxf(.001f,steps),28);
+    else picker_notes(source,x,y);
+    label(fit_text(audio?project.channel_names[source-PATTERNS]:project.pattern_names[source],100,12),x+4,y+4,12,ink);
+    DrawRectangleLinesEx((Rectangle){x,y,112,50},2,accent);
+}
+static void draw_browser_drag(void) {
+    if(!sample_drag[0] || !sample_moved) return;
+    float x=mouse.x-sample_offset.x,y=mouse.y-sample_offset.y;
+    ui_surface((Rectangle){x,y,sample_drag_width,21},accent);
+    label(fit_text(GetFileName(sample_drag),fmaxf(0,sample_drag_width-sample_text_offset-2),13),x+sample_text_offset,y+4,13,ui_theme.selected_text);
+}
 /* Icons use raylib primitives, without a font or image dependency. */
 static int tool_button(int tool,int active,int x,const char *tip) {
     int over=hover(x,28,20,20); Color c=active==tool?ui_theme.selected_text:ink;
@@ -1197,7 +1283,7 @@ static void timeline_ruler(int id,float start,float span,float gx,float y,float 
     float spacing=STEPS*fmaxf(1,powf(2,ceilf(log2f(48/(STEPS*pixels)))));
     for(int i=0;i<width/(spacing*pixels)+2;i++) {
         float step=(floorf(start/spacing)+i)*spacing,x=gx+(step-start)*pixels;
-        if(x>=gx && x<gx+width-24) { DrawLine(x,y+10,x,y+14,muted); label(TextFormat("%.0f",step/STEPS+1),x+8,y+1,11,ink); }
+        if(step>=0 && x>=gx && x<gx+width-24) { DrawLine(x,y+10,x,y+14,muted); label(TextFormat("%.0f",step/STEPS+1),x+8,y+1,11,ink); }
     }
     if(hover(gx,y,width,14)) {
         snprintf(status,sizeof status,"Ruler: left-click/drag sets playback start; right-drag selects a loop; right-click clears loop; Space plays/stops");
@@ -1220,14 +1306,12 @@ static void timeline_grid(float start,float span,float snap,float gx,float y,flo
     for(int i=0;i<width/(spacing*pixels)+2;i++) {
         float step=(floorf(start/spacing)+i)*spacing,x=gx+(step-start)*pixels;
         int bar=fabsf(step/STEPS-roundf(step/STEPS))<.0001f,beat=fabsf(step/4-roundf(step/4))<.0001f;
-        if(x>=gx && x<=gx+width) DrawLineEx((Vector2){x,y},(Vector2){x,y+height},1,bar?ui_theme.grid_major:Fade(ui_theme.grid_minor,(beat?1:.6f)*fminf(1,spacing*pixels/12)));
+        if(step>=0 && x>=gx && x<=gx+width) DrawLineEx((Vector2){x,y},(Vector2){x,y+height},1,bar?ui_theme.grid_major:Fade(ui_theme.grid_minor,(beat?1:.6f)*fminf(1,spacing*pixels/12)));
     }
 }
 static void follow_view(float *start,float span,double position) {
     if(!follow_playhead || !playing || navigation_active || captured() || windows.grab>=0) return;
-    if(position<*start || position>*start+span) *start=fmax(0,position-span*.25);
-    else if(position>*start+span*.7)
-        *start+=(position-span*.7-*start)*(1-expf(-12*GetFrameTime()));
+    *start=position-span*.5;
 }
 static float track_flash[LANES];
 static uint8_t track_active_ui[LANES];
@@ -1244,6 +1328,22 @@ static int clip_edge(int lane,int clip,float bar,float barw) {
     float left=(bar-project.clip_starts[lane][clip])*barw,right=clip_length(&project,lane,clip)/STEPS*barw-left;
     return fminf(left,right)<7?(left<right?-1:1):0;
 }
+static int picker_double_click(int source) {
+    static double last_click=-1;
+    static int last_source=-1;
+    static unsigned epoch;
+    static Vector2 position;
+    double now=GetTime();
+    int twice=epoch==sample_epoch && source==last_source && now-last_click<.35 &&
+        fabsf(mouse.x-position.x)<5 && fabsf(mouse.y-position.y)<5;
+    last_click=twice?-1:now; last_source=source; position=mouse; epoch=sample_epoch;
+    if(twice) {
+        if(source<PATTERNS) { rack_filter=0; rack_scroll=0; windows_focus(&windows,0); }
+        else { channel=instrument_channel=source-PATTERNS; windows_focus(&windows,4); }
+        picker_drag=-1; browser_focus=0; input_enabled=0;
+    }
+    return twice;
+}
 static void playlist(float width,float height,float scale) {
     static double last_click=-1;
     static int last_lane=-1,last_clip=-1;
@@ -1257,7 +1357,7 @@ static void playlist(float width,float height,float scale) {
     arrangement.snap=snap_interval(snap_mode[0],barw/STEPS);
     float pointer_bar=arrangement.view_start+(mouse.x-gx)/barw;
     int edge_lane=-1,edge_bar=-1,edge_side=0,divider=-1;
-    if(hover(120,gy,width-144,track_area)) {
+    if(hover(120,gy,gx-120,track_area)) {
         float pos=track_scroll+mouse.y-gy; int lane=fminf(LANES-1,fmaxf(0,track_at(pos)));
         if(pos-track_position(lane)<3 && lane>0) divider=lane-1;
         else if(track_position(lane+1)-pos<3) divider=lane;
@@ -1276,30 +1376,61 @@ static void playlist(float width,float height,float scale) {
     for(int i=0;i<3;i++) if(tool_button(i,arrangement.tool,8+i*24,tips[i])) arrangement.tool=i;
     snap_button(0,width-184);
 
-    label("Patterns",8,63,12,muted); label("Tracks",128,63,12,muted);
-    static int picker_scroll;
+    const char *picker_names[]={"Patterns","Audio clips","Automation"};
+    const int picker_icons[]={ICON_PIANO,ICON_WAVE,ICON_AUTOMATION};
+    for(int t=0;t<3;t++) {
+        if(button("",4+t*38,57,36,23,picker_tab==t)) { picker_tab=t; picker_scroll=0; picker_drag=-1; if(t==0) { arrangement.source_pattern=pattern; arrangement.source_steps=project.pattern_steps[pattern]; arrangement.source_offset=0; } }
+        icon(picker_icons[t],22+t*38,68,18,picker_tab==t?ui_theme.selected_text:ink);
+        if(hover(4+t*38,57,36,23)) snprintf(status,sizeof status,"%s%s",picker_names[t],t==2?" (coming later)":"");
+    }
+    label("Tracks",128,63,12,muted);
+    int audio_ids[CHANNELS],audio_count=0;
+    for(int c=0;c<project.channel_count;c++) if(project.channel_audio[c]) audio_ids[audio_count++]=c;
+    int picker_count=picker_tab==0?project.pattern_count:picker_tab==1?audio_count:0;
     int picker_visible=fmaxf(1,(height-66-gy)/52);
     if(hover(4,gy,112,height-66-gy)) picker_scroll-=GetMouseWheelMove();
-    picker_scroll=fmaxf(0,fminf(fmaxf(0,project.pattern_count-picker_visible),picker_scroll));
-    for(int p=picker_scroll;p<project.pattern_count;p++) {
-        int y=gy+(p-picker_scroll)*52; if(y+50>height-66) break;
-        if(button_color("",4,y,112,50,0,pattern_color(p))) { pattern=p; arrangement.source_pattern=p; arrangement.source_steps=project.pattern_steps[p]; reset=1; }
+    picker_scroll=fmaxf(0,fminf(fmaxf(0,picker_count-picker_visible),picker_scroll));
+    for(int row=picker_scroll;row<picker_count;row++) {
+        int p=picker_tab==0?row:audio_ids[row];
+        int y=gy+(row-picker_scroll)*52; if(y+50>height-66) break;
+        if(picker_tab==1) {
+            if(picker_button(y,audio_color(p),arrangement.source_pattern==PATTERNS+p)) {
+                arrangement.source_pattern=PATTERNS+p; arrangement.source_steps=project.audio_seconds[p]; arrangement.source_offset=0; picker_drag=PATTERNS+p;
+                picker_origin=(Vector2){mouse.x+rect.x,mouse.y+rect.y};
+                picker_offset=(Vector2){mouse.x-4,mouse.y-y};
+                picker_double_click(PATTERNS+p);
+            }
+            if(arrangement.source_pattern==PATTERNS+p) DrawRectangleLinesEx((Rectangle){4,y,112,50},2,accent);
+            label(fit_text(project.channel_names[p],100,12),8,y+4,12,ink);
+            audio_waveform(p,8,y+20,8,112,104/fmaxf(.001f,clip_source_steps(&project,PATTERNS+p)),28);
+            if(hover(4,y,112,50)) {
+                snprintf(status,sizeof status,"Audio clip: double-click for sampler; select or drag to place; right-click for Rename, Color or Delete");
+                if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) open_context(7,p,(Vector2){mouse.x+rect.x,mouse.y+rect.y});
+            }
+            continue;
+        }
+        if(picker_button(y,pattern_color(p),pattern==p)) {
+            if(pattern!=p) reset=1;
+            pattern=p; arrangement.source_pattern=p; arrangement.source_steps=project.pattern_steps[p]; arrangement.source_offset=0; picker_drag=p;
+            picker_origin=(Vector2){mouse.x+rect.x,mouse.y+rect.y};
+            picker_offset=(Vector2){mouse.x-4,mouse.y-y};
+            picker_double_click(p);
+        }
         if(pattern==p) DrawRectangleLinesEx((Rectangle){4,y,112,50},2,accent);
         label(fit_text(project.pattern_names[p],100,12),8,y+4,12,ink);
-        Color preview_color=ink;
-        for(int c=0;c<project.channel_count;c++) for(int n=0;n<NOTES;n++) {
-            Note note=project.notes[p][c][n]; if(!note.velocity || note.start>=project.pattern_steps[p]) continue;
-            float px=8+104*note.start/project.pattern_steps[p];
-            float length=fmaxf(1,104*fminf(note.length?note.length:1,project.pattern_steps[p]-note.start)/project.pattern_steps[p]-1);
-            float py=y+23+c*18.f/fmaxf(1,project.channel_count-1)+fmaxf(-2,fminf(2,(60-(int)note.pitch)*.2f));
-            DrawRectangleRec((Rectangle){px,py,length,2},preview_color);
-        }
+        picker_notes(p,4,y);
         if(hover(4,y,112,50)) {
-            snprintf(status,sizeof status,"Select pattern; right-click for Rename, Color or Delete");
+            snprintf(status,sizeof status,"Pattern: double-click for Channel Rack; select or drag to place; right-click for Rename, Color or Delete");
             if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) { pattern=p; arrangement.source_pattern=p; arrangement.source_steps=project.pattern_steps[p]; reset=1; open_context(4,p,(Vector2){mouse.x+rect.x,mouse.y+rect.y}); }
         }
     }
-    if(button("+",4,height-62,112,20,0)) {
+    if(sample_drag[0] && sample_moved && CheckCollisionPointRec(mouse,(Rectangle){4,gy,112,height-gy-42}) && windows_hit(&windows,mouse.x+rect.x,mouse.y+rect.y)==1) {
+        DrawRectangleLinesEx((Rectangle){4,gy,112,height-gy-42},2,ui_theme.signal);
+        snprintf(status,sizeof status,"Release to import into the Audio list without placing a clip");
+    }
+    if(picker_tab==2) label("Coming later",8,gy+8,12,muted);
+    if(picker_tab==1 && !audio_count) { label("No audio clips",8,gy+8,12,muted); label("Drop on Playlist",8,gy+28,11,muted); }
+    if(picker_tab==0 && button("+",4,height-62,112,20,0)) {
         if(project.pattern_count<PATTERNS) {
             pattern=project.pattern_count++; arrangement.source_pattern=pattern; arrangement.source_steps=STEPS; memset(project.notes[pattern],0,sizeof project.notes[pattern]);
             project.pattern_steps[pattern]=STEPS; memset(piano_channels[pattern],0,sizeof piano_channels[pattern]);
@@ -1309,16 +1440,12 @@ static void playlist(float width,float height,float scale) {
                 for(int i=0;i<pattern;i++) if(!strcmp(project.pattern_names[i],project.pattern_names[pattern])) duplicate=1;
                 if(!duplicate) break;
             }
-            for(int color=0;color<PATTERNS;color++) {
-                project.pattern_colors[pattern]=pattern_palette[color]; int used=0;
-                for(int i=0;i<pattern;i++) if(project.pattern_colors[i]==pattern_palette[color]) used=1;
-                if(!used) break;
-            }
+            project.pattern_colors[pattern]=next_source_color(project.pattern_colors,pattern);
             rack_view[pattern]=rack_range[pattern]=0; reset=1;
             picker_scroll=fmaxf(0,project.pattern_count-picker_visible);
         } else snprintf(status,sizeof status,"This prototype supports %d patterns.",PATTERNS);
     }
-    if(hover(4,height-62,112,20) && project.pattern_count<PATTERNS) snprintf(status,sizeof status,"Add a new blank pattern");
+    if(picker_tab==0 && hover(4,height-62,112,20) && project.pattern_count<PATTERNS) snprintf(status,sizeof status,"Add a new blank pattern");
     zoom_label(arrangement.zoom*100,width-62,35);
     timeline_ruler(1,arrangement.view_start*STEPS,span*STEPS,gx,68,gridw,arrangement.snap);
     for(int l=fmaxf(0,track_at(track_scroll));l<LANES;l++) {
@@ -1354,9 +1481,19 @@ static void playlist(float width,float height,float scale) {
         float y=gy+track_position(l)-track_scroll,rowh=track_height(l);
         if(y>=height-42) break;
         float bottom=roundf((y+rowh)*scale+text_origin.y);
-        DrawRectangleRec((Rectangle){120,(bottom-1-text_origin.y)/scale,width-144,1/scale},divider==l || track_resize==l?accent:ui_theme.border);
+        DrawRectangleRec((Rectangle){gx,(bottom-1-text_origin.y)/scale,gridw,1/scale},ui_theme.border);
+        BeginScissorMode((rect.x+120)*scale,(rect.y+gy)*scale,(gx-120)*scale,track_area*scale);
+        DrawRectangleRec((Rectangle){120,(bottom-1-text_origin.y)/scale,gx-120,1/scale},divider==l || track_resize==l?accent:ui_theme.border);
+        BeginScissorMode((rect.x+gx)*scale,(rect.y+gy)*scale,gridw*scale,track_area*scale);
     }
     BeginScissorMode(rect.x*scale,rect.y*scale,rect.w*scale,rect.h*scale);
+    if(picker_drag>=0 && IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+        if(CheckCollisionPointRec(mouse,(Rectangle){gx,gy,gridw,track_area}) && windows_hit(&windows,mouse.x+rect.x,mouse.y+rect.y)==1) {
+            float start=floorf(pointer_bar*STEPS/arrangement.snap)*arrangement.snap/STEPS;
+            arrangement_place(&project,track_at(track_scroll+mouse.y-gy),start,picker_drag,clip_source_steps(&project,picker_drag));
+        }
+        picker_drag=-1;
+    }
     if(divider<0 && hover(120,gy,gx+gridw-120,track_area)) {
         float bx=mouse.x<gx?-1:arrangement.view_start+(mouse.x-gx)/barw,ly=track_at(track_scroll+mouse.y-gy); int hit=arrangement_hit(&project,(int)ly,bx);
         int edge=clip_edge((int)ly,hit,bx,barw);
@@ -1384,6 +1521,13 @@ static void playlist(float width,float height,float scale) {
         }
     }
     BeginScissorMode((rect.x+gx)*scale,(rect.y+gy)*scale,gridw*scale,(height-gy-42)*scale);
+    if(picker_drag>=0 && CheckCollisionPointRec(mouse,(Rectangle){gx,gy,gridw,track_area}) && windows_hit(&windows,mouse.x+rect.x,mouse.y+rect.y)==1) {
+        float start=floorf(pointer_bar*STEPS/arrangement.snap)*arrangement.snap/STEPS;
+        int lane=track_at(track_scroll+mouse.y-gy);
+        Rectangle ghost={gx+(start-arrangement.view_start)*barw,gy+track_position(lane)-track_scroll,fmaxf(4,clip_source_steps(&project,picker_drag)*barw/STEPS),track_height(lane)-1};
+        DrawRectangleRec(ghost,Fade(ui_theme.signal,.2f)); DrawRectangleLinesEx(ghost,1,ui_theme.signal);
+        snprintf(status,sizeof status,"Release to place %s",picker_drag<PATTERNS?project.pattern_names[picker_drag]:project.channel_names[picker_drag-PATTERNS]);
+    }
     if(sample_drag[0] && sample_moved && mouse.x>=gx && mouse.x<gx+gridw && mouse.y>=gy && mouse.y<height-42 && windows_hit(&windows,mouse.x+rect.x,mouse.y+rect.y)==1) {
         float start=floorf(pointer_bar*STEPS/arrangement.snap)*arrangement.snap/STEPS;
         float length=audition.frames/(float)RATE*project.bpm/15;
@@ -1405,14 +1549,14 @@ static void playlist(float width,float height,float scale) {
         if(mouse.y<vy || mouse.y>vy+vthumb) track_scroll=fmaxf(0,fminf(maximum_y,(mouse.y-gy-vthumb/2)/fmaxf(1,travel_y)*maximum_y));
         playlist_vpan=1; playlist_vpan_y=mouse.y+rect.y; playlist_vpan_start=track_scroll;
     }
-    float thumbw=timeline_thumb(gridw,span,arrangement.range),travel=gridw-thumbw,maximum=arrangement.range-span,thumbx=gx+(maximum>0?arrangement.view_start/maximum*travel:0);
+    float thumbw=timeline_thumb(gridw,span,arrangement.range),travel=gridw-thumbw,maximum=arrangement.range-span,thumbx=gx+(maximum>0?fmaxf(0,arrangement.view_start)/maximum*travel:0);
     DrawRectangle(gx,height-37,gridw,13,bg); ui_surface((Rectangle){thumbx,height-37,thumbw,13},playlist_pan || hover(gx,height-37,gridw,13)?accent:muted);
     if(hover(gx,height-37,gridw,13)) snprintf(status,sizeof status,"Drag to scroll along the Playlist timeline");
     if(hover(gx,height-37,gridw,13) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         if(mouse.x<thumbx || mouse.x>thumbx+thumbw) arrangement.view_start=fmaxf(0,fminf(maximum,(mouse.x-gx-thumbw/2)/fmaxf(1,travel)*maximum));
         playlist_pan=1; playlist_pan_x=mouse.x+rect.x; playlist_pan_start=arrangement.view_start; playlist_pan_range=maximum/fmaxf(1,travel);
     }
-    label(fit_text("Wheel: zoom | Scrollbars: pan | Shift: add selection | Right-drag: erase | Supr: delete",width-24,11),8,height-17,11,muted);
+    label(fit_text("Wheel: scroll | Cmd/Ctrl+wheel: zoom | Shift: horizontal / add selection | Right-drag: erase | Delete: remove",width-24,11),8,height-17,11,muted);
 
 }
 static int piano_inactive(float step) { float end=edit_steps(); return step>=end && step<ceilf(end/STEPS)*STEPS; }
@@ -1586,7 +1730,7 @@ static void piano(float width,float height) {
             piano_vscroll_y=mouse.y+r.y; piano_vscroll_start=127-piano_top; piano_vdrag=1; input_enabled=0;
         }
     }
-    float thumb=timeline_thumb(gridw,extent,piano_range[pattern]),travel=gridw-thumb,maximum=piano_range[pattern]-extent,x=gx+(maximum>0?piano_pan[pattern]/maximum*travel:0);
+    float thumb=timeline_thumb(gridw,extent,piano_range[pattern]),travel=gridw-thumb,maximum=piano_range[pattern]-extent,x=gx+(maximum>0?fmaxf(0,piano_pan[pattern])/maximum*travel:0);
     DrawRectangle(gx,height-18,gridw,8,bg); ui_surface((Rectangle){x,height-18,thumb,8},piano_scroll_drag || hover(gx,height-21,gridw,14)?accent:muted);
     if(hover(gx,height-21,gridw,14)) {
         snprintf(status,sizeof status,"Drag to pan the zoomed Piano Roll; wheel over notes to zoom; the timeline grows as you navigate");
@@ -1781,20 +1925,26 @@ static void delete_pattern(int target) {
 static void draw_context(void) {
     if(!context_kind) return;
     float scale=fminf(GetScreenWidth()/1200.f,GetScreenHeight()/675.f);
-    int w=228,h=context_kind==2?108:context_kind==5?76:context_kind==3 && !context_target?32:82,x=fmaxf(0,fminf(GetScreenWidth()/scale-w,context_position.x)),y=fmaxf(0,fminf(GetScreenHeight()/scale-h,context_position.y));
+    int w=228,h=context_kind==2?108:(context_kind==5 || context_kind==8)?76:context_kind==3 && !context_target?32:82,x=fmaxf(0,fminf(GetScreenWidth()/scale-w,context_position.x)),y=fmaxf(0,fminf(GetScreenHeight()/scale-h,context_position.y));
     input_enabled=1;
     if(IsKeyPressed(KEY_ESCAPE) || (!context_opened && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !hover(x,y,w,h))) { context_kind=0; return; }
     ui_frame((Rectangle){x,y,w,h});
     int target=context_target,kind=context_kind;
     if(kind==6) {
         for(int i=0;i<3;i++) if(button(rack_filters[i],x+4,y+4+i*25,w-8,24,rack_filter==i)) { rack_filter=i; rack_scroll=0; context_kind=0; }
-    } else if(kind==5) {
+    } else if(kind==5 || kind==8) {
+        uint32_t *color=kind==8?&project.channel_colors[target]:&project.pattern_colors[target];
         for(int i=0;i<PATTERNS;i++) {
             int bx=x+6+(i%4)*54,by=y+6+(i/4)*32;
-            if(button_color("",bx,by,48,26,0,pattern_rgb(pattern_palette[i]))) { project.pattern_colors[target]=pattern_palette[i]; context_kind=0; }
-            if(project.pattern_colors[target]==pattern_palette[i]) DrawRectangleLinesEx((Rectangle){bx,by,48,26},2,accent);
-            if(hover(bx,by,48,26)) snprintf(status,sizeof status,"Choose this pattern color");
+            if(button_color("",bx,by,48,26,0,pattern_rgb(pattern_palette[i]))) { *color=pattern_palette[i]; context_kind=0; }
+            if(*color==pattern_palette[i]) DrawRectangleLinesEx((Rectangle){bx,by,48,26},2,accent);
+            if(hover(bx,by,48,26)) snprintf(status,sizeof status,"Choose this source color");
         }
+    } else if(kind==7) {
+        if(button("Rename",x+4,y+4,w-8,24,0)) { rename_track=rename_mixer=-1; rename_channel=target; snprintf(rename_text,sizeof rename_text,"%s",project.channel_names[target]); rename_select_all=1; open_popup(2); context_kind=0; }
+        if(button("Color",x+4,y+29,w-8,24,0)) { context_kind=8; context_opened=1; }
+        if(button("Delete",x+4,y+54,w-8,24,0)) { picker_drag=-1; delete_channel(target); context_kind=0; }
+        if(hover(x+4,y+54,w-8,24)) snprintf(status,sizeof status,"Delete this Audio channel and all its Playlist clips; the source file stays on disk");
     } else if(kind==4) {
         if(button("Rename",x+4,y+4,w-8,24,0)) { pattern=target; begin_rename(); context_kind=0; }
         if(button("Color",x+4,y+29,w-8,24,0)) { context_kind=5; context_opened=1; }
@@ -2046,13 +2196,8 @@ int main(int argc,char **argv) {
         }
     }
 #endif
-    project_default(&project); samples_default(originals);
-    for(int c=0;c<CHANNELS;c++) { samples[c]=sample_copy(originals[c]); sampler_applied[c]=project.sampler[c]; }
-    for(int c=0;c<4;c++) {
-        const char *path=TextFormat("%s/%s/%s.wav",samples_path,c==3?"melodic":"drums",project.channel_names[c]);
-        if(FileExists(path)) snprintf(project.paths[c],sizeof project.paths[c],"%s",path);
-    }
-    for(int c=0;c<4;c++) if(!samples[c].data) { fprintf(stderr,"Out of memory\n"); return 1; }
+    project_new(&project);
+    for(int c=0;c<CHANNELS;c++) sampler_applied[c]=project.sampler[c];
     int audio_ok=audio_start(&project,samples);
     if(!audio_ok) snprintf(status,sizeof status,"Audio device unavailable. Editing and WAV export are available.");
     unsigned flags=FLAG_WINDOW_RESIZABLE;
@@ -2287,7 +2432,7 @@ int main(int argc,char **argv) {
         ui_surface((Rectangle){0,0,width,40},panel);
         ui_surface((Rectangle){8,8,160,22},cell);
         if(button("FILE",8,8,52,22,pattern_popup==1)) open_popup(1);
-        if(hover(8,8,48,22)) snprintf(status,sizeof status,"File: Save, Open or Export");
+        if(hover(8,8,48,22)) snprintf(status,sizeof status,"File: New, Demo, Save, Open or Export");
         if(button("VIEW",60,8,56,22,pattern_popup==7)) open_popup(7);
         if(hover(60,8,52,22)) snprintf(status,sizeof status,"View: theme and transparency settings");
         if(button("HELP",116,8,52,22,pattern_popup==9)) open_popup(9);
@@ -2319,9 +2464,9 @@ int main(int argc,char **argv) {
         label(TextFormat("%03llu:%02llu",(unsigned long long)(step/16+1),(unsigned long long)(step%16+1)),488,10,18,ui_theme.signal);
         if(hover(478,8,88,22)) snprintf(status,sizeof status,"Playback position: bar and sixteenth-note step");
         for(int i=0;i<4;i++) { int id=i==1?2:i==2?1:i; editor_button(id,574+i*26); }
-        if(button("",686,8,22,22,follow_playhead)) follow_playhead=!follow_playhead;
+        if(button("",686,8,22,22,follow_playhead)) { follow_playhead=!follow_playhead; if(!follow_playhead) { arrangement.view_start=fmaxf(0,arrangement.view_start); for(int p=0;p<PATTERNS;p++) piano_pan[p]=fmaxf(0,piano_pan[p]); } }
         icon(ICON_FOLLOW,697,19,20,follow_playhead?ui_theme.selected_text:ink);
-        if(hover(686,8,22,22)) snprintf(status,sizeof status,"Follow playhead: keep playback in view in the Playlist (Song) or Piano Roll (PAT)");
+        if(hover(686,8,22,22)) snprintf(status,sizeof status,"Follow playhead: center playback in the Playlist (Song) or Piano Roll (PAT)");
         if(button("",712,8,22,22,typing_keys)) typing_keys=!typing_keys;
         icon(ICON_KEYS,723,19,20,typing_keys?ui_theme.selected_text:ink);
         if(hover(712,8,22,22)) snprintf(status,sizeof status,"Typing piano: Z row C3, Q row C4; S/D/G/H/J and 2/3/5/6/7 sharps; disabled in Browser/text fields");
@@ -2371,6 +2516,7 @@ int main(int argc,char **argv) {
                     else {
                         audition_entry(entry); snprintf(sample_drag,sizeof sample_drag,"%s",path);
                         sample_origin=mouse; sample_moved=0;
+                        sample_offset=(Vector2){mouse.x-8,mouse.y-y}; sample_drag_width=sidebar-16; sample_text_offset=indent+6;
                     }
                 }
             }
@@ -2400,10 +2546,8 @@ int main(int argc,char **argv) {
         for(int i=0;i<EDITORS;i++) { input_enabled=!modal && !pattern_popup && !context_kind && !snap_menu && !dragging && !sample_drag[0] && !captured(); draw_editor(order[i],scale); }
         mixer_was_visible=windows.editors[3].visible;
         BeginMode2D((Camera2D){.zoom=scale}); DrawRectangle(0,height-22,width,22,panel); label(fit_text(status,width-16,11),8,height-17,11,ink);
-        if(sample_drag[0] && sample_moved) {
-            DrawRectangle(mouse.x+12,mouse.y+8,164,24,cell);
-            label(fit_text(GetFileName(sample_drag),148,12),mouse.x+20,mouse.y+14,12,ink);
-        }
+        draw_browser_drag();
+        draw_picker_drag();
         draw_popup(); draw_context(); draw_snap(); EndMode2D();
         sampler_queue();
         flush_cursor(); audio_update(&project,playing,song,pattern,reset,output_volume,playback_start(),playback_loop()[0],playback_loop()[1]);

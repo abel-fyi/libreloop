@@ -79,8 +79,8 @@ are a coherent mouse-driven workflow and minimal code and dependencies.
   metronome and listening gain mix before the final device clamp to -1..1.
   PCM16 export clamps at conversion. Overloaded mixes still need gain reduction;
   there is no automatic compressor or lookahead limiter.
-- Project files currently use `.hbt` and the `HOMEBEAT` version-28 header for
-  compatibility. Versions 1–27 remain readable. Renaming the app did not change
+- Project files currently use `.hbt` and the `HOMEBEAT` version-29 header for
+  compatibility. Versions 1–28 remain readable. Renaming the app did not change
   the project format. Sample paths are absolute and projects are not portable bundles.
 - Browser roots are written under the `libreloop` configuration directory;
   legacy `homebeat` roots are read when no new configuration exists.
