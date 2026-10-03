@@ -65,9 +65,11 @@ static void callback(ma_device *d, void *out, const void *in, ma_uint32 frames) 
     if(preview_position<preview_end) { preview_frame=preview_position; preview_time=live_time; preview_rate=pitch_speed*preview_speed; }
     for(unsigned i=0;i<frames && preview_position<preview_end && preview_remaining;i++,preview_position+=pitch_speed*preview_speed,preview_remaining--) {
         unsigned n=(unsigned)preview_position;
-        float a=preview.data[n],b=n+1<preview.frames?preview.data[n+1]:0;
-        float x=(a+(b-a)*(preview_position-n))*preview_gain;
-        buffer[i*2]=tanhf(buffer[i*2]+x); buffer[i*2+1]=tanhf(buffer[i*2+1]+x);
+        for(unsigned side=0;side<2;side++) {
+            float a=sample_at(preview,n,side),b=sample_at(preview,n+1,side);
+            float x=(a+(b-a)*(preview_position-n))*preview_gain;
+            buffer[i*2+side]=tanhf(buffer[i*2+side]+x);
+        }
     }
     if(playing && atomic_load_explicit(&metronome,memory_order_relaxed)) {
         double beat_frames=RATE*60.0/project.bpm;
@@ -214,13 +216,14 @@ double audio_visual_position(void) {
 void audio_close(void) { if(ready) ma_device_uninit(&device); }
 int sample_load(const char *path,Sample *s) {
     ma_decoder decoder;
-    ma_decoder_config config=ma_decoder_config_init(ma_format_f32,1,RATE);
+    ma_decoder_config config=ma_decoder_config_init(ma_format_f32,0,RATE);
     if(ma_decoder_init_file(path,&config,&decoder)!=MA_SUCCESS) return 0;
+    unsigned channels=decoder.outputChannels;
     ma_uint64 frames=0,read=0;
-    int ok=ma_decoder_get_length_in_pcm_frames(&decoder,&frames)==MA_SUCCESS && frames>0 && frames<=SAMPLE_MAX_FRAMES && frames<=SIZE_MAX/sizeof(float);
-    float *data=ok?malloc((size_t)frames*sizeof(float)):NULL;
+    int ok=ma_decoder_get_length_in_pcm_frames(&decoder,&frames)==MA_SUCCESS && frames>0 && frames<=SAMPLE_MAX_FRAMES && (channels==1 || channels==2) && frames<=SIZE_MAX/(channels*sizeof(float));
+    float *data=ok?malloc((size_t)frames*channels*sizeof(float)):NULL;
     ok=data && ma_decoder_read_pcm_frames(&decoder,data,frames,&read)==MA_SUCCESS && read==frames;
     ma_decoder_uninit(&decoder);
     if(!ok) { free(data); return 0; }
-    *s=(Sample){data,(unsigned)frames}; return 1;
+    *s=(Sample){data,(unsigned)frames,channels}; return 1;
 }

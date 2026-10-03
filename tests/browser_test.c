@@ -6,7 +6,8 @@
 #include <unistd.h>
 #define CHECK(x) do { if(!(x)) { fprintf(stderr,"Failed line %d: %s\n",__LINE__,#x); return 1; } } while(0)
 int main(void) {
-    char root[]="/tmp/libreloop-browser-XXXXXX"; CHECK(mkdtemp(root));
+    char temporary[]="/tmp/libreloop-browser-XXXXXX",root[PATH_MAX];
+    CHECK(mkdtemp(temporary)); CHECK(realpath(temporary,root));
     char config[PATH_MAX],child[PATH_MAX],file[PATH_MAX],ignored[PATH_MAX],nested[PATH_MAX];
     snprintf(config,sizeof config,"%s/config",root); CHECK(!setenv("XDG_CONFIG_HOME",config,1));
     snprintf(child,sizeof child,"%s/My samples",root); CHECK(MakeDirectory(child)==0);

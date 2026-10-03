@@ -151,7 +151,7 @@ int main(void) {
     float ramp[]={.1f,.2f,.3f,.4f,.5f,.6f}; Sample pitched_sample[CHANNELS]={{ramp,6},{0},{0},{0}};
     float pitched_out[4]; player_reset(&rp); render(&rp,&pitched,pitched_sample,pitched_out,2);
     CHECK(rp.voices[0].position==4 && rp.frame==2 && rp.voices[0].remaining==24000-2);
-    CHECK(fabsf(pitched_out[2]-tanhf(.3f*.7f))<.00001f);
+    CHECK(fabsf(pitched_out[2]-tanhf(.3f))<.00001f);
     pitched.master_pitch=-12; render(&rp,&pitched,pitched_sample,result,1); CHECK(rp.voices[0].position==4.5 && rp.frame==3);
     CHECK(pitched.notes[0][0][0].pitch==60 && pitched.bpm==120);
     CHECK(project_save("test-project.hbt",&pitched)); CHECK(project_load("test-project.hbt",&q)); CHECK(memcmp(&pitched,&q,sizeof q)==0);
@@ -313,6 +313,7 @@ int main(void) {
     p.swing=0; CHECK(legacy_save("legacy.hbt",&p,15)); roundtrip.swing=1;
     CHECK(project_load("legacy.hbt",&roundtrip) && roundtrip.swing==0);
     project_default(&p); CHECK(p.master==1 && p.insert_volume[0]==1 && p.insert_volume[99]==1);
+    for(int ch=0;ch<CHANNELS;ch++) CHECK(p.volume[ch]==1);
     CHECK(fader_gain(0)==0 && fabsf(fader_gain(1)-MIXER_GAIN_MAX)<.00001f);
     CHECK(fabsf(fader_gain(fader_position(1))-1)<.00001f && fader_position(1)==.75f);
     const float gains[]={.01f,.25f,.5f,1,1.5f,2};
@@ -336,10 +337,10 @@ int main(void) {
     CHECK(project_save("test-project.hbt",&p) && project_load("test-project.hbt",&q));
     CHECK(q.effect_mix[1][0]==.25f && q.effect_bypass[1][0]==1 && !strcmp(q.track_names[0],"Drums"));
     CHECK(!strcmp(q.insert_names[0],"Drum bus") && !strcmp(q.insert_names[99],"Insert 100"));
-    for(int version=19;version<=26;version++) {
+    for(int version=19;version<=27;version++) {
         FILE *current=fopen("test-project.hbt","r"),*old=fopen("recent-legacy.hbt","w"); CHECK(current && old);
         char line[2048]; int lines=0; while(fgets(line,sizeof line,current)) lines++;
-        int omitted=LANES*CLIPS+(version<26?CHANNELS:0)+(version<25?CHANNELS:0)+(version<23?CHANNELS:0)+(version<22?PATTERNS:0)+(version<21?INSERTS:0)+(version<20?LANES+(INSERTS+1)*10:0);
+        int omitted=(version<27?LANES*CLIPS:0)+(version<26?CHANNELS:0)+(version<25?CHANNELS:0)+(version<23?CHANNELS:0)+(version<22?PATTERNS:0)+(version<21?INSERTS:0)+(version<20?LANES+(INSERTS+1)*10:0);
         rewind(current); fprintf(old,"HOMEBEAT %d\n",version); CHECK(fgets(line,sizeof line,current));
         for(int i=1;i<lines-omitted;i++) { CHECK(fgets(line,sizeof line,current)); fputs(line,old); }
         fclose(current); fclose(old);
@@ -370,5 +371,17 @@ int main(void) {
     CHECK(project_save("pitch.hbt",&p) && project_load("pitch.hbt",&q));
     CHECK(q.channel_pitch[0]==-.5f && q.pitch_range[0]==48); remove("pitch.hbt");
     p.pitch_range[0]=1.5f; CHECK(!project_save("bad-project.hbt",&p)); p.pitch_range[0]=2;
+    /* Boosted channel volume survives save/load and reaches the audio renderer. */
+    project_default(&p); p.volume[0]=VOLUME_KNOB_MAX; p.route[0]=0;
+    CHECK(project_save("boost.hbt",&p) && project_load("boost.hbt",&q));
+    CHECK(q.volume[0]==VOLUME_KNOB_MAX);
+    float quiet[]={.1f}; Sample boosted[CHANNELS]={{quiet,1}}; float boosted_pcm[2];
+    memset(p.notes,0,sizeof p.notes); CHECK(note_add(&p,0,0,0,60,0)); p.notes[0][0][0].velocity=127;
+    player_reset(&a); render(&a,&p,boosted,boosted_pcm,1);
+    CHECK(fabsf(boosted_pcm[0]-tanhf(.1f*VOLUME_KNOB_MAX))<1e-6);
+    p.volume[0]=VOLUME_KNOB_MAX+.01f; CHECK(!project_save("invalid-boost.hbt",&p));
+    p.volume[0]=NAN; CHECK(!project_save("invalid-boost.hbt",&p));
+    p.volume[0]=-1; CHECK(!project_save("invalid-boost.hbt",&p));
+    remove("boost.hbt"); remove("invalid-boost.hbt");
     puts("Project versions 1-12, master pitch, clip lengths, extended patterns, chords and gates, routing, render consistency, mute and WAV duration passed."); return 0;
 }

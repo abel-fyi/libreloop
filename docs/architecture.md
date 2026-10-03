@@ -1,6 +1,6 @@
 # Architecture and scope
 
-LibreLoop is a small, self-contained Linux DAW in C. It borrows familiar FL
+LibreLoop is a small, self-contained Linux and macOS DAW in C. It borrows familiar FL
 Studio placement and workflows, with a simpler raylib interface. Priorities
 are a coherent mouse-driven workflow and minimal code and dependencies.
 
@@ -37,6 +37,10 @@ are a coherent mouse-driven workflow and minimal code and dependencies.
   instrument; future instruments belong in the Rack and effects in Mixer slots.
   Add a small internal interface when useful. External VST, CLAP and LV2 hosting
   and a public custom plugin format are outside the planned scope.
+- Playlist and Piano Roll share navigation mapping: wheel scrolls vertically,
+  Shift+wheel horizontally, platform modifier+wheel zooms at the pointer, and
+  middle-button drag pans both axes. macOS adds precise two-finger scrolling
+  and native pinch events through a small AppKit bridge.
 - Editor windows are virtual windows within raylib, sharing one small window
   manager. Browser resizing and editor scrolling use the same mouse-first approach.
 - Idle drawing waits for events; playback and gestures run at 60 FPS. Workers
@@ -59,13 +63,17 @@ are a coherent mouse-driven workflow and minimal code and dependencies.
   with the Rack. Channel pitch changes playback speed over a saved 1–48 semitone
   range; sampler processing Pitch preserves duration. All knobs share one size
   and one cached arc atlas size bank.
+- Samples store mono or interleaved stereo PCM. Decoding, playback, previews and
+  export retain stereo. Sampler stretch uses one grain alignment for both channels;
+  normalization uses a shared peak and trimming checks both channels. Waveform
+  envelopes include both channels without summing them.
 - Original sample audio is retained. Processing produces a separate sample,
   using a background worker after knob release. Start/Length and the quiet-tail Trim threshold preview the crop
   live; Pitch/Time retain the processed waveform until replacement audio is ready.
 - The audio callback allocates nothing. It uses a nonblocking mutex attempt;
   a concurrent UI update may silence a buffer. This is a prototype limitation.
-- Project files currently use `.hbt` and the `HOMEBEAT` version-27 header for
-  compatibility. Versions 1–26 remain readable. Renaming the app did not change
+- Project files currently use `.hbt` and the `HOMEBEAT` version-28 header for
+  compatibility. Versions 1–27 remain readable. Renaming the app did not change
   the project format. Sample paths are absolute and projects are not portable bundles.
 - Browser roots are written under the `libreloop` configuration directory;
   legacy `homebeat` roots are read when no new configuration exists.

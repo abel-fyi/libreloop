@@ -7,6 +7,7 @@
 #include "theme.h"
 #include "arrangement.h"
 #include "waveform.h"
+#include "navigation.h"
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 #include <math.h>
@@ -17,6 +18,35 @@
 #include <ctype.h>
 #include <pthread.h>
 #include <stdatomic.h>
+
+static char samples_path[PATH_MAX],font_path[PATH_MAX];
+static int shortcut_down(void) {
+#ifdef __APPLE__
+    return IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER);
+#else
+    return IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
+#endif
+}
+static int command_down(void) {
+    return shortcut_down() || IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)
+        || IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER);
+}
+static int delete_pressed(void) {
+#ifdef __APPLE__
+    return IsKeyPressed(KEY_DELETE) || IsKeyPressed(KEY_BACKSPACE);
+#else
+    return IsKeyPressed(KEY_DELETE);
+#endif
+}
+static void resource_paths(void) {
+#ifdef __APPLE__
+    snprintf(samples_path,sizeof samples_path,"%s../Resources/samples",GetApplicationDirectory());
+    snprintf(font_path,sizeof font_path,"%s../Resources/fonts/LiberationSans-Regular.ttf",GetApplicationDirectory());
+#else
+    snprintf(samples_path,sizeof samples_path,"%s",LIBRELOOP_SAMPLES);
+    snprintf(font_path,sizeof font_path,"%s",LIBRELOOP_FONT);
+#endif
+}
 
 /* Keep presses even when release + press arrive in the same raylib frame.
    Chain raylib's callback so its normal button, touch and gesture state stays intact. */
@@ -50,7 +80,7 @@ static struct {
 } sampler_job;
 static Sample sample_copy(Sample source) {
     Sample copy={0};
-    if(source.frames) { copy.data=malloc(source.frames*sizeof(float)); if(copy.data) { memcpy(copy.data,source.data,source.frames*sizeof(float)); copy.frames=source.frames; } }
+    if(source.frames) { copy.data=malloc((size_t)source.frames*sample_channels(source)*sizeof(float)); if(copy.data) { memcpy(copy.data,source.data,(size_t)source.frames*sample_channels(source)*sizeof(float)); copy.frames=source.frames; copy.channels=source.channels; } }
     return copy;
 }
 static void *sampler_worker(void *unused) {
@@ -176,7 +206,11 @@ static float velocity_drag=-1;
 static int snap_mode[2]={SNAP_STEP,SNAP_STEP},snap_menu,snap_opened;
 static Vector2 snap_position;
 static int rack_paint=-1,rack_paint_channel=-1; static float rack_paint_step;
-static int captured(void) { return track_resize>=0 || rack_hdrag || rack_vdrag || piano_key_drag || control_drag || route_drag>=0 || note_drag || velocity_drag>=0 || arrangement.gesture || playlist_pan || browser_resize || rack_paint>=0 || cable_drag>0 || playlist_vpan || mixer_pan || piano_scroll_drag || piano_vdrag || piano_gesture || marker_drag>=0; }
+static int navigation_drag=-1,navigation_active;
+static Vector2 navigation_last;
+static NavigationInput navigation_input;
+static float piano_scroll_remainder;
+static int captured(void) { return navigation_drag>=0 || track_resize>=0 || rack_hdrag || rack_vdrag || piano_key_drag || control_drag || route_drag>=0 || note_drag || velocity_drag>=0 || arrangement.gesture || playlist_pan || browser_resize || rack_paint>=0 || cable_drag>0 || playlist_vpan || mixer_pan || piano_scroll_drag || piano_vdrag || piano_gesture || marker_drag>=0; }
 static void sampler_queue(void) {
     sampler_update();
     if(sampler_job.busy || control_drag || pattern_popup==5) return;
@@ -211,7 +245,7 @@ static void fonts_update(float scale) {
     fonts_close(); font_scale=scale; icons_init(scale);
     int glyphs[224]; for(int i=0;i<224;i++) glyphs[i]=32+i;
     for(int size=10;size<=22;size++) {
-        ui_fonts[size]=LoadFontEx(LIBRELOOP_FONT,fmaxf(1,roundf(size*scale)),glyphs,224);
+        ui_fonts[size]=LoadFontEx(font_path,fmaxf(1,roundf(size*scale)),glyphs,224);
         if(!ui_fonts[size].texture.id) ui_fonts[size]=GetFontDefault();
         SetTextureFilter(ui_fonts[size].texture,TEXTURE_FILTER_POINT);
     }
@@ -351,13 +385,14 @@ static Texture2D knob_arcs;
 static int knob_context=-1,knob_animating;
 #define KNOB_RADIUS 10
 static void arcs_init(void) {
-    /* Cached banks: minimum-to-value, center-to-value and a full-circle sweep. */
+    /* Swing horseshoe, centered full turn, and minimum-to-value full turn. */
     Image image=GenImageColor(1536,288,BLANK);
     Color *pixels=image.data;
     for(int bank=0;bank<3;bank++) for(int level=0;level<=128;level++) for(int y=0;y<32;y++) for(int x=0;x<32;x++) {
         float dx=x+.5f-16,dy=y+.5f-16,distance=sqrtf(dx*dx+dy*dy);
-        float angle=atan2f(dy,dx)-(bank==2?PI/2:2.4f); if(angle<0) angle+=2*PI;
-        float end=level/128.f*(bank==2?2*PI:4.6f),start=bank==1?2.3f:0;
+        float origin=bank==0?2.4f:bank==1?PI/2:-PI/2;
+        float angle=atan2f(dy,dx)-origin; if(angle<0) angle+=2*PI;
+        float end=level/128.f*(bank==0?4.6f:2*PI),start=bank==1?PI:0;
         float alpha=fmaxf(0,fminf(1,fminf(16-distance,distance-(16-48.f/KNOB_RADIUS))/1.4f));
         if(bank!=2 || level!=128) alpha*=fmaxf(0,fminf(1,fminf(angle-fminf(start,end),fmaxf(start,end)-angle)*distance));
         pixels[(level/16*32+y)*1536+bank*512+level%16*32+x]=(Color){255,255,255,255*alpha};
@@ -498,8 +533,8 @@ static void begin_number(float *value,float low,float high,float initial,const c
     snprintf(number_text,sizeof number_text,"%.6g",*value); rename_select_all=1; open_popup(5);
 }
 static void text_input(char *text,size_t capacity) {
-    if(IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_A)) rename_select_all=1;
-    if(IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_V)) {
+    if(shortcut_down() && IsKeyPressed(KEY_A)) rename_select_all=1;
+    if(shortcut_down() && IsKeyPressed(KEY_V)) {
         const char *paste=GetClipboardText();
         if(paste) {
             if(rename_select_all) { text[0]=0; rename_select_all=0; }
@@ -514,7 +549,7 @@ static void text_input(char *text,size_t capacity) {
     if(IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_RIGHT)) rename_select_all=0;
     int ch;
     while((ch=GetCharPressed())>0) {
-        if(ch<32 || ch==127 || IsKeyDown(KEY_LEFT_CONTROL)) continue;
+        if(ch<32 || ch==127 || command_down()) continue;
         if(rename_select_all) { text[0]=0; rename_select_all=0; }
         int bytes; const char *utf8=CodepointToUTF8(ch,&bytes); size_t n=strlen(text);
         if(n+bytes<capacity) { memcpy(text+n,utf8,bytes); text[n+bytes]=0; }
@@ -534,6 +569,12 @@ static void device_button(int io,int x,int y,int width) {
     DrawTriangle((Vector2){x+width-16,y+8},(Vector2){x+width-12,y+14},(Vector2){x+width-8,y+8},muted);
 }
 static int load_project(const char *path);
+static void help_group(int x,int *y,const char *title) {
+    label(title,x,*y,13,accent); *y+=26;
+}
+static void help_binding(int x,int *y,const char *keys,const char *action) {
+    label(keys,x,*y,11,ink); label(action,x+126,*y,11,muted); *y+=23;
+}
 static void draw_popup(void) {
     if(!pattern_popup) { popup_drag=0; return; }
     input_enabled=1;
@@ -587,7 +628,7 @@ static void draw_popup(void) {
         }
         return;
     }
-    int folder=pattern_popup==3,help=pattern_popup==4,number=pattern_popup==5,w=pattern_popup==6?320:help?580:number?360:folder?620:260,h=help?352:116;
+    int folder=pattern_popup==3,help=pattern_popup==4,number=pattern_popup==5,w=pattern_popup==6?320:help?660:number?360:folder?620:260,h=help?420:116;
     float scale=fminf(GetScreenWidth()/1200.f,GetScreenHeight()/675.f);
     Vector2 *position=&popup_position[pattern_popup];
     if(position->x<0 || position->y<0) *position=(Vector2){(GetScreenWidth()/scale-w)/2,(GetScreenHeight()/scale-h)/2};
@@ -613,22 +654,43 @@ static void draw_popup(void) {
     }
     if(help) {
         label("Help - Keybindings",x+8,y+3,13,ink);
-        const char *bindings[]={
-            "Space - Play / stop from the ruler start marker",
-            "Keys on: Z row - C3 white keys; S/D/G/H/J - black keys",
-            "Keys on: Q row - C4 white keys; 2/3/5/6/7 - black keys",
-            "Delete / Supr - Delete selected clips / notes (focused editor)",
-            "Shift-click - Add/remove a clip or note from selection",
-            "Shift-drag empty grid - Add a selection rectangle",
-            "Browser hover: Up/Down or k/j - Select and preview",
-            "Left/h - Collapse Browser folder or select its parent",
-            "Right/l - Expand Browser folder or select its first child",
-            "Escape - Close a dialog or cancel a sample drag",
-            "Enter - Apply a name, folder path or numeric value",
-            "Ctrl+A / Ctrl+V - Select all / paste in a text field",
-            "Backspace - Delete text; Left/Right - Clear text selection"
-        };
-        for(unsigned i=0;i<sizeof bindings/sizeof *bindings;i++) label(bindings[i],x+12,y+34+i*24,13,ink);
+        int left=x+18,right=x+348,ly=y+34,ry=ly;
+        help_group(left,&ly,"Playlist & Piano Roll navigation");
+        help_binding(left,&ly,"Wheel","Scroll vertically");
+        help_binding(left,&ly,"Shift + wheel","Scroll horizontally");
+#ifdef __APPLE__
+        help_binding(left,&ly,"Cmd + wheel","Zoom around pointer");
+        help_binding(left,&ly,"Two-finger scroll","Pan in both directions");
+        help_binding(left,&ly,"Pinch","Zoom around pointer");
+#else
+        help_binding(left,&ly,"Ctrl + wheel","Zoom around pointer");
+#endif
+        help_binding(left,&ly,"Middle drag","Pan freely");
+        ly+=12; help_group(left,&ly,"Transport & keyboard audition");
+        help_binding(left,&ly,"Space","Play / stop from marker");
+        help_binding(left,&ly,"Z row + S/D/G/H/J","Play notes from C3");
+        help_binding(left,&ly,"Q row + number keys","Play notes from C4");
+        ly+=12; help_group(left,&ly,"Editor windows");
+        help_binding(left,&ly,"Drag title bar","Move window");
+        help_binding(left,&ly,"Double-click title","Maximize / restore");
+        help_group(right,&ry,"Editing & selection");
+        help_binding(right,&ry,"Shift-click","Add / remove selection");
+        help_binding(right,&ry,"Shift-drag empty","Add selection rectangle");
+        help_binding(right,&ry,"Delete","Delete selected clips / notes");
+        help_binding(right,&ry,"Right-drag","Erase clips / notes");
+        ry+=12; help_group(right,&ry,"Text fields & dialogs");
+#ifdef __APPLE__
+        help_binding(right,&ry,"Cmd + A / V","Select all / paste");
+#else
+        help_binding(right,&ry,"Ctrl + A / V","Select all / paste");
+#endif
+        help_binding(right,&ry,"Enter / Escape","Apply / cancel");
+        help_binding(right,&ry,"Backspace","Delete text");
+        ry+=12; help_group(right,&ry,"Browser (hover or focus)");
+        help_binding(right,&ry,"Up/Down or K/J","Select & preview");
+        help_binding(right,&ry,"Left or H","Collapse / parent folder");
+        help_binding(right,&ry,"Right or L","Expand / child folder");
+        label("Navigation applies to the editor under the pointer. Audition requires Keys enabled.",x+18,y+h-24,11,muted);
         return;
     }
     char *text=number?number_text:folder?folder_text:rename_text; size_t capacity=number?sizeof number_text:folder?sizeof folder_text:sizeof rename_text;
@@ -686,8 +748,8 @@ static void audition_entry(int entry) {
     for(int i=0;i<128;i++) {
         audition_low[i]=audition_high[i]=0;
         for(size_t j=(size_t)i*next.frames/128;j<(size_t)(i+1)*next.frames/128;j++) {
-            audition_low[i]=fminf(audition_low[i],next.data[j]);
-            audition_high[i]=fmaxf(audition_high[i],next.data[j]);
+            audition_low[i]=fminf(audition_low[i],fminf(sample_at(next,j,0),sample_at(next,j,1)));
+            audition_high[i]=fmaxf(audition_high[i],fmaxf(sample_at(next,j,0),sample_at(next,j,1)));
         }
     }
     snprintf(status,sizeof status,"Preview: %.140s",GetFileName(path));
@@ -701,7 +763,7 @@ static void rack_reveal_last(void) {
 static void add_sampler(void) {
     int c=project.channel_count;
     if(c>=CHANNELS) { snprintf(status,sizeof status,"Channel Rack limit: %d channels.",CHANNELS); return; }
-    project.channel_pitch[c]=0; project.pitch_range[c]=2; project.channel_audio[c]=0; project.audio_seconds[c]=0; rack_filter=2; project.channel_count++; project.sampler[c]=(Sampler){.time=1,.length=1}; project.volume[c]=.7f; project.pan[c]=0; project.mute[c]=0; project.route[c]=0;
+    project.channel_pitch[c]=0; project.pitch_range[c]=2; project.channel_audio[c]=0; project.audio_seconds[c]=0; rack_filter=2; project.channel_count++; project.sampler[c]=(Sampler){.time=1,.length=1}; project.volume[c]=1; project.pan[c]=0; project.mute[c]=0; project.route[c]=0;
     snprintf(project.paths[c],sizeof project.paths[c],"%s",SAMPLE_EMPTY);
     memset(project.channel_names[c],0,PATTERN_NAME); snprintf(project.channel_names[c],PATTERN_NAME,"Sampler");
     for(int pat=0;pat<PATTERNS;pat++) {
@@ -845,11 +907,14 @@ failed:
 static void capture_control(float *value,float low,float high,int fader) {
     control_integer=0; control_raw=*value; control_drag=value; control_low=low; control_high=high; control_fader=fader; control_reverse=0; input_enabled=0;
 }
-enum { KNOB_NORMAL,KNOB_SWING,KNOB_PAN,KNOB_WIDTH,KNOB_CENTER,KNOB_WET };
+enum { KNOB_NORMAL,KNOB_SWING,KNOB_PAN,KNOB_WIDTH,KNOB_CENTER,KNOB_WET,KNOB_VOLUME };
 static void knob_style(int x,int y,float *value,float low,float high,float initial,const char *name,int style) {
     float size=KNOB_RADIUS;
     int over=hover(x-size-1,y-size-1,size*2+2,size*2+2);
-    if(over || control_drag==value) snprintf(status,sizeof status,"%s: %.4g | Drag up/down or wheel; right-click for number entry",name,*value);
+    if(over || control_drag==value) {
+        if(style==KNOB_VOLUME) snprintf(status,sizeof status,"%s: %.4g (%.2f dB) | Dot marks 0 dB; drag or wheel; right-click for number entry",name,*value,gain_db(*value));
+        else snprintf(status,sizeof status,"%s: %.4g | Drag up/down or wheel; right-click for number entry",name,*value);
+    }
     if(over) {
         if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) begin_number(value,low,high,initial,name);
         if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { capture_control(value,low,high,0); control_reverse=style==KNOB_WIDTH; }
@@ -870,16 +935,23 @@ static void knob_style(int x,int y,float *value,float low,float high,float initi
     float radius=size*(1-.08f*shrink),fraction=(*value-low)/(high-low);
     if(style==KNOB_CENTER) fraction=*value<initial?.5f*(*value-low)/(initial-low):.5f+.5f*(*value-initial)/(high-initial);
     if(style==KNOB_WIDTH) fraction=1-fraction;
-    float angle=style==KNOB_WET?PI/2+fraction*2*PI:2.4f+fraction*4.6f;
+    if(style==KNOB_VOLUME) fraction=*value<=1?.75f*(*value):.75f+.25f*(*value-1)/(high-1);
+    int centered=style==KNOB_PAN || style==KNOB_WIDTH || style==KNOB_CENTER;
+    float origin=centered?PI/2:style==KNOB_SWING?2.4f:style==KNOB_VOLUME?PI/2:-PI/2;
+    float angle=origin+fraction*(style==KNOB_SWING?4.6f:2*PI);
     int arc_row=0;
     Color color=style==KNOB_WET?muted:style==KNOB_SWING || style==KNOB_CENTER?ui_theme.swing:style==KNOB_PAN?(fraction<.5f?ui_theme.pan_left:ui_theme.pan_right):style==KNOB_WIDTH?(fraction<.5f?ui_theme.stereo:ui_theme.mono):ui_theme.knob;
-    int centered=style==KNOB_PAN || style==KNOB_WIDTH || style==KNOB_CENTER;
     if(style==KNOB_SWING) {
         DrawTexturePro(knob_arcs,(Rectangle){0,256,32,32},(Rectangle){x-radius,y-radius,radius*2,radius*2},(Vector2){0},0,ui_theme.border);
         circle(x,y,radius*.68f,cell);
     } else { circle(x,y,radius,ui_theme.border); circle(x,y,radius*.8f,cell); }
     int level=fmaxf(0,fminf(128,roundf(fraction*128)));
-    DrawTexturePro(knob_arcs,(Rectangle){(style==KNOB_WET?1024:centered?512:0)+level%16*32,arc_row+level/16*32,32,32},(Rectangle){x-radius,y-radius,radius*2,radius*2},(Vector2){0},0,color);
+    float rotation=style==KNOB_SWING || centered?0:(origin+PI/2)*RAD2DEG;
+    DrawTexturePro(knob_arcs,(Rectangle){(style==KNOB_SWING?0:centered?512:1024)+level%16*32,arc_row+level/16*32,32,32},(Rectangle){x,y,radius*2,radius*2},(Vector2){radius,radius},rotation,color);
+    if(style==KNOB_VOLUME) {
+        float unity=origin+.75f*2*PI;
+        circle(x+cosf(unity)*size*1.22f,y+sinf(unity)*size*1.22f,1.2f,muted);
+    }
     if(style!=KNOB_WET) circle(x+cosf(angle)*radius*.85f,y+sinf(angle)*radius*.85f,1.7f,centered && level==64?muted:color);
 }
 static void knob(int x,int y,float *value,float low,float high,float initial,const char *name) {
@@ -896,7 +968,7 @@ static void channel_controls(int c,float width) {
     int x=width-220;
     mute_light(x,36,project.mute,project.channel_count,c,project.channel_names[c]);
     knob_style(x+28,36,&project.pan[c],-1,1,0,"Channel pan",KNOB_PAN);
-    knob(x+58,36,&project.volume[c],0,1,.7f,"Channel volume");
+    knob_style(x+58,36,&project.volume[c],0,VOLUME_KNOB_MAX,1,"Channel volume",KNOB_VOLUME);
     knob_style(x+94,36,&project.channel_pitch[c],-1,1,0,"Channel pitch",KNOB_CENTER);
     if(hover(x+83,25,22,22) || control_drag==&project.channel_pitch[c]) snprintf(status,sizeof status,"Channel pitch: %+.2f semitones | range ±%.0f semitones",project.channel_pitch[c]*project.pitch_range[c],project.pitch_range[c]);
     float *range=&project.pitch_range[c];
@@ -946,7 +1018,7 @@ static void rack(float width,float height) {
     for(int index=rack_scroll;index<count && index<rack_scroll+visible;index++) {
         int c=rows[index],row=RACK_TOP+(index-rack_scroll)*28;
         mute_light(12,row+11,project.mute,project.channel_count,c,project.channel_names[c]);
-        knob_style(36,row+11,&project.pan[c],-1,1,0,"Channel pan",KNOB_PAN); knob(62,row+11,&project.volume[c],0,1,.7f,"Channel volume");
+        knob_style(36,row+11,&project.pan[c],-1,1,0,"Channel pan",KNOB_PAN); knob_style(62,row+11,&project.volume[c],0,VOLUME_KNOB_MAX,1,"Channel volume",KNOB_VOLUME);
         channel_route(c,78,row);
         if(button_color(fit_text(project.channel_names[c],68,13),106,row,78,22,0,project.channel_audio[c]?audio_color(c):cell)) {
             channel=instrument_channel=c; windows_focus(&windows,4);
@@ -1152,7 +1224,7 @@ static void timeline_grid(float start,float span,float snap,float gx,float y,flo
     }
 }
 static void follow_view(float *start,float span,double position) {
-    if(!follow_playhead || !playing || captured() || windows.grab>=0) return;
+    if(!follow_playhead || !playing || navigation_active || captured() || windows.grab>=0) return;
     if(position<*start || position>*start+span) *start=fmax(0,position-span*.25);
     else if(position>*start+span*.7)
         *start+=(position-span*.7-*start)*(1-expf(-12*GetFrameTime()));
@@ -1179,11 +1251,6 @@ static void playlist(float width,float height,float scale) {
     Rect rect=windows.editors[1].rect;
     int gx=212,gy=82; float gridw=width-gx-24,track_area=height-gy-42,total_height=track_position(LANES);
     track_scroll=fmaxf(0,fminf(total_height-track_area,track_scroll));
-    if(hover(gx,62,gridw,height-104)) {
-        float span=BARS/arrangement.zoom,wheel=GetMouseWheelMove();
-        if(wheel && (playlist_start<arrangement.view_start || playlist_start>arrangement.view_start+span)) arrangement.view_start=fmaxf(0,playlist_start-span*.5f);
-        arrangement_zoom(&arrangement,wheel,(playlist_start-arrangement.view_start)/span);
-    }
     float span=BARS/arrangement.zoom,barw=gridw/span;
     if(song) follow_view(&arrangement.view_start,span,visual_step/STEPS);
     arrangement.range=fmaxf(arrangement.range,fmaxf(arrangement.view_start+span*2,song_steps(&project)/STEPS+span));
@@ -1305,7 +1372,8 @@ static void playlist(float width,float height,float scale) {
             double now=GetTime();
             if(plain_left && last_lane==(int)ly && last_clip==hit && now-last_click<.35 && fabsf(mouse.x-last_position.x)<5 && fabsf(mouse.y-last_position.y)<5) {
                 int source=project.clips[(int)ly][hit]-1;
-                if(source<PATTERNS) pattern=source; else { channel=instrument_channel=source-PATTERNS; rack_filter=1; rack_scroll=0; } reset=1;
+                if(source<PATTERNS) { pattern=source; reset=1; }
+                else { channel=instrument_channel=source-PATTERNS; rack_filter=1; rack_scroll=0; }
                 arrangement.gesture=IDLE; windows_focus(&windows,source>=PATTERNS?4:0); last_click=-1;
                 input_enabled=0; return;
             }
@@ -1402,11 +1470,6 @@ static void piano(float width,float height) {
     zoom_label(STEPS/piano_span[pattern]*100,width-205,32);
     snap_button(1,width-120);
     int grid_over=hover(gx,gy,gridw,rh*25);
-    float wheel=grid_over?GetMouseWheelMove():0;
-    if(wheel) {
-        if(piano_start[pattern]<piano_pan[pattern] || piano_start[pattern]>piano_pan[pattern]+piano_span[pattern]) piano_pan[pattern]=fmaxf(0,piano_start[pattern]-piano_span[pattern]*.5f);
-        timeline_zoom(&piano_span[pattern],&piano_pan[pattern],wheel,(piano_start[pattern]-piano_pan[pattern])/piano_span[pattern],STEPS);
-    }
     extent=piano_span[pattern];
     if(!song) follow_view(&piano_pan[pattern],extent,visual_step);
     float cw=gridw/extent,view=piano_pan[pattern],q=snap_interval(snap_mode[1],cw),end=edit_steps();
@@ -1761,7 +1824,7 @@ static void typing_piano(int blocked) {
     static const int keys[]={KEY_Z,KEY_S,KEY_X,KEY_D,KEY_C,KEY_V,KEY_G,KEY_B,KEY_H,KEY_N,KEY_J,KEY_M,KEY_COMMA,KEY_L,KEY_PERIOD,KEY_SEMICOLON,KEY_SLASH,
         KEY_Q,KEY_TWO,KEY_W,KEY_THREE,KEY_E,KEY_R,KEY_FIVE,KEY_T,KEY_SIX,KEY_Y,KEY_SEVEN,KEY_U,KEY_I,KEY_NINE,KEY_O,KEY_ZERO,KEY_P,KEY_LEFT_BRACKET,KEY_EQUAL,KEY_RIGHT_BRACKET};
     static unsigned char held[sizeof keys/sizeof *keys];
-    int enabled=typing_keys && !blocked && !browser_focus && IsWindowFocused() && !IsKeyDown(KEY_LEFT_CONTROL) && !IsKeyDown(KEY_RIGHT_CONTROL) && !IsKeyDown(KEY_LEFT_ALT) && !IsKeyDown(KEY_RIGHT_ALT);
+    int enabled=typing_keys && !blocked && !browser_focus && IsWindowFocused() && !command_down() && !IsKeyDown(KEY_LEFT_ALT) && !IsKeyDown(KEY_RIGHT_ALT);
     for(unsigned i=0;i<sizeof keys/sizeof *keys;i++) {
         int pitch=i<17?48+i:60+i-17;
         if(held[i] && (!enabled || !IsKeyDown(keys[i]))) {
@@ -1818,7 +1881,7 @@ static void sampler(float width,float height) {
     int live_preview=pending && settings->pitch==applied.pitch && settings->time==applied.time && settings->stretch==applied.stretch;
     unsigned offset=llround(originals[c].frames*(double)settings->start);
     unsigned cropped=llround((originals[c].frames-offset)*(double)settings->length);
-    cropped=sample_trim_end((Sample){originals[c].data?originals[c].data+offset:NULL,cropped},settings->trim);
+    cropped=sample_trim_end((Sample){originals[c].data?originals[c].data+(size_t)offset*sample_channels(originals[c]):NULL,cropped,originals[c].channels},settings->trim);
     float duration=live_preview?cropped*settings->time/RATE:samples[c].frames/(float)RATE;
 
     static float peaks[512][2]; static const float *cached; static unsigned cached_frames;
@@ -1828,7 +1891,7 @@ static void sampler(float width,float height) {
         for(unsigned i=0;i<512;i++) {
             peaks[i][0]=peaks[i][1]=0;
             for(unsigned f=(uint64_t)i*sample.frames/512;f<(uint64_t)(i+1)*sample.frames/512;f++) {
-                peaks[i][0]=fminf(peaks[i][0],sample.data[f]); peaks[i][1]=fmaxf(peaks[i][1],sample.data[f]);
+                peaks[i][0]=fminf(peaks[i][0],fminf(sample_at(sample,f,0),sample_at(sample,f,1))); peaks[i][1]=fmaxf(peaks[i][1],fmaxf(sample_at(sample,f,0),sample_at(sample,f,1)));
             }
         }
     }
@@ -1843,8 +1906,8 @@ static void sampler(float width,float height) {
             for(unsigned i=0;i<4096;i++) {
                 source_peaks[i][0]=source_peaks[i][1]=0;
                 for(unsigned f=(uint64_t)i*source.frames/4096;f<(uint64_t)(i+1)*source.frames/4096;f++) {
-                    source_peaks[i][0]=fminf(source_peaks[i][0],source.data[f]);
-                    source_peaks[i][1]=fmaxf(source_peaks[i][1],source.data[f]);
+                    source_peaks[i][0]=fminf(source_peaks[i][0],fminf(sample_at(source,f,0),sample_at(source,f,1)));
+                    source_peaks[i][1]=fmaxf(source_peaks[i][1],fmaxf(sample_at(source,f,0),sample_at(source,f,1)));
                 }
             }
         }
@@ -1854,7 +1917,7 @@ static void sampler(float width,float height) {
             unsigned begin=offset+(uint64_t)bin*cropped/512,end=offset+(uint64_t)(bin+1)*cropped/512;
             float low=0,high=0;
             if(cropped<8192) {
-                for(unsigned f=begin;f<end;f++) { low=fminf(low,source.data[f]); high=fmaxf(high,source.data[f]); }
+                for(unsigned f=begin;f<end;f++) { low=fminf(low,fminf(sample_at(source,f,0),sample_at(source,f,1))); high=fmaxf(high,fmaxf(sample_at(source,f,0),sample_at(source,f,1))); }
             } else {
                 unsigned first=(uint64_t)begin*4096/source.frames,last=((uint64_t)end*4096+source.frames-1)/source.frames;
                 for(unsigned j=first;j<last && j<4096;j++) { low=fminf(low,source_peaks[j][0]); high=fmaxf(high,source_peaks[j][1]); }
@@ -1929,42 +1992,112 @@ static void draw_editor(int id,float scale) {
     DrawLine(r.w-9,r.h-2,r.w-2,r.h-9,muted); DrawRectangleLinesEx((Rectangle){0,0,r.w,r.h},2,focused?border:Fade(border,.6f));
     EndMode2D(); EndScissorMode(); text_origin=(Vector2){0};
 }
+/* Apply navigation once to the frontmost editor, before drawing/editing. */
+static void navigate_editors(float scale) {
+    navigation_active=0;
+    int blocked=pattern_popup || context_kind || snap_menu || sample_drag[0] || !IsWindowFocused();
+    if(navigation_drag>=0 && (blocked || !IsMouseButtonDown(MOUSE_BUTTON_MIDDLE))) navigation_drag=-1;
+    int id=navigation_drag>=0?navigation_drag:windows_hit(&windows,mouse.x,mouse.y);
+    if(blocked || (id!=1 && id!=2) || (navigation_drag<0 && captured()) || windows.grab>=0) return;
+    Rect r=windows.editors[id].rect;
+    float gx=id==1?212:60,gy=id==1?82:72,gridw=r.w-gx-24;
+    float area=id==1?r.h-gy-42:r.h-166;
+    Vector2 local={mouse.x-r.x,mouse.y-r.y};
+    if(navigation_drag<0 && (local.x<(id==1?120:4) || local.x>=r.w-24 || local.y<gy || local.y>=gy+area)) return;
+    int middle=navigation_drag>=0;
+    if(!middle && IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE)) {
+        windows_focus(&windows,id); navigation_drag=id; navigation_last=mouse; middle=1;
+    }
+    NavigationMotion motion={0};
+    if(middle) {
+        motion.x=navigation_last.x-mouse.x; motion.y=navigation_last.y-mouse.y;
+        navigation_last=mouse; SetMouseCursor(MOUSE_CURSOR_RESIZE_ALL);
+    } else motion=navigation_motion(navigation_input,IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT),shortcut_down(),scale);
+    if(motion.x || motion.y || motion.zoom || middle) { browser_focus=0; navigation_active=1; }
+    if(id==1) {
+        float span=BARS/arrangement.zoom;
+        arrangement.view_start=fmaxf(0,arrangement.view_start+motion.x*span/gridw);
+        if(motion.zoom && local.x>=gx) arrangement_zoom(&arrangement,motion.zoom,fmaxf(0,fminf(1,(local.x-gx)/gridw)));
+        track_scroll=fmaxf(0,fminf(fmaxf(0,track_position(LANES)-area),track_scroll+motion.y));
+    } else {
+        piano_pan[pattern]=fmaxf(0,piano_pan[pattern]+motion.x*piano_span[pattern]/gridw);
+        if(motion.zoom && local.x>=gx) timeline_zoom(&piano_span[pattern],&piano_pan[pattern],motion.zoom,fmaxf(0,fminf(1,(local.x-gx)/gridw)),STEPS);
+        piano_scroll_remainder+=motion.y/(area/25);
+        int rows=(int)piano_scroll_remainder;
+        piano_top=fmaxf(24,fminf(127,piano_top-rows)); piano_scroll_remainder-=rows;
+        if(piano_top==24 || piano_top==127) piano_scroll_remainder=0;
+    }
+}
+
 int main(int argc,char **argv) {
     int smoke=0;
     for(int i=1;i<argc;i++) if(!strcmp(argv[i],"--smoke")) smoke=1;
+    resource_paths();
+    if(smoke && (!DirectoryExists(samples_path) || !FileExists(font_path))) {
+        fprintf(stderr,"Smoke check failed: bundled samples or font are missing.\n"); return 1;
+    }
+#ifdef __APPLE__
+    /* Finder launches may start in /, where default saves cannot be written. */
+    if(!smoke && !strcmp(GetWorkingDirectory(),"/")) {
+        const char *home=getenv("HOME"); char directory[PATH_MAX];
+        if(!home || snprintf(directory,sizeof directory,"%s/Music/LibreLoop",home)>=(int)sizeof directory
+            || MakeDirectory(directory)!=0 || !ChangeDirectory(directory)) {
+            fprintf(stderr,"Cannot open a writable LibreLoop working directory.\n"); return 1;
+        }
+    }
+#endif
     project_default(&project); samples_default(originals);
     for(int c=0;c<CHANNELS;c++) { samples[c]=sample_copy(originals[c]); sampler_applied[c]=project.sampler[c]; }
     for(int c=0;c<4;c++) {
-        const char *path=TextFormat("%s/%s/%s.wav",LIBRELOOP_SAMPLES,c==3?"melodic":"drums",project.channel_names[c]);
+        const char *path=TextFormat("%s/%s/%s.wav",samples_path,c==3?"melodic":"drums",project.channel_names[c]);
         if(FileExists(path)) snprintf(project.paths[c],sizeof project.paths[c],"%s",path);
     }
     for(int c=0;c<4;c++) if(!samples[c].data) { fprintf(stderr,"Out of memory\n"); return 1; }
     int audio_ok=audio_start(&project,samples);
     if(!audio_ok) snprintf(status,sizeof status,"Audio device unavailable. Editing and WAV export are available.");
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE); InitWindow(1200,675,"LibreLoop - pattern workstation");
+    unsigned flags=FLAG_WINDOW_RESIZABLE;
+#ifdef __APPLE__
+    flags|=FLAG_WINDOW_HIGHDPI;
+#endif
+    SetConfigFlags(flags); InitWindow(1200,675,"LibreLoop - pattern workstation");
     circles_init(); arcs_init(); cables_init();
     SetWindowMinSize(900,506); SetTargetFPS(60); SetExitKey(KEY_NULL);
     app_window=glfwGetCurrentContext();
     raylib_mouse_callback=glfwSetMouseButtonCallback(app_window,mouse_callback);
+#ifdef __APPLE__
+    macos_navigation_init(app_window);
+#endif
     resize_cursor=glfwCreateStandardCursor(GLFW_HRESIZE_CURSOR);
     track_cursor=glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
-    browser_init(&browser,LIBRELOOP_SAMPLES); theme_init(browser.config); int frames=0,initialized=0; double last_activity=GetTime();
+    browser_init(&browser,samples_path); theme_init(browser.config); int frames=0,initialized=0; double last_activity=GetTime();
     while(!WindowShouldClose()) {
         if(sampler_job.busy && atomic_load(&sampler_job.done)) last_activity=GetTime();
         sampler_update();
+        Vector2 wheel=GetMouseWheelMoveV();
+        navigation_input=(NavigationInput){wheel.x,wheel.y,0,0};
+#ifdef __APPLE__
+        NavigationInput native=macos_navigation_poll();
+        if(native.precise) navigation_input=native;
+        else navigation_input.zoom=native.zoom;
+#endif
         Vector2 movement=GetMouseDelta();
-        if(movement.x || movement.y || GetMouseWheelMove() || IsWindowResized()) last_activity=GetTime();
+        if(movement.x || movement.y || navigation_input.x || navigation_input.y || navigation_input.zoom || IsWindowResized()) last_activity=GetTime();
         for(int key=32;key<=KEY_KB_MENU;key++) if(IsKeyPressed(key) || IsKeyReleased(key) || IsKeyPressedRepeat(key)) last_activity=GetTime();
         for(int b=0;b<8;b++) if(pending_clicks[b] || IsMouseButtonReleased(b)) last_activity=GetTime();
         for(int b=0;b<8;b++) { frame_clicks[b]=pending_clicks[b]>0; if(frame_clicks[b]) pending_clicks[b]--; }
         float scale=fminf(GetScreenWidth()/1200.f,GetScreenHeight()/675.f);
-        fonts_update(scale);
+        float raster_scale=scale;
+#ifdef __APPLE__
+        raster_scale*=GetWindowScaleDPI().x;
+#endif
+        fonts_update(raster_scale);
         float width=GetScreenWidth()/scale,height=GetScreenHeight()/scale;
         float sidebar=browser_hidden?24:browser_width;
         Rect desktop={sidebar+6,42,width-sidebar-10,height-66};
         if(!initialized) { windows_init(&windows,width,height); initialized=1; }
         mouse=GetMousePosition(); mouse.x/=scale; mouse.y/=scale; reset=0; popup_opened=0; context_opened=0; snap_opened=0;
         SetMouseCursor(MOUSE_CURSOR_DEFAULT);
+        navigate_editors(scale);
         if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) arrangement_release(&arrangement);
         if(arrangement.gesture) {
             Rect r=windows.editors[1].rect;
@@ -2129,11 +2262,11 @@ int main(int argc,char **argv) {
         else { if(browser_resize) windows_update(&windows,desktop,mouse.x,mouse.y,0,0,GetTime()); windows.owner=-1; windows.grab=-1; }
         int focused=EDITORS-1;
         while(focused>0 && !windows.editors[windows.order[focused]].visible) focused--;
-        if(!modal && !dragging && !captured() && !browser_focus && windows.order[focused]==1 && windows.editors[1].visible && IsKeyPressed(KEY_DELETE)) {
+        if(!modal && !dragging && !captured() && !browser_focus && windows.order[focused]==1 && windows.editors[1].visible && delete_pressed()) {
             for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) if(arrangement.selected[l][b]) { project.clips[l][b]=0; project.clip_steps[l][b]=0; }
             memset(arrangement.selected,0,sizeof arrangement.selected);
         }
-        if(!modal && !dragging && !captured() && !browser_focus && windows.order[focused]==2 && windows.editors[2].visible && IsKeyPressed(KEY_DELETE)) {
+        if(!modal && !dragging && !captured() && !browser_focus && windows.order[focused]==2 && windows.editors[2].visible && delete_pressed()) {
             for(int i=0;i<NOTES;i++) if(note_selected[pattern][piano_channel][i]) project.notes[pattern][piano_channel][i].velocity=0;
             memset(note_selected[pattern][piano_channel],0,NOTES);
         }
@@ -2162,7 +2295,7 @@ int main(int argc,char **argv) {
         ui_surface((Rectangle){208,8,52,22},cell);
         knob_style(222,18,&project.master_pitch,-12,12,0,"Master pitch (semitones)",KNOB_CENTER);
         if(hover(211,7,22,22) || control_drag==&project.master_pitch) snprintf(status,sizeof status,"Master pitch: %+.2f semitones (sample speed; right-click to enter)",project.master_pitch);
-        knob(248,18,&output_volume,0,1,1,"LibreLoop output volume");
+        knob_style(248,18,&output_volume,0,VOLUME_KNOB_MAX,1,"LibreLoop output volume",KNOB_VOLUME);
         if(hover(237,7,22,22) || control_drag==&output_volume) snprintf(status,sizeof status,"LibreLoop output volume: listening level; Master and WAV export unchanged");
         if(button("",264,5,52,28,0)) { song=!song; reset=1; }
         DrawRectangle(265,song?19:6,50,13,song?accent:ui_theme.patt);
@@ -2205,7 +2338,7 @@ int main(int argc,char **argv) {
             label("Browser",10,50,14,ink);
             if(button("+ Add folder",8,76,sidebar-16,23,0)) { snprintf(folder_text,sizeof folder_text,"%s",browser.path); rename_select_all=1; open_popup(3); }
             int fy=108,rows=fmaxf(1,(height-fy-98)/23);
-            if(!modal && !pattern_popup && !context_kind && !snap_menu && (browser_focus || browser_hover) && !dragging && !captured() && !IsKeyDown(KEY_LEFT_CONTROL)) {
+            if(!modal && !pattern_popup && !context_kind && !snap_menu && (browser_focus || browser_hover) && !dragging && !captured() && !command_down()) {
                 if(IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_K)) audition_entry((int)fmaxf(0,browser.selected-1));
                 if(IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_J)) audition_entry((int)fminf(browser.items-1,browser.selected+1));
                 if(IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_H)) browser_left(&browser);
@@ -2289,6 +2422,9 @@ int main(int argc,char **argv) {
     }
     if(sampler_job.busy) { pthread_join(sampler_job.thread,NULL); free(sampler_job.input.data); free(sampler_job.result.data); }
     for(int pat=0;pat<PATTERNS;pat++) if(previews[pat].image.id) UnloadRenderTexture(previews[pat].image);
+    #ifdef __APPLE__
+    macos_navigation_close();
+#endif
     fonts_close(); UnloadTexture(circle_texture); UnloadTexture(icons); UnloadTexture(knob_arcs); UnloadTexture(cable_texture);
     browser_close(&browser); audio_close(); free(audition.data); if(resize_cursor) glfwDestroyCursor(resize_cursor); if(track_cursor) glfwDestroyCursor(track_cursor); CloseWindow();
     for(int c=0;c<CHANNELS;c++) { free(audio_waves[c].tree); free(samples[c].data); free(originals[c].data); }

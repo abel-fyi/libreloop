@@ -6,8 +6,8 @@
 static WavePeak merge(WavePeak a,WavePeak b) { return (WavePeak){fminf(a.low,b.low),fmaxf(a.high,b.high)}; }
 static WavePeak scan(Sample s,unsigned start,unsigned end) {
     WavePeak peak={0};
-    for(unsigned i=start;i<end;i++) {
-        float x=s.data[i];
+    for(unsigned i=start;i<end;i++) for(unsigned side=0;side<sample_channels(s);side++) {
+        float x=sample_at(s,i,side);
         if(x<peak.low) peak.low=x;
         if(x>peak.high) peak.high=x;
     }

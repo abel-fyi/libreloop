@@ -29,7 +29,7 @@ The samples and bundled TTF paths are currently set to the checkout's `samples/`
 and `assets/fonts/` directories at build time. Run from a writable directory:
 project saves, WAV exports, and
 smoke screenshots are written into the launch directory. Installation and
-portable release packaging are not implemented yet.
+Linux release packaging is not implemented yet.
 
 ## Build on macOS
 
@@ -39,8 +39,28 @@ build, test and launch commands above. CMake builds the bundled graphics
 dependencies and links the system CoreAudio frameworks; no system raylib
 installation is needed. Build natively on either Apple Silicon or Intel.
 
-This is a source build, not a packaged `.app`. CI is configured to build and test
-macOS; interactive audio, input and Retina rendering still need checking on a Mac.
+The macOS build produces `build/libreloop.app`, with its generated demo samples,
+font and license notices inside the bundle. Launch it with `open build/libreloop.app`.
+For command-line smoke checks use `build/libreloop.app/Contents/MacOS/libreloop --smoke`.
+The bundle can be moved independently of the checkout. It is unsigned; signing
+and notarization are still required for a public macOS release. Imported sample
+paths in saved projects remain absolute.
+
+Command+A/V select all and paste in text fields on macOS; Control+A/V remain
+Linux shortcuts. Both Mac Delete and forward Delete remove focused selections.
+Retina rendering uses framebuffer-density font and icon atlases, while input
+and editor layout remain in logical window coordinates.
+A small AppKit event monitor supplies precise trackpad scroll and pinch events;
+GLFW continues to handle mouse wheel events. Linux uses GLFW scroll events only.
+Finder launches from `/` use `~/Music/LibreLoop` for default saves and exports;
+terminal launches keep their working directory.
+
+If the default SDK fails to link a simple C program, select a compatible installed
+SDK explicitly with `-DCMAKE_OSX_SYSROOT=/path/to/MacOSX.sdk`. This is a local
+Command Line Tools mismatch; do not hardcode one developer's SDK in the project.
+
+CI builds and tests macOS and Linux. Interactive editing, audible playback,
+device disconnect/reconnect, and sleep/wake still require manual verification.
 
 ## X11 and Wayland
 
@@ -55,8 +75,8 @@ cmake --build build --parallel
 
 ## Tests
 
-The desktop build has nine CTest tests: engine, arrangement, audio_clip,
-clip_trim, sampler, waveform, windows, decoder, and browser.
+The desktop build has eleven CTest tests: engine, arrangement, audio_clip,
+clip_trim, sampler, stereo, navigation, waveform, windows, decoder, and browser.
 They exercise rendering, project validation and backward
 compatibility, crop boundaries, selection and movement, sampler processing,
 window ownership and stacking, sample decoding, and Browser persistence.
@@ -98,3 +118,21 @@ fixtures, not imported sample packs. Put private projects, exports, screenshots,
 and references in `local/`; that directory is ignored. Build directories and
 root-level runtime outputs are also ignored. Dependency source is fetched into
 the build tree rather than copied into this repository.
+
+## macOS release checks
+
+Before distributing a release, verify these workflows on a physical Mac:
+
+- Finder launch, save/reopen a project, WAV export, and an app moved out of the checkout.
+- Command+A/V in rename/path/number fields; shortcuts must not audition notes.
+- Delete selected notes/clips; delete text in dialogs without changing the project.
+- Mouse and trackpad editing, drag/drop samples, editor resizing and scrolling.
+- Retina and external-display rendering, including moving the window between displays.
+- Sustained playback while editing and processing samples; listen for dropouts.
+- Playback after sleep/wake and audio-device disconnection/reconnection.
+- Intel and Apple Silicon builds on the supported macOS versions.
+- Signing and notarization for public distribution.
+
+The audio callback currently silences a buffer when its nonblocking mutex cannot
+be acquired. Automated startup and rendering checks do not establish dropout-free
+playback; this shared Linux/macOS prototype limitation remains a release concern.

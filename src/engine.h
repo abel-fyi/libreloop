@@ -2,6 +2,7 @@
 #ifndef ENGINE_H
 #define ENGINE_H
 #include <stdint.h>
+#include <stddef.h>
 #include <limits.h>
 #define SAMPLE_MAX_FRAMES (INT_MAX/8) /* Leave room for 4x time and 2x pitch processing. */
 #define SAMPLE_EMPTY "@empty" /* stored in paths for an unloaded sampler */
@@ -16,6 +17,7 @@ extern const uint32_t pattern_palette[PATTERNS];
 #define CLIPS 64
 #define RATE 48000
 #define INSERTS 100
+#define VOLUME_KNOB_MAX 1.25f
 #define MIXER_GAIN_MAX 2.f /* +6.02 dB; unity is 1 */
 float gain_db(float gain);
 float fader_position(float gain);
@@ -54,7 +56,13 @@ typedef struct {
     char insert_names[INSERTS][PATTERN_NAME];
     float swing; /* 0..1; delays offbeat sixteenths up to half a step */
 } Project;
-typedef struct { float *data; unsigned frames; } Sample;
+/* Interleaved PCM; channels 0 retains compatibility with mono initializers. */
+typedef struct { float *data; unsigned frames,channels; } Sample;
+static inline unsigned sample_channels(Sample s) { return s.channels?s.channels:1; }
+static inline float sample_at(Sample s,unsigned frame,unsigned side) {
+    unsigned channels=sample_channels(s);
+    return frame<s.frames?s.data[(size_t)frame*channels+(channels==1?0:side)]:0;
+}
 typedef struct { int channel; double position, speed, remaining; float gain; int lane; } Voice;
 typedef struct {
     uint64_t frame;

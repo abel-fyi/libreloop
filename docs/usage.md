@@ -13,7 +13,7 @@ pattern. The stacked PATT/SONG button highlights Pattern in orange and Song in g
 Switch to SONG to hear the Playlist, or click its ruler. Play
 and Space start from the ruler marker; stopping returns to it. Editing and
 transport use mouse controls, and the Browser retains navigation keys. Text fields
-support normal text editing. **Help** lists all current keybindings in a draggable
+support normal text editing (Command+A/V on macOS, Control+A/V on Linux). **Help** lists all current keybindings in a draggable
 dialog. Drag tempo up/down or use the wheel; right-click to enter fractional
 BPM with a dot or comma. The knob immediately left of
 LibreLoop output volume changes master pitch by up to one octave either way, using sample
@@ -61,17 +61,17 @@ Mixer Master fader and does not affect WAV export.
   Preview lines show actual notes. Brush spaces longer clips to avoid overlaps.
   Any of 100 tracks can hold any pattern; different tracks play together.
   The narrow strip at each track header’s right edge flashes on note/audio
-  starts and stays dimly lit while a voice is sounding. Playback loops through the final clip edge. Scroll the wheel over the grid
-  to zoom around the ruler start marker; drag the bottom scrollbar to pan.
+  starts and stays dimly lit while a voice is sounding. Playback loops through the final clip edge. Wheel scrolls vertically; Shift+wheel
+  scrolls horizontally. Command+wheel on macOS or Ctrl+wheel on Linux zooms
+  around the pointer. Middle-button drag pans freely. On macOS, two-finger
+  scrolling pans both axes and pinching zooms. The bottom scrollbar also pans.
   Use the right scrollbar to scroll vertically.
   Clip resize handles highlight on hover, and the cursor updates once per frame.
 - Click or drag either editor's bar ruler to position its downward start arrow.
   Playlist selects SONG playback; Piano Roll selects PAT playback. Space and
   the Play button start from that marker; stopping returns to it. Zoom keeps
-  the marker at the same screen position where the timeline origin allows,
-  or brings it into view if offscreen.
-  Each wheel notch changes the visible range by about 8%, so large projects
-  zoom faster while the ruler marker stays anchored. The toolbar Follow icon
+  the time beneath the pointer fixed where the timeline origin allows.
+  Each modified wheel notch changes the visible range by about 8%. The toolbar Follow icon
   keeps the smooth moving playhead in view in Song or PAT mode.
   Horizontal scrollbar thumbs remain at least 24 pixels wide and highlight on hover.
 - Snap menus in Playlist and Piano Roll are independent: Auto, Bar, Beat,
@@ -92,8 +92,8 @@ Mixer Master fader and does not affect WAV export.
   on the same step to form chords. Drag a note body to move its timing/pitch;
   length and velocity stay intact, and duplicate onset/pitch collisions are blocked.
   Dragging a note auditions it at each new pitch. The right scrollbar scrolls pitches.
-  Wheel over notes to zoom around the ruler start marker; drag the bottom
-  scrollbar to pan across the pattern. Bar numbers appear above the notes. Drag an existing note's right edge to resize
+  Piano Roll uses the same mouse/trackpad navigation as Playlist; vertical
+  scrolling browses pitches. Drag the bottom scrollbar to pan across the pattern. Bar numbers appear above the notes. Drag an existing note's right edge to resize
   it; right-click its body to erase it. Dragging a velocity bar changes every
   note that starts at that position. C4 plays the sample at its original pitch;
   other pitches resample it. Notes stop at their duration or the sample's end.
@@ -123,7 +123,7 @@ Mixer Master fader and does not affect WAV export.
   Drop into empty Rack space or its bottom add area to create a channel.
   Up to 32 channels can be added; wheel over Rack rows to scroll. Right-click a
   channel name for Piano Roll, rename, mute or delete. Deleting removes its notes in
-  every pattern and any Playlist audio clips using that channel. Samples decode to mono at
+  every pattern and any Playlist audio clips using that channel. Mono and stereo samples retain their channel count and decode at
   48 kHz and are held in memory. Songs longer than a minute are supported;
   the processing frame limit is approximately 93 minutes per file.
 - Browser: an expandable folder tree with **LibreLoop samples** as its first
@@ -157,10 +157,10 @@ existing target files. Project writes use a temporary file and rename.
 Dialogs open centred and remain draggable. Hover controls to see their function
 and relevant optional keys in the bottom helper.
 
-Project format version 22 saves polyphonic notes, durations, pattern names,
+Project format version 28 saves polyphonic notes, durations, pattern names,
 insert settings, routing, source lengths and individual clip lengths, master pitch, fractional BPM, insert outputs, pattern
 count, channel names/count, fractional note/clip timing, 100-track clips, sampler processing, stereo width, mute/solo states, global swing, boosted mixer gains, audio-device choices, track and insert names, pattern colors and reserved effect-slot settings. Versions
-1–21 still load; older projects keep their previous one-bar clip lengths.
+1–27 still load; older projects keep their previous one-bar clip lengths.
 
 The Channel Rack Swing knob delays alternate sixteenth steps (up to half a step).
 It affects pattern/song playback and WAV exports; live audition stays immediate.
@@ -219,6 +219,10 @@ Mixer meters show stereo levels with half-second peak holds. Width runs from mon
 
 The metronome icon before Tempo toggles beat clicks during Pattern or Song playback, with an accent on the first beat of each bar. It is off by default and excluded from WAV export.
 
+Knobs use a full-circle value sweep, except Swing, which keeps its horseshoe.
+Volume knobs mark unity (1 / 0 dB) with a fixed dot at three-quarters of the turn;
+the remaining quarter allows up to 1.25 (+1.94 dB). This applies to Channel Rack,
+sampler channel volume and listening output volume.
 Knobs show their value with an edge dot and a filling outer arc. Hovering smoothly reduces their size slightly; drag up/down to adjust or right-click to enter a number.
 
 The Playlist, Rack and Piano Roll share the same compact ruler. Left-click or
