@@ -18,3 +18,8 @@ directly for playback and decoding. System libraries are linked from the host.
 
 The bundled Kick, Snare, Hat and Tone WAVs are generated from LibreLoop's own
 synthesis code rather than third-party sample packs.
+
+The UI bundles Liberation Sans Regular 2.1.5, copyright Google Corporation
+and Red Hat, Inc., under the SIL Open Font License 1.1. Its full notice is in
+[assets/fonts/LICENSE](../assets/fonts/LICENSE). Font support uses raylib's
+existing TrueType loader; no additional library is required.

@@ -1,0 +1,22 @@
+// SPDX-License-Identifier: GPL-3.0-only
+#ifndef THEME_H
+#define THEME_H
+#include "raylib.h"
+typedef struct {
+    Color background,surface,control,text,secondary,highlight;
+    Color hover,active_hover,selected_text,border,title,title_focus;
+    Color disabled,step_alt,track,clip[2],note_drag,piano_white,patt;
+    Color grid_major,grid_minor,signal,loop;
+    Color meter_low,meter_mid,meter_high;
+    Color rack,mixer,effects,browser,note,step_on[2],waveform;
+    Color knob,swing,pan_left,pan_right,stereo,mono;
+    int light,transparent;
+} Theme;
+extern Theme ui_theme;
+void theme_init(const char *browser_config);
+int theme_select(int light);
+int theme_transparency(int enabled);
+Color ui_glass(Color color,int opacity);
+void ui_surface(Rectangle rect,Color color);
+void ui_frame(Rectangle rect);
+#endif

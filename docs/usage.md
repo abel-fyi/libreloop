@@ -1,5 +1,10 @@
 # Using LibreLoop
 
+**VIEW → Dark / Light** changes the appearance. **VIEW → Transparency**
+toggles see-through window surfaces; text, controls and editing grids stay opaque.
+Both settings are remembered between launches. Preferences are stored in
+`$XDG_CONFIG_HOME/libreloop/theme.txt` (or `~/.config/libreloop/theme.txt`).
+
 ## First session
 
 The initial project has generated kick, snare, hat and pitched tone samples,
@@ -29,16 +34,12 @@ Mixer Master fader and does not affect WAV export.
   Clicking a channel name opens its instrument interface. Steps and pitched
   notes belong to the same shared pattern.
 - Double-click a Playlist pattern clip to open and focus its Channel Rack.
-- Pattern selector in the toolbar: click the pattern name to open the dropdown
-  and choose a pattern. While hovering over the selector, Up/Down or k/j
-  changes patterns and opens the dropdown; the bottom helper shows these keys. Choose
-  **Rename selected pattern**, or right-click the selector to rename.
-  Enter applies, Escape cancels, and Ctrl+A selects the name. Names are saved
-  with the project and appear in clips and Piano Roll.
-  New projects start with only Pattern 1 selected; **+ New pattern** creates a
-  blank pattern, up to eight. The top-bar selector always identifies the current
-  pattern, including when no Playlist clips are selected. All patterns share
-  the same Rack channels and samples.
+- The Playlist’s left pattern list selects the current pattern. Right-click a
+  pattern for Rename, Color or Delete; Enter applies, Escape cancels, and Ctrl+A selects the name.
+  Names save with the project and appear in clips and Piano Roll. The + button at
+  the bottom creates and selects a blank pattern, up to eight. New projects start
+  with Pattern 1 selected and an empty Playlist.
+
 - Playlist: the icon toolbar offers Pencil, Brush and Select. Hover an
   icon for its description. Pencil places one clip; drag its body to move it
   without painting more copies. Brush paints copies across a track. Click a
@@ -55,8 +56,8 @@ Mixer Master fader and does not affect WAV export.
   source, up to the full pattern length. Rack and Piano Roll always edit the full
   source pattern. The Rack uses fixed-width steps and a bottom scrollbar; wider
   windows reveal more steps. Painting grey steps extends the pattern in whole
-  bars. Existing Playlist copies retain their lengths. The + button stays beneath
-  the visible channels, even when the channel list needs scrolling.
+  bars. Existing Playlist copies retain their lengths. The + button stays beside the bottom scrollbar,
+  even when the channel list needs scrolling.
   Preview lines show actual notes. Brush spaces longer clips to avoid overlaps.
   Any of 100 tracks can hold any pattern; different tracks play together.
   Playback loops through the final clip edge. Scroll the wheel over the grid
@@ -69,7 +70,7 @@ Mixer Master fader and does not affect WAV export.
   the marker at the same screen position where the timeline origin allows,
   or brings it into view if offscreen.
   Each wheel notch changes the visible range by about 8%, so large projects
-  zoom faster while the ruler marker stays anchored. The toolbar Follow button
+  zoom faster while the ruler marker stays anchored. The toolbar Follow icon
   keeps the smooth moving playhead in view in Song or PAT mode.
   Horizontal scrollbar thumbs remain at least 24 pixels wide and highlight on hover.
 - Snap menus in Playlist and Piano Roll are independent: Auto, Bar, Beat,
@@ -96,7 +97,7 @@ Mixer Master fader and does not affect WAV export.
   note that starts at that position. C4 plays the sample at its original pitch;
   other pitches resample it. Notes stop at their duration or the sample's end.
 - Mixer: Master and independent inserts with their own volume, pan and
-  labelled **M** (mute) and **S** (solo) buttons. Multiple inserts can be soloed;
+  one light: left-click mutes/unmutes, right-click adds/removes it from the solo group;
   soloing a bus includes its routed sources. Master and 100 fixed inserts keep
   stable numbers; right-click an insert header for mute, solo or reset.
   Several instruments can feed the same insert; its controls affect their combined
@@ -121,19 +122,19 @@ Mixer Master fader and does not affect WAV export.
   preview samples. **Right/l** expands a folder or enters its first child;
   **Left/h** collapses a folder or selects its parent. Trees replace `..`, Home,
   and filesystem-root navigation buttons; add `/` as a root if desired.
-  The selected audio sample has a waveform preview at the bottom.
+  The selected audio sample has a waveform preview at the bottom, with a moving
+  playback cursor. Click the waveform to replay it from the beginning.
   Scroll the wheel to browse. Drag the Browser's right edge to change its width;
   dragging below its minimum width collapses it to a narrow strip. Drag the
   strip's right edge outward to restore it.
-  Dialogs open centred and have draggable title bars. The pattern dropdown
-  opens beneath its selector and can also be dragged.
+  Dialogs open centred and have draggable title bars.
   Added roots persist in `$XDG_CONFIG_HOME/libreloop/folders.txt`, or
   `~/.config/libreloop/folders.txt` when XDG_CONFIG_HOME is unset. Old Homebeat
   folder settings are read when no LibreLoop settings file exists.
 
-- Save writes `project.hbt` in the launch directory. Open reloads it.
+- FILE → Save writes `project.hbt` in the launch directory. FILE → Open reloads it.
   Drop another `.hbt` to open that project; subsequent saves use that filename.
-- WAV exports the entire Playlist to `song.wav`: 48 kHz, stereo PCM16.
+- FILE → Export exports the entire Playlist to `song.wav`: 48 kHz, stereo PCM16.
 
 Sample paths are stored as absolute paths; keep imported files available when
 reopening projects. Generated demo sounds need no external files. Save/load
@@ -142,16 +143,20 @@ existing target files. Project writes use a temporary file and rename.
 Dialogs open centred and remain draggable. Hover controls to see their function
 and relevant optional keys in the bottom helper.
 
-Project format version 15 saves polyphonic notes, durations, pattern names,
+Project format version 22 saves polyphonic notes, durations, pattern names,
 insert settings, routing, source lengths and individual clip lengths, master pitch, fractional BPM, insert outputs, pattern
-count, channel names/count, fractional note/clip timing, 100-track clips and sampler processing controls. Versions
-1–14 still load; older projects keep their previous one-bar clip lengths.
+count, channel names/count, fractional note/clip timing, 100-track clips, sampler processing, stereo width, mute/solo states, global swing, boosted mixer gains, audio-device choices, track and insert names, pattern colors and reserved effect-slot settings. Versions
+1–21 still load; older projects keep their previous one-bar clip lengths.
+
+The Channel Rack Swing knob delays alternate sixteenth steps (up to half a step).
+It affects pattern/song playback and WAV exports; live audition stays immediate.
 
 ## Editor windows
 
 - Drag a title bar to move a window, or click a window to bring it forward.
+  Double-click its title bar to maximize/restore.
 - Drag the bottom-right corner to resize it. The square maximizes/restores;
-  the cross hides it.
+  the minus minimizes it; the cross hides it. Restore it with its toolbar icon.
 - Right-click a title bar for Stay on top, Maximize/Restore, or Hide.
 - Toolbar order is Rack, Piano Roll, Playlist, Mixer. Clicking brings a window
   forward; clicking it again while it is in front hides it.
@@ -162,14 +167,14 @@ count, channel names/count, fractional note/clip timing, 100-track clips and sam
 
 - Click a Rack instrument name to open its movable sampler window, with
   waveform, volume and pan. Click the waveform to preview it; a playback line
-  moves through it. The + beneath the final Rack channel opens a movable instrument picker
+  moves through it. The + beside the bottom Rack scrollbar opens a movable instrument picker
   containing Sampler. Selecting it adds an empty channel; drag a Browser
   sample onto its window to load it. Empty samplers persist when saved. A ghost row beneath the final channel
   shows where a dropped sample will be added; the Rack scrollbar browses channels.
   Future instrument types will open their
   own interface here. Right-click a channel and choose Go to Piano Roll to
   assign that editor; selecting another Rack channel keeps its notes unchanged.
-- The toolbar Keys switch enables polyphonic audition of the selected channel.
+- The toolbar keyboard icon enables polyphonic audition of the selected channel.
   Z/X/C/V/B/N/M and the three following keys are white notes from C3 to E4;
   S/D/G/H/J/L and the key after L are the black notes. Q/W/E/R/T/Y/U/I/O/P
   and the two following keys are white notes from C4 to G5, with
@@ -195,3 +200,60 @@ and the original sample file is never modified. Stretch/pitch use a compact
 WSOLA implementation, so complex material and extreme settings may have
 audible artifacts.
 
+Mixer meters show stereo levels with half-second peak holds. Width runs from mono (0), through unchanged (1), to wider (2). Record-arm lights toggle red as placeholders; recording is not implemented. Rack lights and Playlist track buttons also use left-click mute and right-click to toggle solo group membership.
+
+The metronome icon before Tempo toggles beat clicks during Pattern or Song playback, with an accent on the first beat of each bar. It is off by default and excluded from WAV export.
+
+Knobs show their value with an edge dot and a filling outer arc. Hovering smoothly reduces their size slightly; drag up/down to adjust or right-click to enter a number.
+
+The Playlist, Rack and Piano Roll share the same compact ruler. Left-click or
+drag sets the playback start. Right-drag selects a red loop region; right-click
+without dragging clears it. Rack and Piano Roll share the current pattern's
+start and loop, while Playlist uses Song positions. These playback selections
+reset when opening a project and do not restrict WAV export.
+
+Typing keyboard notes highlight their Piano Roll keys and matching notes.
+Chords remain highlighted until their keys are released.
+
+Pan knobs show deviation from center: warm yellow left, orange-red right.
+Mixer stereo width is neutral at the center, blue toward the left (wider),
+and purple toward the right (mono). Its saved multiplier remains 0 for mono,
+1 unchanged, and 2 wider. Swing has an orange horseshoe indicator.
+
+Mixer faders start at unity (0 dB), with up to +6.02 dB of boost above the
+marked unity line. Unity sits a quarter of the travel below the top on faders
+and meters, leaving room for boost and peaks. The tall meter to the left of Master follows the selected
+track and shows its peak in dBFS. Meter colors change to orange at -12 dBFS
+and red above 0 dBFS. Master is metered before output soft clipping; the
+separate listening-volume control does not change its reading. Saved projects
+retain their gain settings. The unlabeled orange knob at the right of the
+Channel Rack title bar controls Swing.
+
+The effect panel has an Input dropdown above its ten slots and an Output
+dropdown below. Device names come from miniaudio and refresh when opening a
+menu. Choices are saved per Mixer track. These are preparations for future
+capture and external-device routing; they do not yet switch playback hardware
+or activate a microphone. Internal Mixer cable routing continues to work.
+
+The Playlist’s left pattern picker shows note previews; click to select a pattern,
+right-click for Rename, Color or Delete, and scroll the list when necessary. Right-click a Playlist
+track header to rename that track. Mixer slots have wet/dry knobs and enable lights;
+their saved settings are reserved for future effects and currently do not process audio.
+
+The top bar groups FILE, VIEW and HELP on the left. HELP → Keybindings opens
+the shortcut list. The arrow past a vertical marker toggles Follow playhead;
+the keyboard icon toggles typing notes. Hover either icon for its description.
+
+Mixer inserts show their saved names beneath their numbers. Right-click the name
+to rename it; right-click the number for the existing mixer actions. Longer names
+are shortened to fit the strip and shown in full in the hover helper.
+
+Deleting a pattern removes its Playlist clips. Deleting the final pattern leaves
+one blank pattern selected so the Rack always has a pattern to edit.
+
+Patterns receive distinct default colors. Right-click a pattern and choose Color
+to select another palette color; the list and its Playlist clips share that saved color.
+
+If the start marker is at or beyond the song/pattern end, playback starts at the
+beginning immediately while the marker stays where you placed it. Explicit loop
+selections still define their own playback region.

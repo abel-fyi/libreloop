@@ -33,6 +33,13 @@ static int legacy_save(const char *path,Project *p,int version) {
     if(version>=9) fprintf(f,"%d\n",p->pattern_count);
     if(version>=12) for(int c=0;c<CHANNELS;c++) fprintf(f,"%s\n",p->channel_names[c]);
     if(version>=13) for(int l=0;l<LANES;l++) for(int b=0;b<clips;b++) fprintf(f,"%.9g\n",p->clip_starts[l][b]);
+    if(version>=15) for(int c=0;c<CHANNELS;c++) { Sampler a=p->sampler[c]; fprintf(f,"%.9g %.9g %.9g %.9g %u %u\n",a.pitch,a.time,a.start,a.length,a.flags,a.stretch); }
+    if(version>=16) {
+        for(int i=0;i<INSERTS;i++) fprintf(f,"%.9g\n",p->insert_width[i]);
+        fprintf(f,"%.9g %u\n",p->master_width,p->master_mute);
+        for(int l=0;l<LANES;l++) fprintf(f,"%u\n",p->lane_mute[l]);
+    }
+    if(version>=17) fprintf(f,"%.9g\n",p->swing);
     return fclose(f)==0;
 }
 int main(void) {
@@ -68,7 +75,9 @@ int main(void) {
     clock.frame=(uint64_t)fine.pattern_steps[0]*6000;
     render(&clock,&fine,exact,timed,1); CHECK(clock.frame==(uint64_t)5000*STEPS*6000+1 && timed[0]>0);
     player_seek(&clock,&fine,20000*STEPS); render(&clock,&fine,exact,timed,1);
-    CHECK(clock.frame==(uint64_t)20000*STEPS*6000+1); // Empty space beyond the last clip is seekable.
+    CHECK(clock.frame==1); /* Starting beyond the end plays from zero immediately. */
+    player_reset(&clock); clock.song=1; player_seek(&clock,&fine,song_steps(&fine));
+    render(&clock,&fine,exact,timed,1); CHECK(clock.frame==1);
     Project deleted,reloaded; project_default(&deleted);
     CHECK(deleted.pattern_count==1 && deleted.channel_count==4 && deleted.insert_count==100);
     for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) CHECK(deleted.clips[l][b]==0);
@@ -81,6 +90,20 @@ int main(void) {
     CHECK(deleted.channel_count==4 && !strcmp(deleted.channel_names[3],"Extra") && deleted.route[3]==100);
     CHECK(note_at(&deleted,0,3,0,60)); CHECK(!channel_delete(&deleted,4));
     CHECK(project_save("test-project.hbt",&deleted) && project_load("test-project.hbt",&reloaded)); CHECK(memcmp(&deleted,&reloaded,sizeof deleted)==0);
+    project_default(&reloaded); reloaded.pattern_count=3;
+    CHECK(note_add(&reloaded,1,0,2,62,1) && note_add(&reloaded,2,0,3,67,2));
+    snprintf(reloaded.pattern_names[2],PATTERN_NAME,"Melody"); reloaded.pattern_steps[2]=32;
+    reloaded.pattern_colors[2]=pattern_palette[4];
+    reloaded.clips[0][0]=1; reloaded.clips[1][0]=2; reloaded.clips[2][0]=3;
+    CHECK(!pattern_delete(&reloaded,-1) && !pattern_delete(&reloaded,3));
+    CHECK(pattern_delete(&reloaded,1) && reloaded.pattern_count==2);
+    CHECK(reloaded.clips[0][0]==1 && reloaded.clips[1][0]==0 && reloaded.clips[2][0]==2);
+    CHECK(!strcmp(reloaded.pattern_names[1],"Melody") && reloaded.pattern_steps[1]==32 && reloaded.pattern_colors[1]==pattern_palette[4]);
+    CHECK(note_at(&reloaded,1,0,3,67) && !note_at(&reloaded,1,0,2,62));
+    CHECK(pattern_delete(&reloaded,0) && reloaded.pattern_count==1 && note_at(&reloaded,0,0,3,67));
+    CHECK(pattern_delete(&reloaded,0) && reloaded.pattern_count==1 && reloaded.pattern_steps[0]==STEPS);
+    CHECK(!strcmp(reloaded.pattern_names[0],"Pattern 1") && !reloaded.clips[2][0]);
+    for(int c=0;c<CHANNELS;c++) for(int n=0;n<NOTES;n++) CHECK(!reloaded.notes[0][c][n].velocity);
     Project p,q; project_default(&p);
     strcpy(p.paths[0],"/tmp/sample with spaces.wav"); strcpy(p.pattern_names[0],"Drums + Bass");
     memset(p.pattern_names[7],'X',PATTERN_NAME-1); p.pattern_names[7][PATTERN_NAME-1]=0;
@@ -98,7 +121,7 @@ int main(void) {
     CHECK(note_add(&p,2,3,4,60,3)); CHECK(note_add(&p,2,3,4,64,4)); CHECK(note_add(&p,2,3,4,67,3));
     CHECK(project_save("test-project.hbt",&p)); CHECK(project_load("test-project.hbt",&q)); CHECK(memcmp(&p,&q,sizeof p)==0);
     FILE *old,*legacy; char line[1100];
-    for(int version=4;version<=14;version++) {
+    for(int version=4;version<=15;version++) {
         CHECK(legacy_save("legacy.hbt",&p,version)); CHECK(project_load("legacy.hbt",&q));
         CHECK(q.pattern_count==(version>=9?p.pattern_count:PATTERNS)); q.pattern_count=p.pattern_count;
         CHECK(memcmp(&p,&q,sizeof p)==0);
@@ -128,7 +151,7 @@ int main(void) {
     float ramp[]={.1f,.2f,.3f,.4f,.5f,.6f}; Sample pitched_sample[CHANNELS]={{ramp,6},{0},{0},{0}};
     float pitched_out[4]; player_reset(&rp); render(&rp,&pitched,pitched_sample,pitched_out,2);
     CHECK(rp.voices[0].position==4 && rp.frame==2 && rp.voices[0].remaining==24000-2);
-    CHECK(fabsf(pitched_out[2]-tanhf(.3f*.7f*.7f))<.00001f);
+    CHECK(fabsf(pitched_out[2]-tanhf(.3f*.7f))<.00001f);
     pitched.master_pitch=-12; render(&rp,&pitched,pitched_sample,result,1); CHECK(rp.voices[0].position==4.5 && rp.frame==3);
     CHECK(pitched.notes[0][0][0].pitch==60 && pitched.bpm==120);
     CHECK(project_save("test-project.hbt",&pitched)); CHECK(project_load("test-project.hbt",&q)); CHECK(memcmp(&pitched,&q,sizeof q)==0);
@@ -205,6 +228,7 @@ int main(void) {
     for(int i=0;i<32;i++) live_out[i]=.125f;
     render_live(&keys,&p,live_samples,live_out,16);
     for(int i=0;i<32;i++) CHECK(live_out[i]==.125f);
+    CHECK(keys.frame==16 && keys.last_step==-1);
     keys.voices[0]=(Voice){0,0,1,-1,.4f}; keys.voices[1]=(Voice){0,0,2,-1,.4f};
     render_live(&keys,&p,live_samples,live_out,16);
     CHECK(fabsf(live_out[0]-tanhf(.925f))<.00001f && keys.last_step==-1);
@@ -214,6 +238,130 @@ int main(void) {
     p.mute[0]=1; for(int i=0;i<32;i++) live_out[i]=.125f;
     render_live(&keys,&p,live_samples,live_out,16);
     for(int i=0;i<32;i++) CHECK(live_out[i]==.125f);
+    /* Sparse voice slots keep their mix order and stop independently. */
+    player_reset(&keys); p.mute[0]=0;
+    keys.voices[7]=(Voice){0,0,1,-1,.2f}; keys.voices[127]=(Voice){0,0,1,1,.4f};
+    memset(live_out,0,sizeof live_out); render_live(&keys,&p,live_samples,live_out,2);
+    CHECK(fabsf(live_out[0]-tanhf(.2f+.4f/(RATE*.005f)))<.00001f);
+    CHECK(fabsf(live_out[2]-tanhf(.2f))<.00001f);
+    CHECK(keys.voices[127].gain==0 && keys.voices[7].position==2 && keys.frame==2);
+    /* Mute/solo preserves other manual mutes and affects existing song tails. */
+    uint8_t states[3]={1,0,0}; solo_toggle(states,3,1);
+    CHECK(states[0]==1 && states[1]==2 && solo_any(states,3));
+    solo_toggle(states,3,2); CHECK(states[1]==2 && states[2]==2);
+    solo_toggle(states,3,2); CHECK(states[0]==1 && states[1]==2 && states[2]==0);
+    solo_toggle(states,3,1); CHECK(states[0]==1 && !solo_any(states,3));
+    project_default(&p); memset(p.notes,0,sizeof p.notes);
+    p.volume[0]=p.master=1; p.route[0]=1;
+    CHECK(note_add(&p,0,0,0,60,0)); p.notes[0][0][0].velocity=127;
+    p.clips[0][0]=p.clips[1][0]=1;
+    player_reset(&a); a.song=1; render(&a,&p,live_samples,result,1);
+    CHECK(fabsf(result[0]-tanhf(2))<.00001f);
+    p.lane_mute[0]=1; render(&a,&p,live_samples,result,1);
+    CHECK(fabsf(result[0]-tanhf(1))<.00001f);
+    solo_toggle(p.lane_mute,LANES,0); render(&a,&p,live_samples,result,1);
+    CHECK(fabsf(result[0]-tanhf(1))<.00001f);
+    solo_toggle(p.lane_mute,LANES,1); render(&a,&p,live_samples,result,1);
+    CHECK(fabsf(result[0]-tanhf(2))<.00001f);
+    solo_toggle(p.lane_mute,LANES,1);
+    p.lane_mute[0]=3; render(&a,&p,live_samples,result,1); CHECK(result[0]==0);
+    player_reset(&a); render(&a,&p,live_samples,result,1); CHECK(result[0]>0);
+    /* Width operates on a summed stereo bus; meters read that same signal. */
+    p.pan[0]=-1; p.insert_width[0]=0; float peaks[INSERTS+1][2]={{0}};
+    player_reset(&a); render_mixer(&a,NULL,&p,live_samples,result,1,1,peaks);
+    CHECK(fabsf(result[0]-tanhf(.5f))<.00001f && result[0]==result[1]);
+    CHECK(peaks[1][0]==.5f && peaks[1][1]==.5f);
+    p.insert_width[0]=2; player_reset(&a); render(&a,&p,live_samples,result,1);
+    CHECK(fabsf(result[0]-tanhf(1.5f))<.00001f && fabsf(result[1]-tanhf(-.5f))<.00001f);
+    p.insert_width[0]=1; p.pan[0]=0; player_reset(&a); player_reset(&keys);
+    keys.voices[0]=(Voice){0,0,1,-1,1,-1}; memset(peaks,0,sizeof peaks);
+    render_mixer(&a,&keys,&p,live_samples,result,1,1,peaks);
+    CHECK(peaks[0][0]==2 && peaks[1][0]==2 && fabsf(result[0]-tanhf(2))<.00001f);
+    p.master_mute=1; player_reset(&a); render(&a,&p,live_samples,result,1); CHECK(result[0]==0);
+    p.master_width=.4f; p.insert_width[99]=1.7f; p.mute[3]=2;
+    CHECK(project_save("test-project.hbt",&p) && project_load("test-project.hbt",&q));
+    CHECK(memcmp(&p,&q,sizeof p)==0);
+    p.master_width=NAN; CHECK(!project_save("bad-project.hbt",&p));
+    /* Fractional playback loops retrigger at the start, independent of block size. */
+    project_default(&p); memset(p.notes,0,sizeof p.notes); p.volume[0]=p.master=1; p.route[0]=0;
+    CHECK(note_add(&p,0,0,.5f,60,.5f)); p.notes[0][0][0].velocity=127;
+    player_reset(&a); player_seek(&a,&p,.5f); a.loop_start=.5f; a.loop_end=1.5f;
+    render(&a,&p,exact,whole,6001);
+    CHECK(a.frame==3001 && fabsf(whole[0]-tanhf(.25f))<.00001f);
+    CHECK(whole[6000]==0 && whole[12000]==whole[0]);
+    player_reset(&b); player_seek(&b,&p,.5f); b.loop_start=.5f; b.loop_end=1.5f;
+    render(&b,&p,exact,chunks,3333); render(&b,&p,exact,chunks+6666,2668);
+    CHECK(memcmp(whole,chunks,6001*2*sizeof(float))==0);
+    p.clips[0][0]=1; player_reset(&b); b.song=1; player_seek(&b,&p,.5f); b.loop_start=.5f; b.loop_end=1.5f;
+    render(&b,&p,exact,chunks,6001); CHECK(memcmp(whole,chunks,6001*2*sizeof(float))==0);
+    p.notes[0][0][0].length=4;
+    player_reset(&b); b.song=1; player_seek(&b,&p,.5f); b.loop_start=.5f; b.loop_end=1.5f;
+    render(&b,&p,exact,chunks,6001); CHECK(chunks[12000]==chunks[0]); /* No overlapping notes across a loop boundary. */
+    /* Swing moves odd sixteenths, preserves even steps and block boundaries. */
+    project_default(&p); memset(p.notes,0,sizeof p.notes); p.volume[0]=p.master=1; p.route[0]=0; p.swing=1;
+    CHECK(note_add(&p,0,0,1,60,.1f)); CHECK(note_add(&p,0,0,2,60,.1f));
+    p.notes[0][0][0].velocity=p.notes[0][0][1].velocity=127;
+    player_reset(&a); render(&a,&p,exact,whole,12000);
+    CHECK(whole[6000*2]==0 && whole[8999*2]==0 && whole[9000*2]>0);
+    player_reset(&b); render(&b,&p,exact,chunks,7777); render(&b,&p,exact,chunks+7777*2,4223);
+    CHECK(memcmp(whole,chunks,sizeof whole)==0);
+    player_reset(&b); render(&b,&p,exact,chunks,12000); render(&b,&p,exact,timed,1); CHECK(timed[0]>0);
+    p.clips[0][0]=1; player_reset(&b); b.song=1; render(&b,&p,exact,chunks,12000);
+    CHECK(memcmp(whole,chunks,sizeof whole)==0);
+    CHECK(project_save("test-project.hbt",&p) && project_load("test-project.hbt",&roundtrip) && roundtrip.swing==1);
+    p.swing=NAN; CHECK(!project_save("bad-project.hbt",&p));
+    p.swing=0; CHECK(legacy_save("legacy.hbt",&p,15)); roundtrip.swing=1;
+    CHECK(project_load("legacy.hbt",&roundtrip) && roundtrip.swing==0);
+    project_default(&p); CHECK(p.master==1 && p.insert_volume[0]==1 && p.insert_volume[99]==1);
+    CHECK(fader_gain(0)==0 && fabsf(fader_gain(1)-MIXER_GAIN_MAX)<.00001f);
+    CHECK(fabsf(fader_gain(fader_position(1))-1)<.00001f && fader_position(1)==.75f);
+    const float gains[]={.01f,.25f,.5f,1,1.5f,2};
+    for(unsigned i=0;i<sizeof gains/sizeof *gains;i++) CHECK(fabsf(fader_gain(fader_position(gains[i]))-gains[i])<.00001f);
+    CHECK(gain_db(1)==0 && gain_db(2)>6);
+    for(int version=16;version<=18;version++) {
+        p.master=version>=18?1.5f:1; p.swing=.35f;
+        CHECK(legacy_save("legacy.hbt",&p,version) && project_load("legacy.hbt",&q));
+        CHECK(q.master==p.master && q.swing==(version>=17?p.swing:0));
+        CHECK(!strcmp(q.audio_io[0][1],"@default") && !q.audio_io[1][0][0]);
+        CHECK(q.effect_mix[1][0]==1 && !q.effect_bypass[1][0] && !strcmp(q.track_names[0],"Track 1"));
+    }
+    p.master=2.1f; CHECK(legacy_save("legacy.hbt",&p,18));
+    CHECK(!project_load("legacy.hbt",&q) && q.master==1.5f);
+    p.master=1.5f; p.insert_volume[0]=2;
+    snprintf(p.audio_io[0][1],128,"USB output"); snprintf(p.audio_io[1][0],128,"USB input");
+    p.effect_mix[1][0]=.25f; p.effect_bypass[1][0]=1;
+    snprintf(p.track_names[0],PATTERN_NAME,"Drums");
+    snprintf(p.insert_names[0],PATTERN_NAME,"Drum bus");
+    p.pattern_colors[0]=pattern_palette[5];
+    CHECK(project_save("test-project.hbt",&p) && project_load("test-project.hbt",&q));
+    CHECK(q.effect_mix[1][0]==.25f && q.effect_bypass[1][0]==1 && !strcmp(q.track_names[0],"Drums"));
+    CHECK(!strcmp(q.insert_names[0],"Drum bus") && !strcmp(q.insert_names[99],"Insert 100"));
+    for(int version=19;version<=21;version++) {
+        FILE *current=fopen("test-project.hbt","r"),*old=fopen("recent-legacy.hbt","w"); CHECK(current && old);
+        char line[2048]; int lines=0; while(fgets(line,sizeof line,current)) lines++;
+        int omitted=PATTERNS+(version<21?INSERTS:0)+(version<20?LANES+(INSERTS+1)*10:0);
+        rewind(current); fprintf(old,"HOMEBEAT %d\n",version); CHECK(fgets(line,sizeof line,current));
+        for(int i=1;i<lines-omitted;i++) { CHECK(fgets(line,sizeof line,current)); fputs(line,old); }
+        fclose(current); fclose(old);
+        Project previous; CHECK(project_load("recent-legacy.hbt",&previous));
+        CHECK(!strcmp(previous.insert_names[0],version>=21?"Drum bus":"Insert 1"));
+        CHECK(!strcmp(previous.track_names[0],version>=20?"Drums":"Track 1"));
+        CHECK(previous.effect_mix[1][0]==(version>=20?.25f:1));
+        CHECK(previous.pattern_colors[0]==pattern_palette[0]);
+        CHECK(!strcmp(previous.audio_io[0][1],"USB output"));
+        remove("recent-legacy.hbt");
+    }
+    CHECK(q.pattern_colors[0]==pattern_palette[5] && q.pattern_colors[1]==pattern_palette[1]);
+    CHECK(q.effect_mix[0][0]==1 && q.effect_bypass[0][0]==0);
+    p.pattern_colors[0]=0x1000000; CHECK(!project_save("bad-project.hbt",&p)); p.pattern_colors[0]=pattern_palette[5];
+    p.effect_mix[1][0]=NAN; CHECK(!project_save("bad-project.hbt",&p)); p.effect_mix[1][0]=.25f;
+    p.effect_bypass[1][0]=2; CHECK(!project_save("bad-project.hbt",&p)); p.effect_bypass[1][0]=1;
+    CHECK(q.master==1.5f && q.insert_volume[0]==2 && !strcmp(q.audio_io[0][1],"USB output") && !strcmp(q.audio_io[1][0],"USB input"));
+    CHECK(insert_reset(&q,1) && q.effect_mix[1][0]==1 && q.effect_bypass[1][0]==0);
+    CHECK(!strcmp(q.insert_names[0],"Drum bus"));
+    p.insert_names[1][0]='\n'; CHECK(!project_save("bad-project.hbt",&p)); snprintf(p.insert_names[1],PATTERN_NAME,"Insert 2");
+    p.audio_io[1][0][0]='\n'; CHECK(!project_save("bad-project.hbt",&p)); p.audio_io[1][0][0]='U';
+    p.insert_volume[0]=2.1f; CHECK(!project_save("bad-project.hbt",&p));
     for(int ch=0;ch<CHANNELS;ch++) free(s[ch].data);
     remove("test-project.hbt"); remove("legacy.hbt"); remove("bad-project.hbt"); remove("test-export.wav");
     puts("Project versions 1-12, master pitch, clip lengths, extended patterns, chords and gates, routing, render consistency, mute and WAV duration passed."); return 0;

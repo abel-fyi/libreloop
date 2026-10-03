@@ -25,8 +25,9 @@ ctest --test-dir build --output-on-failure
 ./build/libreloop
 ```
 
-The samples path is currently set to the checkout's `samples/` directory at
-build time. Run from a writable directory: project saves, WAV exports, and
+The samples and bundled TTF paths are currently set to the checkout's `samples/`
+and `assets/fonts/` directories at build time. Run from a writable directory:
+project saves, WAV exports, and
 smoke screenshots are written into the launch directory. Installation and
 portable release packaging are not implemented yet.
 

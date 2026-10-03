@@ -9,6 +9,7 @@ are a coherent mouse-driven workflow and minimal code and dependencies.
 | Path | Responsibility |
 | --- | --- |
 | `src/main.c` | raylib UI, gestures, transport, sampler worker orchestration |
+| `src/theme.c`, `theme.h` | light/dark palettes, flat rectangle drawing, appearance preference |
 | `src/engine.c`, `engine.h` | project model, synthesis, rendering, routing, save/load, export |
 | `src/arrangement.c`, `arrangement.h` | Playlist editing, selection, timeline and snap helpers |
 | `src/sampler.c` | non-destructive crop, normalize, reverse, polarity, pitch and time processing |
@@ -22,12 +23,25 @@ are a coherent mouse-driven workflow and minimal code and dependencies.
 
 ## Decisions
 
+- Dark and Light share the same control geometry and behavior. The View
+  menu selects the palette and saves it in the user's LibreLoop configuration.
+  Surfaces use plain rectangles, without gradients or shadows. A shared small
+  circle mask and a monochrome icon atlas smooth controls; the atlas is drawn
+  at four times its display size, reduced with exact area coverage, and aligned
+  to display pixels. It rebuilds when the window scale changes. Knob value arcs
+  are cached alpha masks; hover animation returns to event waiting once settled.
+  View also toggles alpha-blended window surfaces without dimming text or controls;
+  the editing grids use translucent row tints. There are no decorative backgrounds or blur passes.
+
 - Instruments and effects ship with LibreLoop. The Sampler is the first
   instrument; future instruments belong in the Rack and effects in Mixer slots.
   Add a small internal interface when useful. External VST, CLAP and LV2 hosting
   and a public custom plugin format are outside the planned scope.
 - Editor windows are virtual windows within raylib, sharing one small window
   manager. Browser resizing and editor scrolling use the same mouse-first approach.
+- Idle drawing waits for events; playback and gestures run at 60 FPS. Workers
+  wake the UI when processing completes. Playlist copies reuse cached pattern
+  previews; extreme zoom retains vector detail. See [performance checks](performance.md).
 - Patterns contain all channels' notes. Playlist clips reference patterns and
   keep independent crop lengths; resizing a clip never deletes source notes.
 - Original sample audio is retained. Processing produces a separate sample,
@@ -35,8 +49,8 @@ are a coherent mouse-driven workflow and minimal code and dependencies.
   live; Pitch/Time retain the processed waveform until replacement audio is ready.
 - The audio callback allocates nothing. It uses a nonblocking mutex attempt;
   a concurrent UI update may silence a buffer. This is a prototype limitation.
-- Project files currently use `.hbt` and the `HOMEBEAT` version-15 header for
-  compatibility. Versions 1–14 remain readable. Renaming the app did not change
+- Project files currently use `.hbt` and the `HOMEBEAT` version-22 header for
+  compatibility. Versions 1–21 remain readable. Renaming the app did not change
   the project format. Sample paths are absolute and projects are not portable bundles.
 - Browser roots are written under the `libreloop` configuration directory;
   legacy `homebeat` roots are read when no new configuration exists.

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+const uint32_t pattern_palette[PATTERNS]={0x697980,0x786d80,0x687f70,0x8b7861,0x6a7f91,0x897079,0x85845f,0x6e8582};
 const char *snap_names[SNAP_COUNT]={"Auto","Bar","Beat","1/2 beat","1/3 beat","Step","1/6 beat","1/2 step","1/3 step","1/4 step"};
 float snap_interval(int mode,float pixels) {
     const float intervals[]={0,16,4,2,4.f/3,1,2.f/3,.5f,1.f/3,.25f};
@@ -20,14 +21,30 @@ void timeline_zoom(float *span,float *start,float wheel,float anchor,float unit)
     *start=fmaxf(0,*start+anchor*(*span-next)); *span=next;
 }
 float timeline_thumb(float width,float span,float range) { return fminf(width,fmaxf(24,width*span/range)); }
+float gain_db(float gain) { return gain>0?20*log10f(gain):-INFINITY; }
+/* Reserve the top quarter of fader travel for boost; bottom is silence. */
+float fader_position(float gain) {
+    if(gain<=0) return 0;
+    float db=gain_db(gain);
+    return fmaxf(0,fminf(1,gain<=1?.75f*(db+60)/60:.75f+.25f*db/gain_db(MIXER_GAIN_MAX)));
+}
+float fader_gain(float position) {
+    if(position<=0) return 0;
+    position=fminf(1,position);
+    float db=position<=.75f?60*(position/.75f-1):(position-.75f)/.25f*gain_db(MIXER_GAIN_MAX);
+    return fminf(MIXER_GAIN_MAX,powf(10,db/20));
+}
 void project_default(Project *p) {
-    memset(p, 0, sizeof *p); p->bpm=120; p->master=.7f; p->pattern_count=1; p->channel_count=4;
-    for(int pat=0;pat<PATTERNS;pat++) { p->pattern_steps[pat]=STEPS; snprintf(p->pattern_names[pat],PATTERN_NAME,"Pattern %d",pat+1); }
+    memset(p, 0, sizeof *p); p->bpm=120; p->master=1; p->master_width=1; p->pattern_count=1; p->channel_count=4; snprintf(p->audio_io[0][1],128,"@default");
+    for(int pat=0;pat<PATTERNS;pat++) { p->pattern_colors[pat]=pattern_palette[pat]; p->pattern_steps[pat]=STEPS; snprintf(p->pattern_names[pat],PATTERN_NAME,"Pattern %d",pat+1); }
+    for(int id=0;id<=INSERTS;id++) for(int slot=0;slot<10;slot++) p->effect_mix[id][slot]=1;
+    for(int l=0;l<LANES;l++) snprintf(p->track_names[l],PATTERN_NAME,"Track %d",l+1);
     const char *names[]={"Kick","Snare","Hat","Tone"};
     for(int c=0;c<CHANNELS;c++) { p->volume[c]=.7f; p->sampler[c].time=p->sampler[c].length=1; if(c<4) snprintf(p->channel_names[c],PATTERN_NAME,"%s",names[c]); else snprintf(p->channel_names[c],PATTERN_NAME,"Channel %d",c+1); }
     for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) p->clip_starts[l][b]=b;
+    for(int i=0;i<INSERTS;i++) snprintf(p->insert_names[i],PATTERN_NAME,"Insert %d",i+1);
     p->insert_count=INSERTS;
-    for(int i=0;i<INSERTS;i++) p->insert_volume[i]=1;
+    for(int i=0;i<INSERTS;i++) p->insert_volume[i]=p->insert_width[i]=1;
     for(int c=0;c<4;c++) p->route[c]=c+1;
     for(int pat=0;pat<1;pat++) for(int i=0;i<STEPS;i++) {
         if(i%4==0) p->notes[pat][0][i]=(Note){60,100,i,0};
@@ -51,9 +68,27 @@ int channel_delete(Project *p,int c) {
     for(int pat=0;pat<PATTERNS;pat++) memset(p->notes[pat][last],0,sizeof p->notes[pat][last]);
     return 1;
 }
+int pattern_delete(Project *p,int pattern) {
+    if(pattern<0 || pattern>=p->pattern_count) return 0;
+    for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) {
+        if(p->clips[l][b]==pattern+1) { p->clips[l][b]=0; p->clip_steps[l][b]=0; }
+        else if(p->clips[l][b]>pattern+1) p->clips[l][b]--;
+    }
+    for(int i=pattern;i<p->pattern_count-1;i++) {
+        memcpy(p->notes[i],p->notes[i+1],sizeof p->notes[i]);
+        memcpy(p->pattern_names[i],p->pattern_names[i+1],PATTERN_NAME);
+        p->pattern_steps[i]=p->pattern_steps[i+1]; p->pattern_colors[i]=p->pattern_colors[i+1];
+    }
+    int last=p->pattern_count>1?--p->pattern_count:0;
+    memset(p->notes[last],0,sizeof p->notes[last]); p->pattern_steps[last]=STEPS; p->pattern_colors[last]=pattern_palette[last];
+    snprintf(p->pattern_names[last],PATTERN_NAME,"Pattern %d",last+1);
+    return 1;
+}
 int insert_reset(Project *p,int id) {
     if(id<1 || id>p->insert_count) return 0;
-    p->insert_volume[id-1]=1; p->insert_pan[id-1]=0; p->insert_mute[id-1]=0; p->insert_output[id-1]=0;
+    p->insert_volume[id-1]=p->insert_width[id-1]=1; p->insert_pan[id-1]=0; p->insert_mute[id-1]=0; p->insert_output[id-1]=0;
+    memset(p->audio_io[id],0,sizeof p->audio_io[id]);
+    for(int slot=0;slot<10;slot++) { p->effect_mix[id][slot]=1; p->effect_bypass[id][slot]=0; }
     return 1;
 }
 int insert_connect(Project *p,int source,int destination) {
@@ -126,66 +161,125 @@ float song_steps(const Project *p) {
     for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) if(p->clips[l][b] && p->clip_starts[l][b]*STEPS+clip_length(p,l,b)>end) end=p->clip_starts[l][b]*STEPS+clip_length(p,l,b);
     return end;
 }
-static void trigger(Player *p, const Project *pr, int pat,int64_t tick,float remaining) {
+int solo_any(const uint8_t *states,int count) {
+    for(int i=0;i<count;i++) if(states[i]&2) return 1;
+    return 0;
+}
+void solo_toggle(uint8_t *states,int count,int selected) {
+    if(selected<0 || selected>=count) return;
+    if(states[selected]&2) states[selected]&=~2;
+    else states[selected]=(states[selected]&~1)|2;
+}
+static void trigger(Player *p,const Project *pr,int pat,int64_t tick,float remaining,int lane) {
     for(int c=0;c<pr->channel_count;c++) for(int i=0;i<NOTES;i++) {
         Note n=pr->notes[pat][c][i];
-        if(!n.velocity || (int64_t)llround(n.start*96.0)!=tick || pr->mute[c]) continue;
-        int v=0;
-        while(v<127 && p->voices[v].gain!=0) v++;
-        p->voices[v]=(Voice){c,0,pow(2,((int)n.pitch-60)/12.0),n.length?fmin(n.length,remaining)*RATE*60.0/pr->bpm/4:-1,n.velocity/127.f};
+        if(!n.velocity || (pr->mute[c]&1)) continue;
+        double start=n.start;
+        if(pr->swing>0) {
+            /* Warp each two-step pair without changing its duration or note order. */
+            double pair=floor(start/2)*2,phase=start-pair,delay=pr->swing*.5;
+            start=pair+(phase<1?phase*(1+delay):1+delay+(phase-1)*(1-delay));
+        }
+        if((int64_t)llround(start*96.0)!=tick) continue;
+        int v=0; while(v<127 && p->voices[v].gain!=0) v++;
+        p->voices[v]=(Voice){c,0,pow(2,((int)n.pitch-60)/12.0),n.length?fmin(n.length,remaining)*RATE*60.0/pr->bpm/4:-1,n.velocity/127.f,lane};
     }
 }
-static void render_audio(Player *p,const Project *pr,const Sample s[CHANNELS],float *out,unsigned frames,int sequence) {
-    float end=p->song?song_steps(pr):pr->pattern_steps[p->pattern];
-    if(end<=p->start_step) end=p->start_step+STEPS;
+static int active_voices(Player *p,Player *live,Voice *active[256]) {
+    int count=0;
+    for(int v=0;v<128;v++) if(p->voices[v].gain) active[count++]=&p->voices[v];
+    if(live) for(int v=0;v<128;v++) if(live->voices[v].gain) active[count++]=&live->voices[v];
+    return count;
+}
+static void render_audio(Player *p,Player *live,const Project *pr,const Sample s[CHANNELS],float *out,unsigned frames,int sequence,float peaks[INSERTS+1][2]) {
+    Voice *active[256]; int count=active_voices(p,live,active);
+    if(!sequence && !count) { p->frame+=frames; return; }
+    int loop=isfinite(p->loop_start) && isfinite(p->loop_end) && p->loop_start>=0 && p->loop_end>p->loop_start;
+    float begin=loop?p->loop_start:p->start_step;
+    float end=loop?p->loop_end:p->song?song_steps(pr):pr->pattern_steps[p->pattern];
+    if(end<=begin) begin=0;
     double stepframes=RATE*60.0/pr->bpm/4/96,pitch_speed=pow(2,pr->master_pitch/12.0);
+    uint64_t begin_frame=(uint64_t)llround(begin*stepframes*96),end_frame=(uint64_t)llround(end*stepframes*96);
     float gain_left[CHANNELS],gain_right[CHANNELS];
-    int solo=0; for(int i=0;i<pr->insert_count;i++) solo|=pr->insert_mute[i]&2;
+    int channel_solo=solo_any(pr->mute,pr->channel_count),insert_solo=solo_any(pr->insert_mute,pr->insert_count);
+    int lane_solo=solo_any(pr->lane_mute,LANES),lane_enabled[LANES];
+    for(int l=0;l<LANES;l++) lane_enabled[l]=!(pr->lane_mute[l]&1) && (!lane_solo || (pr->lane_mute[l]&2));
+    /* Sort only connected buses once per block, so shared buses are processed once. */
+    int used[INSERTS+1]={1},pending[INSERTS+1]={0},order[INSERTS+1],buses_count=0;
     for(int c=0;c<pr->channel_count;c++) {
-        float l=pr->mute[c]?0:pr->volume[c]*fminf(1,1-pr->pan[c]),r=pr->mute[c]?0:pr->volume[c]*fminf(1,1+pr->pan[c]);
-        int id=pr->route[c],hops=0,audible=!solo;
+        int id=pr->route[c],hops=0,audible=!insert_solo;
         while(id && id!=255 && hops++<INSERTS) {
-            int i=id-1; float gain=(pr->insert_mute[i]&1)?0:pr->insert_volume[i],pan=pr->insert_pan[i];
-            audible|=pr->insert_mute[i]&2;
-            l*=gain*fminf(1,1-pan); r*=gain*fminf(1,1+pan); id=pr->insert_output[i];
+            used[id]=1; audible|=pr->insert_mute[id-1]&2; id=pr->insert_output[id-1];
         }
-        gain_left[c]=id || !audible?0:l; gain_right[c]=id || !audible?0:r;
+        float gain=(pr->mute[c]&1) || (channel_solo && !(pr->mute[c]&2)) || !audible?0:pr->volume[c];
+        gain_left[c]=gain*fminf(1,1-pr->pan[c]); gain_right[c]=gain*fminf(1,1+pr->pan[c]);
     }
+    for(int id=1;id<=pr->insert_count;id++) if(used[id] && pr->insert_output[id-1]!=255) pending[pr->insert_output[id-1]]++;
+    for(int id=0;id<=pr->insert_count;id++) if(used[id] && !pending[id]) order[buses_count++]=id;
+    for(int at=0;at<buses_count;at++) {
+        int id=order[at]; if(!id) continue;
+        int dest=pr->insert_output[id-1];
+        if(dest!=255 && !--pending[dest]) order[buses_count++]=dest;
+    }
+    float bus_left[INSERTS+1],bus_right[INSERTS+1],bus_width[INSERTS+1];
+    bus_left[0]=bus_right[0]=pr->master_mute?0:pr->master; bus_width[0]=pr->master_width;
+    for(int id=1;id<=pr->insert_count;id++) {
+        int i=id-1; float gain=(pr->insert_mute[i]&1)?0:pr->insert_volume[i],pan=pr->insert_pan[i];
+        bus_left[id]=gain*fminf(1,1-pan); bus_right[id]=gain*fminf(1,1+pan); bus_width[id]=pr->insert_width[i];
+    }
+    float buses[INSERTS+1][2];
     for(unsigned f=0;f<frames;f++,p->frame++) {
+        if(live) live->frame++;
         int64_t step=(int64_t)(p->frame/stepframes);
-        if(sequence && step>=end*96) { p->frame=(uint64_t)llround(p->start_step*stepframes*96); step=(int64_t)(p->frame/stepframes); p->last_step=-1; }
+        if(sequence && p->frame>=end_frame) { p->frame=begin_frame; step=(int64_t)(p->frame/stepframes); p->last_step=-1; if(loop) memset(p->voices,0,sizeof p->voices); }
         if(sequence && step!=p->last_step) {
             p->last_step=step;
             if(p->song) {
-                for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) {
-                    int pat=pr->clips[l][b]; int64_t local=step-(int64_t)llround(pr->clip_starts[l][b]*STEPS*96.0); float length=clip_length(pr,l,b);
-                    if(pat && local>=0 && local<length*96 && local<pr->pattern_steps[pat-1]*96) trigger(p,pr,pat-1,local,length-local/96.f);
+                for(int l=0;l<LANES;l++) if(lane_enabled[l]) for(int b=0;b<CLIPS;b++) {
+                    int pat=pr->clips[l][b]; if(!pat) continue;
+                    int64_t local=step-(int64_t)llround(pr->clip_starts[l][b]*STEPS*96.0); float length=clip_length(pr,l,b);
+                    if(local>=0 && local<length*96 && local<pr->pattern_steps[pat-1]*96) trigger(p,pr,pat-1,local,fminf(length-local/96.f,end-step/96.f),l);
                 }
-            } else trigger(p,pr,p->pattern,step,end-step/96.f);
+            } else trigger(p,pr,p->pattern,step,end-step/96.f,-1);
+            count=active_voices(p,live,active);
         }
-        float left=0,right=0;
-        for(int v=0;v<128;v++) {
-            Voice *voice=&p->voices[v]; if(!voice->gain) continue;
+        for(int at=0;at<buses_count;at++) buses[order[at]][0]=buses[order[at]][1]=0;
+        for(int v=0;v<count;v++) {
+            Voice *voice=active[v]; if(!voice->gain) continue;
             int c=voice->channel; if(c>=pr->channel_count) { voice->gain=0; continue; } unsigned i=(unsigned)voice->position;
             if(i>=s[c].frames) { voice->gain=0; continue; }
-            float a=s[c].data[i], b=i+1<s[c].frames?s[c].data[i+1]:0;
+            float a=s[c].data[i],b=i+1<s[c].frames?s[c].data[i+1]:0;
             float x=(a+(b-a)*(voice->position-i))*voice->gain;
             if(voice->remaining>=0) {
                 x*=fminf(1,voice->remaining/(RATE*.005f));
                 if(--voice->remaining<=0) voice->gain=0;
             }
-            left+=x*gain_left[c]; right+=x*gain_right[c];
+            if(sequence && p->song && voice->lane>=0 && voice->lane<LANES && !lane_enabled[voice->lane]) x=0;
+            int id=pr->route[c]; buses[id][0]+=x*gain_left[c]; buses[id][1]+=x*gain_right[c];
             voice->position+=voice->speed*pitch_speed;
         }
-        if(sequence) { out[f*2]=tanhf(left*pr->master); out[f*2+1]=tanhf(right*pr->master); }
-        else if(left || right) { out[f*2]=tanhf(out[f*2]+left*pr->master); out[f*2+1]=tanhf(out[f*2+1]+right*pr->master); }
+        for(int at=0;at<buses_count;at++) {
+            int id=order[at]; float l=buses[id][0]*bus_left[id],r=buses[id][1]*bus_right[id];
+            if(bus_width[id]!=1) { float mid=(l+r)*.5f,side=(l-r)*.5f*bus_width[id]; l=mid+side; r=mid-side; }
+            if(id) {
+                int dest=pr->insert_output[id-1]; if(dest!=255) { buses[dest][0]+=l; buses[dest][1]+=r; }
+            } else {
+                if(sequence) { out[f*2]=tanhf(l); out[f*2+1]=tanhf(r); }
+                else if(l || r) { out[f*2]=tanhf(out[f*2]+l); out[f*2+1]=tanhf(out[f*2+1]+r); }
+                /* Meter the bus before output soft clipping so overload stays visible. */
+            }
+            if(peaks) { peaks[id][0]=fmaxf(peaks[id][0],fabsf(l)); peaks[id][1]=fmaxf(peaks[id][1],fabsf(r)); }
+        }
     }
 }
 void render(Player *p,const Project *pr,const Sample s[CHANNELS],float *out,unsigned frames) {
-    render_audio(p,pr,s,out,frames,1);
+    render_audio(p,NULL,pr,s,out,frames,1,NULL);
 }
 void render_live(Player *p,const Project *pr,const Sample s[CHANNELS],float *out,unsigned frames) {
-    render_audio(p,pr,s,out,frames,0);
+    render_audio(p,NULL,pr,s,out,frames,0,NULL);
+}
+void render_mixer(Player *p,Player *live,const Project *pr,const Sample s[CHANNELS],float *out,unsigned frames,int sequence,float peaks[INSERTS+1][2]) {
+    render_audio(p,live,pr,s,out,frames,sequence,peaks);
 }
 /* Text format keeps projects inspectable and avoids ABI-dependent struct dumps. */
 static int read_line(FILE *f,char *out,size_t capacity) {
@@ -200,9 +294,21 @@ int project_save(const char *path,const Project *p) {
     for(int c=0;c<CHANNELS;c++) if(strchr(p->paths[c],'\n') || strchr(p->paths[c],'\r')) return 0;
     for(int pat=0;pat<PATTERNS;pat++) if(!p->pattern_names[pat][0] || strchr(p->pattern_names[pat],'\n') || strchr(p->pattern_names[pat],'\r')) return 0;
     for(int c=0;c<CHANNELS;c++) if(!sampler_valid(p->sampler[c])) return 0;
+    if(!isfinite(p->master_width) || p->master_width<0 || p->master_width>2 || p->master_mute>1) return 0;
+    for(int i=0;i<INSERTS;i++) if(!isfinite(p->insert_width[i]) || p->insert_width[i]<0 || p->insert_width[i]>2) return 0;
+    for(int c=0;c<CHANNELS;c++) if(p->mute[c]>3) return 0;
+    for(int l=0;l<LANES;l++) if(p->lane_mute[l]>3) return 0;
+    if(!isfinite(p->swing) || p->swing<0 || p->swing>1) return 0;
+    if(!isfinite(p->master) || p->master<0 || p->master>MIXER_GAIN_MAX) return 0;
+    for(int i=0;i<INSERTS;i++) if(!isfinite(p->insert_volume[i]) || p->insert_volume[i]<0 || p->insert_volume[i]>MIXER_GAIN_MAX) return 0;
+    for(int id=0;id<=INSERTS;id++) for(int io=0;io<2;io++) if(strnlen(p->audio_io[id][io],128)==128 || strchr(p->audio_io[id][io],'\n') || strchr(p->audio_io[id][io],'\r')) return 0;
+    for(int id=0;id<=INSERTS;id++) for(int slot=0;slot<10;slot++) if(!isfinite(p->effect_mix[id][slot]) || p->effect_mix[id][slot]<0 || p->effect_mix[id][slot]>1 || p->effect_bypass[id][slot]>1) return 0;
+    for(int l=0;l<LANES;l++) if(!p->track_names[l][0] || strnlen(p->track_names[l],PATTERN_NAME)==PATTERN_NAME || strchr(p->track_names[l],'\n') || strchr(p->track_names[l],'\r')) return 0;
+    for(int i=0;i<INSERTS;i++) if(!p->insert_names[i][0] || strnlen(p->insert_names[i],PATTERN_NAME)==PATTERN_NAME || strchr(p->insert_names[i],'\n') || strchr(p->insert_names[i],'\r')) return 0;
+    for(int i=0;i<PATTERNS;i++) if(p->pattern_colors[i]>0xffffff) return 0;
     char tmp[4096]; if(snprintf(tmp,sizeof tmp,"%s.tmp",path)>=(int)sizeof tmp) return 0;
     FILE *f=fopen(tmp,"w"); if(!f) return 0;
-    fprintf(f,"HOMEBEAT 15\n%.9g %.9g %d\n",p->bpm,p->master,p->channel_count);
+    fprintf(f,"HOMEBEAT 22\n%.9g %.9g %d\n",p->bpm,p->master,p->channel_count);
     for(int c=0;c<CHANNELS;c++) fprintf(f,"%.9g %.9g %u\n",p->volume[c],p->pan[c],p->mute[c]);
     for(int a=0;a<PATTERNS;a++) for(int c=0;c<CHANNELS;c++) for(int i=0;i<NOTES;i++) {
         Note n=p->notes[a][c][i]; fprintf(f,"%u %u %.9g %.9g\n",n.pitch,n.velocity,n.start,n.length);
@@ -221,6 +327,15 @@ int project_save(const char *path,const Project *p) {
     for(int c=0;c<CHANNELS;c++) fprintf(f,"%s\n",p->channel_names[c]);
     for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) fprintf(f,"%.9g\n",p->clip_starts[l][b]);
     for(int c=0;c<CHANNELS;c++) fprintf(f,"%.9g %.9g %.9g %.9g %u %u\n",p->sampler[c].pitch,p->sampler[c].time,p->sampler[c].start,p->sampler[c].length,p->sampler[c].flags,p->sampler[c].stretch);
+    for(int i=0;i<INSERTS;i++) fprintf(f,"%.9g\n",p->insert_width[i]);
+    fprintf(f,"%.9g %u\n",p->master_width,p->master_mute);
+    for(int l=0;l<LANES;l++) fprintf(f,"%u\n",p->lane_mute[l]);
+    fprintf(f,"%.9g\n",p->swing);
+    for(int id=0;id<=INSERTS;id++) for(int io=0;io<2;io++) fprintf(f,"%s\n",p->audio_io[id][io]);
+    for(int id=0;id<=INSERTS;id++) for(int slot=0;slot<10;slot++) fprintf(f,"%.9g %u\n",p->effect_mix[id][slot],p->effect_bypass[id][slot]);
+    for(int l=0;l<LANES;l++) fprintf(f,"%s\n",p->track_names[l]);
+    for(int i=0;i<INSERTS;i++) fprintf(f,"%s\n",p->insert_names[i]);
+    for(int i=0;i<PATTERNS;i++) fprintf(f,"%u\n",p->pattern_colors[i]);
     int ok=!ferror(f); if(fclose(f)) ok=0;
     if(ok && rename(tmp,path)==0) return 1;
     remove(tmp); return 0;
@@ -233,12 +348,12 @@ int project_load(const char *path,Project *p) {
     for(int i=0;i<INSERTS;i++) q.insert_volume[i]=1;
     for(int c=0;c<CHANNELS;c++) q.volume[c]=.7f;
     for(int c=0;c<4;c++) q.route[c]=c+1;
-    int ok=fscanf(f,"%31s %d",magic,&version)==2 && !strcmp(magic,"HOMEBEAT") && version>=1 && version<=15;
-    ok=ok && fscanf(f,"%f %f",&q.bpm,&q.master)==2 && isfinite(q.bpm) && q.bpm>=30 && q.bpm<=300 && isfinite(q.master) && q.master>=0 && q.master<=1;
+    int ok=fscanf(f,"%31s %d",magic,&version)==2 && !strcmp(magic,"HOMEBEAT") && version>=1 && version<=22;
+    ok=ok && fscanf(f,"%f %f",&q.bpm,&q.master)==2 && isfinite(q.bpm) && q.bpm>=30 && q.bpm<=300 && isfinite(q.master) && q.master>=0 && q.master<=(version>=18?MIXER_GAIN_MAX:1);
     if(version>=12) ok=ok && fscanf(f,"%d",&q.channel_count)==1 && q.channel_count>=0 && q.channel_count<=CHANNELS;
     int channels=version>=12?CHANNELS:4,inserts=version>=12?INSERTS:16,clips=version>=14?CLIPS:BARS;
     for(int c=0;ok && c<channels;c++) {
-        ok=fscanf(f,"%f %f %u",&q.volume[c],&q.pan[c],&x)==3 && isfinite(q.volume[c]) && isfinite(q.pan[c]) && q.volume[c]>=0 && q.volume[c]<=1 && fabsf(q.pan[c])<=1 && x<=1;
+        ok=fscanf(f,"%f %f %u",&q.volume[c],&q.pan[c],&x)==3 && isfinite(q.volume[c]) && isfinite(q.pan[c]) && q.volume[c]>=0 && q.volume[c]<=1 && fabsf(q.pan[c])<=1 && x<=(version>=16?3u:1u);
         if(ok) q.mute[c]=x;
     }
     for(int a=0;ok && a<PATTERNS;a++) for(int c=0;ok && c<channels;c++) for(int i=0;ok && i<(version>=4?NOTES:STEPS);i++) {
@@ -259,7 +374,7 @@ int project_load(const char *path,Project *p) {
         ok=ok && fscanf(f,"%d",&q.insert_count)==1 && q.insert_count>=0 && q.insert_count<=INSERTS;
         for(int c=0;ok && c<channels;c++) { ok=fscanf(f,"%u",&x)==1 && x<=(unsigned)q.insert_count; if(ok) q.route[c]=x; }
         for(int i=0;ok && i<inserts;i++) {
-            ok=fscanf(f,"%f %f %u",&q.insert_volume[i],&q.insert_pan[i],&x)==3 && isfinite(q.insert_volume[i]) && q.insert_volume[i]>=0 && q.insert_volume[i]<=1 && isfinite(q.insert_pan[i]) && fabsf(q.insert_pan[i])<=1 && x<=(version>=11?3u:1u);
+            ok=fscanf(f,"%f %f %u",&q.insert_volume[i],&q.insert_pan[i],&x)==3 && isfinite(q.insert_volume[i]) && q.insert_volume[i]>=0 && q.insert_volume[i]<=(version>=18?MIXER_GAIN_MAX:1) && isfinite(q.insert_pan[i]) && fabsf(q.insert_pan[i])<=1 && x<=(version>=11?3u:1u);
             if(ok) q.insert_mute[i]=x;
         }
     }
@@ -289,6 +404,27 @@ int project_load(const char *path,Project *p) {
         ok=fscanf(f,"%f %f %f %f %u %u",&s->pitch,&s->time,&s->start,&s->length,&x,&y)==6 && x<=7 && y<=1;
         if(ok) { s->flags=x; s->stretch=y; ok=sampler_valid(*s); }
     }
+    if(version>=16) {
+        for(int i=0;ok && i<INSERTS;i++) ok=fscanf(f,"%f",&q.insert_width[i])==1 && isfinite(q.insert_width[i]) && q.insert_width[i]>=0 && q.insert_width[i]<=2;
+        ok=ok && fscanf(f,"%f %u",&q.master_width,&x)==2 && isfinite(q.master_width) && q.master_width>=0 && q.master_width<=2 && x<=1;
+        if(ok) q.master_mute=x;
+        for(int l=0;ok && l<LANES;l++) { ok=fscanf(f,"%u",&x)==1 && x<=3; if(ok) q.lane_mute[l]=x; }
+    }
+    if(version>=17) ok=ok && fscanf(f,"%f",&q.swing)==1 && isfinite(q.swing) && q.swing>=0 && q.swing<=1;
+    if(version>=19) {
+        ok=ok && fgetc(f)=='\n';
+        for(int id=0;ok && id<=INSERTS;id++) for(int io=0;ok && io<2;io++) ok=read_line(f,q.audio_io[id][io],128);
+    }
+    if(version>=20) {
+        for(int id=0;ok && id<=INSERTS;id++) for(int slot=0;ok && slot<10;slot++) {
+            ok=fscanf(f,"%f %u",&q.effect_mix[id][slot],&x)==2 && isfinite(q.effect_mix[id][slot]) && q.effect_mix[id][slot]>=0 && q.effect_mix[id][slot]<=1 && x<=1;
+            if(ok) q.effect_bypass[id][slot]=x;
+        }
+        ok=ok && fgetc(f)=='\n';
+        for(int l=0;ok && l<LANES;l++) ok=read_line(f,q.track_names[l],PATTERN_NAME) && q.track_names[l][0];
+    }
+    if(version>=21) for(int i=0;ok && i<INSERTS;i++) ok=read_line(f,q.insert_names[i],PATTERN_NAME) && q.insert_names[i][0];
+    if(version>=22) for(int i=0;ok && i<PATTERNS;i++) { ok=fscanf(f,"%u",&x)==1 && x<=0xffffff; if(ok) q.pattern_colors[i]=x; }
     fclose(f); if(ok) *p=q; return ok;
 }
 static void le(FILE *f,uint32_t x,int n) { for(int i=0;i<n;i++) fputc((x>>(i*8))&255,f); }

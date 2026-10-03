@@ -3,13 +3,14 @@
 #include <math.h>
 static int inside(Rect r,float x,float y) { return x>=r.x && y>=r.y && x<r.x+r.w && y<r.y+r.h; }
 void windows_init(Windows *w,float width,float height) {
+    float left=392,available=width-left-8,mixer_width=fminf(720,available);
     *w=(Windows){.editors={
-        {{200,200,470,208},{0},438,192,1,0,0},
+        {{left+(available-486)/2,156,486,168},{0},438,152,1,0,0},
         {{180,42,width-184,height-66},{0},440,240,1,0,0},
         {{320,128,760,430},{0},440,392,0,0,0},
-        {{188,height-264,fminf(720,width-196),240},{0},460,220,1,0,0},
-        {{(width-560)/2,(height-380)/2,560,380},{0},520,340,0,0,0}},
-        .order={1,2,3,4,0},.owner=-1,.grab=-1};
+        {{left+(available-mixer_width)/2,height-324,mixer_width,300},{0},460,300,1,0,0},
+        {{(width-560)/2,(height-340)/2,560,340},{0},520,300,0,0,0}},
+        .order={1,2,3,4,0},.owner=-1,.grab=-1,.title_id=-1};
 }
 int windows_hit(const Windows *w,float x,float y) {
     for(int i=EDITORS-1;i>=0;i--) { int id=w->order[i]; if(w->editors[id].visible && inside(w->editors[id].rect,x,y)) return id; }
@@ -29,7 +30,7 @@ static Rect constrain(Rect r,Rect d,float minw,float minh) {
     r.w=fminf(d.w,fmaxf(minw,r.w)); r.h=fminf(d.h,fmaxf(minh,r.h));
     r.x=fmaxf(d.x,fminf(d.x+d.w-r.w,r.x)); r.y=fmaxf(d.y,fminf(d.y+d.h-r.h,r.y)); return r;
 }
-void windows_update(Windows *w,Rect d,float x,float y,int pressed,int down) {
+void windows_update(Windows *w,Rect d,float x,float y,int pressed,int down,double time) {
     for(int i=0;i<EDITORS;i++) { Editor *e=&w->editors[i]; e->rect=e->maximized?d:constrain(e->rect,d,e->minw,e->minh); }
     if(!down) w->grab=-1;
     if(w->grab>=0) {
@@ -41,16 +42,25 @@ void windows_update(Windows *w,Rect d,float x,float y,int pressed,int down) {
     int id=inside(d,x,y)?windows_hit(w,x,y):-1;
     if(pressed && id>=0) {
         windows_focus(w,id); Editor *e=&w->editors[id]; Rect r=e->rect;
-        if(y<r.y+TITLE && x>=r.x+r.w-22) e->visible=0;
-        else if(y<r.y+TITLE && x>=r.x+r.w-44) {
-            if(e->maximized) { e->rect=e->restore; e->maximized=0; }
-            else { e->restore=r; e->rect=d; e->maximized=1; }
+        if(y<r.y+TITLE) {
+            int control=x>=r.x+r.w-54;
+            int maximize=(x>=r.x+r.w-36 && x<r.x+r.w-18) ||
+                (!control && time>0 && w->title_id==id && time-w->title_time<.3 && fabsf(x-w->title_x)<4 && fabsf(y-w->title_y)<4);
+            int rack_control=id==0 && x>=r.x+r.w-90 && x<r.x+r.w-54;
+            if(rack_control) { w->grab=-1; w->title_id=-1; }
+            else if(maximize) {
+                if(e->maximized) { e->rect=e->restore; e->maximized=0; }
+                else { e->restore=r; e->rect=d; e->maximized=1; }
+                w->grab=-1; w->title_id=-1;
+            } else if(control) { e->visible=0; w->title_id=-1; }
+            else {
+                w->title_id=id; w->title_time=time; w->title_x=x; w->title_y=y;
+                if(!e->maximized) { w->grab=id; w->resize=0; w->dx=x-r.x; w->dy=y-r.y; }
+            }
         } else if(!e->maximized && x>r.x+r.w-12 && y>r.y+r.h-12) {
             w->grab=id; w->resize=1; w->dx=r.x+r.w-x; w->dy=r.y+r.h-y;
-        } else if(!e->maximized && y<r.y+TITLE) {
-            w->grab=id; w->resize=0; w->dx=x-r.x; w->dy=y-r.y;
         }
-        if(y<r.y+TITLE) id=-1;
+        if(y<r.y+TITLE && !(id==0 && x>=r.x+r.w-90 && x<r.x+r.w-54)) id=-1;
     }
     w->owner=w->grab>=0?-1:id;
 }

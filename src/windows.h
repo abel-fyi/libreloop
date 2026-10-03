@@ -2,17 +2,19 @@
 #ifndef WINDOWS_H
 #define WINDOWS_H
 #define EDITORS 5
-#define TITLE 24
+#define TITLE 18
 typedef struct { float x,y,w,h; } Rect;
 typedef struct { Rect rect,restore; float minw,minh; int visible,maximized,pinned; } Editor;
 typedef struct {
     Editor editors[EDITORS];
     int order[EDITORS],owner,grab,resize;
-    float dx,dy;
+    float dx,dy,title_x,title_y;
+    double title_time;
+    int title_id;
 } Windows;
 void windows_init(Windows *w,float width,float height);
 int windows_hit(const Windows *w,float x,float y);
 void windows_focus(Windows *w,int id);
 void windows_pin(Windows *w,int id);
-void windows_update(Windows *w,Rect desktop,float x,float y,int pressed,int down);
+void windows_update(Windows *w,Rect desktop,float x,float y,int pressed,int down,double time);
 #endif
