@@ -10,6 +10,7 @@ int main(void) {
     Arrangement a={.source_pattern=-1,.source_steps=STEPS,.snap=16};
     arrangement_press(&a,&p,1.2,.4,0,0,0,0); arrangement_drag(&a,&p,5.2,1.4); arrangement_release(&a);
     CHECK(p.clips[1][5]==1 && !p.clips[0][1]);
+    CHECK(a.selected[1][5]);
     int count=0; for(int l=0;l<LANES;l++) for(int b=0;b<BARS;b++) count+=p.clips[l][b]!=0; CHECK(count==1);
     /* Clicked copy becomes the paint source, including its independently resized length. */
     p.pattern_steps[0]=32;
@@ -18,6 +19,17 @@ int main(void) {
     a.tool=BRUSH; arrangement_press(&a,&p,1.2,2.4,0,0,0,0); arrangement_drag(&a,&p,7.2,2.4); arrangement_release(&a);
     CHECK(p.clips[2][1]==1 && p.clips[2][3]==1 && p.clips[2][5]==1 && p.clips[2][7]==1 && !p.clips[2][2]);
     CHECK(clip_length(&p,2,3)==32);
+    CHECK(a.selected[2][1] && a.selected[2][3] && a.selected[2][5] && a.selected[2][7] && !a.selected[1][5]);
+    /* Resuming inside a clip anchors painting to its start, even across skipped frames. */
+    Arrangement resumed={.tool=BRUSH,.source_pattern=-1,.snap=1};
+    arrangement_press(&resumed,&p,3.8f,2.4f,0,0,0,0);
+    arrangement_drag(&resumed,&p,11.4f,2.4f); arrangement_release(&resumed);
+    CHECK(arrangement_hit(&p,2,9.01f)>=0 && arrangement_hit(&p,2,11.01f)>=0);
+    int continued=arrangement_hit(&p,2,9.01f);
+    CHECK(p.clip_starts[2][continued]==9 && clip_length(&p,2,continued)==32);
+    CHECK(resumed.selected[2][continued] && resumed.selected[2][3] && !resumed.selected[2][1]);
+    /* Undo these extra fixtures before the existing group-move assertions. */
+    for(int b=0;b<CLIPS;b++) if(p.clips[2][b] && p.clip_starts[2][b]>=9) p.clips[2][b]=0;
     /* Rectangle selection and a group move preserve lengths and spacing. */
     a.tool=SELECT; arrangement_press(&a,&p,.2,1.9,0,0,0,0); arrangement_drag(&a,&p,5,2.9); arrangement_release(&a);
     CHECK(a.selected[2][1] && a.selected[2][3] && !a.selected[2][5]);
@@ -74,6 +86,16 @@ int main(void) {
     precise.snap=4.f/3;
     arrangement_press(&precise,&fractional,2.1f,2.4f,0,0,0,0); arrangement_release(&precise);
     CHECK(fabsf(fractional.clip_starts[2][2]-25.f/12)<.00001f);
+    /* Non-grid clip lengths still tile exactly in both directions. */
+    Arrangement tiled={.tool=BRUSH,.source_pattern=-1,.snap=4};
+    int seed=arrangement_place(&fractional,4,2.125f,0,10);
+    CHECK(seed>=0);
+    arrangement_press(&tiled,&fractional,2.6f,4.4f,0,0,0,0);
+    arrangement_drag(&tiled,&fractional,4.1f,4.4f);
+    arrangement_drag(&tiled,&fractional,.9f,4.4f); arrangement_release(&tiled);
+    int after=arrangement_hit(&fractional,4,2.76f),before=arrangement_hit(&fractional,4,1.51f);
+    CHECK(after>=0 && before>=0 && fractional.clip_starts[4][after]==2.75f && fractional.clip_starts[4][before]==1.5f);
+    CHECK(clip_length(&fractional,4,after)==10 && fractional.clip_starts[4][seed]==2.125f);
     a.zoom=1; a.view_start=0; arrangement_zoom(&a,2,.5f);
     float zoomed=BARS/a.zoom;
     CHECK(fabsf(zoomed-16/(1.08f*1.08f))<.001f && fabsf(a.view_start+zoomed*.5f-8)<.001f);
@@ -96,5 +118,17 @@ int main(void) {
     CHECK(note_add(&long_song,0,3,99*STEPS,60,2));
     CHECK(song_steps(&long_song)==5100.25f*STEPS);
     CHECK(project_save("long-song.hbt",&long_song)); Project loaded; CHECK(project_load("long-song.hbt",&loaded)); CHECK(project_equal(&long_song,&loaded)); remove("long-song.hbt");
+    /* Temporary selection starts over occupied clips without moving or painting. */
+    for(int tool=PENCIL;tool<=BRUSH;tool++) {
+        precise.tool=tool; precise.source_pattern=2;
+        arrangement_select_press(&precise,1.4f,1.4f,0);
+        arrangement_drag(&precise,&fractional,1.8f,1.8f); arrangement_release(&precise);
+        CHECK(precise.selected[1][1] && !precise.selected[0][0]);
+        CHECK(precise.tool==tool && precise.source_pattern==2);
+        CHECK(fractional.clip_starts[1][1]==1.375f && fractional.clips[1][1]==1);
+        arrangement_select_press(&precise,.1f,.1f,1);
+        arrangement_drag(&precise,&fractional,.2f,.8f); arrangement_release(&precise);
+        CHECK(precise.selected[1][1] && precise.selected[0][0]);
+    }
     puts("Pencil, brush source and spacing, resize, selection, group movement and erase passed."); return 0;
 }

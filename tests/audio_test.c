@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 /* Exercise the real callback and mailbox without opening an audio device. */
 #include "../src/audio.c"
+#include "arrangement.h"
 #include <stdio.h>
 #define CHECK(x) do { if(!(x)) { fprintf(stderr,"Failed line %d: %s\n",__LINE__,#x); exit(1); } } while(0)
 static Project fixture;
@@ -52,6 +53,17 @@ int main(void) {
     audio_update(&fixture,1,1,0,1,1.25f,0,0,0); callback(NULL,out,NULL,1);
     CHECK(out[0]==1 && out[1]==-1);
     float peaks[INSERTS+1][2]; audio_meters(peaks); CHECK(peaks[0][0]>=2.5f);
+    /* Automation continues inside the actual callback while the UI mailbox is locked. */
+    float flat[2048]; for(int i=0;i<2048;i++) flat[i]=.2f;
+    setup((Sample){flat,1024,2});
+    int automation=automation_create(&fixture,(ParameterTarget){PARAM_CHANNEL_VOLUME,0,0},"Volume",16); CHECK(automation==0);
+    fixture.automations[0].points[0].value=0; fixture.automations[0].points[1].value=1;
+    CHECK(arrangement_place(&fixture,1,0,AUTOMATION_SOURCE,16)>=0);
+    audio_update(&fixture,1,1,0,1,1,0,0,0); callback(NULL,out,NULL,64); CHECK(out[0]==0 && out[126]>0);
+    float last=out[126]; ready=1; ma_atomic_device_state_set(&device.state,ma_device_state_started);
+    pthread_mutex_lock(&mutex); callback(NULL,out,NULL,64); pthread_mutex_unlock(&mutex);
+    CHECK(out[0]>last && out[126]>out[0] && project.volume[0]==1);
+    ready=0; ma_atomic_device_state_set(&device.state,ma_device_state_uninitialized);
     float bad[]={NAN,INFINITY}; setup((Sample){bad,1,2}); callback(NULL,out,NULL,1);
     CHECK(out[0]==0 && out[1]==0);
     /* A real producer/consumer exchange acknowledges replacements before free. */

@@ -347,7 +347,7 @@ int main(void) {
     for(int version=19;version<=28;version++) {
         FILE *current=fopen("test-project.hbt","r"),*old=fopen("recent-legacy.hbt","w"); CHECK(current && old);
         char line[2048]; int lines=0; while(fgets(line,sizeof line,current)) lines++;
-        int omitted=CHANNELS+(version<27?LANES*CLIPS:0)+(version<26?CHANNELS:0)+(version<25?CHANNELS:0)+(version<23?CHANNELS:0)+(version<22?PATTERNS:0)+(version<21?INSERTS:0)+(version<20?LANES+(INSERTS+1)*10:0);
+        int omitted=1+CHANNELS+(version<27?LANES*CLIPS:0)+(version<26?CHANNELS:0)+(version<25?CHANNELS:0)+(version<23?CHANNELS:0)+(version<22?PATTERNS:0)+(version<21?INSERTS:0)+(version<20?LANES+(INSERTS+1)*10:0);
         rewind(current); fprintf(old,"HOMEBEAT %d\n",version); CHECK(fgets(line,sizeof line,current));
         for(int i=1;i<lines-omitted;i++) { CHECK(fgets(line,sizeof line,current)); fputs(line,old); }
         fclose(current); fclose(old);

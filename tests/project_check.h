@@ -28,7 +28,12 @@ static int project_equal(const Project *a,const Project *b) {
     FIELD(effect_mix); FIELD(effect_bypass);
     for(int l=0;l<LANES;l++) STRING(track_names[l]);
     for(int i=0;i<INSERTS;i++) STRING(insert_names[i]);
-    FIELD(swing);
+    FIELD(swing); FIELD(automation_count);
+    for(int i=0;i<a->automation_count;i++) {
+        FIELD(automations[i].target.parameter); FIELD(automations[i].target.owner); FIELD(automations[i].target.slot);
+        FIELD(automations[i].steps); FIELD(automations[i].count); FIELD(automations[i].color); STRING(automations[i].name);
+        for(int n=0;n<a->automations[i].count;n++) { FIELD(automations[i].points[n].step); FIELD(automations[i].points[n].value); }
+    }
 #undef FIELD
 #undef STRING
     return 1;

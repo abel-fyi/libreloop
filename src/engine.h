@@ -15,6 +15,16 @@ extern const uint32_t pattern_palette[PATTERNS];
 #define LANES 100
 #define BARS 16 /* initial Playlist view, not a timeline limit */
 #define CLIPS 64
+#define AUTOMATIONS 32
+#define AUTOMATION_POINTS 64
+#define AUTOMATION_SOURCE (PATTERNS+CHANNELS)
+#define SOURCES (AUTOMATION_SOURCE+AUTOMATIONS)
+#define AUDIO_SOURCE(s) ((s)>=PATTERNS && (s)<AUTOMATION_SOURCE)
+/* Saved IDs, independent of UI addresses. Plugin IDs are reserved for future processors. */
+enum { PARAM_CHANNEL_VOLUME=1, PARAM_CHANNEL_PAN, PARAM_CHANNEL_PITCH, PARAM_INSERT_VOLUME, PARAM_INSERT_PAN, PARAM_INSERT_WIDTH, PARAM_MASTER_VOLUME, PARAM_MASTER_WIDTH, PARAM_MASTER_PITCH, PARAM_CHANNEL_MUTE, PARAM_INSERT_MUTE, PARAM_MASTER_MUTE, PARAM_SWING, PARAM_PITCH_RANGE, PARAM_PLUGIN=1024 };
+typedef struct { unsigned parameter,owner,slot; } ParameterTarget;
+typedef struct { float step,value; } AutomationPoint;
+typedef struct { ParameterTarget target; float steps; int count; uint32_t color; char name[48]; AutomationPoint points[AUTOMATION_POINTS]; } Automation;
 #define RATE 48000
 #define INSERTS 100
 #define VOLUME_KNOB_MAX 1.25f
@@ -32,9 +42,9 @@ typedef struct {
     float channel_pitch[CHANNELS],pitch_range[CHANNELS]; /* normalized -1..1, range 1..48 semitones */
     uint8_t mute[CHANNELS]; /* bits: 1 mute, 2 solo */
     Note notes[PATTERNS][CHANNELS][NOTES];
-    uint8_t clips[LANES][CLIPS]; /* 0 empty; 1..PATTERNS pattern; higher values Audio channel + PATTERNS + 1 */
-    float clip_steps[LANES][CLIPS],clip_starts[LANES][CLIPS]; /* audio lengths in seconds; pattern lengths in steps */
-    float clip_offsets[LANES][CLIPS]; /* source offset: seconds for Audio, steps for patterns */
+    uint8_t clips[LANES][CLIPS]; /* 0 empty; pattern + 1, PATTERNS + Audio + 1, AUTOMATION_SOURCE + automation + 1 */
+    float clip_steps[LANES][CLIPS],clip_starts[LANES][CLIPS]; /* Audio lengths in seconds; patterns/automation in steps */
+    float clip_offsets[LANES][CLIPS]; /* source offset: seconds for Audio, steps for patterns/automation */
     uint8_t channel_audio[CHANNELS];
     float audio_seconds[CHANNELS]; /* processed sample duration */
     float pattern_steps[PATTERNS];
@@ -55,6 +65,8 @@ typedef struct {
     uint8_t effect_bypass[INSERTS+1][10];
     char track_names[LANES][PATTERN_NAME];
     char insert_names[INSERTS][PATTERN_NAME];
+    int automation_count;
+    Automation automations[AUTOMATIONS];
     float swing; /* 0..1; delays offbeat sixteenths up to half a step */
 } Project;
 /* Interleaved PCM; channels 0 retains compatibility with mono initializers. */
@@ -78,6 +90,16 @@ extern const char *snap_names[SNAP_COUNT];
 float snap_interval(int mode,float pixels_per_step);
 void timeline_zoom(float *span,float *start,float wheel,float anchor,float unit);
 float timeline_thumb(float width,float span,float range);
+int parameter_info(const Project *p,ParameterTarget target,float *value,float *low,float *high);
+int parameter_from_pointer(const Project *p,const void *pointer,ParameterTarget *target);
+float automation_value(const Automation *a,float step);
+/* Song-position lookup for future built-in processors; 0 means no automation has started. */
+int automation_evaluate(const Project *p,ParameterTarget target,float step,float *normalized);
+int automation_point(Automation *a,float step,float value);
+int automation_move_point(Project *p,int index,int point,float step,float value);
+int automation_create(Project *p,ParameterTarget target,const char *name,float steps);
+int automation_delete(Project *p,int index);
+int automation_valid(const Project *p);
 void project_default(Project *p);
 void project_new(Project *p);
 void project_demo(Project *p);
@@ -96,6 +118,12 @@ float clip_source_steps(const Project *p,int source);
 float clip_offset_steps(const Project *p,int lane,int clip);
 float clip_length(const Project *p,int lane,int bar);
 float song_steps(const Project *p);
+typedef struct { const Project *project; int channel; unsigned count; uint16_t clips[LANES*CLIPS]; } AudioTimeline;
+void audio_timeline_init(AudioTimeline *map,const Project *p,int channel);
+double audio_timeline_source(const AudioTimeline *map,double start,double end);
+double audio_timeline_duration(const AudioTimeline *map,double start,double source_steps);
+float audio_clip_steps(const Project *p,int lane,int clip);
+double audio_clip_position(const Project *p,int lane,int clip,double step);
 void samples_default(Sample s[CHANNELS]);
 int sampler_valid(Sampler settings);
 int sampler_equal(Sampler a,Sampler b);

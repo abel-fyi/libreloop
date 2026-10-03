@@ -75,7 +75,7 @@ cmake --build build --parallel
 
 ## Tests
 
-The desktop build has twelve CTest tests: engine, arrangement, audio_clip,
+The desktop build has fourteen CTest tests: engine, automation, pitch_automation, arrangement, audio_clip,
 clip_trim, sampler, stereo, navigation, waveform, windows, decoder, audio, and browser.
 They exercise rendering, project validation and backward
 compatibility, crop boundaries, selection and movement, sampler processing,

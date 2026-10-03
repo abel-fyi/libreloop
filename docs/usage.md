@@ -99,7 +99,7 @@ Mixer Master fader and does not affect WAV export.
   note that starts at that position. C4 plays the sample at its original pitch;
   other pitches resample it. Notes stop at their duration or the sample's end.
 - Mixer: Master and independent inserts with their own volume, pan and
-  one light: left-click mutes/unmutes, right-click adds/removes it from the solo group;
+  one light: left-click mutes/unmutes, right-click opens automation and solo actions;
   soloing a bus includes its routed sources. Master and 100 fixed inserts keep
   stable numbers; right-click an insert header for mute, solo or reset.
   Several instruments can feed the same insert; its controls affect their combined
@@ -162,8 +162,7 @@ Mixer Master fader and does not affect WAV export.
   choose an unused palette color in their own list, cycling once all eight colors
   are used. Replacing a sample preserves its channel color. Right-click for Rename, Color or
   Delete; changes apply to the Rack channel and every Playlist copy. Deleting
-  removes the channel and its clips, while leaving the source file on disk. Automation is an empty
-  placeholder for future support.
+  removes the channel and its clips, while leaving the source file on disk. Automation lists saved parameter curves with the same source actions.
 - FILE → Save writes `project.hbt` in the launch directory. FILE → Open reloads it.
   Drop another `.hbt` to open that project; subsequent saves use that filename.
 - FILE → Export exports the entire Playlist to `song.wav`: 48 kHz, stereo PCM16.
@@ -233,7 +232,7 @@ and the original sample file is never modified. Stretch/pitch use a compact
 WSOLA implementation, so complex material and extreme settings may have
 audible artifacts.
 
-Mixer meters show stereo levels with half-second peak holds. Width runs from mono (0), through unchanged (1), to wider (2). Record-arm lights toggle red as placeholders; recording is not implemented. Rack lights and Playlist track buttons also use left-click mute and right-click to toggle solo group membership.
+Mixer meters show stereo levels with half-second peak holds. Width runs from mono (0), through unchanged (1), to wider (2). Record-arm lights toggle red as placeholders; recording is not implemented. Rack lights use left-click mute and right-click automation/solo actions. Playlist track lights retain right-click solo.
 
 The metronome icon before Tempo toggles beat clicks during Pattern or Song playback, with an accent on the first beat of each bar. It is off by default and excluded from WAV export.
 
@@ -241,7 +240,7 @@ Knobs use a full-circle value sweep, except Swing, which keeps its horseshoe.
 Volume knobs mark unity (1 / 0 dB) with a fixed dot at three-quarters of the turn;
 the remaining quarter allows up to 1.25 (+1.94 dB). This applies to Channel Rack,
 sampler channel volume and listening output volume.
-Knobs show their value with an edge dot and a filling outer arc. Hovering smoothly reduces their size slightly; drag up/down to adjust or right-click to enter a number.
+Knobs show their value with an edge dot and a filling outer arc. Hovering smoothly reduces their size slightly; drag up/down to adjust or right-click for value entry and supported automation actions.
 
 The Playlist, Rack and Piano Roll share the same compact ruler. Left-click or
 drag sets the playback start. Right-drag selects a red loop region; right-click
@@ -307,3 +306,50 @@ audio stays intact, so reducing Trim restores the tail.
 
 Track height: drag the separator inside a Playlist track header. Only the header
 separator highlights and resizes the track; timeline grid lines remain visual.
+
+Automation: right-click a channel volume, pan, pitch/range, Swing, Mixer fader,
+Mixer pan/stereo-width or mute light and choose **Create automation**. The menu
+also retains exact value entry and Reset; mute lights keep Solo in their menu.
+An automation clip starts at the Song marker (the current bar during Song playback),
+or spans the selected Song loop. Otherwise it uses the current pattern length.
+It appears on the first free Playlist track and in the Automation picker tab.
+
+Click inside its body to add a point, drag a point to change its position/value,
+and right-click an interior point to remove it. Horizontal movement follows Snap;
+points stop at their neighbors, allowing vertical jumps without crossing. The
+outermost points can move beyond the clip edges, expanding that copy
+to follow them. Moving left stops at the beginning of the song.
+Drag the title strip to move a clip, drag an edge to shorten or extend it, or right-click the
+title to erase a copy. Resize the track header for a taller editing area.
+The Automation list supports selection, anchored drag previews, drag/drop, Rename,
+Color and Delete, like the other source lists. Copies share their curve.
+
+Automated knobs, faders and mute lights follow playback visually without changing
+the saved manual values. Automation runs in Song mode and WAV exports. Values interpolate linearly; mute
+uses a halfway threshold. Muted/non-solo Playlist tracks do not contribute curves.
+Before the first automation, the saved manual value applies. After a clip ends,
+its final value holds until another automation takes over; overlapping clips for
+the same control use the later Playlist track, then the later slot. Projects
+save up to 32 automation sources with 64 points each.
+
+Sampler channel controls are automatable. Sampler processing Pitch/Time,
+Start/Length/Trim, Normalize/Reverse/Polarity and Stretch still rebuild a sample
+after edits and are not yet realtime automation targets. Tempo, listening output
+volume, routing, device choices and the inactive effect-slot controls also retain
+their current manual behavior. Future instruments/effects can use the same
+saved parameter target and normalized-curve interface.
+
+Pitch automation changes sample speed and duration together. Full-length Audio
+clips and their waveforms follow the complete channel pitch/range and Master
+pitch curves: lowering pitch takes longer to finish, raising it finishes sooner.
+Playback, seeking and WAV export use the same timing. Explicitly cropped clips
+keep their chosen playback boundary. Muted automation tracks release pitch back
+to the manual value.
+
+Playlist pinch zoom and modifier+wheel zoom also work over the Track headers,
+anchored at the left edge of the visible timeline.
+
+Hold Command on macOS or Control on Linux and left-drag in the Playlist or
+Piano Roll to temporarily box-select, even over existing clips, automation
+points or notes. Your Pencil/Brush tool stays selected. Add Shift to preserve
+the previous selection. Release the mouse to finish selection.

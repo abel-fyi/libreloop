@@ -131,6 +131,12 @@ static double visual_step;
 static Windows windows;
 static int input_enabled=1;
 static int picker_tab,picker_scroll,picker_drag=-1;
+static int automation_selected=-1,automation_node=-1,automation_lane=-1,automation_clip=-1;
+static int rename_automation=-1;
+static float automation_grab_x;
+static ParameterTarget automation_target;
+static float *menu_value,menu_low,menu_high,menu_initial;
+static char menu_name[96];
 static Vector2 picker_origin,picker_offset;
 static Arrangement arrangement={.source_steps=STEPS,.source_pattern=-1,.zoom=1};
 static float rack_view[PATTERNS],rack_range[PATTERNS];
@@ -213,7 +219,7 @@ static int navigation_drag=-1,navigation_active;
 static Vector2 navigation_last;
 static NavigationInput navigation_input;
 static float piano_scroll_remainder;
-static int captured(void) { return picker_drag>=0 || navigation_drag>=0 || track_resize>=0 || rack_hdrag || rack_vdrag || piano_key_drag || control_drag || route_drag>=0 || note_drag || velocity_drag>=0 || arrangement.gesture || playlist_pan || browser_resize || rack_paint>=0 || cable_drag>0 || playlist_vpan || mixer_pan || piano_scroll_drag || piano_vdrag || piano_gesture || marker_drag>=0; }
+static int captured(void) { return automation_node>=0 || picker_drag>=0 || navigation_drag>=0 || track_resize>=0 || rack_hdrag || rack_vdrag || piano_key_drag || control_drag || route_drag>=0 || note_drag || velocity_drag>=0 || arrangement.gesture || playlist_pan || browser_resize || rack_paint>=0 || cable_drag>0 || playlist_vpan || mixer_pan || piano_scroll_drag || piano_vdrag || piano_gesture || marker_drag>=0; }
 static void sampler_queue(void) {
     sampler_update();
     if(sampler_job.busy || control_drag || pattern_popup==5) return;
@@ -434,6 +440,19 @@ static void cable(Vector2 points[4],Color color) {
     }
     rlEnd(); rlSetTexture(0);
 }
+/* The cable's cached alpha strip also smooths straight automation segments. */
+static void smooth_line(Vector2 start,Vector2 end,float width,Color color) {
+    float dx=end.x-start.x,dy=end.y-start.y,length=hypotf(dx,dy);
+    if(length<.001f) return;
+    float radius=width*2/3;
+    Vector2 normal={-dy/length*radius,dx/length*radius};
+    rlSetTexture(cable_texture.id); rlBegin(RL_QUADS); rlColor4ub(color.r,color.g,color.b,color.a);
+    rlTexCoord2f(.5f,0); rlVertex2f(start.x+normal.x,start.y+normal.y);
+    rlTexCoord2f(.5f,0); rlVertex2f(end.x+normal.x,end.y+normal.y);
+    rlTexCoord2f(.5f,1); rlVertex2f(end.x-normal.x,end.y-normal.y);
+    rlTexCoord2f(.5f,1); rlVertex2f(start.x-normal.x,start.y-normal.y);
+    rlEnd(); rlSetTexture(0);
+}
 static int hover(float x,float y,float w,float h) { return input_enabled && CheckCollisionPointRec(mouse,(Rectangle){x,y,w,h}); }
 /* Small control symbols share one size and never depend on font glyphs. */
 static void zoom_label(float percent,int x,int y) { label(fit_text(TextFormat(percent<1?"%.2f%%":"%.0f%%",percent),56,11),x,y,11,muted); }
@@ -495,15 +514,53 @@ static int picker_button(int y,Color color,int selected) {
     if(over || selected) DrawRectangleLinesEx((Rectangle){4,y,112,50},2,accent);
     return over && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
 }
+static float automation_shown[AUTOMATIONS];
+static uint8_t automation_visible[AUTOMATIONS];
+static void automation_display_update(void) {
+    memset(automation_visible,0,sizeof automation_visible);
+    if(!playing || !song || !project.automation_count) return;
+    int solo=solo_any(project.lane_mute,LANES);
+    double held_end[AUTOMATIONS]; for(int a=0;a<project.automation_count;a++) held_end[a]=-INFINITY;
+    for(int pass=0;pass<2;pass++) for(int l=0;l<LANES;l++) if(!(project.lane_mute[l]&1) && (!solo || (project.lane_mute[l]&2))) for(int b=0;b<CLIPS;b++) {
+        int a=project.clips[l][b]-AUTOMATION_SOURCE-1; if(a<0 || a>=project.automation_count) continue;
+        float start=project.clip_starts[l][b]*STEPS;
+        float end=start+clip_length(&project,l,b);
+        if(pass==0?(visual_step<end || end<held_end[a]):(visual_step<start || visual_step>=end)) continue;
+        ParameterTarget target=project.automations[a].target;
+        float normalized=automation_value(&project.automations[a],(pass==0?end:visual_step)-start+project.clip_offsets[l][b]);
+        for(int i=0;i<project.automation_count;i++) {
+            ParameterTarget t=project.automations[i].target;
+            if(t.parameter==target.parameter && t.owner==target.owner && t.slot==target.slot) { automation_visible[i]=1; automation_shown[i]=normalized; if(pass==0) held_end[i]=end; }
+        }
+    }
+}
+static float displayed_value(const void *pointer,float manual) {
+    if(!playing || !song || !project.automation_count) return manual;
+    ParameterTarget target; float value,lo,hi;
+    if(!parameter_from_pointer(&project,pointer,&target) || !parameter_info(&project,target,&value,&lo,&hi)) return manual;
+    for(int a=0;a<project.automation_count;a++) {
+        ParameterTarget t=project.automations[a].target;
+        if(automation_visible[a] && t.parameter==target.parameter && t.owner==target.owner && t.slot==target.slot) {
+            float shown=lo+(hi-lo)*automation_shown[a]; return target.parameter==PARAM_PITCH_RANGE?roundf(shown):shown;
+        }
+    }
+    return manual;
+}
+static void open_context(int kind,int target,Vector2 position);
 static void mute_light(int x,int y,uint8_t *states,int count,int selected,const char *name) {
-    uint8_t state=states[selected]; int solo=count?solo_any(states,count):0;
+    uint8_t state=states[selected]; if(displayed_value(&states[selected],!!(state&1))>=.5f) state|=1; else state&=~1; int solo=count?solo_any(states,count):0;
     int over=hover(x-8,y-8,16,16),enabled=!(state&1) && (!solo || (state&2));
     Color color=enabled?(state&2?ui_theme.meter_mid:ui_theme.meter_low):cell;
     circle(x,y,6,over?ink:state&2?ui_theme.meter_mid:ui_theme.border); circle(x,y,5,color);
     if(over) {
-        snprintf(status,sizeof status,"%s: %s | Left-click: mute/unmute; right-click: %s",name,state&1?"Muted":state&2?"Solo":solo?"Silenced by solo":"Enabled",count?"add/remove solo":"clear all solos");
+        snprintf(status,sizeof status,"%s: %s | Left-click: mute/unmute; right-click: %s",name,state&1?"Muted":state&2?"Solo":solo?"Silenced by solo":"Enabled",states==project.lane_mute?"add/remove solo":"automation / solo menu");
         if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { states[selected]^=1; input_enabled=0; }
         if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
+            if(parameter_from_pointer(&project,&states[selected],&automation_target)) {
+                snprintf(menu_name,sizeof menu_name,"Mute");
+                Vector2 position=mouse; if(knob_context>=0) { position.x+=windows.editors[knob_context].rect.x; position.y+=windows.editors[knob_context].rect.y; }
+                open_context(10,0,position); return;
+            }
             if(count) solo_toggle(states,count,selected);
             else {
                 for(int i=0;i<INSERTS;i++) project.insert_mute[i]&=~2;
@@ -532,6 +589,7 @@ static void open_context(int kind,int target,Vector2 position) {
 }
 static void add_sampler(void);
 static void open_popup(int kind) {
+    if(kind==2) rename_automation=-1;
     pattern_popup=kind; popup_opened=1; popup_drag=0;
     popup_position[kind]=kind==7?(Vector2){60,34}:(Vector2){-1,-1};
 }
@@ -545,6 +603,32 @@ static void begin_rename(void) {
 static void begin_number(float *value,float low,float high,float initial,const char *name) {
     number_integer=0; number_target=value; number_low=low; number_high=high; number_default=initial; number_name=name;
     snprintf(number_text,sizeof number_text,"%.6g",*value); rename_select_all=1; open_popup(5);
+}
+static void control_menu(float *value,float low,float high,float initial,const char *name) {
+    if(!parameter_from_pointer(&project,value,&automation_target)) { begin_number(value,low,high,initial,name); return; }
+    menu_value=value; menu_low=low; menu_high=high; menu_initial=initial;
+    snprintf(menu_name,sizeof menu_name,"%s",name);
+    Vector2 position=mouse;
+    if(knob_context>=0) { position.x+=windows.editors[knob_context].rect.x; position.y+=windows.editors[knob_context].rect.y; }
+    open_context(9,0,position);
+}
+static void create_automation(void) {
+    float start=song_loop[1]>song_loop[0]?song_loop[0]/STEPS:floorf((playing && song?visual_step:playlist_start)/STEPS);
+    float steps=song_loop[1]>song_loop[0]?song_loop[1]-song_loop[0]:fmaxf(STEPS,project.pattern_steps[pattern]);
+    char name[PATTERN_NAME];
+    unsigned id=automation_target.parameter,owner=automation_target.owner;
+    const char *prefix=id<=PARAM_CHANNEL_PITCH || id==PARAM_CHANNEL_MUTE || id==PARAM_PITCH_RANGE?project.channel_names[owner]:id<=PARAM_INSERT_WIDTH || id==PARAM_INSERT_MUTE?project.insert_names[owner]:"Master";
+    snprintf(name,sizeof name,"%.20s - %.23s",prefix,menu_name);
+    int a=automation_create(&project,automation_target,name,steps);
+    if(a<0) { snprintf(status,sizeof status,"Cannot create automation: %d clip limit.",AUTOMATIONS); return; }
+    int lane,slot=-1;
+    for(lane=0;lane<LANES;lane++) if((slot=arrangement_place(&project,lane,start,AUTOMATION_SOURCE+a,steps))>=0) break;
+    if(slot<0) { automation_delete(&project,a); snprintf(status,sizeof status,"No free Playlist space for automation."); return; }
+    automation_selected=a; picker_tab=2; picker_scroll=a; picker_drag=-1;
+    arrangement.source_pattern=AUTOMATION_SOURCE+a; arrangement.source_steps=steps; arrangement.source_offset=0;
+    memset(arrangement.selected,0,sizeof arrangement.selected); arrangement.selected[lane][slot]=1;
+    arrangement.view_start=fmaxf(0,start); track_scroll=track_position(lane); browser_focus=0; windows_focus(&windows,1);
+    snprintf(status,sizeof status,"Automation created: click the line to add points; drag points; right-click points to delete.");
 }
 static void text_input(char *text,size_t capacity) {
     if(shortcut_down() && IsKeyPressed(KEY_A)) rename_select_all=1;
@@ -645,7 +729,7 @@ static void draw_popup(void) {
         }
         return;
     }
-    int folder=pattern_popup==3,help=pattern_popup==4,number=pattern_popup==5,w=pattern_popup==6?320:help?660:number?360:folder?620:260,h=help?420:116;
+    int folder=pattern_popup==3,help=pattern_popup==4,number=pattern_popup==5,w=pattern_popup==6?320:help?660:number?360:folder?620:260,h=help?553:116;
     float scale=fminf(GetScreenWidth()/1200.f,GetScreenHeight()/675.f);
     Vector2 *position=&popup_position[pattern_popup];
     if(position->x<0 || position->y<0) *position=(Vector2){(GetScreenWidth()/scale-w)/2,(GetScreenHeight()/scale-h)/2};
@@ -691,10 +775,19 @@ static void draw_popup(void) {
         help_binding(left,&ly,"Drag title bar","Move window");
         help_binding(left,&ly,"Double-click title","Maximize / restore");
         help_group(right,&ry,"Editing & selection");
+#ifdef __APPLE__
+        help_binding(right,&ry,"Cmd + drag","Temporarily box-select");
+#else
+        help_binding(right,&ry,"Ctrl + drag","Temporarily box-select");
+#endif
         help_binding(right,&ry,"Shift-click","Add / remove selection");
         help_binding(right,&ry,"Shift-drag empty","Add selection rectangle");
         help_binding(right,&ry,"Delete","Delete selected clips / notes");
         help_binding(right,&ry,"Right-drag","Erase clips / notes");
+        ry+=12; help_group(right,&ry,"Automation");
+        help_binding(right,&ry,"Right-click control","Create automation");
+        help_binding(right,&ry,"Click / drag curve","Add / move a point");
+        help_binding(right,&ry,"Right-click point","Delete point");
         ry+=12; help_group(right,&ry,"Text fields & dialogs");
 #ifdef __APPLE__
         help_binding(right,&ry,"Cmd + A / V","Select all / paste");
@@ -711,7 +804,7 @@ static void draw_popup(void) {
         return;
     }
     char *text=number?number_text:folder?folder_text:rename_text; size_t capacity=number?sizeof number_text:folder?sizeof folder_text:sizeof rename_text;
-    label(number?number_name:folder?"Add Browser folder":(rename_channel>=0?TextFormat("Rename channel %d",rename_channel+1):rename_mixer>=0?TextFormat("Rename insert %d",rename_mixer+1):rename_track>=0?TextFormat("Rename track %d",rename_track+1):TextFormat("Rename pattern %d",rename_pattern+1)),x+8,y+3,13,ink);
+    label(number?number_name:folder?"Add Browser folder":(rename_automation>=0?"Rename automation":rename_channel>=0?TextFormat("Rename channel %d",rename_channel+1):rename_mixer>=0?TextFormat("Rename insert %d",rename_mixer+1):rename_track>=0?TextFormat("Rename track %d",rename_track+1):TextFormat("Rename pattern %d",rename_pattern+1)),x+8,y+3,13,ink);
     DrawRectangle(x+8,y+32,w-16,28,bg); DrawRectangleLines(x+8,y+32,w-16,28,cell);
     if(rename_select_all) DrawRectangle(x+12,y+38,fminf(w-26,text_width(text,13)),16,cell);
     if(hover(x+8,y+32,w-16,28)) snprintf(status,sizeof status,number?"Enter an exact value using a decimal dot or comma":folder?"Enter the folder path to add as a Browser root":"Enter a name");
@@ -736,7 +829,7 @@ static void draw_popup(void) {
             size_t n=strlen(text); while(n && text[n-1]==' ') text[--n]=0;
             char *name=text; while(*name==' ') name++;
             if(!*name) { snprintf(status,sizeof status,"Name cannot be empty."); return; }
-            snprintf(rename_channel>=0?project.channel_names[rename_channel]:rename_mixer>=0?project.insert_names[rename_mixer]:rename_track>=0?project.track_names[rename_track]:project.pattern_names[rename_pattern],PATTERN_NAME,"%s",name);
+            snprintf(rename_automation>=0?project.automations[rename_automation].name:rename_channel>=0?project.channel_names[rename_channel]:rename_mixer>=0?project.insert_names[rename_mixer]:rename_track>=0?project.track_names[rename_track]:project.pattern_names[rename_pattern],PATTERN_NAME,"%s",name);
         }
         pattern_popup=0;
     }
@@ -806,7 +899,7 @@ static Color audio_color(int c) {
     return color;
 }
 static Waveform audio_waves[CHANNELS];
-static void audio_waveform(int c,float x,float y,float left,float right,float pixels_per_step,float height) {
+static void audio_waveform_at(int c,float x,float y,float left,float right,float pixels_per_step,float height,int lane,int clip) {
     static unsigned generations[CHANNELS],frames[CHANNELS],epochs[CHANNELS];
     static Sampler settings[CHANNELS];
     Sample sample=samples[c]; if(!sample.frames) return;
@@ -814,16 +907,29 @@ static void audio_waveform(int c,float x,float y,float left,float right,float pi
         waveform_build(&audio_waves[c],sample);
         generations[c]=sample_generation[c]; frames[c]=sample.frames; epochs[c]=sample_epoch; settings[c]=sampler_applied[c];
     }
+    AudioTimeline map; double start=0,offset=0;
     float full=sample.frames/(float)RATE*project.bpm/15/channel_speed(&project,c)*pixels_per_step;
+    if(lane>=0) {
+        audio_timeline_init(&map,&project,c); start=project.clip_starts[lane][clip]*STEPS; offset=project.clip_offsets[lane][clip]*RATE;
+        full=audio_timeline_duration(&map,start,fmax(0,sample.frames-offset)/RATE*project.bpm/15)*pixels_per_step;
+    }
     if(x>=left && x<=right) DrawLineEx((Vector2){x,y+14},(Vector2){x,y+height-1},1,Fade(ink,.6f));
     if(x+full>=left && x+full<=right+1) DrawLineEx((Vector2){x+full-1,y+14},(Vector2){x+full-1,y+height-1},1,Fade(ink,.6f));
     right=fminf(right,x+full);
+    double source=lane>=0?offset+audio_timeline_source(&map,start,start+fmax(0,ceil(left)-x)/pixels_per_step)*RATE*15/project.bpm:0;
     for(int px=(int)ceilf(left);px<right;px++) {
         unsigned first=fmax(0,floor((px-(double)x)/full*sample.frames)),last=fmin(sample.frames,ceil((px+1-(double)x)/full*sample.frames));
+        if(lane>=0) {
+            double next=source+audio_timeline_source(&map,start+fmax(0,px-x)/pixels_per_step,start+fmax(0,px+1-x)/pixels_per_step)*RATE*15/project.bpm;
+            first=fmin(sample.frames,fmax(0,floor(source))); last=fmin(sample.frames,fmax(0,ceil(next))); source=next;
+        }
         WavePeak peak=waveform_range(&audio_waves[c],sample,first,last);
         float mid=y+14+(height-14)/2,amplitude=(height-18)/2;
         DrawLineEx((Vector2){px,mid-peak.high*amplitude},(Vector2){px,mid-peak.low*amplitude},1,ui_theme.waveform);
     }
+}
+static void audio_waveform(int c,float x,float y,float left,float right,float pixels_per_step,float height) {
+    audio_waveform_at(c,x,y,left,right,pixels_per_step,height,-1,-1);
 }
 static void drop_sample(const char *path) {
     int target=windows_hit(&windows,mouse.x,mouse.y);
@@ -888,6 +994,7 @@ static void drop_sample(const char *path) {
     }
 }
 static void delete_channel(int c) {
+    automation_selected=automation_node=-1; picker_drag=-1;
     Sample old=samples[c],raw=originals[c];
     if(!channel_delete(&project,c)) return;
     sample_epoch++;
@@ -912,7 +1019,7 @@ static void install_project(Project next,Sample fresh[CHANNELS],Sample processed
     sample_epoch++; audio_stop();
     free(audition.data); audition=(Sample){0}; audition_path[0]=0; browser_progress=-1;
     memset(keyboard_notes,0,sizeof keyboard_notes);
-    picker_tab=picker_scroll=0; picker_drag=-1; sample_drag[0]=0;
+    picker_tab=picker_scroll=0; picker_drag=-1; automation_selected=automation_node=automation_lane=automation_clip=-1; sample_drag[0]=0;
     rack_hdrag=rack_vdrag=playlist_pan=playlist_vpan=piano_scroll_drag=piano_vdrag=mixer_pan=0;
     piano_scroll_remainder=0; memset(track_heights,0,sizeof track_heights);
     navigation_active=0; navigation_drag=-1; track_resize=-1; ruler_loop_drag=0;
@@ -969,14 +1076,14 @@ static void capture_control(float *value,float low,float high,int fader) {
 }
 enum { KNOB_NORMAL,KNOB_SWING,KNOB_PAN,KNOB_WIDTH,KNOB_CENTER,KNOB_WET,KNOB_VOLUME };
 static void knob_style(int x,int y,float *value,float low,float high,float initial,const char *name,int style) {
-    float size=KNOB_RADIUS;
+    float size=KNOB_RADIUS,shown=displayed_value(value,*value);
     int over=hover(x-size-1,y-size-1,size*2+2,size*2+2);
     if(over || control_drag==value) {
-        if(style==KNOB_VOLUME) snprintf(status,sizeof status,"%s: %.4g (%.2f dB) | Dot marks 0 dB; drag or wheel; right-click for number entry",name,*value,gain_db(*value));
-        else snprintf(status,sizeof status,"%s: %.4g | Drag up/down or wheel; right-click for number entry",name,*value);
+        if(style==KNOB_VOLUME) snprintf(status,sizeof status,"%s: %.4g (%.2f dB) | Dot marks 0 dB; drag or wheel; right-click for value / automation",name,shown,gain_db(shown));
+        else snprintf(status,sizeof status,"%s: %.4g | Drag up/down or wheel; right-click for value / automation",name,shown);
     }
     if(over) {
-        if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) begin_number(value,low,high,initial,name);
+        if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) control_menu(value,low,high,initial,name);
         if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { capture_control(value,low,high,0); control_reverse=style==KNOB_WIDTH; }
         *value=fmaxf(low,fminf(high,*value+GetMouseWheelMove()*(high-low)/20*(style==KNOB_WIDTH?-1:1)));
     }
@@ -992,10 +1099,10 @@ static void knob_style(int x,int y,float *value,float low,float high,float initi
         else knob_animating=1;
         shrink=states[i].hover;
     }
-    float radius=size*(1-.08f*shrink),fraction=(*value-low)/(high-low);
-    if(style==KNOB_CENTER) fraction=*value<initial?.5f*(*value-low)/(initial-low):.5f+.5f*(*value-initial)/(high-initial);
+    float radius=size*(1-.08f*shrink),fraction=(shown-low)/(high-low);
+    if(style==KNOB_CENTER) fraction=shown<initial?.5f*(shown-low)/(initial-low):.5f+.5f*(shown-initial)/(high-initial);
     if(style==KNOB_WIDTH) fraction=1-fraction;
-    if(style==KNOB_VOLUME) fraction=*value<=1?.75f*(*value):.75f+.25f*(*value-1)/(high-1);
+    if(style==KNOB_VOLUME) fraction=shown<=1?.75f*(shown):.75f+.25f*(shown-1)/(high-1);
     int centered=style==KNOB_PAN || style==KNOB_WIDTH || style==KNOB_CENTER;
     float origin=centered?PI/2:style==KNOB_SWING?2.4f:style==KNOB_VOLUME?PI/2:-PI/2;
     float angle=origin+fraction*(style==KNOB_SWING?4.6f:2*PI);
@@ -1035,7 +1142,7 @@ static void channel_controls(int c,float width) {
     if(button(TextFormat("%.0f",*range),x+111,25,30,22,control_drag==range)) { capture_control(range,1,48,0); control_integer=1; }
     if(hover(x+111,25,30,22)) {
         *range=fmaxf(1,fminf(48,*range+roundf(GetMouseWheelMove())));
-        if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) { begin_number(range,1,48,2,"Pitch range (semitones)"); number_integer=1; }
+        if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) { control_menu(range,1,48,2,"Pitch range (semitones)"); }
         snprintf(status,sizeof status,"Pitch range: %.0f semitones | drag up/down, 1–48 whole semitones; right-click to enter",*range);
     }
     channel_route(c,x+161,25);
@@ -1229,15 +1336,48 @@ static void picker_notes(int p,float x,float y) {
         DrawRectangleRec((Rectangle){px,py,length,2},ink);
     }
 }
+static Color source_color(int source) {
+    return source>=AUTOMATION_SOURCE?pattern_rgb(project.automations[source-AUTOMATION_SOURCE].color):AUDIO_SOURCE(source)?audio_color(source-PATTERNS):pattern_color(source);
+}
+static const char *source_name(int source) {
+    return source>=AUTOMATION_SOURCE?project.automations[source-AUTOMATION_SOURCE].name:AUDIO_SOURCE(source)?project.channel_names[source-PATTERNS]:project.pattern_names[source];
+}
+static void automation_curve(int a,float origin,float y,float pixels,float height,float left,float right,int nodes) {
+    const Automation *automation=&project.automations[a];
+    float top=y+19,range=fmaxf(1,height-25);
+    if(automation->count) {
+        float first=origin+automation->points[0].step*pixels,last=origin+automation->points[automation->count-1].step*pixels;
+        float first_y=top+(1-automation->points[0].value)*range,last_y=top+(1-automation->points[automation->count-1].value)*range;
+        if(first>left) smooth_line((Vector2){left,first_y},(Vector2){fminf(right,first),first_y},1.5f,ink);
+        if(last<right) smooth_line((Vector2){fmaxf(left,last),last_y},(Vector2){right,last_y},1.5f,ink);
+    }
+    for(int i=1;i<automation->count;i++) {
+        AutomationPoint p=automation->points[i-1],q=automation->points[i];
+        float x=origin+p.step*pixels,xx=origin+q.step*pixels;
+        if(xx<left || x>right) continue;
+        if(xx==x) {
+            if(x>=left && x<=right) smooth_line((Vector2){x,top+(1-p.value)*range},(Vector2){x,top+(1-q.value)*range},1.5f,ink);
+            continue;
+        }
+        float l=fmaxf(left,x),r=fminf(right,xx);
+        float lv=p.value+(q.value-p.value)*(l-x)/(xx-x),rv=p.value+(q.value-p.value)*(r-x)/(xx-x);
+        smooth_line((Vector2){l,top+(1-lv)*range},(Vector2){r,top+(1-rv)*range},1.5f,ink);
+    }
+    if(nodes) for(int i=0;i<automation->count;i++) {
+        float x=origin+automation->points[i].step*pixels,yy=top+(1-automation->points[i].value)*range;
+        if(x>=left && x<=right+2) { x=fmaxf(left+4,fminf(right-4,x)); circle(x,yy,4,ink); circle(x,yy,2,source_color(AUTOMATION_SOURCE+a)); }
+    }
+}
 static void draw_picker_drag(void) {
     if(picker_drag<0 || (fabsf(mouse.x-picker_origin.x)<3 && fabsf(mouse.y-picker_origin.y)<3)) return;
-    int source=picker_drag,audio=source>=PATTERNS;
+    int source=picker_drag,audio=AUDIO_SOURCE(source);
     float x=mouse.x-picker_offset.x,y=mouse.y-picker_offset.y,steps=clip_source_steps(&project,source);
-    Color color=audio?audio_color(source-PATTERNS):pattern_color(source);
+    Color color=source_color(source);
     ui_surface((Rectangle){x,y,112,50},color);
     if(audio) audio_waveform(source-PATTERNS,x+4,y+20,x+4,x+108,104/fmaxf(.001f,steps),28);
+    else if(source>=AUTOMATION_SOURCE) automation_curve(source-AUTOMATION_SOURCE,x+4,y,104/steps,50,x+4,x+108,0);
     else picker_notes(source,x,y);
-    label(fit_text(audio?project.channel_names[source-PATTERNS]:project.pattern_names[source],100,12),x+4,y+4,12,ink);
+    label(fit_text(source_name(source),100,12),x+4,y+4,12,ink);
     DrawRectangleLinesEx((Rectangle){x,y,112,50},2,accent);
 }
 static void draw_browser_drag(void) {
@@ -1339,7 +1479,8 @@ static int picker_double_click(int source) {
     last_click=twice?-1:now; last_source=source; position=mouse; epoch=sample_epoch;
     if(twice) {
         if(source<PATTERNS) { rack_filter=0; rack_scroll=0; windows_focus(&windows,0); }
-        else { channel=instrument_channel=source-PATTERNS; windows_focus(&windows,4); }
+        else if(AUDIO_SOURCE(source)) { channel=instrument_channel=source-PATTERNS; windows_focus(&windows,4); }
+        else automation_selected=source-AUTOMATION_SOURCE;
         picker_drag=-1; browser_focus=0; input_enabled=0;
     }
     return twice;
@@ -1356,7 +1497,7 @@ static void playlist(float width,float height,float scale) {
     arrangement.range=fmaxf(arrangement.range,fmaxf(arrangement.view_start+span*2,song_steps(&project)/STEPS+span));
     arrangement.snap=snap_interval(snap_mode[0],barw/STEPS);
     float pointer_bar=arrangement.view_start+(mouse.x-gx)/barw;
-    int edge_lane=-1,edge_bar=-1,edge_side=0,divider=-1;
+    int divider=-1;
     if(hover(120,gy,gx-120,track_area)) {
         float pos=track_scroll+mouse.y-gy; int lane=fminf(LANES-1,fmaxf(0,track_at(pos)));
         if(pos-track_position(lane)<3 && lane>0) divider=lane-1;
@@ -1368,9 +1509,9 @@ static void playlist(float width,float height,float scale) {
     }
     if(divider<0 && hover(gx,gy,gridw,track_area)) {
         int lane=track_at(track_scroll+mouse.y-gy),hit=arrangement_hit(&project,lane,pointer_bar);
-        if((edge_side=clip_edge(lane,hit,pointer_bar,barw))) { edge_lane=lane; edge_bar=hit; SetMouseCursor(MOUSE_CURSOR_RESIZE_EW); }
+        if(!shortcut_down() && clip_edge(lane,hit,pointer_bar,barw)) SetMouseCursor(MOUSE_CURSOR_RESIZE_EW);
     }
-    if(arrangement.gesture==SIZE_CLIP) { edge_lane=arrangement.lane; edge_bar=arrangement.bar; edge_side=arrangement.edge; SetMouseCursor(MOUSE_CURSOR_RESIZE_EW); }
+    if(arrangement.gesture==SIZE_CLIP) SetMouseCursor(MOUSE_CURSOR_RESIZE_EW);
     if(track_resize>=0) SetMouseCursor(MOUSE_CURSOR_RESIZE_NS);
     const char *tips[]={"Pencil: place one clip or drag a clip to move it","Brush: drag to paint copies of the last clicked clip","Select: drag a rectangle, then drag the selected clips together"};
     for(int i=0;i<3;i++) if(tool_button(i,arrangement.tool,8+i*24,tips[i])) arrangement.tool=i;
@@ -1381,18 +1522,32 @@ static void playlist(float width,float height,float scale) {
     for(int t=0;t<3;t++) {
         if(button("",4+t*38,57,36,23,picker_tab==t)) { picker_tab=t; picker_scroll=0; picker_drag=-1; if(t==0) { arrangement.source_pattern=pattern; arrangement.source_steps=project.pattern_steps[pattern]; arrangement.source_offset=0; } }
         icon(picker_icons[t],22+t*38,68,18,picker_tab==t?ui_theme.selected_text:ink);
-        if(hover(4+t*38,57,36,23)) snprintf(status,sizeof status,"%s%s",picker_names[t],t==2?" (coming later)":"");
+        if(hover(4+t*38,57,36,23)) snprintf(status,sizeof status,"%s%s",picker_names[t],"");
     }
     label("Tracks",128,63,12,muted);
     int audio_ids[CHANNELS],audio_count=0;
     for(int c=0;c<project.channel_count;c++) if(project.channel_audio[c]) audio_ids[audio_count++]=c;
-    int picker_count=picker_tab==0?project.pattern_count:picker_tab==1?audio_count:0;
+    int picker_count=picker_tab==0?project.pattern_count:picker_tab==1?audio_count:project.automation_count;
     int picker_visible=fmaxf(1,(height-66-gy)/52);
     if(hover(4,gy,112,height-66-gy)) picker_scroll-=GetMouseWheelMove();
     picker_scroll=fmaxf(0,fminf(fmaxf(0,picker_count-picker_visible),picker_scroll));
     for(int row=picker_scroll;row<picker_count;row++) {
-        int p=picker_tab==0?row:audio_ids[row];
+        int p=picker_tab==1?audio_ids[row]:row;
         int y=gy+(row-picker_scroll)*52; if(y+50>height-66) break;
+        if(picker_tab==2) {
+            int source=AUTOMATION_SOURCE+p;
+            if(picker_button(y,source_color(source),automation_selected==p)) {
+                automation_selected=p; arrangement.source_pattern=source; arrangement.source_steps=project.automations[p].steps; arrangement.source_offset=0; picker_drag=source;
+                picker_origin=(Vector2){mouse.x+rect.x,mouse.y+rect.y}; picker_offset=(Vector2){mouse.x-4,mouse.y-y};
+            }
+            label(fit_text(source_name(source),100,12),8,y+4,12,ink);
+            automation_curve(p,8,y,104/project.automations[p].steps,50,8,112,0);
+            if(hover(4,y,112,50)) {
+                snprintf(status,sizeof status,"Automation: select or drag to place; right-click for Rename, Color or Delete");
+                if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) open_context(11,p,(Vector2){mouse.x+rect.x,mouse.y+rect.y});
+            }
+            continue;
+        }
         if(picker_tab==1) {
             if(picker_button(y,audio_color(p),arrangement.source_pattern==PATTERNS+p)) {
                 arrangement.source_pattern=PATTERNS+p; arrangement.source_steps=project.audio_seconds[p]; arrangement.source_offset=0; picker_drag=PATTERNS+p;
@@ -1428,7 +1583,7 @@ static void playlist(float width,float height,float scale) {
         DrawRectangleLinesEx((Rectangle){4,gy,112,height-gy-42},2,ui_theme.signal);
         snprintf(status,sizeof status,"Release to import into the Audio list without placing a clip");
     }
-    if(picker_tab==2) label("Coming later",8,gy+8,12,muted);
+    if(picker_tab==2 && !project.automation_count) { label("No automation",8,gy+8,12,muted); label("Right-click a control",8,gy+28,11,muted); }
     if(picker_tab==1 && !audio_count) { label("No audio clips",8,gy+8,12,muted); label("Drop on Playlist",8,gy+28,11,muted); }
     if(picker_tab==0 && button("+",4,height-62,112,20,0)) {
         if(project.pattern_count<PATTERNS) {
@@ -1449,11 +1604,10 @@ static void playlist(float width,float height,float scale) {
     zoom_label(arrangement.zoom*100,width-62,35);
     timeline_ruler(1,arrangement.view_start*STEPS,span*STEPS,gx,68,gridw,arrangement.snap);
     for(int l=fmaxf(0,track_at(track_scroll));l<LANES;l++) {
-        float y=gy+track_position(l)-track_scroll,rowh=track_height(l); int selected=0;
+        float y=gy+track_position(l)-track_scroll,rowh=track_height(l);
         if(y>=height-42) break;
-        for(int b=0;b<CLIPS;b++) if(arrangement.selected[l][b]) selected=1;
         BeginScissorMode(rect.x*scale,(rect.y+gy)*scale,gx*scale,track_area*scale);
-        DrawRectangle(120,y,gx-122,rowh-1,selected?Fade(ui_theme.signal,.35f):cell); label(fit_text(project.track_names[l],gx-132,12),128,y+8,12,ink);
+        DrawRectangle(120,y,gx-122,rowh-1,cell); label(fit_text(project.track_names[l],gx-132,12),128,y+8,12,ink);
         float brightness=fmaxf(track_active_ui[l]?.32f:0,track_flash[l]);
         if(brightness>.005f) DrawRectangle(gx-5,y+1,4,rowh-2,(Color){255,255,255,(unsigned char)(brightness*255)});
         mute_light(gx-12,y+rowh-10,project.lane_mute,LANES,l,TextFormat("Playlist track %d",l+1));
@@ -1463,15 +1617,14 @@ static void playlist(float width,float height,float scale) {
         for(int b=0;b<CLIPS;b++) if(project.clips[l][b]) {
             int pat=project.clips[l][b]-1; float x=gx+(project.clip_starts[l][b]-arrangement.view_start)*barw,w=clip_length(&project,l,b)*barw/STEPS;
             if(w<=0 || x>gx+gridw || x+w<gx) continue;
-            float left=fmaxf(gx,x),right=fminf(gx+gridw,x+w-1);
-            DrawRectangleRec((Rectangle){left,y,fmaxf(1,right-left),rowh-1},pat>=PATTERNS?audio_color(pat-PATTERNS):pattern_color(pat)); DrawRectangleRec((Rectangle){left,y,fmaxf(1,right-left),14},Fade(WHITE,.08f));
-            const char *name=pat>=PATTERNS?project.channel_names[pat-PATTERNS]:project.pattern_names[pat]; if(pat<PATTERNS && !strcmp(name,TextFormat("Pattern %d",pat+1))) name=TextFormat("P%d",pat+1);
+            float left=fmaxf(gx,x),right=fminf(gx+gridw,x+w);
+            DrawRectangleRec((Rectangle){left,y,fmaxf(1,right-left),rowh-1},source_color(pat)); DrawRectangleRec((Rectangle){left,y,fmaxf(1,right-left),14},Fade(WHITE,.08f));
+            const char *name=source_name(pat); if(pat<PATTERNS && !strcmp(name,TextFormat("Pattern %d",pat+1))) name=TextFormat("P%d",pat+1);
             if(x>=gx) label(fit_text(name,fminf(gridw,w-9),10),x+3,y+2,10,ink);
             float offset=clip_offset_steps(&project,l,b),origin=x-offset*barw/STEPS;
-            if(pat>=PATTERNS) audio_waveform(pat-PATTERNS,origin,y,left,right,barw/STEPS,rowh);
+            if(pat>=AUTOMATION_SOURCE) automation_curve(pat-AUTOMATION_SOURCE,origin,y,barw/STEPS,rowh,left,right,1);
+            else if(AUDIO_SOURCE(pat)) audio_waveform_at(pat-PATTERNS,x,y,left,right,barw/STEPS,rowh,l,b);
             else clip_preview(pat,origin,y,left,right,barw/STEPS,clip_length(&project,l,b)+offset,rowh);
-            if(x>=gx && x<=gx+gridw) DrawRectangle(x+2,y+15,3,rowh-18,edge_lane==l && edge_bar==b && edge_side<0?accent:Fade(ink,.45f));
-            if(x+w>=gx && x+w<=gx+gridw) DrawRectangle(x+w-5,y+15,3,rowh-18,edge_lane==l && edge_bar==b && edge_side>0?accent:Fade(ink,.45f));
             if(arrangement.gesture==MOVE_CLIPS?arrangement.moved[l][b]:arrangement.selected[l][b]) DrawRectangleLinesEx((Rectangle){left+1,y+1,fmaxf(1,right-left-2),rowh-3},2,ui_theme.signal);
         }
         BeginScissorMode(rect.x*scale,rect.y*scale,rect.w*scale,rect.h*scale);
@@ -1494,24 +1647,82 @@ static void playlist(float width,float height,float scale) {
         }
         picker_drag=-1;
     }
+    /* Curve editing owns the body; the name strip keeps normal clip gestures. */
+    if(automation_node>=0) {
+        if(automation_selected<0 || automation_selected>=project.automation_count || automation_lane<0 || automation_clip<0 || project.clips[automation_lane][automation_clip]!=AUTOMATION_SOURCE+automation_selected+1) automation_node=-1;
+        else {
+            Automation *a=&project.automations[automation_selected];
+            float y=gy+track_position(automation_lane)-track_scroll,rowh=track_height(automation_lane);
+            float origin=gx+(project.clip_starts[automation_lane][automation_clip]-arrangement.view_start)*barw-clip_offset_steps(&project,automation_lane,automation_clip)*barw/STEPS;
+            if(IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+                float step=roundf((mouse.x-automation_grab_x-origin)/barw*STEPS/arrangement.snap)*arrangement.snap;
+                int lane=automation_lane,clip=automation_clip;
+                float offset=project.clip_offsets[lane][clip],length=clip_length(&project,lane,clip);
+                step=fmaxf(offset-project.clip_starts[lane][clip]*STEPS,step);
+                float value=fmaxf(0,fminf(1,1-(mouse.y-y-19)/fmaxf(1,rowh-25)));
+                int moved=automation_move_point(&project,automation_selected,automation_node,step,value);
+                if(moved>=0) {
+                    automation_node=moved; step=a->points[moved].step; offset=project.clip_offsets[lane][clip];
+                    if(step<offset) { float delta=offset-step; project.clip_starts[lane][clip]-=delta/STEPS; project.clip_offsets[lane][clip]=step; length+=delta; }
+                    else if(step>offset+length) length=step-offset;
+                    project.clip_steps[lane][clip]=length;
+                    arrangement.source_pattern=AUTOMATION_SOURCE+automation_selected; arrangement.source_steps=length; arrangement.source_offset=project.clip_offsets[lane][clip];
+                }
+            } else automation_node=-1;
+        }
+    }
+    if(automation_node<0 && arrangement.tool==PENCIL && !shortcut_down() && !IsKeyDown(KEY_LEFT_SHIFT) && !IsKeyDown(KEY_RIGHT_SHIFT) && hover(gx,gy,gridw,track_area)) {
+        int lane=track_at(track_scroll+mouse.y-gy),slot=arrangement_hit(&project,lane,pointer_bar);
+        float y=gy+track_position(lane)-track_scroll,rowh=track_height(lane);
+        if(slot>=0 && project.clips[lane][slot]>AUTOMATION_SOURCE && mouse.y>=y+15) {
+            int index=project.clips[lane][slot]-AUTOMATION_SOURCE-1; Automation *a=&project.automations[index];
+            float origin=gx+(project.clip_starts[lane][slot]-arrangement.view_start)*barw-clip_offset_steps(&project,lane,slot)*barw/STEPS;
+            int hit=-1; float nearest=49;
+            for(int n=0;n<a->count;n++) {
+                float dx=mouse.x-origin-a->points[n].step*barw/STEPS,dy=mouse.y-y-19-(1-a->points[n].value)*fmaxf(1,rowh-25),distance=dx*dx+dy*dy;
+                if(distance<nearest) { hit=n; nearest=distance; }
+            }
+            snprintf(status,sizeof status,"Automation: click to add a point; drag points; right-click a point to delete; drag the title to move the clip");
+            if(hit>=0 || !clip_edge(lane,slot,pointer_bar,barw)) {
+                if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                    automation_selected=index;
+                    if(hit<0) {
+                        float step=roundf((mouse.x-origin)/barw*STEPS/arrangement.snap)*arrangement.snap;
+                        hit=automation_point(a,fmaxf(0,fminf(a->steps,step)),fmaxf(0,fminf(1,1-(mouse.y-y-19)/fmaxf(1,rowh-25))));
+                    }
+                    automation_node=hit; automation_lane=lane; automation_clip=slot;
+                    if(hit>=0) automation_grab_x=mouse.x-origin-a->points[hit].step*barw/STEPS;
+                    memset(arrangement.selected,0,sizeof arrangement.selected); arrangement.selected[lane][slot]=1; input_enabled=0;
+                }
+                if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
+                    if(hit>0 && hit<a->count-1) { memmove(&a->points[hit],&a->points[hit+1],(a->count-hit-1)*sizeof a->points[0]); a->count--; }
+                    input_enabled=0;
+                }
+            }
+        }
+    }
     if(divider<0 && hover(120,gy,gx+gridw-120,track_area)) {
         float bx=mouse.x<gx?-1:arrangement.view_start+(mouse.x-gx)/barw,ly=track_at(track_scroll+mouse.y-gy); int hit=arrangement_hit(&project,(int)ly,bx);
-        int edge=clip_edge((int)ly,hit,bx,barw);
+        int edge=shortcut_down()?0:clip_edge((int)ly,hit,bx,barw);
         if(edge) { SetMouseCursor(MOUSE_CURSOR_RESIZE_EW); snprintf(status,sizeof status,"Drag this clip edge to resize it"); }
         else if(mouse.x<gx) snprintf(status,sizeof status,"Track %d: drag to select tracks; right-click to rename",(int)ly+1);
-        else if(hit>=0) snprintf(status,sizeof status,project.clips[(int)ly][hit]>PATTERNS?"Audio clip: double-click to open sampler; drag to move; right-click to erase":"Pattern clip: double-click to open Channel Rack; drag to move; right-click to erase");
+        else if(hit>=0) snprintf(status,sizeof status,project.clips[(int)ly][hit]>AUTOMATION_SOURCE?"Automation: drag title to move, body to edit; right-click title to erase":project.clips[(int)ly][hit]>PATTERNS?"Audio clip: double-click to open sampler; drag to move; right-click to erase":"Pattern clip: double-click to open Channel Rack; drag to move; right-click to erase");
         else snprintf(status,sizeof status,"Playlist: %s; Shift adds to selection, right-drag erases",arrangement.tool==PENCIL?"place or move a clip":arrangement.tool==BRUSH?"paint copies of the current pattern":"select and move clips");
         if(mouse.x<gx && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
             rename_channel=rename_mixer=-1; rename_track=(int)ly; snprintf(rename_text,sizeof rename_text,"%s",project.track_names[rename_track]); rename_select_all=1; open_popup(2); input_enabled=0; return;
         }
-        if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
+        if(shortcut_down() && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+            arrangement_select_press(&arrangement,bx,ly,IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT));
+            last_click=-1; input_enabled=0;
+        } else if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
             int plain_left=IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !IsKeyDown(KEY_LEFT_SHIFT) && !IsKeyDown(KEY_RIGHT_SHIFT) && hit>=0 && (!edge || project.clips[(int)ly][hit]>PATTERNS);
             double now=GetTime();
             if(plain_left && last_lane==(int)ly && last_clip==hit && now-last_click<.35 && fabsf(mouse.x-last_position.x)<5 && fabsf(mouse.y-last_position.y)<5) {
                 int source=project.clips[(int)ly][hit]-1;
                 if(source<PATTERNS) { pattern=source; reset=1; }
-                else { channel=instrument_channel=source-PATTERNS; rack_filter=1; rack_scroll=0; }
-                arrangement.gesture=IDLE; windows_focus(&windows,source>=PATTERNS?4:0); last_click=-1;
+                else if(AUDIO_SOURCE(source)) { channel=instrument_channel=source-PATTERNS; rack_filter=1; rack_scroll=0; }
+                else automation_selected=source-AUTOMATION_SOURCE;
+                arrangement.gesture=IDLE; windows_focus(&windows,source>=AUTOMATION_SOURCE?1:AUDIO_SOURCE(source)?4:0); last_click=-1;
                 input_enabled=0; return;
             }
             last_click=plain_left?now:-1; last_lane=(int)ly; last_clip=hit; last_position=mouse;
@@ -1526,7 +1737,7 @@ static void playlist(float width,float height,float scale) {
         int lane=track_at(track_scroll+mouse.y-gy);
         Rectangle ghost={gx+(start-arrangement.view_start)*barw,gy+track_position(lane)-track_scroll,fmaxf(4,clip_source_steps(&project,picker_drag)*barw/STEPS),track_height(lane)-1};
         DrawRectangleRec(ghost,Fade(ui_theme.signal,.2f)); DrawRectangleLinesEx(ghost,1,ui_theme.signal);
-        snprintf(status,sizeof status,"Release to place %s",picker_drag<PATTERNS?project.pattern_names[picker_drag]:project.channel_names[picker_drag-PATTERNS]);
+        snprintf(status,sizeof status,"Release to place %s",source_name(picker_drag));
     }
     if(sample_drag[0] && sample_moved && mouse.x>=gx && mouse.x<gx+gridw && mouse.y>=gy && mouse.y<height-42 && windows_hit(&windows,mouse.x+rect.x,mouse.y+rect.y)==1) {
         float start=floorf(pointer_bar*STEPS/arrangement.snap)*arrangement.snap/STEPS;
@@ -1654,7 +1865,7 @@ static void piano(float width,float height) {
         if(note_selected[pattern][channel][i]) DrawRectangleLinesEx((Rectangle){left,y,right-left,rh},1,ink);
         DrawRectangle(left+1,y+1,fmaxf(1,right-left-2),fmaxf(2,rh-2),n==note_drag || keyboard_notes[channel][n->pitch]?ui_theme.note_drag:ui_theme.note);
         DrawRectangleLinesEx((Rectangle){left+1,y+1,fmaxf(1,right-left-2),fmaxf(2,rh-2)},1,Fade(ui_theme.signal,.45f));
-        int edge=grid_over && hover(x+w-7,y,7,rh);
+        int edge=grid_over && !shortcut_down() && hover(x+w-7,y,7,rh);
         if(x+w>=gx && x+w<=gx+gridw) DrawRectangle(x+w-5,y+1,3,fmaxf(2,rh-2),edge || (n==note_drag && !moving_note)?ink:Fade(bg,.35f));
         if(edge || (n==note_drag && !moving_note)) SetMouseCursor(MOUSE_CURSOR_RESIZE_EW);
         if(grid_over && hover(x,y,w,rh)) hit=n;
@@ -1670,7 +1881,10 @@ static void piano(float width,float height) {
             for(int i=0;i<NOTES;i++) group+=selected[i]!=0;
             piano_from=piano_now=point; piano_additive=shift; memcpy(note_selection_before,selected,NOTES);
             if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) piano_gesture=PIANO_ERASE;
-            else if(shift && hit) selected[hit-project.notes[pattern][channel]]^=1;
+            else if(shortcut_down()) {
+                if(!shift) memset(selected,0,NOTES);
+                piano_gesture=PIANO_BOX;
+            } else if(shift && hit) selected[hit-project.notes[pattern][channel]]^=1;
             else if((shift || piano_tool==SELECT) && !hit) {
                 if(!shift) memset(selected,0,NOTES);
                 piano_gesture=PIANO_BOX;
@@ -1834,14 +2048,14 @@ static void mixer(float width,float height) {
         if(id) knob_style(x+35,TITLE+52,&project.insert_pan[id-1],-1,1,0,"Insert pan",KNOB_PAN);
         meter_draw(id,x+8,fader_top,fader_bottom,3);
         DrawRectangle(x+33,fader_top,3,fader_bottom-fader_top,bg);
-        if(hover(x+23,fader_top-4,22,fader_bottom-fader_top+8) && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) begin_number(v,0,MIXER_GAIN_MAX,1,id?"Insert volume":"Master volume");
+        if(hover(x+23,fader_top-4,22,fader_bottom-fader_top+8) && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) control_menu(v,0,MIXER_GAIN_MAX,1,id?"Insert volume":"Master volume");
         if(hover(x+23,fader_top-4,22,fader_bottom-fader_top+8) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             *v=fader_gain(fmaxf(0,fminf(1,(fader_bottom-mouse.y)/(fader_bottom-fader_top))));
             capture_control(v,0,MIXER_GAIN_MAX,1); control_bottom=fader_bottom+windows.editors[3].rect.y; control_range=fader_bottom-fader_top;
         }
-        if(hover(x+23,fader_top-4,22,fader_bottom-fader_top+8) || control_drag==v) snprintf(status,sizeof status,"%s fader: %.1f dB | Mark = 0 dB; right-click for linear gain (1 = 0 dB)",mixer_name(id),gain_db(*v));
+        if(hover(x+23,fader_top-4,22,fader_bottom-fader_top+8) || control_drag==v) snprintf(status,sizeof status,"%s fader: %.1f dB | Mark = 0 dB; right-click for value / automation",mixer_name(id),gain_db(*v));
         DrawLine(x+25,fader_bottom-fader_position(1)*(fader_bottom-fader_top),x+44,fader_bottom-fader_position(1)*(fader_bottom-fader_top),muted);
-        int fy=fader_bottom-fader_position(*v)*(fader_bottom-fader_top);
+        int fy=fader_bottom-fader_position(displayed_value(v,*v))*(fader_bottom-fader_top);
         ui_surface((Rectangle){x+26,fy-9,14,18},mixer_selected==id?accent:ui_theme.piano_white);
         DrawLine(x+28,fy,x+38,fy,bg);
         knob_style(x+33,height-59,id?&project.insert_width[id-1]:&project.master_width,0,2,1,"Stereo width (left wider, center unchanged, right mono)",KNOB_WIDTH);
@@ -1925,15 +2139,30 @@ static void delete_pattern(int target) {
 static void draw_context(void) {
     if(!context_kind) return;
     float scale=fminf(GetScreenWidth()/1200.f,GetScreenHeight()/675.f);
-    int w=228,h=context_kind==2?108:(context_kind==5 || context_kind==8)?76:context_kind==3 && !context_target?32:82,x=fmaxf(0,fminf(GetScreenWidth()/scale-w,context_position.x)),y=fmaxf(0,fminf(GetScreenHeight()/scale-h,context_position.y));
+    int w=228,h=context_kind==2?108:(context_kind==5 || context_kind==8 || context_kind==12)?76:context_kind==3 && !context_target?32:82,x=fmaxf(0,fminf(GetScreenWidth()/scale-w,context_position.x)),y=fmaxf(0,fminf(GetScreenHeight()/scale-h,context_position.y));
     input_enabled=1;
     if(IsKeyPressed(KEY_ESCAPE) || (!context_opened && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !hover(x,y,w,h))) { context_kind=0; return; }
     ui_frame((Rectangle){x,y,w,h});
     int target=context_target,kind=context_kind;
-    if(kind==6) {
+    if(kind==9 || kind==10) {
+        if(button("Create automation",x+4,y+4,w-8,24,0)) { create_automation(); context_kind=0; }
+        if(kind==9) {
+            if(button("Enter value",x+4,y+29,w-8,24,0)) { begin_number(menu_value,menu_low,menu_high,menu_initial,menu_name); number_integer=automation_target.parameter==PARAM_PITCH_RANGE; context_kind=0; }
+            if(button("Reset",x+4,y+54,w-8,24,0)) { *menu_value=menu_initial; context_kind=0; }
+        } else if(button(automation_target.parameter==PARAM_MASTER_MUTE?"Clear all solos":"Toggle solo",x+4,y+29,w-8,24,0)) {
+            if(automation_target.parameter==PARAM_CHANNEL_MUTE) solo_toggle(project.mute,project.channel_count,automation_target.owner);
+            else if(automation_target.parameter==PARAM_INSERT_MUTE) solo_toggle(project.insert_mute,project.insert_count,automation_target.owner);
+            else { for(int c=0;c<CHANNELS;c++) project.mute[c]&=~2; for(int i=0;i<INSERTS;i++) project.insert_mute[i]&=~2; for(int l=0;l<LANES;l++) project.lane_mute[l]&=~2; }
+            context_kind=0;
+        }
+    } else if(kind==11) {
+        if(button("Rename",x+4,y+4,w-8,24,0)) { rename_track=rename_mixer=rename_channel=-1; snprintf(rename_text,sizeof rename_text,"%s",project.automations[target].name); rename_select_all=1; open_popup(2); rename_automation=target; context_kind=0; }
+        if(button("Color",x+4,y+29,w-8,24,0)) { context_kind=12; context_opened=1; }
+        if(button("Delete",x+4,y+54,w-8,24,0)) { automation_delete(&project,target); automation_selected=-1; automation_node=-1; picker_drag=-1; arrangement.gesture=IDLE; arrangement.source_pattern=-1; memset(arrangement.selected,0,sizeof arrangement.selected); context_kind=0; }
+    } else if(kind==6) {
         for(int i=0;i<3;i++) if(button(rack_filters[i],x+4,y+4+i*25,w-8,24,rack_filter==i)) { rack_filter=i; rack_scroll=0; context_kind=0; }
-    } else if(kind==5 || kind==8) {
-        uint32_t *color=kind==8?&project.channel_colors[target]:&project.pattern_colors[target];
+    } else if(kind==5 || kind==8 || kind==12) {
+        uint32_t *color=kind==12?&project.automations[target].color:kind==8?&project.channel_colors[target]:&project.pattern_colors[target];
         for(int i=0;i<PATTERNS;i++) {
             int bx=x+6+(i%4)*54,by=y+6+(i/4)*32;
             if(button_color("",bx,by,48,26,0,pattern_rgb(pattern_palette[i]))) { *color=pattern_palette[i]; context_kind=0; }
@@ -2167,7 +2396,7 @@ static void navigate_editors(float scale) {
     if(id==1) {
         float span=BARS/arrangement.zoom;
         arrangement.view_start=fmaxf(0,arrangement.view_start+motion.x*span/gridw);
-        if(motion.zoom && local.x>=gx) arrangement_zoom(&arrangement,motion.zoom,fmaxf(0,fminf(1,(local.x-gx)/gridw)));
+        if(motion.zoom) arrangement_zoom(&arrangement,motion.zoom,fmaxf(0,fminf(1,(local.x-gx)/gridw)));
         track_scroll=fmaxf(0,fminf(fmaxf(0,track_position(LANES)-area),track_scroll+motion.y));
     } else {
         piano_pan[pattern]=fmaxf(0,piano_pan[pattern]+motion.x*piano_span[pattern]/gridw);
@@ -2470,7 +2699,7 @@ int main(int argc,char **argv) {
         if(button("",712,8,22,22,typing_keys)) typing_keys=!typing_keys;
         icon(ICON_KEYS,723,19,20,typing_keys?ui_theme.selected_text:ink);
         if(hover(712,8,22,22)) snprintf(status,sizeof status,"Typing piano: Z row C3, Q row C4; S/D/G/H/J and 2/3/5/6/7 sharps; disabled in Browser/text fields");
-        visual_step=playing && !reset?audio_visual_position()/(RATE*60.0/project.bpm/4):playback_start();
+        visual_step=playing && !reset?audio_visual_position()/(RATE*60.0/project.bpm/4):playback_start(); automation_display_update();
         int browser_hover=!browser_hidden && mouse.x<sidebar && mouse.y>=42 && mouse.y<height-22;
         typing_piano(modal || dragging || browser_hover);
         ui_surface((Rectangle){width-68,8,56,22},bg);

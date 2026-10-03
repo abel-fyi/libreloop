@@ -92,7 +92,14 @@ int channel_delete(Project *p,int c) {
     for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) {
         int id=p->clips[l][b];
         if(id==PATTERNS+c+1) { p->clips[l][b]=0; p->clip_steps[l][b]=0; }
-        else if(id>PATTERNS+c+1) p->clips[l][b]--;
+        else if(id>PATTERNS+c+1 && id<=AUTOMATION_SOURCE) p->clips[l][b]--;
+    }
+    for(int i=p->automation_count-1;i>=0;i--) {
+        ParameterTarget *t=&p->automations[i].target;
+        if(t->parameter==PARAM_CHANNEL_VOLUME || t->parameter==PARAM_CHANNEL_PAN || t->parameter==PARAM_CHANNEL_PITCH || t->parameter==PARAM_CHANNEL_MUTE || t->parameter==PARAM_PITCH_RANGE) {
+            if(t->owner==(unsigned)c) automation_delete(p,i);
+            else if(t->owner>(unsigned)c) t->owner--;
+        }
     }
     int last=--p->channel_count; p->channel_colors[last]=0; p->channel_pitch[last]=0; p->pitch_range[last]=2; p->channel_audio[last]=0; p->audio_seconds[last]=0; p->sampler[last]=(Sampler){.time=1,.length=1}; p->volume[last]=1; p->pan[last]=0; p->mute[last]=p->route[last]=0;
     memset(p->paths[last],0,sizeof p->paths[last]); memset(p->channel_names[last],0,PATTERN_NAME); snprintf(p->channel_names[last],PATTERN_NAME,"Channel %d",last+1);
@@ -188,17 +195,18 @@ void player_seek(Player *p,const Project *pr,float step) {
 }
 float channel_speed(const Project *p,int channel) { return p->channel_pitch[channel]?powf(2,p->channel_pitch[channel]*p->pitch_range[channel]/12):1; }
 float clip_source_steps(const Project *p,int source) {
-    if(source<0 || source>=PATTERNS+CHANNELS) return 0;
+    if(source<0 || source>=SOURCES) return 0;
+    if(source>=AUTOMATION_SOURCE) return source-AUTOMATION_SOURCE<p->automation_count?p->automations[source-AUTOMATION_SOURCE].steps:0;
     return source<PATTERNS?p->pattern_steps[source]:p->audio_seconds[source-PATTERNS]*p->bpm/15/channel_speed(p,source-PATTERNS);
 }
 float clip_offset_steps(const Project *p,int lane,int clip) {
     int source=p->clips[lane][clip]-1;
     float offset=p->clip_offsets[lane][clip];
-    return source>=PATTERNS?offset*p->bpm/15/channel_speed(p,source-PATTERNS):offset;
+    return AUDIO_SOURCE(source)?offset*p->bpm/15/channel_speed(p,source-PATTERNS):offset;
 }
 float clip_length(const Project *p,int lane,int bar) {
     float length=p->clip_steps[lane][bar]; int source=p->clips[lane][bar]-1;
-    if(source>=PATTERNS) return length?length*p->bpm/15:fmaxf(0,clip_source_steps(p,source)-clip_offset_steps(p,lane,bar));
+    if(AUDIO_SOURCE(source)) return audio_clip_steps(p,lane,bar);
     return length?length:STEPS;
 }
 float song_steps(const Project *p) {
@@ -215,14 +223,14 @@ void solo_toggle(uint8_t *states,int count,int selected) {
     if(states[selected]&2) states[selected]&=~2;
     else states[selected]=(states[selected]&~1)|2;
 }
-static void trigger(Player *p,const Project *pr,int pat,int64_t tick,float remaining,int lane,int entering) {
+static void trigger(Player *p,const Project *pr,int pat,int64_t tick,float remaining,int lane,int entering,float swing,const float *channel_speeds,double master_speed,const uint8_t *channel_mutes) {
     for(int c=0;c<pr->channel_count;c++) for(int i=0;i<NOTES;i++) {
         Note n=pr->notes[pat][c][i];
-        if(!n.velocity || (pr->mute[c]&1)) continue;
+        if(!n.velocity || (channel_mutes[c]&1)) continue;
         double start=n.start;
-        if(pr->swing>0) {
+        if(swing>0) {
             /* Warp each two-step pair without changing its duration or note order. */
-            double pair=floor(start/2)*2,phase=start-pair,delay=pr->swing*.5;
+            double pair=floor(start/2)*2,phase=start-pair,delay=swing*.5;
             start=pair+(phase<1?phase*(1+delay):1+delay+(phase-1)*(1-delay));
         }
         int64_t onset=llround(start*96.0);
@@ -231,7 +239,7 @@ static void trigger(Player *p,const Project *pr,int pat,int64_t tick,float remai
         int v=0; while(v<127 && p->voices[v].gain!=0) v++;
         if(lane>=0 && pr->volume[c]>0) p->lane_trigger[lane]=1;
         double speed=pow(2,((int)n.pitch-60)/12.0),frames_per_step=RATE*60.0/pr->bpm/4;
-        p->voices[v]=(Voice){c,elapsed*frames_per_step*speed*channel_speed(pr,c)*pow(2,pr->master_pitch/12.0),speed,n.length?fmin(n.length-elapsed,remaining)*frames_per_step:-1,n.velocity/127.f,lane};
+        p->voices[v]=(Voice){c,elapsed*frames_per_step*speed*channel_speeds[c]*master_speed,speed,n.length?fmin(n.length-elapsed,remaining)*frames_per_step:-1,n.velocity/127.f,lane};
     }
 }
 static int active_voices(Player *p,Player *live,Voice *active[256]) {
@@ -246,11 +254,16 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
     if(!sequence && !count) { p->frame+=frames; return; }
     int loop=isfinite(p->loop_start) && isfinite(p->loop_end) && p->loop_start>=0 && p->loop_end>p->loop_start;
     float begin=loop?p->loop_start:p->start_step;
-    float end=loop?p->loop_end:p->song?song_steps(pr):pr->pattern_steps[p->pattern];
+    float lengths[LANES][CLIPS],song_end=STEPS;
+    if(sequence && p->song) for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) if(pr->clips[l][b]) {
+        lengths[l][b]=clip_length(pr,l,b); song_end=fmaxf(song_end,pr->clip_starts[l][b]*STEPS+lengths[l][b]);
+    }
+    float end=loop?p->loop_end:p->song?song_end:pr->pattern_steps[p->pattern];
     if(end<=begin) begin=0;
     double stepframes=RATE*60.0/pr->bpm/4/96,pitch_speed=pow(2,pr->master_pitch/12.0);
     uint64_t begin_frame=(uint64_t)llround(begin*stepframes*96),end_frame=(uint64_t)llround(end*stepframes*96);
     float gain_left[CHANNELS],gain_right[CHANNELS],speed[CHANNELS];
+    uint8_t channel_mutes[CHANNELS]; memcpy(channel_mutes,pr->mute,sizeof channel_mutes);
     int channel_solo=solo_any(pr->mute,pr->channel_count),insert_solo=solo_any(pr->insert_mute,pr->insert_count);
     int lane_solo=solo_any(pr->lane_mute,LANES),lane_enabled[LANES];
     for(int l=0;l<LANES;l++) lane_enabled[l]=!(pr->lane_mute[l]&1) && (!lane_solo || (pr->lane_mute[l]&2));
@@ -278,28 +291,83 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
         int i=id-1; float gain=(pr->insert_mute[i]&1)?0:pr->insert_volume[i],pan=pr->insert_pan[i];
         bus_left[id]=gain*fminf(1,1-pan); bus_right[id]=gain*fminf(1,1+pan); bus_width[id]=pr->insert_width[i];
     }
+    /* Bind once per buffer. Only automated controls are recomputed per sample;
+       no project copies, allocation, locks or sample rebuilding in this path. */
+    struct { int automation; float start,end,offset; } automation_clips[LANES*CLIPS];
+    int automation_clips_count=0;
+    float channel_controls[CHANNELS][5],insert_controls[INSERTS][4],master_controls[5]={pr->master,pr->master_width,pr->master_pitch,pr->master_mute,pr->swing};
+    float *bindings[AUTOMATIONS]={0},baseline[AUTOMATIONS],low[AUTOMATIONS],high[AUTOMATIONS];
+    uint8_t channel_changed[CHANNELS]={0},insert_changed[INSERTS]={0}; int master_changed=0,master_pitch_changed=0;
+    uint8_t channel_pitch_changed[CHANNELS]={0};
+    if(sequence && p->song && pr->automation_count) {
+        for(int c=0;c<pr->channel_count;c++) { channel_controls[c][0]=pr->volume[c]; channel_controls[c][1]=pr->pan[c]; channel_controls[c][2]=pr->channel_pitch[c]; channel_controls[c][3]=!!(pr->mute[c]&1); channel_controls[c][4]=pr->pitch_range[c]; }
+        for(int i=0;i<pr->insert_count;i++) { insert_controls[i][0]=pr->insert_volume[i]; insert_controls[i][1]=pr->insert_pan[i]; insert_controls[i][2]=pr->insert_width[i]; insert_controls[i][3]=!!(pr->insert_mute[i]&1); }
+        for(int a=0;a<pr->automation_count;a++) {
+            ParameterTarget t=pr->automations[a].target; unsigned id=t.parameter,c=t.owner;
+            if(!parameter_info(pr,t,&baseline[a],&low[a],&high[a])) continue;
+            if(id<=PARAM_CHANNEL_PITCH || id==PARAM_CHANNEL_MUTE || id==PARAM_PITCH_RANGE) { bindings[a]=&channel_controls[c][id==PARAM_CHANNEL_MUTE?3:id==PARAM_PITCH_RANGE?4:id-PARAM_CHANNEL_VOLUME]; channel_changed[c]=1; if(id==PARAM_CHANNEL_PITCH || id==PARAM_PITCH_RANGE) channel_pitch_changed[c]=1; }
+            else if(id<=PARAM_INSERT_WIDTH || id==PARAM_INSERT_MUTE) { bindings[a]=&insert_controls[c][id==PARAM_INSERT_MUTE?3:id-PARAM_INSERT_VOLUME]; insert_changed[c]=1; }
+            else { bindings[a]=&master_controls[id==PARAM_MASTER_MUTE?3:id==PARAM_SWING?4:id-PARAM_MASTER_VOLUME]; master_changed=1; if(id==PARAM_MASTER_PITCH) master_pitch_changed=1; }
+        }
+        for(int l=0;l<LANES;l++) if(lane_enabled[l]) for(int b=0;b<CLIPS;b++) if(pr->clips[l][b]>AUTOMATION_SOURCE) {
+            int a=pr->clips[l][b]-AUTOMATION_SOURCE-1;
+            if(a>=pr->automation_count || !bindings[a]) continue;
+            int n=automation_clips_count++;
+            automation_clips[n].automation=a; automation_clips[n].start=pr->clip_starts[l][b]*STEPS;
+            automation_clips[n].end=automation_clips[n].start+clip_length(pr,l,b); automation_clips[n].offset=pr->clip_offsets[l][b];
+        }
+    }
     float buses[INSERTS+1][2];
     for(unsigned f=0;f<frames;f++,p->frame++) {
         if(live) live->frame++;
         int64_t step=(int64_t)(p->frame/stepframes);
         if(sequence && p->frame>=end_frame) { p->frame=begin_frame; step=(int64_t)(p->frame/stepframes); p->last_step=-1; if(loop) memset(p->voices,0,sizeof p->voices); }
+        if(automation_clips_count) {
+            double position=p->frame/(stepframes*96);
+            for(int a=0;a<pr->automation_count;a++) if(bindings[a]) *bindings[a]=baseline[a];
+            double held_end[AUTOMATIONS]; for(int a=0;a<pr->automation_count;a++) held_end[a]=-INFINITY;
+            for(int n=0;n<automation_clips_count;n++) if(position>=automation_clips[n].end) {
+                int a=automation_clips[n].automation;
+                if(automation_clips[n].end<held_end[a]) continue;
+                *bindings[a]=low[a]+(high[a]-low[a])*automation_value(&pr->automations[a],automation_clips[n].end-automation_clips[n].start+automation_clips[n].offset);
+                for(int i=0;i<pr->automation_count;i++) if(bindings[i]==bindings[a]) held_end[i]=automation_clips[n].end;
+            }
+            /* Active clips override held values; later tracks/slots win overlaps. */
+            for(int n=0;n<automation_clips_count;n++) if(position>=automation_clips[n].start && position<automation_clips[n].end) {
+                int a=automation_clips[n].automation;
+                *bindings[a]=low[a]+(high[a]-low[a])*automation_value(&pr->automations[a],position-automation_clips[n].start+automation_clips[n].offset);
+            }
+            for(int c=0;c<pr->channel_count;c++) if(channel_changed[c]) {
+                float gain=channel_controls[c][0],pan=channel_controls[c][1]; int audible=!insert_solo,id=pr->route[c],hops=0;
+                while(id && id!=255 && hops++<INSERTS) { audible|=pr->insert_mute[id-1]&2; id=pr->insert_output[id-1]; }
+                channel_mutes[c]=(pr->mute[c]&~1)|(channel_controls[c][3]>=.5f);
+                if(channel_controls[c][3]>=.5f || (channel_solo && !(pr->mute[c]&2)) || !audible) gain=0;
+                gain_left[c]=gain*fminf(1,1-pan); gain_right[c]=gain*fminf(1,1+pan);
+                if(channel_pitch_changed[c]) speed[c]=pow(2,channel_controls[c][2]*roundf(channel_controls[c][4])/12);
+            }
+            for(int i=0;i<pr->insert_count;i++) if(insert_changed[i]) {
+                float gain=insert_controls[i][3]>=.5f?0:insert_controls[i][0],pan=insert_controls[i][1];
+                bus_left[i+1]=gain*fminf(1,1-pan); bus_right[i+1]=gain*fminf(1,1+pan); bus_width[i+1]=insert_controls[i][2];
+            }
+            if(master_changed) { bus_left[0]=bus_right[0]=master_controls[3]>=.5f?0:master_controls[0]; bus_width[0]=master_controls[1]; if(master_pitch_changed) pitch_speed=pow(2,master_controls[2]/12); }
+        }
         if(sequence && step!=p->last_step) {
             int entered=p->last_step<0; p->last_step=step;
             if(p->song) {
                 for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) {
-                    int pat=pr->clips[l][b]; if(!pat || (pat<=PATTERNS && !lane_enabled[l])) continue;
-                    int64_t local=step-(int64_t)llround(pr->clip_starts[l][b]*STEPS*96.0); float length=clip_length(pr,l,b);
+                    int pat=pr->clips[l][b]; if(!pat || pat>AUTOMATION_SOURCE || (pat<=PATTERNS && !lane_enabled[l])) continue;
+                    int64_t local=step-(int64_t)llround(pr->clip_starts[l][b]*STEPS*96.0); float length=lengths[l][b];
                     if(pat>PATTERNS) {
                         int c=pat-PATTERNS-1;
                         if(local>=0 && local<length*96 && (local==0 || entered)) {
                             int v=0; while(v<127 && p->voices[v].gain) v++;
                             double position=fmax(0,p->frame-pr->clip_starts[l][b]*STEPS*stepframes*96);
                             if(lane_enabled[l] && (gain_left[c]>0 || gain_right[c]>0)) p->lane_trigger[l]=1;
-                            p->voices[v]=(Voice){c,pr->clip_offsets[l][b]*RATE+position*speed[c],1,fmin(length*stepframes*96-position,end_frame-p->frame),1,l};
+                            p->voices[v]=(Voice){c,audio_clip_position(pr,l,b,p->frame/(stepframes*96)),1,pr->clip_steps[l][b]?fmin(length*stepframes*96-position,end_frame-p->frame):-1,1,l};
                         }
-                    } else if(local>=0 && local<length*96 && local+pr->clip_offsets[l][b]*96<pr->pattern_steps[pat-1]*96) trigger(p,pr,pat-1,local+(int64_t)llround(pr->clip_offsets[l][b]*96),fminf(length-local/96.f,end-step/96.f),l,pr->clip_offsets[l][b]>0 && (local==0 || entered));
+                    } else if(local>=0 && local<length*96 && local+pr->clip_offsets[l][b]*96<pr->pattern_steps[pat-1]*96) trigger(p,pr,pat-1,local+(int64_t)llround(pr->clip_offsets[l][b]*96),fminf(length-local/96.f,end-step/96.f),l,pr->clip_offsets[l][b]>0 && (local==0 || entered),master_controls[4],speed,pitch_speed,channel_mutes);
                 }
-            } else trigger(p,pr,p->pattern,step,end-step/96.f,-1,0);
+            } else trigger(p,pr,p->pattern,step,end-step/96.f,-1,0,master_controls[4],speed,pitch_speed,channel_mutes);
             count=active_voices(p,live,active);
         }
         for(int at=0;at<buses_count;at++) buses[order[at]][0]=buses[order[at]][1]=0;
@@ -356,6 +424,7 @@ static int read_line(FILE *f,char *out,size_t capacity) {
     *newline=0; memset(out,0,capacity); memcpy(out,line,strlen(line)+1); return 1;
 }
 int project_save(const char *path,const Project *p) {
+    if(!automation_valid(p)) return 0;
     if(p->channel_count<0 || p->channel_count>CHANNELS || p->insert_count<0 || p->insert_count>INSERTS) return 0;
     for(int c=0;c<CHANNELS;c++) if(!p->channel_names[c][0] || strchr(p->channel_names[c],'\n') || strchr(p->channel_names[c],'\r')) return 0;
     for(int c=0;c<CHANNELS;c++) if(strchr(p->paths[c],'\n') || strchr(p->paths[c],'\r')) return 0;
@@ -375,15 +444,16 @@ int project_save(const char *path,const Project *p) {
     for(int i=0;i<PATTERNS;i++) if(p->pattern_colors[i]>0xffffff) return 0;
     for(int c=0;c<CHANNELS;c++) if(p->channel_colors[c]>0xffffff) return 0;
     for(int c=0;c<CHANNELS;c++) if(p->channel_audio[c]>1 || !isfinite(p->audio_seconds[c]) || p->audio_seconds[c]<0 || p->audio_seconds[c]>SAMPLE_MAX_FRAMES*4.0/RATE) return 0;
-    for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) if(p->clips[l][b]>PATTERNS) {
+    for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) if(p->clips[l][b]>PATTERNS && p->clips[l][b]<=AUTOMATION_SOURCE) {
         int c=p->clips[l][b]-PATTERNS-1;
         if(c>=p->channel_count || !p->channel_audio[c]) return 0;
     }
+    for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) if(p->clips[l][b]>AUTOMATION_SOURCE && p->clips[l][b]>AUTOMATION_SOURCE+p->automation_count) return 0;
     for(int c=0;c<CHANNELS;c++) if(!isfinite(p->channel_pitch[c]) || fabsf(p->channel_pitch[c])>1 || !isfinite(p->pitch_range[c]) || p->pitch_range[c]<1 || p->pitch_range[c]>48 || p->pitch_range[c]!=roundf(p->pitch_range[c])) return 0;
     char tmp[4096]; if(snprintf(tmp,sizeof tmp,"%s.tmp",path)>=(int)sizeof tmp) return 0;
     FILE *f=fopen(tmp,"w"); if(!f) return 0;
     for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) if(!isfinite(p->clip_offsets[l][b]) || p->clip_offsets[l][b]<0 || p->clip_offsets[l][b]>1e15f) { fclose(f); remove(tmp); return 0; }
-    fprintf(f,"HOMEBEAT 29\n%.9g %.9g %d\n",p->bpm,p->master,p->channel_count);
+    fprintf(f,"HOMEBEAT 30\n%.9g %.9g %d\n",p->bpm,p->master,p->channel_count);
     for(int c=0;c<CHANNELS;c++) fprintf(f,"%.9g %.9g %u\n",p->volume[c],p->pan[c],p->mute[c]);
     for(int a=0;a<PATTERNS;a++) for(int c=0;c<CHANNELS;c++) for(int i=0;i<NOTES;i++) {
         Note n=p->notes[a][c][i]; fprintf(f,"%u %u %.9g %.9g\n",n.pitch,n.velocity,n.start,n.length);
@@ -416,6 +486,12 @@ int project_save(const char *path,const Project *p) {
     for(int c=0;c<CHANNELS;c++) fprintf(f,"%.9g\n",p->sampler[c].trim);
     for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) fprintf(f,"%.9g\n",p->clip_offsets[l][b]);
     for(int c=0;c<CHANNELS;c++) fprintf(f,"%u\n",p->channel_colors[c]);
+    fprintf(f,"%d\n",p->automation_count);
+    for(int i=0;i<p->automation_count;i++) {
+        const Automation *a=&p->automations[i];
+        fprintf(f,"%u %u %u %.9g %d %u\n%s\n",a->target.parameter,a->target.owner,a->target.slot,a->steps,a->count,a->color,a->name);
+        for(int n=0;n<a->count;n++) fprintf(f,"%.9g %.9g\n",a->points[n].step,a->points[n].value);
+    }
     int ok=!ferror(f); if(fclose(f)) ok=0;
     if(ok && rename(tmp,path)==0) return 1;
     remove(tmp); return 0;
@@ -427,7 +503,7 @@ int project_load(const char *path,Project *p) {
     q.insert_count=4;
     for(int i=0;i<INSERTS;i++) q.insert_volume[i]=1;
     for(int c=0;c<4;c++) q.route[c]=c+1;
-    int ok=fscanf(f,"%31s %d",magic,&version)==2 && !strcmp(magic,"HOMEBEAT") && version>=1 && version<=29;
+    int ok=fscanf(f,"%31s %d",magic,&version)==2 && !strcmp(magic,"HOMEBEAT") && version>=1 && version<=30;
     ok=ok && fscanf(f,"%f %f",&q.bpm,&q.master)==2 && isfinite(q.bpm) && q.bpm>=30 && q.bpm<=300 && isfinite(q.master) && q.master>=0 && q.master<=(version>=18?MIXER_GAIN_MAX:1);
     if(version>=12) ok=ok && fscanf(f,"%d",&q.channel_count)==1 && q.channel_count>=0 && q.channel_count<=CHANNELS;
     int channels=version>=12?CHANNELS:4,inserts=version>=12?INSERTS:16,clips=version>=14?CLIPS:BARS;
@@ -441,7 +517,7 @@ int project_load(const char *path,Project *p) {
         if(version>=4) { float limit=version>=14?1e15f:version==4?STEPS:BARS*STEPS; ok=ok && fscanf(f,"%f %f",&start,&length)==2 && isfinite(start) && isfinite(length) && start>=0 && length>=0 && start<limit && length<=limit-start; }
         if(ok) q.notes[a][c][i]=(Note){x,y,start,length};
     }
-    for(int l=0;ok && l<(version>=10?LANES:4);l++) for(int b=0;ok && b<clips;b++) { ok=fscanf(f,"%u",&x)==1 && x<=(unsigned)(version>=23?PATTERNS+CHANNELS:PATTERNS); if(ok) q.clips[l][b]=x; }
+    for(int l=0;ok && l<(version>=10?LANES:4);l++) for(int b=0;ok && b<clips;b++) { ok=fscanf(f,"%u",&x)==1 && x<=(unsigned)(version>=30?SOURCES:version>=23?PATTERNS+CHANNELS:PATTERNS); if(ok) q.clips[l][b]=x; }
     int ch; do { ch=fgetc(f); } while(ch!=EOF && ch!='\n');
     for(int c=0;ok && c<channels;c++) {
         ok=read_line(f,q.paths[c],sizeof q.paths[c]);
@@ -509,7 +585,7 @@ int project_load(const char *path,Project *p) {
             ok=fscanf(f,"%u %f",&x,&q.audio_seconds[c])==2 && x<=1 && isfinite(q.audio_seconds[c]) && q.audio_seconds[c]>=0 && q.audio_seconds[c]<=SAMPLE_MAX_FRAMES*4.0/RATE;
             if(ok) q.channel_audio[c]=x;
         }
-        for(int l=0;ok && l<LANES;l++) for(int b=0;ok && b<CLIPS;b++) if(q.clips[l][b]>PATTERNS) {
+        for(int l=0;ok && l<LANES;l++) for(int b=0;ok && b<CLIPS;b++) if(q.clips[l][b]>PATTERNS && q.clips[l][b]<=AUTOMATION_SOURCE) {
             int c=q.clips[l][b]-PATTERNS-1;
             ok=c<q.channel_count && q.channel_audio[c];
         }
@@ -518,8 +594,19 @@ int project_load(const char *path,Project *p) {
     if(version>=26) for(int c=0;ok && c<CHANNELS;c++) ok=fscanf(f,"%f",&q.sampler[c].trim)==1 && isfinite(q.sampler[c].trim) && q.sampler[c].trim>=0 && q.sampler[c].trim<=1;
     if(version>=27) for(int l=0;ok && l<LANES;l++) for(int b=0;ok && b<CLIPS;b++) ok=fscanf(f,"%f",&q.clip_offsets[l][b])==1 && isfinite(q.clip_offsets[l][b]) && q.clip_offsets[l][b]>=0 && q.clip_offsets[l][b]<=1e15f;
     if(version>=29) for(int c=0;ok && c<CHANNELS;c++) { ok=fscanf(f,"%u",&x)==1 && x<=0xffffff; if(ok) q.channel_colors[c]=x; }
+    if(version>=30) {
+        ok=ok && fscanf(f,"%d",&q.automation_count)==1 && q.automation_count>=0 && q.automation_count<=AUTOMATIONS;
+        for(int i=0;ok && i<q.automation_count;i++) {
+            Automation *a=&q.automations[i];
+            ok=fscanf(f,"%u %u %u %f %d %u",&a->target.parameter,&a->target.owner,&a->target.slot,&a->steps,&a->count,&a->color)==6 && a->count>=1 && a->count<=AUTOMATION_POINTS;
+            ok=ok && fgetc(f)=='\n' && read_line(f,a->name,sizeof a->name);
+            for(int n=0;ok && n<a->count;n++) ok=fscanf(f,"%f %f",&a->points[n].step,&a->points[n].value)==2;
+        }
+        ok=ok && automation_valid(&q);
+        for(int l=0;ok && l<LANES;l++) for(int b=0;ok && b<CLIPS;b++) if(q.clips[l][b]>AUTOMATION_SOURCE) ok=q.clips[l][b]<=AUTOMATION_SOURCE+q.automation_count;
+    }
     /* Version 23 imported full clips with a fixed cap; convert only that old layout. */
-    if(version==23 && ok) for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) if(q.clips[l][b]>PATTERNS) {
+    if(version==23 && ok) for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) if(q.clips[l][b]>PATTERNS && q.clips[l][b]<=AUTOMATION_SOURCE) {
         int c=q.clips[l][b]-PATTERNS-1;
         if(fabsf(q.clip_steps[l][b]-q.audio_seconds[c])<.00001f) q.clip_steps[l][b]=0;
     }

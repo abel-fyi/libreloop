@@ -11,6 +11,8 @@ are a coherent mouse-driven workflow and minimal code and dependencies.
 | `src/main.c` | raylib UI, gestures, transport, sampler worker orchestration |
 | `src/theme.c`, `theme.h` | light/dark palettes, flat rectangle drawing, appearance preference |
 | `src/engine.c`, `engine.h` | project model, synthesis, rendering, routing, save/load, export |
+| `src/audio_timing.c` | pitch-curve speed integration, Audio clip duration and seek positions |
+| `src/automation.c` | stable parameter targets, normalized curves, source editing and validation |
 | `src/arrangement.c`, `arrangement.h` | Playlist editing, selection, timeline and snap helpers |
 | `src/sampler.c` | non-destructive crop, normalize, reverse, polarity, pitch and time processing |
 | `src/audio.c`, `audio.h` | miniaudio playback, live notes and sample decoding |
@@ -46,7 +48,7 @@ are a coherent mouse-driven workflow and minimal code and dependencies.
 - Idle drawing waits for events; playback and gestures run at 60 FPS. Workers
   wake the UI when processing completes. Playlist copies reuse cached pattern
   previews; extreme zoom retains vector detail. See [performance checks](performance.md).
-- Patterns contain all channels' notes. Playlist clips reference patterns or Audio channels and
+- Patterns contain all channels' notes. Playlist clips reference patterns, Audio channels or automation sources and
   keep independent crop lengths; resizing a clip never deletes source notes.
 - Dropping audio on the Playlist creates a waveform clip and an Audio Rack channel.
   Playlist waveforms cache a hierarchy of min/max peaks over 256-frame blocks.
@@ -79,8 +81,8 @@ are a coherent mouse-driven workflow and minimal code and dependencies.
   metronome and listening gain mix before the final device clamp to -1..1.
   PCM16 export clamps at conversion. Overloaded mixes still need gain reduction;
   there is no automatic compressor or lookahead limiter.
-- Project files currently use `.hbt` and the `HOMEBEAT` version-29 header for
-  compatibility. Versions 1–28 remain readable. Renaming the app did not change
+- Project files currently use `.hbt` and the `HOMEBEAT` version-30 header for
+  compatibility. Versions 1–29 remain readable. Renaming the app did not change
   the project format. Sample paths are absolute and projects are not portable bundles.
 - Browser roots are written under the `libreloop` configuration directory;
   legacy `homebeat` roots are read when no new configuration exists.
@@ -97,7 +99,7 @@ Note starts and lengths use the selected snap grid; notes stay inside their
 pattern. The Piano Roll shows 25 pitches at a time and scrolls through MIDI pitches 0–127. Drum steps are one-shots; Piano Roll notes have duration gates with a
 short fade at note-off. Sampler processing can change pitch and duration; held notes stop at the
 processed sample's end. Mixer inserts can route to one other insert or Master; no effects,
-recording, MIDI device I/O, external plugins, automation, undo, or FLP import. WAV export ends at
+recording, MIDI device I/O, external plugins, undo, or FLP import. WAV export ends at
 the arrangement boundary without an added tail; standard RIFF exports must
 fit below 4 GiB. This is a workflow prototype,
 not a production recording tool. Device changes, sleep/wake and sustained
@@ -108,3 +110,33 @@ interactive playback still need platform testing.
 The interface places the Browser on the left, with a compact top toolbar,
 Playlist, floating Channel Rack and Mixer, and a Piano Roll with keys on the
 left and velocity controls below.
+
+## Automation
+
+Automation clips use a third Playlist source range and step-based length/offsets.
+Each source stores a parameter ID, owner index, slot, name, palette color and
+normalized points in nondecreasing time order. Neighboring points may share
+a time for a vertical jump; evaluation uses the last point at that time. Dragging
+preserves point identity and clamps at neighbors. Channel deletion remaps targets and removes curves
+for the deleted owner. Parameter IDs are saved explicitly; UI addresses are
+only used to discover a target when opening a control menu. Unresolved future
+plugin IDs are preserved without attempting to process them. `automation_evaluate`
+is the shared Song-position lookup for future built-in processors; parameter
+resolution and realtime application will be added with each actual processor.
+
+Automation line segments reuse the Mixer cable alpha texture for smooth edges
+in Playlist clips, picker thumbnails and floating drag previews.
+
+The renderer binds supported targets once per buffer, collects enabled automation
+clips, evaluates their curves per sample, and recomputes only affected channel/bus
+controls. This shares the playback/export path, with no callback allocation or
+project copying. Automation does not rewrite saved manual values. Sample rebuilding
+operations remain separate from this realtime parameter path.
+
+Full-length Audio clip duration integrates channel pitch/range and Master pitch
+automation over Song time. Linear semitone segments yield exponential playback
+speed, integrated and inverted analytically, with integer pitch-range boundaries
+split explicitly. Playback seeks and waveform pixel ranges use this same source
+position mapping. Explicit crop caps remain timeline boundaries. The renderer
+computes clip durations once per buffer rather than once per sequencer tick; full
+Audio voices finish at the sample end instead of an obsolete duration gate.
