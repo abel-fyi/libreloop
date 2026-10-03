@@ -5,5 +5,6 @@
 typedef struct { float low,high; } WavePeak;
 typedef struct { WavePeak *tree; unsigned leaves; } Waveform;
 int waveform_build(Waveform *wave,Sample sample);
+int waveform_append(Waveform *wave,Sample sample,unsigned previous_frames);
 WavePeak waveform_range(const Waveform *wave,Sample sample,unsigned start,unsigned end);
 #endif

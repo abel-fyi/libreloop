@@ -135,6 +135,14 @@ void render(Player *p, const Project *project, const Sample s[CHANNELS], float *
 void render_live(Player *p,const Project *project,const Sample s[CHANNELS],float *out,unsigned frames);
 /* Mix sequenced/live voices through the same stereo buses; optional post-fader peaks. */
 void render_mixer(Player *p,Player *live,const Project *project,const Sample s[CHANNELS],float *out,unsigned frames,int sequence,float peaks[INSERTS+1][2]);
+/* Optional realtime input and post-fader taps; callbacks allocate nothing. */
+typedef struct {
+    uint8_t active[INSERTS+1];
+    void (*input)(void *context,float buses[INSERTS+1][2]);
+    void (*output)(void *context,int bus,float left,float right);
+    void *context;
+} MixerIO;
+void render_mixer_io(Player *p,Player *live,const Project *project,const Sample s[CHANNELS],float *out,unsigned frames,int sequence,float peaks[INSERTS+1][2],const MixerIO *io);
 int project_save(const char *path, const Project *p);
 int project_load(const char *path, Project *p);
 int export_wav(const char *path, const Project *p, const Sample s[CHANNELS]);

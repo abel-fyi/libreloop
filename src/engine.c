@@ -248,10 +248,10 @@ static int active_voices(Player *p,Player *live,Voice *active[256]) {
     if(live) for(int v=0;v<128;v++) if(live->voices[v].gain) active[count++]=&live->voices[v];
     return count;
 }
-static void render_audio(Player *p,Player *live,const Project *pr,const Sample s[CHANNELS],float *out,unsigned frames,int sequence,float peaks[INSERTS+1][2]) {
+static void render_audio(Player *p,Player *live,const Project *pr,const Sample s[CHANNELS],float *out,unsigned frames,int sequence,float peaks[INSERTS+1][2],const MixerIO *io) {
     memset(p->lane_active,0,sizeof p->lane_active); memset(p->lane_trigger,0,sizeof p->lane_trigger);
     Voice *active[256]; int count=active_voices(p,live,active);
-    if(!sequence && !count) { p->frame+=frames; return; }
+    if(!sequence && !count && !io) { p->frame+=frames; return; }
     int loop=isfinite(p->loop_start) && isfinite(p->loop_end) && p->loop_start>=0 && p->loop_end>p->loop_start;
     float begin=loop?p->loop_start:p->start_step;
     float lengths[LANES][CLIPS],song_end=STEPS;
@@ -269,6 +269,12 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
     for(int l=0;l<LANES;l++) lane_enabled[l]=!(pr->lane_mute[l]&1) && (!lane_solo || (pr->lane_mute[l]&2));
     /* Sort only connected buses once per block, so shared buses are processed once. */
     int used[INSERTS+1]={1},pending[INSERTS+1]={0},order[INSERTS+1],buses_count=0;
+    uint8_t input_audible[INSERTS+1]; memset(input_audible,1,sizeof input_audible);
+    if(io) for(int bus=0;bus<=pr->insert_count;bus++) if(io->active[bus]) {
+        int id=bus,hops=0,audible=!insert_solo;
+        while(id && id!=255 && hops++<INSERTS) { used[id]=1; audible|=pr->insert_mute[id-1]&2; id=pr->insert_output[id-1]; }
+        input_audible[bus]=audible;
+    }
     for(int c=0;c<pr->channel_count;c++) {
         speed[c]=channel_speed(pr,c);
         int id=pr->route[c],hops=0,audible=!insert_solo;
@@ -321,7 +327,7 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
     for(unsigned f=0;f<frames;f++,p->frame++) {
         if(live) live->frame++;
         int64_t step=(int64_t)(p->frame/stepframes);
-        if(sequence && p->frame>=end_frame) { p->frame=begin_frame; step=(int64_t)(p->frame/stepframes); p->last_step=-1; if(loop) memset(p->voices,0,sizeof p->voices); }
+        if(sequence && !io && p->frame>=end_frame) { p->frame=begin_frame; step=(int64_t)(p->frame/stepframes); p->last_step=-1; if(loop) memset(p->voices,0,sizeof p->voices); }
         if(automation_clips_count) {
             double position=p->frame/(stepframes*96);
             for(int a=0;a<pr->automation_count;a++) if(bindings[a]) *bindings[a]=baseline[a];
@@ -371,6 +377,10 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
             count=active_voices(p,live,active);
         }
         for(int at=0;at<buses_count;at++) buses[order[at]][0]=buses[order[at]][1]=0;
+        if(io && io->input) {
+            io->input(io->context,buses);
+            for(int id=0;id<=pr->insert_count;id++) if(!input_audible[id]) buses[id][0]=buses[id][1]=0;
+        }
         for(int v=0;v<count;v++) {
             Voice *voice=active[v]; if(!voice->gain) continue;
             int c=voice->channel; if(c>=pr->channel_count || voice->position>=s[c].frames) { voice->gain=0; continue; } unsigned i=(unsigned)voice->position;
@@ -391,6 +401,7 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
         for(int at=0;at<buses_count;at++) {
             int id=order[at]; float l=buses[id][0]*bus_left[id],r=buses[id][1]*bus_right[id];
             if(bus_width[id]!=1) { float mid=(l+r)*.5f,side=(l-r)*.5f*bus_width[id]; l=mid+side; r=mid-side; }
+            if(io && io->output) io->output(io->context,id,l,r);
             if(id) {
                 int dest=pr->insert_output[id-1]; if(dest!=255) { buses[dest][0]+=l; buses[dest][1]+=r; }
             } else {
@@ -408,13 +419,16 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
     for(int l=0;l<LANES;l++) if(!lane_enabled[l] || pr->master_mute) p->lane_active[l]=p->lane_trigger[l]=0;
 }
 void render(Player *p,const Project *pr,const Sample s[CHANNELS],float *out,unsigned frames) {
-    render_audio(p,NULL,pr,s,out,frames,1,NULL);
+    render_audio(p,NULL,pr,s,out,frames,1,NULL,NULL);
 }
 void render_live(Player *p,const Project *pr,const Sample s[CHANNELS],float *out,unsigned frames) {
-    render_audio(p,NULL,pr,s,out,frames,0,NULL);
+    render_audio(p,NULL,pr,s,out,frames,0,NULL,NULL);
 }
 void render_mixer(Player *p,Player *live,const Project *pr,const Sample s[CHANNELS],float *out,unsigned frames,int sequence,float peaks[INSERTS+1][2]) {
-    render_audio(p,live,pr,s,out,frames,sequence,peaks);
+    render_audio(p,live,pr,s,out,frames,sequence,peaks,NULL);
+}
+void render_mixer_io(Player *p,Player *live,const Project *pr,const Sample s[CHANNELS],float *out,unsigned frames,int sequence,float peaks[INSERTS+1][2],const MixerIO *io) {
+    render_audio(p,live,pr,s,out,frames,sequence,peaks,io);
 }
 /* Text format keeps projects inspectable and avoids ABI-dependent struct dumps. */
 static int read_line(FILE *f,char *out,size_t capacity) {

@@ -103,6 +103,45 @@ int main(void) {
     ready=0; ma_mutex_uninit(&device.startStopLock);
     ma_atomic_device_state_set(&device.state,ma_device_state_uninitialized);
     free(data);
-    puts("Transparent output, lock contention, mixing headroom, final clipping, sample lifetime and ordered controls passed.");
+    /* Capture enters unused mixer buses and taps their post-fader routed audio. */
+    setup((Sample){0}); memset(fixture.clips,0,sizeof fixture.clips);
+    fixture.insert_count=2; fixture.insert_volume[0]=fixture.insert_volume[1]=.5f;
+    CHECK(insert_connect(&fixture,1,2));
+    audio_update(&fixture,1,1,0,1,1,0,0,0);
+    recording.count=3; recording.devices_count=1;
+    recording.buses[0]=1; recording.buses[1]=2; recording.buses[2]=0;
+    recording.sources[0]=0; recording.sources[1]=recording.sources[2]=-1;
+    recording.inputs[0].pcm=calloc(RECORD_RING_FRAMES*2,sizeof(float));
+    for(int i=0;i<3;i++) recording.takes[i].pcm=calloc(RECORD_RING_FRAMES*2,sizeof(float));
+    recording.io.active[0]=recording.io.active[1]=recording.io.active[2]=1;
+    recording.io.input=record_input; recording.io.output=record_output;
+    recording.active=1;
+    float input[128]; for(int i=0;i<64;i++) { input[i*2]=.6f; input[i*2+1]=-.4f; }
+    ma_device capture={0}; capture.pUserData=&recording.inputs[0]; capture_callback(&capture,NULL,input,64);
+    callback(NULL,out,NULL,64);
+    float recorded[128];
+    CHECK(audio_record_read(0,recorded,64)==64);
+    for(int i=0;i<64;i++) { CHECK(recorded[i*2]==.3f && recorded[i*2+1]==-.2f); CHECK(out[i*2]==.15f && out[i*2+1]==-.1f); }
+    CHECK(audio_record_read(1,recorded,64)==64 && recorded[0]==.15f && recorded[1]==-.1f);
+    CHECK(audio_record_read(2,recorded,64)==64 && recorded[0]==.15f && recorded[1]==-.1f);
+    CHECK(audio_record_read(0,recorded,64)==0);
+    /* One capture stream can feed two armed inserts without consuming it twice. */
+    recording.sources[1]=0; capture_callback(&capture,NULL,input,64); callback(NULL,out,NULL,64);
+    CHECK(audio_record_read(0,recorded,32)==32 && recorded[0]==.3f);
+    CHECK(audio_record_read(0,recorded,64)==32 && recorded[0]==.3f);
+    CHECK(audio_record_read(1,recorded,64)==64 && fabsf(recorded[0]-.45f)<.000001f && fabsf(recorded[1]+.3f)<.000001f);
+    CHECK(audio_record_read(2,recorded,64)==64 && fabsf(recorded[0]-.45f)<.000001f);
+    /* Recording keeps the Song cursor moving beyond the previous end. */
+    player.frame=RATE*3; callback(NULL,out,NULL,64); CHECK(player.frame==RATE*3+64);
+    /* Ring wraparound preserves order, and overflow is reported instead of overwriting. */
+    RecordRing *ring=&recording.inputs[0];
+    atomic_store(&ring->read,RECORD_RING_FRAMES-1); atomic_store(&ring->write,RECORD_RING_FRAMES-1);
+    CHECK(ring_push(ring,.2f,.4f) && ring_push(ring,.6f,.8f));
+    float pair[2]; CHECK(ring_pop(ring,pair) && pair[0]==.2f && pair[1]==.4f);
+    CHECK(ring_pop(ring,pair) && pair[0]==.6f && pair[1]==.8f);
+    atomic_store(&ring->write,atomic_load(&ring->read)+RECORD_RING_FRAMES);
+    CHECK(!ring_push(ring,1,1) && atomic_load(&ring->overflow));
+    recording.active=0; CHECK(audio_record_failed()); record_release();
+    puts("Transparent output, capture, post-fader recording, ring bounds, mixing and ordered controls passed.");
     return 0;
 }

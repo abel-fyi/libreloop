@@ -64,6 +64,50 @@ static int click_accent;
 static double visual_frame,visual_time,visual_end,visual_start;
 static unsigned visual_frames,live_frames;
 static double live_time;
+#define RECORD_RING_FRAMES (RATE*4u)
+typedef struct {
+    float *pcm;
+    atomic_uint_fast64_t read,write;
+    atomic_int overflow;
+} RecordRing;
+static struct {
+    ma_device devices[CHANNELS];
+    RecordRing inputs[CHANNELS],takes[CHANNELS];
+    int sources[CHANNELS],buses[CHANNELS],count,devices_count,active;
+    MixerIO io;
+} recording;
+static int ring_push(RecordRing *ring,float left,float right) {
+    uint64_t w=atomic_load_explicit(&ring->write,memory_order_relaxed);
+    if(w-atomic_load_explicit(&ring->read,memory_order_acquire)>=RECORD_RING_FRAMES) {
+        atomic_store(&ring->overflow,1); return 0;
+    }
+    unsigned at=w%RECORD_RING_FRAMES;
+    ring->pcm[at*2]=isfinite(left)?left:0; ring->pcm[at*2+1]=isfinite(right)?right:0;
+    atomic_store_explicit(&ring->write,w+1,memory_order_release); return 1;
+}
+static int ring_pop(RecordRing *ring,float stereo[2]) {
+    uint64_t r=atomic_load_explicit(&ring->read,memory_order_relaxed);
+    if(r==atomic_load_explicit(&ring->write,memory_order_acquire)) return 0;
+    unsigned at=r%RECORD_RING_FRAMES;
+    stereo[0]=ring->pcm[at*2]; stereo[1]=ring->pcm[at*2+1];
+    atomic_store_explicit(&ring->read,r+1,memory_order_release); return 1;
+}
+static void capture_callback(ma_device *d,void *out,const void *in,ma_uint32 frames) {
+    (void)out; RecordRing *ring=d->pUserData; const float *pcm=in;
+    for(unsigned i=0;i<frames;i++) ring_push(ring,pcm?pcm[i*2]:0,pcm?pcm[i*2+1]:0);
+}
+static void record_input(void *context,float buses[INSERTS+1][2]) {
+    (void)context; float input[CHANNELS][2]={{0}};
+    for(int i=0;i<recording.devices_count;i++) ring_pop(&recording.inputs[i],input[i]);
+    for(int i=0;i<recording.count;i++) if(recording.sources[i]>=0) {
+        int id=recording.buses[i],source=recording.sources[i];
+        buses[id][0]+=input[source][0]; buses[id][1]+=input[source][1];
+    }
+}
+static void record_output(void *context,int bus,float left,float right) {
+    (void)context;
+    for(int i=0;i<recording.count;i++) if(recording.buses[i]==bus) ring_push(&recording.takes[i],left,right);
+}
 static double monotonic_time(void) {
     struct timespec t; clock_gettime(CLOCK_MONOTONIC,&t);
     return t.tv_sec+t.tv_nsec/1e9;
@@ -79,15 +123,15 @@ static void callback(ma_device *d, void *out, const void *in, ma_uint32 frames) 
     float peaks[INSERTS+1][2]={{0}};
     if(playing) {
         visual_frame=player.frame;
-        render_mixer(&player,&live,&project,samples,out,frames,1,peaks);
+        render_mixer_io(&player,&live,&project,samples,out,frames,1,peaks,recording.active?&recording.io:NULL);
         visual_time=monotonic_time(); visual_frames=frames;
         double step_frames=RATE*60.0/project.bpm/4;
         visual_start=(player.loop_end?player.loop_start:player.start_step)*step_frames;
         float end=player.loop_end?player.loop_end:player.song?song_steps(&project):project.pattern_steps[player.pattern];
         if(visual_start>=end*step_frames) visual_start=0;
-        visual_end=end*step_frames;
+        visual_end=recording.active?INFINITY:end*step_frames;
     }
-    else render_mixer(&live,NULL,&project,samples,out,frames,0,peaks);
+    else render_mixer_io(&live,NULL,&project,samples,out,frames,0,peaks,recording.active?&recording.io:NULL);
     for(int l=0;l<LANES;l++) {
         atomic_store_explicit(&track_active[l],playing && player.song && player.lane_active[l],memory_order_relaxed);
         if(playing && player.song && player.lane_trigger[l]) atomic_store_explicit(&track_trigger[l],1,memory_order_relaxed);
@@ -268,6 +312,72 @@ int audio_devices(int capture,char names[][128],int capacity) {
     return n;
 }
 void audio_metronome(int enabled) { atomic_store_explicit(&metronome,enabled,memory_order_relaxed); }
+void audio_record_end(void) {
+    if(!recording.active) return;
+    ma_device_stop(&device); recording.active=0;
+    for(int i=0;i<recording.devices_count;i++) ma_device_uninit(&recording.devices[i]);
+    if(ma_device_start(&device)!=MA_SUCCESS) ready=0;
+}
+static void record_release(void) {
+    for(int i=0;i<CHANNELS;i++) { free(recording.inputs[i].pcm); free(recording.takes[i].pcm); }
+    memset(&recording,0,sizeof recording);
+}
+int audio_record_start(const Project *p,const int buses[],int count,float start_step,float output,char error[256]) {
+    if(!ready || count<1 || count>CHANNELS || recording.active) { snprintf(error,256,"Audio unavailable or invalid recording tracks."); return 0; }
+    ma_device_stop(&device); record_release();
+    ma_device_info *outputs,*inputs; ma_uint32 output_count,input_count;
+    if(ma_context_get_devices(device.pContext,&outputs,&output_count,&inputs,&input_count)!=MA_SUCCESS) goto failed;
+    char names[CHANNELS][128]={{0}};
+    for(int i=0;i<count;i++) {
+        int bus=buses[i]; if(bus<0 || bus>p->insert_count) goto failed;
+        recording.buses[i]=bus; recording.sources[i]=-1; recording.io.active[bus]=1;
+        recording.takes[i].pcm=calloc(RECORD_RING_FRAMES*2,sizeof(float));
+        if(!recording.takes[i].pcm) goto failed;
+        const char *name=p->audio_io[bus][0]; if(!*name) continue;
+        int source=0; while(source<recording.devices_count && strcmp(names[source],name)) source++;
+        recording.sources[i]=source;
+        if(source<recording.devices_count) continue;
+        ma_device_id *id=NULL;
+        if(strcmp(name,"@default")) {
+            for(unsigned n=0;n<input_count;n++) if(!strcmp(inputs[n].name,name)) { id=&inputs[n].id; break; }
+            if(!id) { snprintf(error,256,"Input device unavailable: %.120s",name); goto failed; }
+        }
+        RecordRing *ring=&recording.inputs[source]; ring->pcm=calloc(RECORD_RING_FRAMES*2,sizeof(float));
+        if(!ring->pcm) goto failed;
+        ma_device_config config=ma_device_config_init(ma_device_type_capture);
+        config.capture.pDeviceID=id; config.capture.format=ma_format_f32; config.capture.channels=2;
+        config.sampleRate=RATE; config.dataCallback=capture_callback; config.pUserData=ring;
+        if(ma_device_init(device.pContext,&config,&recording.devices[source])!=MA_SUCCESS) {
+            snprintf(error,256,"Cannot open input %.120s. Check microphone permission and device availability.",name); goto failed;
+        }
+        recording.devices_count++; snprintf(names[source],128,"%s",name);
+    }
+    recording.count=count; recording.io.input=record_input; recording.io.output=record_output;
+    for(int i=0;i<recording.devices_count;i++) if(ma_device_start(&recording.devices[i])!=MA_SUCCESS) goto failed;
+    /* Commit transport while playback is stopped, so its first frame is also recorded. */
+    audio_update(p,1,1,player.pattern,1,output,start_step,0,0);
+    recording.active=1;
+    if(ma_device_start(&device)==MA_SUCCESS) return 1;
+    recording.active=0;
+failed:
+    if(!*error) snprintf(error,256,"Could not start recording: device or memory unavailable.");
+    for(int i=0;i<recording.devices_count;i++) ma_device_uninit(&recording.devices[i]);
+    record_release(); if(ma_device_start(&device)!=MA_SUCCESS) ready=0; return 0;
+}
+unsigned audio_record_read(int take,float *stereo,unsigned frames) {
+    if(take<0 || take>=recording.count) return 0;
+    unsigned n=0; while(n<frames && ring_pop(&recording.takes[take],stereo+n*2)) n++;
+    return n;
+}
+int audio_record_failed(void) {
+    if(recording.active) {
+        if(ma_device_get_state(&device)!=ma_device_state_started) return 1;
+        for(int i=0;i<recording.devices_count;i++) if(ma_device_get_state(&recording.devices[i])!=ma_device_state_started) return 1;
+    }
+    for(int i=0;i<recording.count;i++) if(atomic_load(&recording.takes[i].overflow)) return 1;
+    for(int i=0;i<recording.devices_count;i++) if(atomic_load(&recording.inputs[i].overflow)) return 1;
+    return 0;
+}
 void audio_update(const Project *p,int run,int song,int pattern,int reset,float output,float start_step,float loop_start,float loop_end) {
     pthread_mutex_lock(&mutex);
     pending.project=*p; pending.dirty=1;
@@ -359,7 +469,8 @@ double audio_visual_position(void) {
     pthread_mutex_unlock(&mutex); return frame;
 }
 void audio_close(void) {
-    if(ready) ma_device_uninit(&device);
+    audio_record_end(); record_release();
+    if(ma_device_get_state(&device)!=ma_device_state_uninitialized) ma_device_uninit(&device);
     ready=0;
     pthread_mutex_lock(&mutex); consume_commands(); publish_view(); pthread_mutex_unlock(&mutex);
 }

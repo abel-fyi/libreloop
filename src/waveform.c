@@ -40,3 +40,13 @@ WavePeak waveform_range(const Waveform *wave,Sample sample,unsigned start,unsign
     }
     return peak;
 }
+int waveform_append(Waveform *wave,Sample sample,unsigned previous_frames) {
+    unsigned blocks=sample.frames?(sample.frames-1)/BLOCK+1:0;
+    if(!wave->tree || blocks>wave->leaves) return waveform_build(wave,sample);
+    for(unsigned i=previous_frames/BLOCK;i<blocks;i++) {
+        unsigned end=(i+1)*BLOCK; if(end>sample.frames) end=sample.frames;
+        unsigned at=wave->leaves+i; wave->tree[at]=scan(sample,i*BLOCK,end);
+        for(at/=2;at;at/=2) wave->tree[at]=merge(wave->tree[at*2],wave->tree[at*2+1]);
+    }
+    return 1;
+}

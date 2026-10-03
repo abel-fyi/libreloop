@@ -6,4 +6,5 @@
 <key>CFBundleName</key><string>LibreLoop</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>NSHighResolutionCapable</key><true/>
+<key>NSMicrophoneUsageDescription</key><string>LibreLoop records audio from your selected mixer inputs into the Playlist.</string>
 </dict></plist>

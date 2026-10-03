@@ -24,5 +24,16 @@ int main(void) {
     CHECK(waveform_build(&wave,(Sample){0}) && !wave.tree && !wave.leaves);
     CHECK(waveform_range(&wave,(Sample){0},0,1).low==0);
     CHECK(waveform_range(&wave,s,256,257).low==-1); /* allocation-free fallback */
+    /* Live recording extends partial blocks and grows the cache without losing peaks. */
+    unsigned previous=0;
+    for(unsigned n=1;n<4099;n+=113) {
+        Sample growing={data,n}; CHECK(waveform_append(&wave,growing,previous)); previous=n;
+        for(unsigned start=0;start<n;start+=251) {
+            WavePeak expected={0},actual=waveform_range(&wave,growing,start,n);
+            for(unsigned i=start;i<n;i++) { expected.low=fminf(expected.low,data[i]); expected.high=fmaxf(expected.high,data[i]); }
+            CHECK(actual.low==expected.low && actual.high==expected.high);
+        }
+    }
+    free(wave.tree);
     puts("Waveform cache preserves exact peaks at coarse, fine and single-sample zoom levels."); return 0;
 }

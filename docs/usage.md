@@ -232,7 +232,7 @@ and the original sample file is never modified. Stretch/pitch use a compact
 WSOLA implementation, so complex material and extreme settings may have
 audible artifacts.
 
-Mixer meters show stereo levels with half-second peak holds. Width runs from mono (0), through unchanged (1), to wider (2). Record-arm lights toggle red as placeholders; recording is not implemented. Rack lights use left-click mute and right-click automation/solo actions. Playlist track lights retain right-click solo.
+Mixer meters show stereo levels with half-second peak holds. Width runs from mono (0), through unchanged (1), to wider (2). Mixer record-arm lights toggle red; the top-bar Record button records all armed tracks. Rack lights use left-click mute and right-click automation/solo actions. Playlist track lights retain right-click solo.
 
 The metronome icon before Tempo toggles beat clicks during Pattern or Song playback, with an accent on the first beat of each bar. It is off by default and excluded from WAV export.
 
@@ -269,9 +269,32 @@ Channel Rack title bar controls Swing.
 
 The effect panel has an Input dropdown above its ten slots and an Output
 dropdown below. Device names come from miniaudio and refresh when opening a
-menu. Choices are saved per Mixer track. These are preparations for future
-capture and external-device routing; they do not yet switch playback hardware
-or activate a microphone. Internal Mixer cable routing continues to work.
+menu. Choices are saved per Mixer track. Input selects a capture device for
+recording; None records only the track's internal audio. Output device choices
+are saved for future external-output routing and do not switch playback hardware.
+Internal Mixer cable routing continues to work.
+
+To record a microphone, select its Input on a Mixer insert, click that insert's
+record-arm light so it turns red, then click the red Record button in the top bar.
+macOS may request microphone permission on the first take. Each armed track
+creates a separate Audio channel and a clip on an empty Playlist track. The clip
+and its waveform grow live. Selected inputs also feed the armed track and its
+normal Mixer routing while recording. Capture is post-fader: pan, width, mute,
+gain and upstream routing affect the take; the listening-volume knob does not.
+New take channels play back directly through Master, avoiding a second pass
+through the recorded insert's gain.
+
+Recording begins at the Song cursor when already playing Song mode, or at the
+Playlist start marker otherwise. It switches to Song mode and continues beyond
+the existing arrangement end without looping. Click Record again to finish the
+takes while playback continues; Stop or Space finishes them and stops playback.
+Tempo and recording-arm choices stay fixed during a take. WAV files are written
+as 48 kHz stereo float audio in `recordings/` under the launch working directory.
+Projects reference those files by absolute path. Saving, exporting, replacing a
+project or closing the app finishes the current take first. Buffer overrun, device
+failure, memory exhaustion or a disk write error ends recording with a status
+message and retains the successfully captured audio. Takes currently remain in
+memory as well as on disk; very long sessions depend on available RAM.
 
 The Playlist’s left pattern picker shows note previews; click to select a pattern,
 right-click for Rename, Color or Delete, and scroll the list when necessary. Right-click a Playlist

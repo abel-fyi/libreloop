@@ -20,6 +20,11 @@ void audio_meters(float peaks[INSERTS+1][2]);
 int audio_active(void);
 void audio_track_activity(uint8_t active[LANES],uint8_t triggered[LANES]);
 int audio_devices(int capture,char names[][128],int capacity);
+/* One post-fader stereo take per bus. Start/end run on the UI thread. */
+int audio_record_start(const Project *p,const int buses[],int count,float start_step,float output_volume,char error[256]);
+void audio_record_end(void);
+unsigned audio_record_read(int take,float *stereo,unsigned frames);
+int audio_record_failed(void);
 void audio_metronome(int enabled);
 void audio_close(void);
 int sample_load(const char *path, Sample *s);

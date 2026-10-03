@@ -99,7 +99,7 @@ Note starts and lengths use the selected snap grid; notes stay inside their
 pattern. The Piano Roll shows 25 pitches at a time and scrolls through MIDI pitches 0–127. Drum steps are one-shots; Piano Roll notes have duration gates with a
 short fade at note-off. Sampler processing can change pitch and duration; held notes stop at the
 processed sample's end. Mixer inserts can route to one other insert or Master; no effects,
-recording, MIDI device I/O, external plugins, undo, or FLP import. WAV export ends at
+MIDI device I/O, external plugins, undo, or FLP import. WAV export ends at
 the arrangement boundary without an added tail; standard RIFF exports must
 fit below 4 GiB. This is a workflow prototype,
 not a production recording tool. Device changes, sleep/wake and sustained
@@ -140,3 +140,23 @@ split explicitly. Playback seeks and waveform pixel ranges use this same source
 position mapping. Explicit crop caps remain timeline boundaries. The renderer
 computes clip durations once per buffer rather than once per sequencer tick; full
 Audio voices finish at the sample end instead of an obsolete duration gate.
+
+## Recording
+
+Mixer inputs use miniaudio capture devices at the engine sample rate. Armed
+tracks that share an input device share one capture stream. Preallocated stereo
+SPSC rings pass capture audio to the playback callback and each armed bus's
+post-fader tap back to the UI. The callback does no allocation, disk I/O or
+blocking synchronization. Inputs follow normal mixer routing and level controls;
+unused armed buses are included in the routing graph. Recording suppresses Song
+looping, so empty arrangements and long takes keep a continuous cursor.
+
+The UI drains takes into uniquely named float WAV files and growing PCM buffers.
+Live waveforms update only newly captured peak blocks, rebuilding their hierarchy
+when capacity grows. The live preview is kept separate from playback PCM until
+recording ends; finalized samples use the existing acknowledged replacement path.
+Project files reference the recordings through existing Audio channels, with no
+format version change. Device and buffer errors are reported, and partial takes
+are finalized. Capture device opening/closing and disk writes currently run on
+the UI thread; hardware latency compensation, channel-pair selection and streaming
+long recordings without retaining full PCM in memory remain future work.

@@ -75,8 +75,8 @@ cmake --build build --parallel
 
 ## Tests
 
-The desktop build has fourteen CTest tests: engine, automation, pitch_automation, arrangement, audio_clip,
-clip_trim, sampler, stereo, navigation, waveform, windows, decoder, audio, and browser.
+The desktop build has fifteen CTest tests: engine, automation, pitch_automation, arrangement, audio_clip,
+clip_trim, sampler, stereo, recording, navigation, waveform, windows, decoder, audio, and browser.
 They exercise rendering, project validation and backward
 compatibility, crop boundaries, selection and movement, sampler processing,
 window ownership and stacking, sample decoding, and Browser persistence.
@@ -131,6 +131,7 @@ Before distributing a release, verify these workflows on a physical Mac:
 - Mouse and trackpad editing, drag/drop samples, editor resizing and scrolling.
 - Retina and external-display rendering, including moving the window between displays.
 - Sustained playback while editing and processing samples; listen for dropouts.
+- Microphone permission, selected input recording, live waveform growth, multiple armed inserts, and Stop/save/reopen of takes.
 - Playback after sleep/wake and audio-device disconnection/reconnection.
 - Intel and Apple Silicon builds on the supported macOS versions.
 - Signing and notarization for public distribution.
