@@ -243,8 +243,10 @@ Mixer faders start at unity (0 dB), with up to +6.02 dB of boost above the
 marked unity line. Unity sits a quarter of the travel below the top on faders
 and meters, leaving room for boost and peaks. The tall meter to the left of Master follows the selected
 track and shows its peak in dBFS. Meter colors change to orange at -12 dBFS
-and red above 0 dBFS. Master is metered before output soft clipping; the
-separate listening-volume control does not change its reading. Saved projects
+and red above 0 dBFS. Master shows the unclipped mix and also reports overload
+introduced by listening-volume boost. Audio below full scale plays transparently;
+the device output and PCM16 export clamp peaks outside -1..1. Reduce gain when
+meters turn red to avoid clipping distortion. Saved projects
 retain their gain settings. The unlabeled orange knob at the right of the
 Channel Rack title bar controls Swing.
 

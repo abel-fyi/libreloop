@@ -301,9 +301,9 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
             if(id) {
                 int dest=pr->insert_output[id-1]; if(dest!=255) { buses[dest][0]+=l; buses[dest][1]+=r; }
             } else {
-                if(sequence) { out[f*2]=tanhf(l); out[f*2+1]=tanhf(r); }
-                else if(l || r) { out[f*2]=tanhf(out[f*2]+l); out[f*2+1]=tanhf(out[f*2+1]+r); }
-                /* Meter the bus before output soft clipping so overload stays visible. */
+                if(sequence) { out[f*2]=l; out[f*2+1]=r; }
+                else { out[f*2]+=l; out[f*2+1]+=r; }
+                /* Keep float headroom until the device/export boundary. */
             }
             if(peaks) { peaks[id][0]=fmaxf(peaks[id][0],fabsf(l)); peaks[id][1]=fmaxf(peaks[id][1],fabsf(r)); }
         }
@@ -505,6 +505,13 @@ int export_wav(const char *path,const Project *pr,const Sample s[CHANNELS]) {
     FILE *f=fopen(path,"wb"); if(!f) return 0;
     fwrite("RIFF",1,4,f); le(f,36+frames*4,4); fwrite("WAVEfmt ",1,8,f); le(f,16,4); le(f,1,2); le(f,2,2); le(f,RATE,4); le(f,RATE*4,4); le(f,4,2); le(f,16,2); fwrite("data",1,4,f); le(f,frames*4,4);
     Player player; player_reset(&player); player.song=1; float block[1024];
-    for(uint32_t i=0;i<frames;) { unsigned n=frames-i>512?512:frames-i; render(&player,pr,s,block,n); for(unsigned j=0;j<n*2;j++) le(f,(uint16_t)(int16_t)(block[j]*32767),2); i+=n; }
+    for(uint32_t i=0;i<frames;) {
+        unsigned n=frames-i>512?512:frames-i; render(&player,pr,s,block,n);
+        for(unsigned j=0;j<n*2;j++) {
+            float x=isfinite(block[j])?fmaxf(-1,fminf(1,block[j])):0;
+            le(f,(uint16_t)(int16_t)(x*32767),2);
+        }
+        i+=n;
+    }
     int ok=!ferror(f); if(fclose(f)) ok=0; return ok;
 }

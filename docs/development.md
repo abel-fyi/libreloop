@@ -75,12 +75,14 @@ cmake --build build --parallel
 
 ## Tests
 
-The desktop build has eleven CTest tests: engine, arrangement, audio_clip,
-clip_trim, sampler, stereo, navigation, waveform, windows, decoder, and browser.
+The desktop build has twelve CTest tests: engine, arrangement, audio_clip,
+clip_trim, sampler, stereo, navigation, waveform, windows, decoder, audio, and browser.
 They exercise rendering, project validation and backward
 compatibility, crop boundaries, selection and movement, sampler processing,
 window ownership and stacking, sample decoding, and Browser persistence.
-They do not open an audio device or require a display.
+The audio test invokes the callback without a device and checks unity gain,
+continued playback under UI lock contention, output bounds, ordered controls
+and safe sample replacement. Tests do not open an audio device or require a display.
 
 Core-only builds need no network, graphics dependencies, or audio library:
 
@@ -133,6 +135,7 @@ Before distributing a release, verify these workflows on a physical Mac:
 - Intel and Apple Silicon builds on the supported macOS versions.
 - Signing and notarization for public distribution.
 
-The audio callback currently silences a buffer when its nonblocking mutex cannot
-be acquired. Automated startup and rendering checks do not establish dropout-free
-playback; this shared Linux/macOS prototype limitation remains a release concern.
+The callback continues playback when its UI mailbox is busy, applying pending
+edits on a later buffer. Automated callback and rendering checks do not establish
+dropout-free physical output; sustained interactive playback and device lifecycle
+checks remain necessary on both platforms.

@@ -12,6 +12,36 @@
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
+/* The callback owns rendering state. The UI only writes this mailbox. */
+enum { UPDATE, SAMPLE, CHANNEL_SAMPLES, PREVIEW, NOTE, KEY, STOP };
+#define AUDIO_COMMANDS 256
+typedef struct {
+    int kind,channel,slot,pitch,down,run,song,pattern,reset;
+    float output,start,loop_start,loop_end;
+    Note note;
+    Sample sample,channels[CHANNELS];
+    uint64_t serial;
+} AudioCommand;
+static struct {
+    Project project;
+    int dirty;
+    AudioCommand commands[AUDIO_COMMANDS];
+    unsigned read,write;
+    uint64_t serial;
+} pending;
+static struct {
+    Sample preview;
+    double preview_position,preview_frame,preview_time,preview_rate;
+    unsigned preview_end,preview_remaining;
+    Voice voices[128];
+    unsigned sample_frames[CHANNELS],live_frames,visual_frames;
+    double speeds[CHANNELS],live_time,visual_frame,visual_time,visual_start,visual_end;
+    int playing;
+} view;
+static atomic_uint_fast64_t acknowledged;
+static atomic_int stopped_active;
+static void consume_commands(void);
+static void publish_view(void);
 static ma_device device;
 static pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
 static Project project;
@@ -41,8 +71,11 @@ static double monotonic_time(void) {
 static void callback(ma_device *d, void *out, const void *in, ma_uint32 frames) {
     (void)d; (void)in;
     memset(out,0,frames*2*sizeof(float));
-    /* Never wait for the interface on the real-time thread. */
-    if(pthread_mutex_trylock(&mutex)) return;
+    /* A busy UI delays edits, never playback. No UI code touches render state. */
+    if(!pthread_mutex_trylock(&mutex)) {
+        consume_commands();
+        pthread_mutex_unlock(&mutex);
+    }
     float peaks[INSERTS+1][2]={{0}};
     if(playing) {
         visual_frame=player.frame;
@@ -68,7 +101,7 @@ static void callback(ma_device *d, void *out, const void *in, ma_uint32 frames) 
         for(unsigned side=0;side<2;side++) {
             float a=sample_at(preview,n,side),b=sample_at(preview,n+1,side);
             float x=(a+(b-a)*(preview_position-n))*preview_gain;
-            buffer[i*2+side]=tanhf(buffer[i*2+side]+x);
+            buffer[i*2+side]+=x;
         }
     }
     if(playing && atomic_load_explicit(&metronome,memory_order_relaxed)) {
@@ -80,14 +113,16 @@ static void callback(ma_device *d, void *out, const void *in, ma_uint32 frames) 
             if(phase<1) { click_position=0; click_accent=fmod(beat,4)==0; }
             if(click_position<1200) {
                 float x=clicks[click_accent][click_position++];
-                buffer[i*2]=fmaxf(-1,fminf(1,buffer[i*2]+x));
-                buffer[i*2+1]=fmaxf(-1,fminf(1,buffer[i*2+1]+x));
+                buffer[i*2]+=x;
+                buffer[i*2+1]+=x;
             }
         }
     } else click_position=1200;
     for(unsigned i=0;i<frames*2;i++) {
         peaks[0][i%2]=fmaxf(peaks[0][i%2],fabsf(buffer[i]));
-        buffer[i]*=output_volume;
+        float x=buffer[i]*output_volume;
+        peaks[0][i%2]=fmaxf(peaks[0][i%2],fabsf(x));
+        buffer[i]=isfinite(x)?fmaxf(-1,fminf(1,x)):0;
     }
     int active=0;
     for(int id=0;id<=INSERTS;id++) for(int side=0;side<2;side++) {
@@ -97,12 +132,125 @@ static void callback(ma_device *d, void *out, const void *in, ma_uint32 frames) 
     }
     atomic_store_explicit(&meter_active,active,memory_order_relaxed);
     atomic_store(&position,player.frame);
-    pthread_mutex_unlock(&mutex);
+    if(!pthread_mutex_trylock(&mutex)) {
+        publish_view();
+        pthread_mutex_unlock(&mutex);
+    }
+}
+static void publish_view(void) {
+    view.preview=preview; view.preview_position=preview_position;
+    view.preview_frame=preview_frame; view.preview_time=preview_time; view.preview_rate=preview_rate;
+    view.preview_end=preview_end; view.preview_remaining=preview_remaining;
+    memcpy(view.voices,live.voices,sizeof view.voices);
+    double pitch_speed=pow(2,project.master_pitch/12.0);
+    for(int c=0;c<CHANNELS;c++) {
+        view.sample_frames[c]=samples[c].frames;
+        view.speeds[c]=pitch_speed*channel_speed(&project,c);
+    }
+    view.live_frames=live_frames; view.live_time=live_time;
+    view.visual_frames=visual_frames; view.visual_frame=visual_frame; view.visual_time=visual_time;
+    view.visual_start=visual_start; view.visual_end=visual_end; view.playing=playing;
+}
+static void consume_commands(void) {
+    if(pending.dirty) { project=pending.project; pending.dirty=0; }
+    uint64_t serial=0;
+    while(pending.read!=pending.write) {
+        AudioCommand *c=&pending.commands[pending.read++%AUDIO_COMMANDS];
+        switch(c->kind) {
+        case UPDATE:
+            playing=c->run; output_volume=c->output;
+            if(c->reset || !playing || player.song!=c->song || player.pattern!=c->pattern) {
+                click_position=1200; player_reset(&player); player_seek(&player,&project,c->start);
+                atomic_store(&position,player.frame); visual_frame=player.frame; visual_frames=0;
+            }
+            player.song=c->song; player.pattern=c->pattern;
+            player.loop_start=isfinite(c->loop_start)?fmaxf(0,c->loop_start):0;
+            player.loop_end=isfinite(c->loop_end) && c->loop_end>player.loop_start?c->loop_end:0;
+            if(playing && player.loop_end && player.frame>=(uint64_t)llround(player.loop_end*RATE*60.0/project.bpm/4)) {
+                player.frame=(uint64_t)llround(player.loop_start*RATE*60.0/project.bpm/4);
+                player.last_step=-1; memset(player.voices,0,sizeof player.voices);
+            }
+            break;
+        case SAMPLE: case CHANNEL_SAMPLES:
+            if(c->kind==SAMPLE) samples[c->channel]=c->sample;
+            else memcpy(samples,c->channels,sizeof samples);
+            preview=(Sample){0}; preview_end=preview_remaining=0;
+            memset(player.voices,0,sizeof player.voices); memset(live.voices,0,sizeof live.voices);
+            break;
+        case PREVIEW:
+            preview=c->sample; preview_position=preview_frame=0; preview_time=monotonic_time();
+            preview_speed=preview_rate=1; preview_gain=.7f; preview_end=preview.frames; preview_remaining=5*RATE;
+            break;
+        case NOTE:
+            if(c->channel>=0 && c->channel<project.channel_count) {
+                preview=samples[c->channel]; preview_position=preview_frame=0; preview_time=monotonic_time();
+                preview_remaining=UINT_MAX; preview_speed=pow(2,((int)c->note.pitch-60)/12.0)*channel_speed(&project,c->channel);
+                preview_rate=preview_speed*pow(2,project.master_pitch/12.0);
+                preview_gain=c->note.velocity/127.f*project.volume[c->channel]*project.master;
+                preview_end=fmin(preview.frames,preview_speed*RATE*60.0/project.bpm/4*(c->note.length?c->note.length:1));
+            }
+            break;
+        case KEY:
+            if(c->down && c->channel>=0 && c->channel<project.channel_count)
+                live.voices[c->slot]=(Voice){c->channel,0,pow(2,(c->pitch-60)/12.0),-1,100/127.f,-1};
+            else if(live.voices[c->slot].gain) live.voices[c->slot].remaining=RATE*.005;
+            break;
+        case STOP: {
+            int active=playing || (preview_remaining && preview_position<preview_end);
+            for(int i=0;i<128;i++) active|=live.voices[i].gain!=0;
+            atomic_store(&stopped_active,active);
+            playing=0; preview=(Sample){0}; preview_end=preview_remaining=0; click_position=1200;
+            memset(player.voices,0,sizeof player.voices); memset(live.voices,0,sizeof live.voices);
+            break;
+        }
+        }
+        serial=c->serial;
+    }
+    if(serial) {
+        publish_view();
+        /* Replacement callers may now release samples no voice can reference. */
+        atomic_store(&acknowledged,serial);
+    }
+}
+static void wait_control(void) {
+    struct timespec pause={0,100000}; nanosleep(&pause,NULL);
+}
+/* UI only, with the mailbox locked. Prevent restart during an offline flush. */
+static int consume_stopped(void) {
+    if(!ready) { consume_commands(); publish_view(); return 1; }
+    if(ma_device_get_state(&device)!=ma_device_state_stopped) return 0;
+    ma_mutex_lock(&device.startStopLock);
+    int stopped=ma_device_get_state(&device)==ma_device_state_stopped;
+    if(stopped) { consume_commands(); publish_view(); }
+    ma_mutex_unlock(&device.startStopLock);
+    return stopped;
+}
+/* Called with the mailbox locked; only UI producers may wait for queue space. */
+static uint64_t submit(AudioCommand command) {
+    while(pending.write-pending.read==AUDIO_COMMANDS) {
+        if(consume_stopped()) break;
+        pthread_mutex_unlock(&mutex); wait_control(); pthread_mutex_lock(&mutex);
+    }
+    command.serial=++pending.serial;
+    pending.commands[pending.write++%AUDIO_COMMANDS]=command;
+    consume_stopped();
+    return command.serial;
+}
+static void wait_acknowledged(uint64_t serial) {
+    while(atomic_load(&acknowledged)<serial) {
+        if(ma_device_get_state(&device)==ma_device_state_stopped) {
+            pthread_mutex_lock(&mutex); consume_stopped(); pthread_mutex_unlock(&mutex);
+        } else wait_control();
+    }
 }
 int audio_start(const Project *p,const Sample s[CHANNELS]) {
     for(int accent=0;accent<2;accent++) for(int i=0;i<1200;i++)
         clicks[accent][i]=.25f*sinf(6.2831853f*(accent?1800:1200)*i/RATE)*expf(-i/180.f);
-    project=*p; memcpy(samples,s,sizeof samples); player_reset(&player);
+    memset(&pending,0,sizeof pending); memset(&view,0,sizeof view);
+    atomic_store(&acknowledged,0); atomic_store(&position,0);
+    project=pending.project=*p; memcpy(samples,s,sizeof samples);
+    player_reset(&player); player_reset(&live); playing=0; preview=(Sample){0}; preview_end=preview_remaining=0;
+    visual_frames=live_frames=0; output_volume=1; publish_view();
     ma_device_config config=ma_device_config_init(ma_device_type_playback);
     config.playback.format=ma_format_f32; config.playback.channels=2;
     config.sampleRate=RATE; config.dataCallback=callback;
@@ -122,70 +270,68 @@ int audio_devices(int capture,char names[][128],int capacity) {
 void audio_metronome(int enabled) { atomic_store_explicit(&metronome,enabled,memory_order_relaxed); }
 void audio_update(const Project *p,int run,int song,int pattern,int reset,float output,float start_step,float loop_start,float loop_end) {
     pthread_mutex_lock(&mutex);
-    project=*p; playing=run; output_volume=output;
-    if(reset || !run || player.song!=song || player.pattern!=pattern) { click_position=1200; player_reset(&player); player_seek(&player,&project,start_step); atomic_store(&position,player.frame); visual_frame=player.frame; visual_frames=0; }
-    player.song=song; player.pattern=pattern;
-    player.loop_start=isfinite(loop_start)?fmaxf(0,loop_start):0; player.loop_end=isfinite(loop_end) && loop_end>player.loop_start?loop_end:0;
-    if(run && player.loop_end && player.frame>=(uint64_t)llround(player.loop_end*RATE*60.0/project.bpm/4)) {
-        player.frame=(uint64_t)llround(player.loop_start*RATE*60.0/project.bpm/4); player.last_step=-1; memset(player.voices,0,sizeof player.voices);
-    }
+    pending.project=*p; pending.dirty=1;
+    submit((AudioCommand){.kind=UPDATE,.run=run,.song=song,.pattern=pattern,.reset=reset,
+        .output=output,.start=start_step,.loop_start=loop_start,.loop_end=loop_end});
     pthread_mutex_unlock(&mutex);
 }
 void audio_sample(int c,Sample s) {
-    pthread_mutex_lock(&mutex); samples[c]=s;
-    preview=(Sample){0}; preview_end=0;
-    memset(player.voices,0,sizeof player.voices); memset(live.voices,0,sizeof live.voices);
-    pthread_mutex_unlock(&mutex);
+    if(c<0 || c>=CHANNELS) return;
+    pthread_mutex_lock(&mutex);
+    uint64_t serial=submit((AudioCommand){.kind=SAMPLE,.channel=c,.sample=s});
+    pthread_mutex_unlock(&mutex); wait_acknowledged(serial);
 }
 void audio_channels(const Project *p,const Sample s[CHANNELS]) {
-    pthread_mutex_lock(&mutex); project=*p; memcpy(samples,s,sizeof samples);
-    preview=(Sample){0}; preview_end=0;
-    memset(player.voices,0,sizeof player.voices); memset(live.voices,0,sizeof live.voices); pthread_mutex_unlock(&mutex);
+    AudioCommand command={.kind=CHANNEL_SAMPLES}; memcpy(command.channels,s,sizeof command.channels);
+    pthread_mutex_lock(&mutex); pending.project=*p; pending.dirty=1;
+    uint64_t serial=submit(command);
+    pthread_mutex_unlock(&mutex); wait_acknowledged(serial);
 }
 void audio_preview(Sample s) {
-    pthread_mutex_lock(&mutex); preview=s; preview_position=preview_frame=0; preview_time=monotonic_time(); preview_speed=1; preview_gain=.7f; preview_end=s.frames; preview_remaining=5*RATE; pthread_mutex_unlock(&mutex);
-}
-int audio_stop(void) {
     pthread_mutex_lock(&mutex);
-    int active=playing || (preview_remaining && preview_position<preview_end);
-    for(int i=0;i<128;i++) active|=live.voices[i].gain!=0;
-    playing=0; preview=(Sample){0}; preview_end=preview_remaining=0; click_position=1200;
-    memset(player.voices,0,sizeof player.voices); memset(live.voices,0,sizeof live.voices);
-    pthread_mutex_unlock(&mutex); return active;
-}
-double audio_preview_position(Sample sample) {
-    pthread_mutex_lock(&mutex);
-    double progress=-1;
-    if(ready && sample.frames && preview.data==sample.data && preview_remaining) {
-        double frame=fmax(0,fmin(preview_position,preview_frame+(monotonic_time()-preview_time)*RATE*preview_rate));
-        if(frame<preview_end) progress=fmin(1,frame/sample.frames);
-    }
-    pthread_mutex_unlock(&mutex); return progress;
+    uint64_t serial=submit((AudioCommand){.kind=PREVIEW,.sample=s});
+    pthread_mutex_unlock(&mutex); wait_acknowledged(serial);
 }
 void audio_note(int c,Note n) {
-    pthread_mutex_lock(&mutex);
-    if(c>=0 && c<project.channel_count) {
-        preview=samples[c]; preview_position=0; preview_remaining=UINT_MAX; preview_speed=pow(2,((int)n.pitch-60)/12.0)*channel_speed(&project,c);
-        preview_gain=n.velocity/127.f*project.volume[c]*project.master;
-        preview_end=fmin(preview.frames,preview_speed*RATE*60.0/project.bpm/4*(n.length?n.length:1));
-    }
-    pthread_mutex_unlock(&mutex);
+    pthread_mutex_lock(&mutex); submit((AudioCommand){.kind=NOTE,.channel=c,.note=n}); pthread_mutex_unlock(&mutex);
 }
 void audio_key(int slot,int channel,int pitch,int down) {
     if(slot<0 || slot>=128 || pitch<0 || pitch>127) return;
     pthread_mutex_lock(&mutex);
-    if(down && channel>=0 && channel<project.channel_count)
-        live.voices[slot]=(Voice){channel,0,pow(2,(pitch-60)/12.0),-1,100/127.f,-1};
-    else if(live.voices[slot].gain) live.voices[slot].remaining=RATE*.005;
+    submit((AudioCommand){.kind=KEY,.slot=slot,.channel=channel,.pitch=pitch,.down=down});
     pthread_mutex_unlock(&mutex);
 }
-double audio_key_position(int slot,int channel) {
-    if(slot<0 || slot>=128) return -1;
+int audio_stop(void) {
+    pthread_mutex_lock(&mutex); uint64_t serial=submit((AudioCommand){.kind=STOP}); pthread_mutex_unlock(&mutex);
+    wait_acknowledged(serial); return atomic_load(&stopped_active);
+}
+double audio_preview_position(Sample sample) {
     pthread_mutex_lock(&mutex);
-    Voice v=live.voices[slot]; double progress=-1;
-    if(v.gain && v.channel==channel && samples[channel].frames) {
-        double behind=fmax(0,live_frames-(monotonic_time()-live_time)*RATE);
-        progress=fmin(1,fmax(0,v.position-behind*v.speed*pow(2,project.master_pitch/12.0)*channel_speed(&project,channel))/samples[channel].frames);
+    double progress=-1;
+    if(ready && sample.frames && view.preview.data==sample.data && view.preview_remaining) {
+        double frame=fmax(0,fmin(view.preview_position,view.preview_frame+(monotonic_time()-view.preview_time)*RATE*view.preview_rate));
+        if(frame<view.preview_end) progress=fmin(1,frame/sample.frames);
+    }
+    pthread_mutex_unlock(&mutex); return progress;
+}
+double audio_key_position(int slot,int channel) {
+    if(slot<0 || slot>=128 || channel<0 || channel>=CHANNELS) return -1;
+    pthread_mutex_lock(&mutex);
+    Voice v=view.voices[slot]; double progress=-1;
+    int queued=0;
+    /* Keep a new key visible immediately so an idle sampler keeps animating. */
+    for(unsigned i=pending.read;i!=pending.write;i++) {
+        AudioCommand *c=&pending.commands[i%AUDIO_COMMANDS];
+        if(c->kind==STOP || c->kind==SAMPLE || c->kind==CHANNEL_SAMPLES) v.gain=0;
+        if(c->kind==KEY && c->slot==slot) {
+            if(c->down && c->channel>=0 && c->channel<pending.project.channel_count) {
+                v=(Voice){.channel=c->channel,.gain=1}; queued=1;
+            }
+        }
+    }
+    if(v.gain && v.channel==channel && view.sample_frames[channel]) {
+        double behind=fmax(0,view.live_frames-(monotonic_time()-view.live_time)*RATE);
+        progress=queued?0:fmin(1,fmax(0,v.position-behind*v.speed*view.speeds[channel])/view.sample_frames[channel]);
     }
     pthread_mutex_unlock(&mutex); return progress;
 }
@@ -203,17 +349,20 @@ void audio_track_activity(uint8_t active[LANES],uint8_t triggered[LANES]) {
 int audio_active(void) { return atomic_load_explicit(&meter_active,memory_order_relaxed); }
 double audio_visual_position(void) {
     pthread_mutex_lock(&mutex);
-    double frame=visual_frame;
-    if(playing && visual_frames) {
+    double frame=view.visual_frame;
+    if(view.playing && view.visual_frames) {
         /* Animate within the last rendered buffer, never beyond available audio. */
-        frame+=fmin(visual_frames,fmax(0,(monotonic_time()-visual_time)*RATE));
-        if(frame>=visual_end && visual_end>visual_start)
-            frame=visual_start+fmod(frame-visual_start,visual_end-visual_start);
+        frame+=fmin(view.visual_frames,fmax(0,(monotonic_time()-view.visual_time)*RATE));
+        if(frame>=view.visual_end && view.visual_end>view.visual_start)
+            frame=view.visual_start+fmod(frame-view.visual_start,view.visual_end-view.visual_start);
     }
-    pthread_mutex_unlock(&mutex);
-    return frame;
+    pthread_mutex_unlock(&mutex); return frame;
 }
-void audio_close(void) { if(ready) ma_device_uninit(&device); }
+void audio_close(void) {
+    if(ready) ma_device_uninit(&device);
+    ready=0;
+    pthread_mutex_lock(&mutex); consume_commands(); publish_view(); pthread_mutex_unlock(&mutex);
+}
 int sample_load(const char *path,Sample *s) {
     ma_decoder decoder;
     ma_decoder_config config=ma_decoder_config_init(ma_format_f32,0,RATE);

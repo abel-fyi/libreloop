@@ -70,8 +70,15 @@ are a coherent mouse-driven workflow and minimal code and dependencies.
 - Original sample audio is retained. Processing produces a separate sample,
   using a background worker after knob release. Start/Length and the quiet-tail Trim threshold preview the crop
   live; Pitch/Time retain the processed waveform until replacement audio is ready.
-- The audio callback allocates nothing. It uses a nonblocking mutex attempt;
-  a concurrent UI update may silence a buffer. This is a prototype limitation.
+- The audio callback allocates nothing and owns its rendering state. UI edits
+  enter a bounded command queue and a pending project snapshot. The callback
+  tries the mailbox mutex without waiting; if busy, it continues rendering its
+  current state. UI animations read a small published snapshot. Sample replacement
+  and Stop wait on the UI thread for acknowledgment before old PCM can be freed.
+- Mixer buses retain float headroom and unity gain is transparent. Preview,
+  metronome and listening gain mix before the final device clamp to -1..1.
+  PCM16 export clamps at conversion. Overloaded mixes still need gain reduction;
+  there is no automatic compressor or lookahead limiter.
 - Project files currently use `.hbt` and the `HOMEBEAT` version-28 header for
   compatibility. Versions 1–27 remain readable. Renaming the app did not change
   the project format. Sample paths are absolute and projects are not portable bundles.
@@ -93,8 +100,8 @@ processed sample's end. Mixer inserts can route to one other insert or Master; n
 recording, MIDI device I/O, external plugins, automation, undo, or FLP import. WAV export ends at
 the arrangement boundary without an added tail; standard RIFF exports must
 fit below 4 GiB. This is a workflow prototype,
-not a production recording tool. The audio callback allocates nothing and
-uses a nonblocking mutex attempt; a concurrent UI update may silence a buffer.
+not a production recording tool. Device changes, sleep/wake and sustained
+interactive playback still need platform testing.
 
 ## UI layout
 

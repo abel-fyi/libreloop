@@ -3,7 +3,9 @@
 #define AUDIO_H
 #include "engine.h"
 int audio_start(const Project *p, const Sample s[CHANNELS]);
+/* UI requests apply at a buffer boundary; the callback never waits for the UI. */
 void audio_update(const Project *p, int playing, int song, int pattern, int reset, float output_volume,float start_step,float loop_start,float loop_end);
+/* Replacements/Stop acknowledge before returning so retired PCM can be freed. */
 void audio_sample(int channel, Sample sample);
 void audio_channels(const Project *p,const Sample samples[CHANNELS]);
 void audio_preview(Sample sample);

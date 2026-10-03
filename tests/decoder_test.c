@@ -38,9 +38,19 @@ int main(void) {
     Sample roundtrip={0};
     ok=ok && export_wav("stereo-export.wav",&p,samples) && sample_load("stereo-export.wav",&roundtrip)
         && roundtrip.channels==2 && roundtrip.frames==2*RATE;
-    if(roundtrip.data) ok=ok && roundtrip.data[0]>.2f && roundtrip.data[1]<-.2f;
+    if(roundtrip.data) for(unsigned i=0;i<4;i++) ok=ok && fabsf(roundtrip.data[i]-cooked.data[i])<=2.f/32768;
     free(stereo.data); free(cooked.data); free(roundtrip.data);
     remove("stereo-fixture.wav"); remove("stereo-export.wav");
+    /* Overloads saturate at the PCM boundary, without wrapping or early clipping. */
+    float loud[]={2,-2,.5f,-.5f}; samples[0]=(Sample){loud,2,2};
+    roundtrip=(Sample){0};
+    ok=ok && export_wav("limited-export.wav",&p,samples) && sample_load("limited-export.wav",&roundtrip);
+    if(roundtrip.data) ok=ok && fabsf(roundtrip.data[0]-1)<=2.f/32768 && fabsf(roundtrip.data[1]+1)<=2.f/32768
+        && fabsf(roundtrip.data[2]-.5f)<=2.f/32768 && fabsf(roundtrip.data[3]+.5f)<=2.f/32768;
+    free(roundtrip.data); roundtrip=(Sample){0}; p.master=.25f;
+    ok=ok && export_wav("limited-export.wav",&p,samples) && sample_load("limited-export.wav",&roundtrip);
+    if(roundtrip.data) ok=ok && fabsf(roundtrip.data[0]-.5f)<=2.f/32768 && fabsf(roundtrip.data[1]+.5f)<=2.f/32768;
+    free(roundtrip.data); remove("limited-export.wav");
     const unsigned char mono_wav[]={
         'R','I','F','F',40,0,0,0,'W','A','V','E','f','m','t',' ',16,0,0,0,
         1,0,1,0,128,187,0,0,0,119,1,0,2,0,16,0,'d','a','t','a',4,0,0,0,

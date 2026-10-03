@@ -26,13 +26,13 @@ int main(void) {
     Player player; player_reset(&player); player.song=1;
     render(&player,&p,samples,out,RATE*3);
     for(int i=0;i<RATE;i++) CHECK(out[i*2]==0);
-    CHECK(fabsf(out[RATE*2]-tanhf(.1f))<.00001f);
+    CHECK(fabsf(out[RATE*2]-.1f)<.00001f);
     CHECK(out[RATE*4]==0); /* source stops after one second */
     player_reset(&player); player.song=1;
     render(&player,&p,samples,split,12345); render(&player,&p,samples,split+24690,RATE*3-12345);
     CHECK(memcmp(out,split,sizeof out)==0);
     player_reset(&player); player.song=1; player_seek(&player,&p,12);
-    render(&player,&p,samples,out,1); CHECK(fabsf(out[0]-tanhf(.25f))<.00001f && player.lane_trigger[2] && player.lane_active[2]);
+    render(&player,&p,samples,out,1); CHECK(fabsf(out[0]-.25f)<.00001f && player.lane_trigger[2] && player.lane_active[2]);
     render(&player,&p,samples,out,1); CHECK(!player.lane_trigger[2] && player.lane_active[2]); /* seek into audio */
     p.lane_mute[2]=1; player_reset(&player); player.song=1; player_seek(&player,&p,12);
     render(&player,&p,samples,out,1); CHECK(out[0]==0 && !player.lane_trigger[2] && !player.lane_active[2]); p.lane_mute[2]=0;
@@ -54,7 +54,7 @@ int main(void) {
     p.channel_pitch[0]=.5f; p.pitch_range[0]=24;
     CHECK(channel_speed(&p,0)==2 && clip_length(&p,2,slot)==4);
     player_reset(&player); player.song=1; player_seek(&player,&p,10);
-    render(&player,&p,samples,out,1); CHECK(fabsf(out[0]-tanhf(.25f))<.00001f);
+    render(&player,&p,samples,out,1); CHECK(fabsf(out[0]-.25f)<.00001f);
     p.channel_pitch[0]=0; p.pitch_range[0]=2;
     /* Crop/move/brush preserve seconds; tempo changes do not resample audio. */
     Arrangement a={.source_pattern=-1,.source_steps=STEPS,.snap=1};
@@ -72,11 +72,11 @@ int main(void) {
     arrangement_press(&a,&p,10,5.4f,0,0,0,0); arrangement_release(&a);
     int slow=arrangement_hit(&p,5,10.01f); CHECK(slow>=0 && clip_length(&p,5,slow)==2);
     player_reset(&player); player.song=1; player_seek(&player,&p,24);
-    render(&player,&p,samples,out,1); CHECK(fabsf(out[0]-tanhf(.1f))<.00001f);
+    render(&player,&p,samples,out,1); CHECK(fabsf(out[0]-.1f)<.00001f);
     /* Looping from inside a clip resumes at its matching sample offset. */
     p.bpm=120; player_reset(&player); player.song=1; player.loop_start=25; player.loop_end=26;
     player.frame=26*6000; render(&player,&p,samples,out,1);
-    CHECK(player.frame==25*6000+1 && fabsf(out[0]-tanhf(pcm[6000]))<.00001f);
+    CHECK(player.frame==25*6000+1 && fabsf(out[0]-pcm[6000])<.00001f);
     CHECK(project_save("audio-clips.hbt",&p) && project_load("audio-clips.hbt",&q));
     CHECK(memcmp(&p,&q,sizeof p)==0);
     /* An explicit cap must survive a source shrinking to the same length, then growing. */

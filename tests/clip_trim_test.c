@@ -22,9 +22,9 @@ int main(void) {
     arrangement_drag(&a,&p,2.05f,.4f); arrangement_release(&a);
     Player player; player_reset(&player); player.song=1; player.frame=32*6000;
     float out[2]; render(&player,&p,samples,out,1);
-    CHECK(fabsf(out[0]-tanhf(pcm[2*RATE]))<.00001f);
+    CHECK(fabsf(out[0]-pcm[2*RATE])<.00001f);
     player_reset(&player); player.song=1; player.frame=36*6000; render(&player,&p,samples,out,1);
-    CHECK(fabsf(out[0]-tanhf(pcm[2*RATE+24000]))<.00001f);
+    CHECK(fabsf(out[0]-pcm[2*RATE+24000])<.00001f);
     a.tool=BRUSH; arrangement_press(&a,&p,2.5f,.4f,0,0,0,0); arrangement_release(&a);
     arrangement_press(&a,&p,5,1.4f,0,0,0,0); arrangement_release(&a);
     int copy=arrangement_hit(&p,1,5.2f); CHECK(copy>=0 && p.clip_offsets[1][copy]==2 && clip_length(&p,1,copy)==16);
@@ -51,10 +51,10 @@ int main(void) {
     a=(Arrangement){.source_pattern=-1,.snap=1}; arrangement_press(&a,&p,1.05f,.4f,0,-1,0,0); arrangement_drag(&a,&p,2.05f,.4f); arrangement_release(&a);
     CHECK(p.clip_offsets[0][slot]==16 && p.clip_starts[0][slot]==2 && clip_length(&p,0,slot)==16);
     player_reset(&player); player.song=1; player.frame=36*6000; render(&player,&p,samples,out,1);
-    CHECK(fabsf(out[0]-tanhf(pcm[0]))<.00001f);
+    CHECK(fabsf(out[0]-pcm[0])<.00001f);
     note->velocity=0; note=note_add(&p,0,0,12,60,8); CHECK(note); note->velocity=127;
     player_reset(&player); player.song=1; player.frame=32*6000; render(&player,&p,samples,out,1);
-    CHECK(fabsf(out[0]-tanhf(pcm[24000]))<.00001f); /* held note crosses the cropped beginning */
+    CHECK(fabsf(out[0]-pcm[24000])<.00001f); /* held note crosses the cropped beginning */
     arrangement_press(&a,&p,2.05f,.4f,0,-1,0,0); arrangement_drag(&a,&p,-100,.4f); arrangement_release(&a);
     CHECK(p.clip_starts[0][slot]==1 && p.clip_offsets[0][slot]==0 && clip_length(&p,0,slot)==32);
     free(pcm); puts("Left trimming, restoration, audio seeking, copying/moving, pattern playback and persistence passed."); return 0;

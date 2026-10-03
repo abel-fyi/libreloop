@@ -108,8 +108,9 @@ and its vector fallback, and normal window closure with resource cleanup.
 
 Source audio and processed audio remain separate for non-destructive edits;
 long samples and large stretch settings can still consume significant memory.
-The existing audio callback trylock can still emit silence during a concurrent
-UI update. That synchronization design is outside these CPU optimizations.
+At the time of those measurements the audio callback trylock could emit silence
+during concurrent UI updates. The callback mailbox described below replaces that
+behavior.
 
 ## Mixer meters and stereo width
 
@@ -134,3 +135,41 @@ now draws plain rectangles, retains dark/light palettes and optional transparenc
 and no longer creates or caches surface textures. The Aero measurements above
 describe the previous implementation; the flat appearance has not yet been
 benchmarked separately.
+
+
+## macOS audio correctness (2026-10-03)
+
+On an Apple M4, the previous callback could return about 9.19 ms of silence when
+its UI mutex was busy. A real CoreAudio/miniaudio harness observed 22 silent
+buffers out of 787 while playing one stereo song with roughly 60 UI updates per
+second. The no-update control had zero failures. Short GUI runs also observed
+occasional silent buffers. Those rates are workload-specific, not a prediction
+for every session.
+
+The callback now owns render state and reads pending UI commands without waiting.
+A busy mailbox postpones edits while audio continues. Sample replacements are
+acknowledged before the UI frees retired PCM. Unity-gain float mixing replaces
+unconditional saturation; clipping occurs only at device/PCM16 output boundaries.
+
+The same real-device harness, muted after analyzing its computed output, measured:
+
+| Scenario | CPU, one core | Callback p99 | Stalled buffers | Output samples above full scale |
+| --- | ---: | ---: | ---: | ---: |
+| Stereo song with UI updates | 2.37% | 0.310 ms | 0 / 787 | 0 |
+| 32 overlapping stereo voices | 5.39% | 0.586 ms | 0 / 785 | 0 |
+| 32 voices with listening boost | 5.39% | 0.560 ms | 0 / 783 | 0 |
+| 100 overlapping stereo voices | 9.99% | 1.115 ms | 0 / 781 | 0 |
+
+These were approximately 7.2-second runs using 441-frame callbacks at 48 kHz
+(9.188 ms of audio per callback); the native hardware rate was 44.1 kHz. The
+longest callback was 1.153 ms, with none exceeding its audio duration. CPU includes
+diagnostic overhead and UI updates, but excludes GUI drawing. Lock attempts did
+occasionally fail; playback still advanced normally. The first 30 seconds of a
+169-second stereo WAV rendered with zero sample error at unity gain, compared
+with 0.004971 RMS sample error before the change.
+
+The correlated 32/100-voice mixes intentionally exceed available output headroom.
+The final clamp bounds their output; it does not make overloaded mixes distortion
+free. Reduce mix gain when meters show overload. These tests analyze computed
+float output, not a physical audio loopback or hardware scheduling latency.
+Local diagnostics are under `local/mac-test/audio-diagnostics-after.*`.
