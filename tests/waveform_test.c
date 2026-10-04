@@ -19,6 +19,30 @@ int main(void) {
     CHECK(waveform_range(&wave,s,256,257).low==-1);
     CHECK(waveform_range(&wave,s,2048,2049).high==1);
     CHECK(waveform_range(&wave,s,4100,5000).high==0);
+    /* Display bins interpolate continuously during fractional pans and across zoom levels. */
+    for(unsigned size=1;size<=8192;size*=2) {
+        WavePeak before=waveform_envelope(&wave,s,2047.999,size),after=waveform_envelope(&wave,s,2048.001,size);
+        CHECK(fabsf(before.low-after.low)<.005f && fabsf(before.high-after.high)<.005f);
+        before=waveform_envelope(&wave,s,2048,size*.999999);
+        after=waveform_envelope(&wave,s,2048,size*1.000001);
+        CHECK(fabsf(before.low-after.low)<.0001f && fabsf(before.high-after.high)<.0001f);
+        CHECK(after.low>=-1 && after.high<=1 && after.low<=0 && after.high>=0);
+        Waveform uncached={0}; WavePeak fallback=waveform_envelope(&uncached,s,2048,size*1.000001);
+        CHECK(fallback.low==after.low && fallback.high==after.high);
+    }
+    CHECK(waveform_envelope(&wave,(Sample){0},0,1).high==0);
+    CHECK(waveform_envelope(&wave,s,NAN,1).high==0);
+    float stereo[]={.8f,-.9f,.8f,-.9f}; Waveform empty={0};
+    WavePeak both=waveform_envelope(&empty,(Sample){stereo,2,2},.5,1);
+    CHECK(both.high==.8f && both.low==-.9f);
+    float cropped[]={1,.2f,.2f,-1}; Sample crop={cropped,4};
+    for(unsigned width=1;width<=8192;width*=2) {
+        WavePeak region=waveform_envelope_region(&empty,crop,1,2,0,width);
+        CHECK(region.high==.2f && region.low==0); /* Excludes trimmed-away peaks. */
+        region=waveform_envelope_region(&wave,s,37,2000,1024,width);
+        WavePeak fallback=waveform_envelope_region(&empty,s,37,2000,1024,width);
+        CHECK(region.low==fallback.low && region.high==fallback.high);
+    }
     CHECK(waveform_build(&wave,(Sample){data,3}));
     CHECK(waveform_range(&wave,(Sample){data,3},0,3).high==fmaxf(data[1],data[2]));
     CHECK(waveform_build(&wave,(Sample){0}) && !wave.tree && !wave.leaves);

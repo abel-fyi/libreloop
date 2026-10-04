@@ -8,12 +8,12 @@ Theme ui_theme;
 static char config[PATH_MAX];
 static unsigned accent_choice;
 static const Theme dark_theme={
-        .background={43,43,43,255}, .surface={72,72,72,255},
-        .control={57,57,57,255}, .text={232,232,232,255},
+        .background={33,33,33,255}, .surface={84,84,84,255},
+        .control={48,48,48,255}, .text={232,232,232,255},
         .secondary={186,186,186,255}, .highlight={239,168,80,255},
-        .hover={85,85,85,255}, .active_hover={250,186,109,255},
+        .hover={98,98,98,255}, .active_hover={250,186,109,255},
         .selected_text={35,30,25,255}, .border={110,110,110,255},
-        .title={72,72,72,255}, .title_focus={80,80,80,255},
+        .title={84,84,84,255}, .title_focus={94,94,94,255},
         .disabled={74,74,74,255}, .step_alt={100,91,83,255},
         .track={65,65,65,255}, .clip={{118,118,118,255},{113,113,113,255}},
         .note_drag={231,214,190,255}, .piano_white={195,195,195,255},
@@ -23,8 +23,8 @@ static const Theme dark_theme={
         .piano_row={{65,65,65,255},{59,59,59,255}},
         .signal={239,168,80,255}, .loop={225,77,72,255}, .meter_low={151,181,130,255},
         .meter_mid={221,180,106,255}, .meter_high={224,83,75,255},
-        .rack={72,72,72,255}, .mixer={72,72,72,255}, .effects={72,72,72,255},
-        .browser={48,48,48,255}, .note={190,190,190,255},
+        .rack={84,84,84,255}, .mixer={84,84,84,255}, .effects={84,84,84,255},
+        .browser={38,38,38,255}, .note={190,190,190,255},
         .step_on={{190,190,190,255},{201,174,149,255}}, .waveform={206,206,206,255},
         .knob={206,206,206,255}, .swing={206,206,206,255},
         .pan_left={204,164,110,255}, .pan_right={205,117,105,255},

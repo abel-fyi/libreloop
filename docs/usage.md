@@ -293,10 +293,14 @@ sampler channel volume and listening output volume.
 Knobs show their value with an edge dot and a filling outer arc. Knob size stays fixed; drag up/down to adjust or right-click for value entry and supported automation actions.
 
 The Playlist, Rack and Piano Roll share the same compact ruler. Left-click or
-drag sets the playback start. Right-drag selects a red loop region; right-click
-without dragging clears it. Rack and Piano Roll share the current pattern's
+drag sets the playback start. Right-drag creates a red loop region. Once a loop
+exists, right-click or right-drag to the left of its midpoint adjusts its left
+edge; to the right adjusts its right edge. Double-click anywhere on the ruler
+with either button to clear the loop. Rack and Piano Roll share the current pattern's
 start and loop, while Playlist uses Song positions. These playback selections
-reset when opening a project and do not restrict WAV export.
+reset when opening a project and do not restrict WAV export. Press Stop once
+to stop audio; press it again while stopped to reset the playback start to the
+beginning. Playing or setting a ruler marker starts a fresh Stop sequence.
 
 Typing keyboard notes highlight their Piano Roll keys and matching notes.
 Chords remain highlighted until their keys are released.
@@ -457,3 +461,13 @@ accent color pickers all use this palette; saved project colors are retained.
 Light mode derives its surfaces, text, rulers and grid from the inverted dark
 brightness hierarchy. Clip colors, the chosen accent, piano key identities and
 semantic colors (such as recording red) retain their meaning in both themes.
+
+Tempo, pitch range and Mixer routing number controls show the vertical resize
+cursor while hovering or dragging, like Mixer faders. Knobs retain the regular
+cursor. Arrangement labels and track surfaces retain fractional positions while
+panning; stationary text remains aligned to display pixels.
+
+Waveforms share a continuous filled style in Arrangement clips, source previews,
+the Browser and Sampler. Display bins follow the source audio and blend smoothly
+while panning or zooming, without changing the audio. Pattern previews use display
+resolution and filtered textures for fractional movement.

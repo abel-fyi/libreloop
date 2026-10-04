@@ -156,3 +156,20 @@ The final clamp bounds their output; it does not make overloaded mixes distortio
 free. Reduce mix gain when meters show overload. These tests analyze computed
 float output, not a physical audio loopback or hardware scheduling latency.
 Local diagnostics are under `local/mac-test/audio-diagnostics-after.*`.
+
+## Waveform navigation rendering (2026-10-04)
+
+The shared waveform renderer uses source-aligned display bins and interpolates
+between cached peak levels. Coarse queries read tree nodes directly; live crop
+previews reuse the original hierarchy while excluding trimmed samples. Filled
+geometry batches into one texture pass per waveform, with a physical-pixel edge
+feather. Display sampling uses one point per screen point rather than duplicating
+all envelope queries for Retina pixels.
+
+A local Apple M4 offscreen drawing check used eighteen copies of a synthetic
+60-second mono waveform, thirty frames per run, and three alternating comparisons.
+Median frame submission time was 1.217 ms for the previous thin-column renderer
+and 1.047 ms for the filled renderer. This measures that rendering fixture, not
+whole-app CPU usage or end-to-end input latency. Subpixel image checks verify
+fractional vertical movement; waveform tests cover pan and zoom-level continuity,
+cache/fallback agreement, stereo bounds and exclusion of trimmed-away peaks.

@@ -55,9 +55,13 @@ are a coherent mouse-driven workflow and minimal code and dependencies.
   keep independent crop lengths; resizing a clip never deletes source notes.
 - Dropping audio on the Playlist creates a waveform clip and an Audio Rack channel.
   Playlist waveforms cache a hierarchy of min/max peaks over 256-frame blocks.
-  Drawing queries only each visible pixel’s frame range, scanning partial blocks
-  directly for exact detail down to individual samples. Coarse views reuse cached
-  peaks; zooming never rebuilds the cache. Sample changes invalidate it.
+  Arrangement, source-list, Browser and Sampler views share a filled envelope
+  renderer with antialiased edges. Display peaks use source-aligned power-of-two
+  bins, interpolating neighboring bins and zoom levels to avoid shimmer. Coarse
+  views read cached tree nodes directly; exact range queries remain available
+  for analysis. Zooming never rebuilds the cache. Sample changes invalidate it.
+  Live sampler previews restrict queries to the trimmed region before applying
+  reverse, polarity and normalization.
   Rack drops create Unsorted samplers; the title filter shows All, Audio or Unsorted.
   Both groups can be sequenced. Audio clip crop lengths are stored in seconds,
   so changing tempo changes their grid footprint without changing sample speed.
