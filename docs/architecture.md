@@ -32,13 +32,16 @@ are a coherent mouse-driven workflow and minimal code and dependencies.
   at four times its display size, reduced with exact area coverage, and aligned
   to display pixels. It rebuilds when the window scale changes. Knob value arcs
   are cached alpha masks; hover animation returns to event waiting once settled.
-  View also toggles alpha-blended window surfaces without dimming text or controls;
+  Windows are opaque by default. View also toggles alpha-blended window surfaces without dimming text or controls;
   the editing grids use translucent row tints. There are no decorative backgrounds or blur passes.
 
 - Instruments and effects ship with LibreLoop. The Sampler is the first
   instrument; future instruments belong in the Rack and effects in Mixer slots.
   Add a small internal interface when useful. External VST, CLAP and LV2 hosting
   and a public custom plugin format are outside the planned scope.
+- Playlist and Piano Roll share adaptive timeline rendering: power-of-two subdivisions,
+  ruler labels at 1/2/4/8/etc. bar intervals, and alternating four-bar shading.
+  Lines disappear at distant zooms, followed by the shading; editing snap is independent.
 - Playlist and Piano Roll share navigation mapping: wheel scrolls vertically,
   Shift+wheel horizontally, platform modifier+wheel zooms at the pointer, and
   middle-button drag pans both axes. macOS adds precise two-finger scrolling
@@ -63,26 +66,30 @@ are a coherent mouse-driven workflow and minimal code and dependencies.
   Waveform envelopes are cached per channel; duration colors blend maroon to green.
 - Sampler headers share channel enable, pan, volume, pitch/range and mixer routing
   with the Rack. Channel pitch changes playback speed over a saved 1–48 semitone
-  range; sampler processing Pitch preserves duration. All knobs share one size
-  and one cached arc atlas size bank.
+  range; sampler processing Pitch preserves duration. Regular knobs share one size;
+  the title-bar Swing knob is smaller. Both reuse the same cached arc atlas.
 - Samples store mono or interleaved stereo PCM. Decoding, playback, previews and
   export retain stereo. Sampler stretch uses one grain alignment for both channels;
-  normalization uses a shared peak and trimming checks both channels. Waveform
+  normalization uses a shared peak and trimming checks both channels.
+  Sampler and Playlist live envelope previews share cached source bounds and peaks;
+  crop edits preview full-length clip duration without publishing temporary PCM to audio. Waveform
   envelopes include both channels without summing them.
 - Original sample audio is retained. Processing produces a separate sample,
-  using a background worker after knob release. Start/Length and the quiet-tail Trim threshold preview the crop
+  using a background worker after knob release. Start/Length and the two-sided Trim threshold preview the crop
   live; Pitch/Time retain the processed waveform until replacement audio is ready.
 - The audio callback allocates nothing and owns its rendering state. UI edits
   enter a bounded command queue and a pending project snapshot. The callback
   tries the mailbox mutex without waiting; if busy, it continues rendering its
   current state. UI animations read a small published snapshot. Sample replacement
   and Stop wait on the UI thread for acknowledgment before old PCM can be freed.
+  Song Audio clip edits and sample replacements reconcile active Audio voices
+  at the current transport frame; unrelated pattern and live voices keep playing.
 - Mixer buses retain float headroom and unity gain is transparent. Preview,
   metronome and listening gain mix before the final device clamp to -1..1.
   PCM16 export clamps at conversion. Overloaded mixes still need gain reduction;
   there is no automatic compressor or lookahead limiter.
-- Project files currently use `.hbt` and the `HOMEBEAT` version-30 header for
-  compatibility. Versions 1–29 remain readable. Renaming the app did not change
+- Project files currently use `.hbt` and the `HOMEBEAT` version-32 header for
+  compatibility. Versions 1–31 remain readable. Renaming the app did not change
   the project format. Sample paths are absolute and projects are not portable bundles.
 - Browser roots are written under the `libreloop` configuration directory;
   legacy `homebeat` roots are read when no new configuration exists.
@@ -160,3 +167,23 @@ format version change. Device and buffer errors are reported, and partial takes
 are finalized. Capture device opening/closing and disk writes currently run on
 the UI thread; hardware latency compensation, channel-pair selection and streaming
 long recordings without retaining full PCM in memory remain future work.
+
+Undo history captures completed editing gestures as project snapshots. Original
+sample PCM is retained in reference-counted buffers shared between snapshots;
+processed PCM is rebuilt only for changed samples/settings when restoring.
+Derived audio durations do not create undo entries. The UI restores buffers
+through the acknowledged audio mailbox before freeing retired PCM. History is
+bounded to 64 states and 256 MiB, retaining at least the current state. New/Open
+clear history; saved project and recording files are not deleted by undo.
+
+Save/Open/Export share a modal in-app chooser. Its filesystem model enumerates
+regular files and folders with portable POSIX C APIs, filters by extension, and
+validates the canonical destination before returning it to the UI. Existing
+Save/Export destinations require an explicit Replace action; cancellation does
+not call the save/load/export routines. Project and WAV writes remain in the
+existing engine code, separate from chooser navigation.
+
+Tempo-fitted samplers retain PCM and clip offsets in reference seconds. BPM edits
+change a voice’s playback rate with a 20 ms slew, without sample rebuilding.
+Stretch uses overlapping, stereo-aligned grains per voice to preserve pitch.
+The audio thread owns this state; its playback path allocates no memory.

@@ -1,9 +1,13 @@
 # Using LibreLoop
 
 **VIEW → Dark / Light** changes the appearance. **VIEW → Transparency**
-toggles see-through window surfaces; text, controls and editing grids stay opaque.
+toggles see-through window surfaces (off by default); text, controls and editing grids stay opaque.
 Both settings are remembered between launches. Preferences are stored in
 `$XDG_CONFIG_HOME/libreloop/theme.txt` (or `~/.config/libreloop/theme.txt`).
+
+Zooming reveals finer grid subdivisions; zooming out groups ruler numbers into
+2, 4, 8 and larger bar intervals. Four-bar shading stays aligned while panning
+and fades out at distant overview zooms. Editing follows the visible grid automatically.
 
 ## First session
 
@@ -31,6 +35,8 @@ Mixer Master fader and does not affect WAV export.
   bounds. Right-click opens exact number entry; choose Reset for defaults. Right-click a
   channel button and choose **Go to Piano Roll**. Channels with pitched notes show a
   miniature note preview in place of steps; right-click it for the same menu.
+  The instrument-shaped **+** button below the channels opens the plugin menu
+  and lights up when dragging a sample there to add a channel.
   Clicking a channel name opens its instrument interface. Steps and pitched
   notes belong to the same shared pattern.
 - Double-click a Playlist pattern clip to open and focus its Channel Rack.
@@ -40,11 +46,27 @@ Mixer Master fader and does not affect WAV export.
   the bottom creates and selects a blank pattern, up to eight. New projects start
   with Pattern 1 selected and an empty Playlist.
 
-- Playlist: the icon toolbar offers Pencil, Brush and Select. Hover an
+- **Edit → Undo / Redo** restores project edits. Use **Cmd+Z / Cmd+Shift+Z**
+  on macOS or **Ctrl+Z / Ctrl+Shift+Z** (also **Ctrl+Y**) on Linux.
+  Clip and note drags, brush strokes, automation-point drags and control drags
+  each undo as one action. Samples, sampler settings, routing, names and colors
+  are included; recording becomes one action after it stops. Original audio is
+  retained in memory, so sample replacement and deletion can be undone even if
+  the source file is unavailable. A new edit after undo discards the redo branch.
+  New, Demo and Open start fresh history. History retains up to 64 states within
+  a 256 MiB budget (the latest state is always retained). Undo does not delete
+  saved files or recorded WAV files, or change navigation and window layout.
+- Playlist: the icon toolbar offers Pencil, Brush, Select, Cut (scissors) and Stretch (horizontal arrows). Hover an
   icon for its description. Pencil places one clip; drag its body to move it
   without painting more copies. Brush paints copies across a track. Click a
   clip to highlight it and choose its pattern and length as the drawing source.
   Select draws a rectangle; drag a selected clip to move the group together.
+  Cut splits patterns, audio and automation at the clicked snap position, preserving
+  the source position on both halves. Stretch drags either edge of an audio clip;
+  its opposite edge stays anchored. Resample changes speed and pitch together;
+  Stretch preserves pitch. This changes the sampler Time setting (0.25–4×), leaves
+  pitch controls unchanged, and affects all clips sharing that sample. Processing
+  completes after release; the waveform and clip lengths preview during the drag.
   Shift-click toggles clips in the selection with any tool; Shift-drag on empty
   space adds a rectangle to the selection. Drag a selected clip without Shift
   to move the group (including with Brush). Drag across track headers to select
@@ -61,7 +83,10 @@ Mixer Master fader and does not affect WAV export.
   Preview lines show actual notes. Brush spaces longer clips to avoid overlaps.
   Any of 100 tracks can hold any pattern; different tracks play together.
   The narrow strip at each track header’s right edge flashes on note/audio
-  starts and stays dimly lit while a voice is sounding. Playback loops through the final clip edge. Wheel scrolls vertically; Shift+wheel
+  starts and stays dimly lit while a voice is sounding. The Playlist marker
+  sets the initial playback position; after the final clip
+  edge, playback returns to the song beginning. Explicit ruler loop ranges
+  still return to their selected loop start. Wheel scrolls vertically; Shift+wheel
   scrolls horizontally. Command+wheel on macOS or Ctrl+wheel on Linux zooms
   around the pointer. Middle-button drag pans freely. On macOS, two-finger
   scrolling pans both axes and pinching zooms. The bottom scrollbar also pans.
@@ -75,11 +100,10 @@ Mixer Master fader and does not affect WAV export.
   keeps the playhead centered in Song or PAT mode, with empty space before the
   timeline origin when playback starts. Manual navigation and editing temporarily suspend following.
   Horizontal scrollbar thumbs remain at least 24 pixels wide and highlight on hover.
-- Snap menus in Playlist and Piano Roll are independent: Auto, Bar, Beat,
-  1/2 beat, 1/3 beat, Step (1/4 beat), 1/6 beat, 1/2 step, 1/3 step,
-  and 1/4 step. Auto uses a finer grid as you zoom in. Fractional positions
-  and lengths are saved; older projects remain readable. Grid divisions follow
-  the selected snap, including triplets; dense views show spaced multiples.
+- Playlist and Piano Roll edits always align with the visible grid, becoming
+  finer as you zoom in. At distant overview zooms they use ruler spacing.
+  There is no snap selector or modifier bypass. Fractional positions and
+  lengths are saved; older projects remain readable.
 - Click the Piano Roll keys to audition its instrument; hold and drag along
   the keys to play successive pitches. The active key highlights and release
   stops the note.
@@ -114,13 +138,16 @@ Mixer Master fader and does not affect WAV export.
   sampler changes affect every copy. Full-length clips follow trimmed sample
   duration; copies cropped in the Playlist retain their independent cap. Audio clips can move, crop, copy, mute
   and export alongside patterns, and their channels can also be sequenced.
+  Moving or cropping an Audio clip during playback catches up at the current
+  playhead position. Applying Sampler processing also resumes active Audio clips.
   Drag either highlighted clip edge to trim it; pulling the left edge back out
   restores the cropped beginning without changing the shared sample or pattern.
-  Thin vertical waveform markers show the source audio boundaries. Drag the
-  divider beneath a track to change that track’s height (32–320 pixels).
+  Drag the divider beneath a track to change that track’s height (32–320 pixels).
   The Rack title filter offers **All**, **Audio** and **Unsorted**. Rack sample
   drops belong to Unsorted; Audio channel colors blend maroon to green with duration.
-- Drop a WAV, FLAC or MP3 onto a visible Rack row to replace its sample.
+- Drop a WAV, FLAC or MP3 onto an existing Playlist audio clip or a visible Rack
+  row to replace its sample. Existing notes, clip positions, crops, mixer routing
+  and sampler settings stay in place; all clips sharing that sample update.
   Drop into empty Rack space or its bottom add area to create a channel.
   Up to 32 channels can be added; wheel over Rack rows to scroll. Right-click a
   channel name for Piano Roll, rename, mute or delete. Deleting removes its notes in
@@ -163,9 +190,21 @@ Mixer Master fader and does not affect WAV export.
   are used. Replacing a sample preserves its channel color. Right-click for Rename, Color or
   Delete; changes apply to the Rack channel and every Playlist copy. Deleting
   removes the channel and its clips, while leaving the source file on disk. Automation lists saved parameter curves with the same source actions.
-- FILE → Save writes `project.hbt` in the launch directory. FILE → Open reloads it.
-  Drop another `.hbt` to open that project; subsequent saves use that filename.
-- FILE → Export exports the entire Playlist to `song.wav`: 48 kHz, stereo PCM16.
+- FILE → Save opens a file picker for a new project, defaulting to `project.hbt`
+  (`demo.hbt` for Demo). Later saves update that chosen file. **Save As…** chooses
+  another name/location. **Cmd+S** (macOS) or **Ctrl+S** (Linux) saves;
+  add Shift for Save As.
+- FILE → Open… chooses a `.hbt` project. **Cmd+O / Ctrl+O** also opens the picker.
+  Dropping a `.hbt` or opening it in the Browser still works; later saves use its filename.
+- FILE → Export… chooses a WAV destination and exports the entire Playlist:
+  48 kHz, stereo PCM16. The next export remembers that destination.
+  The built-in chooser shows the full folder path, with Up/Home navigation,
+  folders first, matching file types, hidden-file toggle and a filename field.
+  Double-click a folder to enter it or a file to open/select it; Enter also
+  activates the selection. Click the path field to type/paste a folder and press
+  Enter. Save/Export add the extension and ask before replacing an existing file.
+  Cancel/Escape leaves files unchanged. The chooser is the same on Linux and
+  macOS and needs no external file-manager or dialog packages.
 
 Sample paths are stored as absolute paths; keep imported files available when
 reopening projects. Generated demo sounds need no external files. Save/load
@@ -222,8 +261,13 @@ Polarity flips its sign. Pitch shifts up to an octave without changing duration.
 Time sets 0.25–4 times the cropped duration: Resample changes playback speed
 and pitch like vinyl, while Stretch preserves pitch. Start trims a percentage
 from the source beginning; Length retains a percentage of what remains.
-The waveform previews the cropped source envelope live while dragging Start
-or Length; reverse, polarity and normalization also update immediately. Pitch and Time retain the last processed waveform until the new audio is ready.
+Trim removes quiet audio from both ends of that range; turning it up raises
+the silence threshold. Audio present in either stereo channel is preserved.
+The Sampler, Audio list and Playlist share a live source-envelope preview while
+dragging Start, Length or Trim; Reverse, Polarity and Normalize update immediately
+in all three views. Full-length Playlist clips preview the new duration too;
+clips with a manually set length keep that length. Pitch and Time retain the
+last processed waveform until the new audio is ready.
 This lightweight crop envelope preview is
 marked Preview until the exact processed waveform is ready; pitch/stretch
 detail requires processing. Playback and WAV export use the processed audio.
@@ -322,7 +366,7 @@ selections still define their own playback region.
 Sampler channel controls at the top right share the Rack enable, pan, volume
 and mixer destination. Channel Pitch changes playback speed; drag its Range
 number to choose 1–48 semitones (default 2). The separate processing Pitch
-retains duration. Trim removes the quiet tail using an adjustable threshold;
+retains duration. Trim removes quiet audio from both ends using an adjustable threshold;
 0 leaves it intact, a tiny turn removes silence, and higher values cut further
 into the quiet decay (threshold range −90 to −30 dBFS). Original
 audio stays intact, so reducing Trim restores the tail.
@@ -338,7 +382,7 @@ or spans the selected Song loop. Otherwise it uses the current pattern length.
 It appears on the first free Playlist track and in the Automation picker tab.
 
 Click inside its body to add a point, drag a point to change its position/value,
-and right-click an interior point to remove it. Horizontal movement follows Snap;
+and right-click an interior point to remove it. Horizontal movement follows the visible grid;
 points stop at their neighbors, allowing vertical jumps without crossing. The
 outermost points can move beyond the clip edges, expanding that copy
 to follow them. Moving left stops at the beginning of the song.
@@ -376,3 +420,10 @@ Hold Command on macOS or Control on Linux and left-drag in the Playlist or
 Piano Roll to temporarily box-select, even over existing clips, automation
 points or notes. Your Pencil/Brush tool stays selected. Add Shift to preserve
 the previous selection. Release the mouse to finish selection.
+
+The sampler’s **Fit to tempo** button locks the current audio duration to the musical grid. Subsequent BPM changes adjust playback duration: **Resample** changes pitch, while **Stretch** preserves it. Trimmed and split copies remain aligned; the pitch and Time knobs keep their values. Enable it at the tempo where the clip already has the desired length. The setting is saved with the project and supports undo/redo. Turning it off restores the duration set by the Time knob, independent of tempo.
+
+Fit to tempo changes playback rate smoothly while playing, without rebuilding the
+sample. Clip geometry and waveforms remain fixed at their reference tempo.
+Stretch preserves pitch using real-time grain alignment; large tempo changes
+can still change the texture of transients.

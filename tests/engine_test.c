@@ -44,9 +44,7 @@ static int legacy_save(const char *path,Project *p,int version) {
     return fclose(f)==0;
 }
 int main(void) {
-    CHECK(snap_interval(SNAP_STEP,10)==1 && snap_interval(SNAP_HALF_STEP,10)==.5f);
-    CHECK(fabsf(snap_interval(SNAP_SIXTH_BEAT,10)-2.f/3)<.00001f);
-    CHECK(snap_interval(SNAP_AUTO,100)<snap_interval(SNAP_AUTO,2));
+    CHECK(grid_interval(100)<grid_interval(2));
     Project fine,roundtrip; project_default(&fine); memset(fine.notes,0,sizeof fine.notes);
     fine.volume[0]=fine.master=1; fine.route[0]=0;
     CHECK(note_add(&fine,0,0,.5f,60,.5f)); CHECK(note_add(&fine,0,0,4.f/3,64,2.f/3));
@@ -55,7 +53,7 @@ int main(void) {
     unsigned char *note_bytes=(unsigned char *)&fine.notes[0][0][0];
     for(size_t i=offsetof(Note,velocity)+sizeof fine.notes[0][0][0].velocity;i<offsetof(Note,start);i++) note_bytes[i]=0xa5;
     unsigned char *sampler_bytes=(unsigned char *)&fine.sampler[0];
-    for(size_t i=offsetof(Sampler,stretch)+sizeof fine.sampler[0].stretch;i<sizeof(Sampler);i++) sampler_bytes[i]=0x5a;
+    for(size_t i=offsetof(Sampler,stretch)+sizeof fine.sampler[0].stretch;i<offsetof(Sampler,fit_bpm);i++) sampler_bytes[i]=0x5a;
     CHECK(project_save("fractional.hbt",&fine) && project_load("fractional.hbt",&roundtrip));
     CHECK(project_equal(&fine,&roundtrip)); remove("fractional.hbt");
     float sustained[RATE]; for(int i=0;i<RATE;i++) sustained[i]=.25f;
@@ -84,6 +82,12 @@ int main(void) {
     CHECK(clock.frame==1); /* Starting beyond the end plays from zero immediately. */
     player_reset(&clock); clock.song=1; player_seek(&clock,&fine,song_steps(&fine));
     render(&clock,&fine,exact,timed,1); CHECK(clock.frame==1);
+    /* A Song marker selects the initial seek, not the automatic loop origin. */
+    player_reset(&clock); clock.song=1; player_seek(&clock,&fine,15000*STEPS);
+    render(&clock,&fine,exact,timed,1); CHECK(timed[0]>0 && clock.frame==(uint64_t)15000*STEPS*6000+1);
+    clock.frame=(uint64_t)llround(song_steps(&fine)*6000.0);
+    render(&clock,&fine,exact,timed,1); CHECK(clock.frame==1 && clock.start_step==15000*STEPS);
+    player_seek(&clock,&fine,clock.start_step); CHECK(clock.frame==(uint64_t)15000*STEPS*6000);
     Project deleted,reloaded; project_default(&deleted);
     CHECK(deleted.pattern_count==1 && deleted.channel_count==4 && deleted.insert_count==100);
     for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) CHECK(deleted.clips[l][b]==0);

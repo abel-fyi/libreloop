@@ -84,8 +84,8 @@ double audio_timeline_duration(const AudioTimeline *map,double start,double sour
 }
 float audio_clip_steps(const Project *p,int lane,int clip) {
     int c=p->clips[lane][clip]-PATTERNS-1;
-    if(p->clip_steps[lane][clip]) return p->clip_steps[lane][clip]*p->bpm/15;
-    double remaining=fmax(0,p->audio_seconds[c]-p->clip_offsets[lane][clip])*p->bpm/15;
+    if(p->clip_steps[lane][clip]) return p->clip_steps[lane][clip]*audio_source_bpm(p,c)/15;
+    double remaining=fmax(0,p->audio_seconds[c]-p->clip_offsets[lane][clip])*audio_source_bpm(p,c)/15;
     AudioTimeline map; audio_timeline_init(&map,p,c);
     return audio_timeline_duration(&map,p->clip_starts[lane][clip]*STEPS,remaining);
 }
@@ -93,5 +93,5 @@ double audio_clip_position(const Project *p,int lane,int clip,double step) {
     int c=p->clips[lane][clip]-PATTERNS-1;
     double start=p->clip_starts[lane][clip]*STEPS;
     AudioTimeline map; audio_timeline_init(&map,p,c);
-    return (p->clip_offsets[lane][clip]+audio_timeline_source(&map,start,fmax(start,step))*15/p->bpm)*RATE;
+    return (p->clip_offsets[lane][clip]+audio_timeline_source(&map,start,fmax(start,step))*15/audio_source_bpm(p,c))*RATE;
 }

@@ -35,6 +35,13 @@ int main(void) {
     player_reset(&player); player.song=1; player_seek(&player,&p,12);
     render(&player,&p,samples,out,1); CHECK(fabsf(out[0]-.25f)<.00001f && player.lane_trigger[2] && player.lane_active[2]);
     render(&player,&p,samples,out,1); CHECK(!player.lane_trigger[2] && player.lane_active[2]); /* seek into audio */
+    /* A catch-up between sequencer ticks must not duplicate or kill pattern voices. */
+    player.voices[127]=(Voice){0,200,1,-1,.2f,6,0};
+    player.audio_resync=1; uint64_t cursor=player.frame;
+    render(&player,&p,samples,out,1);
+    CHECK(player.frame==cursor+1 && player.voices[127].position==201 && player.voices[127].gain==.2f);
+    int audio_count=0; for(int v=0;v<128;v++) audio_count+=player.voices[v].gain && player.voices[v].audio_clip;
+    CHECK(audio_count==1 && player.lane_active[2]);
     p.lane_mute[2]=1; player_reset(&player); player.song=1; player_seek(&player,&p,12);
     render(&player,&p,samples,out,1); CHECK(out[0]==0 && !player.lane_trigger[2] && !player.lane_active[2]); p.lane_mute[2]=0;
     p.mute[0]=1; player_reset(&player); player.song=1; player_seek(&player,&p,12);

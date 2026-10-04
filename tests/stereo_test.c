@@ -24,7 +24,11 @@ int main(void) {
         for(unsigned i=0;i<out.frames;i++) { CHECK(isfinite(out.data[i*2])); CHECK(fabsf(out.data[i*2+1]+.5f*out.data[i*2])<1e-6); power+=out.data[i*2]*out.data[i*2]; }
         CHECK(power>1); free(out.data);
     }
-    float tail[]={0,0,0,.5f,0,0}; CHECK(sample_trim_end((Sample){tail,3,2},1)==2);
+    float tail[]={0,0,0,.5f,0,0}; Sample trimmed=sample_trim((Sample){tail,3,2},1);
+    CHECK(trimmed.frames==1 && trimmed.data==tail+2 && trimmed.data[1]==.5f);
+    float boundaries[]={0,.2f,0,0,.3f,0};
+    trimmed=sample_trim((Sample){boundaries,3,2},1);
+    CHECK(trimmed.frames==3 && trimmed.data==boundaries); /* Either channel protects both edges. */
     Waveform wave={0}; CHECK(waveform_build(&wave,(Sample){tail,3,2}));
     CHECK(waveform_range(&wave,(Sample){tail,3,2},1,2).high==.5f); free(wave.tree);
     Project project; project_default(&project); memset(project.notes,0,sizeof project.notes);

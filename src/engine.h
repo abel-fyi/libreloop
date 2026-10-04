@@ -33,7 +33,7 @@ float gain_db(float gain);
 float fader_position(float gain);
 float fader_gain(float position);
 enum { SAMPLE_NORMALIZE=1, SAMPLE_REVERSE=2, SAMPLE_POLARITY=4 };
-typedef struct { float pitch,time,start,length,trim; uint8_t flags,stretch; } Sampler;
+typedef struct { float pitch,time,start,length,trim; uint8_t flags,stretch; float fit_bpm; /* reference BPM; zero disables tempo fitting */ } Sampler;
 typedef struct { uint8_t pitch, velocity; float start, length; } Note; /* length 0 = drum one-shot */
 typedef struct {
     float bpm;
@@ -76,20 +76,27 @@ static inline float sample_at(Sample s,unsigned frame,unsigned side) {
     unsigned channels=sample_channels(s);
     return frame<s.frames?s.data[(size_t)frame*channels+(channels==1?0:side)]:0;
 }
-typedef struct { int channel; double position, speed, remaining; float gain; int lane; } Voice;
+typedef struct { int channel; double position, speed, remaining; float gain; int lane,audio_clip; double tempo_rate,grains[2]; unsigned grain_phase; int grain_ready; } Voice;
 typedef struct {
     uint64_t frame;
+    float clock_bpm; /* preserve musical position when BPM changes */
     int64_t last_step;
     int song, pattern;
+    int audio_resync; /* reconcile edited Song Audio clips at the current frame */
     float start_step,loop_start,loop_end; /* loop_end 0 disables the playback region */
     Voice voices[128];
+    uint8_t channel_active[CHANNELS],channel_trigger[CHANNELS];
     uint8_t lane_active[LANES],lane_trigger[LANES]; /* activity from the latest render block */
 } Player;
-enum { SNAP_AUTO, SNAP_BAR, SNAP_BEAT, SNAP_HALF_BEAT, SNAP_THIRD_BEAT, SNAP_STEP, SNAP_SIXTH_BEAT, SNAP_HALF_STEP, SNAP_THIRD_STEP, SNAP_QUARTER_STEP, SNAP_COUNT };
-extern const char *snap_names[SNAP_COUNT];
-float snap_interval(int mode,float pixels_per_step);
+/* Editing always follows the visible grid (ruler spacing at distant zooms). */
+float grid_interval(float pixels_per_step);
+float snap_floor(float value,float interval);
+float snap_round(float value,float interval);
 void timeline_zoom(float *span,float *start,float wheel,float anchor,float unit);
 float timeline_thumb(float width,float span,float range);
+/* Visual density is independent of the editing snap interval. Zero lines means bands only. */
+typedef struct { float lines,labels,band_alpha; } TimelineGrid;
+TimelineGrid timeline_grid_layout(float pixels_per_step);
 int parameter_info(const Project *p,ParameterTarget target,float *value,float *low,float *high);
 int parameter_from_pointer(const Project *p,const void *pointer,ParameterTarget *target);
 float automation_value(const Automation *a,float step);
@@ -100,6 +107,9 @@ int automation_move_point(Project *p,int index,int point,float step,float value)
 int automation_create(Project *p,ParameterTarget target,const char *name,float steps);
 int automation_delete(Project *p,int index);
 int automation_valid(const Project *p);
+int sampler_processing_equal(Sampler a,Sampler b);
+float audio_source_bpm(const Project *p,int channel);
+void voice_tempo_sample(Voice *voice,Sample sample,double pitch,double rate,int stretch,float stereo[2]);
 void project_default(Project *p);
 void project_new(Project *p);
 void project_demo(Project *p);
@@ -127,7 +137,8 @@ double audio_clip_position(const Project *p,int lane,int clip,double step);
 void samples_default(Sample s[CHANNELS]);
 int sampler_valid(Sampler settings);
 int sampler_equal(Sampler a,Sampler b);
-unsigned sample_trim_end(Sample source,float threshold);
+/* Non-owning view of the source with quiet leading/trailing frames removed. */
+Sample sample_trim(Sample source,float threshold);
 int sample_process(Sample source,Sampler settings,Sample *result);
 void player_reset(Player *p);
 void player_seek(Player *p,const Project *project,float step);

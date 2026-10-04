@@ -2,11 +2,11 @@
 #ifndef ARRANGEMENT_H
 #define ARRANGEMENT_H
 #include "engine.h"
-enum { PENCIL, BRUSH, SELECT };
-enum { IDLE, MOVE_CLIPS, SIZE_CLIP, PAINT_CLIPS, BOX_SELECT, TRACK_SELECT, ERASE_CLIPS };
+enum { PENCIL, BRUSH, SELECT, CUT, STRETCH };
+enum { IDLE, MOVE_CLIPS, SIZE_CLIP, STRETCH_CLIP, PAINT_CLIPS, BOX_SELECT, TRACK_SELECT, ERASE_CLIPS };
 typedef struct {
     int tool,gesture,lane,bar,source_pattern,last_lane,edge;
-    float source_offset,size_start,size_length,size_offset,size_cap,paint_origin;
+    float source_offset,size_start,size_length,size_offset,size_cap,paint_origin,size_time,size_seconds;
     float x,y,now_x,now_y,source_steps,snap; /* source_steps uses seconds for Audio, steps for patterns */
     uint8_t selected[LANES][CLIPS],before[LANES][CLIPS],selection_before[LANES][CLIPS];
     int additive;

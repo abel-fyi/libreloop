@@ -51,12 +51,14 @@ static double preview_position,preview_speed=1,preview_frame,preview_time,previe
 static float preview_gain=.7f;
 static unsigned preview_end;
 static unsigned preview_remaining;
+static int preview_channel=-1;
 static Player player,live;
 static int playing, ready;
 static float output_volume=1;
 static atomic_uint_fast64_t position;
 static _Atomic float meter_peak[INSERTS+1][2];
 static atomic_int meter_active,metronome;
+static atomic_uchar channel_active[CHANNELS],channel_trigger[CHANNELS];
 static atomic_uchar track_active[LANES],track_trigger[LANES];
 static float clicks[2][1200];
 static unsigned click_position=1200;
@@ -122,11 +124,11 @@ static void callback(ma_device *d, void *out, const void *in, ma_uint32 frames) 
     }
     float peaks[INSERTS+1][2]={{0}};
     if(playing) {
-        visual_frame=player.frame;
+        visual_frame=llround(player.frame*(player.clock_bpm?player.clock_bpm/project.bpm:1));
         render_mixer_io(&player,&live,&project,samples,out,frames,1,peaks,recording.active?&recording.io:NULL);
         visual_time=monotonic_time(); visual_frames=frames;
         double step_frames=RATE*60.0/project.bpm/4;
-        visual_start=(player.loop_end?player.loop_start:player.start_step)*step_frames;
+        visual_start=(player.loop_end?player.loop_start:player.song?0:player.start_step)*step_frames;
         float end=player.loop_end?player.loop_end:player.song?song_steps(&project):project.pattern_steps[player.pattern];
         if(visual_start>=end*step_frames) visual_start=0;
         visual_end=recording.active?INFINITY:end*step_frames;
@@ -135,6 +137,12 @@ static void callback(ma_device *d, void *out, const void *in, ma_uint32 frames) 
     for(int l=0;l<LANES;l++) {
         atomic_store_explicit(&track_active[l],playing && player.song && player.lane_active[l],memory_order_relaxed);
         if(playing && player.song && player.lane_trigger[l]) atomic_store_explicit(&track_trigger[l],1,memory_order_relaxed);
+    }
+    for(int c=0;c<CHANNELS;c++) {
+        Player *rendered=playing?&player:&live;
+        int previewing=preview_channel==c && preview_remaining && preview_position<preview_end && preview_gain>0;
+        atomic_store_explicit(&channel_active[c],rendered->channel_active[c] || previewing,memory_order_relaxed);
+        if(rendered->channel_trigger[c]) atomic_store_explicit(&channel_trigger[c],1,memory_order_relaxed);
     }
     live_time=monotonic_time(); live_frames=frames;
     float *buffer=out;
@@ -189,14 +197,22 @@ static void publish_view(void) {
     double pitch_speed=pow(2,project.master_pitch/12.0);
     for(int c=0;c<CHANNELS;c++) {
         view.sample_frames[c]=samples[c].frames;
-        view.speeds[c]=pitch_speed*channel_speed(&project,c);
+        view.speeds[c]=pitch_speed*channel_speed(&project,c)*(project.sampler[c].fit_bpm?project.bpm/project.sampler[c].fit_bpm:1);
     }
     view.live_frames=live_frames; view.live_time=live_time;
     view.visual_frames=visual_frames; view.visual_frame=visual_frame; view.visual_time=visual_time;
     view.visual_start=visual_start; view.visual_end=visual_end; view.playing=playing;
 }
 static void consume_commands(void) {
-    if(pending.dirty) { project=pending.project; pending.dirty=0; }
+    if(pending.dirty) {
+        const Project *next=&pending.project;
+        if(memcmp(project.clips,next->clips,sizeof project.clips) ||
+            memcmp(project.clip_starts,next->clip_starts,sizeof project.clip_starts) ||
+            memcmp(project.clip_steps,next->clip_steps,sizeof project.clip_steps) ||
+            memcmp(project.clip_offsets,next->clip_offsets,sizeof project.clip_offsets) ||
+            memcmp(project.audio_seconds,next->audio_seconds,sizeof project.audio_seconds)) player.audio_resync=1;
+        project=*next; pending.dirty=0;
+    }
     uint64_t serial=0;
     while(pending.read!=pending.write) {
         AudioCommand *c=&pending.commands[pending.read++%AUDIO_COMMANDS];
@@ -210,18 +226,26 @@ static void consume_commands(void) {
             player.song=c->song; player.pattern=c->pattern;
             player.loop_start=isfinite(c->loop_start)?fmaxf(0,c->loop_start):0;
             player.loop_end=isfinite(c->loop_end) && c->loop_end>player.loop_start?c->loop_end:0;
-            if(playing && player.loop_end && player.frame>=(uint64_t)llround(player.loop_end*RATE*60.0/project.bpm/4)) {
-                player.frame=(uint64_t)llround(player.loop_start*RATE*60.0/project.bpm/4);
+            if(playing && player.loop_end && player.frame*(player.clock_bpm?player.clock_bpm/project.bpm:1)>=(uint64_t)llround(player.loop_end*RATE*60.0/project.bpm/4)) {
+                player.frame=(uint64_t)llround(player.loop_start*RATE*60.0/project.bpm/4); player.clock_bpm=project.bpm;
                 player.last_step=-1; memset(player.voices,0,sizeof player.voices);
             }
             break;
         case SAMPLE: case CHANNEL_SAMPLES:
-            if(c->kind==SAMPLE) samples[c->channel]=c->sample;
-            else memcpy(samples,c->channels,sizeof samples);
-            preview=(Sample){0}; preview_end=preview_remaining=0;
-            memset(player.voices,0,sizeof player.voices); memset(live.voices,0,sizeof live.voices);
+            for(int channel=0;channel<CHANNELS;channel++) {
+                Sample next=c->kind==SAMPLE?(channel==c->channel?c->sample:samples[channel]):c->channels[channel];
+                if(next.data!=samples[channel].data || next.frames!=samples[channel].frames || next.channels!=samples[channel].channels) {
+                    for(int v=0;v<128;v++) {
+                        if(player.voices[v].channel==channel) player.voices[v].gain=0;
+                        if(live.voices[v].channel==channel) live.voices[v].gain=0;
+                    }
+                    samples[channel]=next; player.audio_resync=1;
+                }
+            }
+            preview=(Sample){0}; preview_end=preview_remaining=0; preview_channel=-1;
             break;
         case PREVIEW:
+            preview_channel=-1;
             preview=c->sample; preview_position=preview_frame=0; preview_time=monotonic_time();
             preview_speed=preview_rate=1; preview_gain=.7f; preview_end=preview.frames; preview_remaining=5*RATE;
             break;
@@ -232,18 +256,21 @@ static void consume_commands(void) {
                 preview_rate=preview_speed*pow(2,project.master_pitch/12.0);
                 preview_gain=c->note.velocity/127.f*project.volume[c->channel]*project.master;
                 preview_end=fmin(preview.frames,preview_speed*RATE*60.0/project.bpm/4*(c->note.length?c->note.length:1));
+                preview_channel=c->channel;
+                if(preview_end && preview_gain>0) atomic_store(&channel_trigger[c->channel],1);
             }
             break;
         case KEY:
-            if(c->down && c->channel>=0 && c->channel<project.channel_count)
-                live.voices[c->slot]=(Voice){c->channel,0,pow(2,(c->pitch-60)/12.0),-1,100/127.f,-1};
-            else if(live.voices[c->slot].gain) live.voices[c->slot].remaining=RATE*.005;
+            if(c->down && c->channel>=0 && c->channel<project.channel_count) {
+                if(samples[c->channel].frames && project.volume[c->channel]>0 && !(project.mute[c->channel]&1)) atomic_store(&channel_trigger[c->channel],1);
+                live.voices[c->slot]=(Voice){.channel=c->channel,.speed=pow(2,(c->pitch-60)/12.0),.remaining=-1,.gain=100/127.f,.lane=-1};
+            } else if(live.voices[c->slot].gain) live.voices[c->slot].remaining=RATE*.005;
             break;
         case STOP: {
             int active=playing || (preview_remaining && preview_position<preview_end);
             for(int i=0;i<128;i++) active|=live.voices[i].gain!=0;
             atomic_store(&stopped_active,active);
-            playing=0; preview=(Sample){0}; preview_end=preview_remaining=0; click_position=1200;
+            playing=0; preview=(Sample){0}; preview_end=preview_remaining=0; preview_channel=-1; click_position=1200;
             memset(player.voices,0,sizeof player.voices); memset(live.voices,0,sizeof live.voices);
             break;
         }
@@ -293,7 +320,7 @@ int audio_start(const Project *p,const Sample s[CHANNELS]) {
     memset(&pending,0,sizeof pending); memset(&view,0,sizeof view);
     atomic_store(&acknowledged,0); atomic_store(&position,0);
     project=pending.project=*p; memcpy(samples,s,sizeof samples);
-    player_reset(&player); player_reset(&live); playing=0; preview=(Sample){0}; preview_end=preview_remaining=0;
+    player_reset(&player); player_reset(&live); playing=0; preview=(Sample){0}; preview_end=preview_remaining=0; preview_channel=-1;
     visual_frames=live_frames=0; output_volume=1; publish_view();
     ma_device_config config=ma_device_config_init(ma_device_type_playback);
     config.playback.format=ma_format_f32; config.playback.channels=2;
@@ -449,6 +476,12 @@ uint64_t audio_position(void) { return atomic_load(&position); }
 void audio_meters(float peaks[INSERTS+1][2]) {
     for(int id=0;id<=INSERTS;id++) for(int side=0;side<2;side++)
         peaks[id][side]=atomic_exchange_explicit(&meter_peak[id][side],0,memory_order_relaxed);
+}
+void audio_channel_activity(uint8_t active[CHANNELS],uint8_t triggered[CHANNELS]) {
+    for(int c=0;c<CHANNELS;c++) {
+        active[c]=atomic_load_explicit(&channel_active[c],memory_order_relaxed);
+        triggered[c]=atomic_exchange_explicit(&channel_trigger[c],0,memory_order_relaxed);
+    }
 }
 void audio_track_activity(uint8_t active[LANES],uint8_t triggered[LANES]) {
     for(int l=0;l<LANES;l++) {

@@ -33,11 +33,11 @@ jobs:
       - name: Check macOS bundle resources
         if: runner.os == 'macOS'
         run: |
-          test -x build/libreloop.app/Contents/MacOS/libreloop
-          test -f build/libreloop.app/Contents/Resources/fonts/LiberationSans-Regular.ttf
-          test -f build/libreloop.app/Contents/Resources/samples/drums/Kick.wav
-          test -f build/libreloop.app/Contents/Resources/licenses/LICENSE
-          plutil -lint build/libreloop.app/Contents/Info.plist
+          test -x build/LibreLoop.app/Contents/MacOS/LibreLoop
+          test -f build/LibreLoop.app/Contents/Resources/fonts/LiberationSans-Regular.ttf
+          test -f build/LibreLoop.app/Contents/Resources/samples/drums/Kick.wav
+          test -f build/LibreLoop.app/Contents/Resources/licenses/LICENSE
+          plutil -lint build/LibreLoop.app/Contents/Info.plist
 
   core-sanitizers:
     strategy:

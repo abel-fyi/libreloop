@@ -130,5 +130,57 @@ int main(void) {
         arrangement_drag(&precise,&fractional,.2f,.8f); arrangement_release(&precise);
         CHECK(precise.selected[1][1] && precise.selected[0][0]);
     }
+    /* Cutting preserves source positions, including offsets and audio pitch. */
+    static Project editing; project_new(&editing);
+    editing.pattern_steps[0]=32;
+    int original=arrangement_place(&editing,0,1,0,32);
+    editing.clip_offsets[0][original]=3;
+    Arrangement cutting={.tool=CUT,.snap=1};
+    arrangement_press(&cutting,&editing,1.5f,.2f,0,0,0,0);
+    int second=arrangement_hit(&editing,0,1.51f);
+    CHECK(second>=0 && second!=original && clip_length(&editing,0,original)==8);
+    CHECK(clip_length(&editing,0,second)==24 && editing.clip_offsets[0][second]==11);
+    editing.channel_audio[0]=1; editing.audio_seconds[0]=4; editing.channel_pitch[0]=1; editing.pitch_range[0]=12;
+    original=arrangement_place(&editing,1,1,PATTERNS,clip_source_steps(&editing,PATTERNS));
+    double position=audio_clip_position(&editing,1,original,1.5f*STEPS);
+    arrangement_press(&cutting,&editing,1.5f,1.2f,0,0,0,0);
+    second=arrangement_hit(&editing,1,1.51f);
+    CHECK(second>=0 && fabs(audio_clip_position(&editing,1,second,1.5f*STEPS)-position)<.01);
+    editing.automation_count=1; editing.automations[0].steps=32;
+    int automation_original=arrangement_place(&editing,3,0,AUTOMATION_SOURCE,32);
+    arrangement_press(&cutting,&editing,.5f,3.2f,0,0,0,0);
+    int automation_second=arrangement_hit(&editing,3,.51f);
+    CHECK(automation_second!=automation_original && editing.clip_offsets[3][automation_second]==8);
+    CHECK(clip_length(&editing,3,automation_original)==8 && clip_length(&editing,3,automation_second)==24);
+    /* Stretch changes Time, leaves pitch intact, and anchors the opposite edge. */
+    editing.channel_pitch[0]=0; editing.sampler[0].pitch=3;
+    Arrangement stretching={.tool=STRETCH,.snap=0};
+    float stretch_start=editing.clip_starts[1][second],length=clip_length(&editing,1,second);
+    float end=stretch_start+length/STEPS;
+    arrangement_press(&stretching,&editing,end-.001f,1.2f,0,1,0,0);
+    CHECK(stretching.gesture==STRETCH_CLIP);
+    arrangement_drag(&stretching,&editing,end-.001f+length/STEPS,1.2f);
+    CHECK(fabsf(editing.sampler[0].time-2)<1e-5 && editing.sampler[0].pitch==3);
+    CHECK(editing.clip_starts[1][second]==stretch_start && fabsf(clip_length(&editing,1,second)-length*2)<1e-5);
+    arrangement_release(&stretching);
+    editing.clips[1][original]=0; /* Remove the other shared copy before testing the left edge. */
+    end=editing.clip_starts[1][second]+clip_length(&editing,1,second)/STEPS;
+    stretch_start=editing.clip_starts[1][second];
+    arrangement_press(&stretching,&editing,stretch_start+.001f,1.2f,0,-1,0,0);
+    arrangement_drag(&stretching,&editing,stretch_start+.001f+.125f,1.2f);
+    CHECK(fabsf(editing.clip_starts[1][second]+clip_length(&editing,1,second)/STEPS-end)<1e-5);
+    CHECK(editing.sampler[0].pitch==3);
+    arrangement_release(&stretching);
+    static Project aligned; project_new(&aligned);
+    Arrangement grid_snap={.snap=grid_interval(32),.source_pattern=-1};
+    arrangement_press(&grid_snap,&aligned,.255f,.2f,0,0,0,0); arrangement_release(&grid_snap);
+    int aligned_slot=arrangement_hit(&aligned,0,.251f);
+    CHECK(aligned_slot>=0 && aligned.clip_starts[0][aligned_slot]==.25f);
+    arrangement_press(&grid_snap,&aligned,.5f,.2f,0,0,0,0);
+    arrangement_drag(&grid_snap,&aligned,1.005f,.2f); arrangement_release(&grid_snap);
+    CHECK(aligned.clip_starts[0][aligned_slot]==.75f);
+    arrangement_press(&grid_snap,&aligned,1.749f,.2f,0,1,0,0);
+    arrangement_drag(&grid_snap,&aligned,1.495f,.2f); arrangement_release(&grid_snap);
+    CHECK(clip_length(&aligned,0,aligned_slot)==12);
     puts("Pencil, brush source and spacing, resize, selection, group movement and erase passed."); return 0;
 }

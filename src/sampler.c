@@ -40,28 +40,39 @@ static float *stretch(const float *in,unsigned frames,unsigned length,unsigned c
     }
     return out;
 }
-int sampler_valid(Sampler s) { return isfinite(s.pitch) && fabsf(s.pitch)<=12 && isfinite(s.time) && s.time>=.25f && s.time<=4 && isfinite(s.start) && s.start>=0 && s.start<=1 && isfinite(s.length) && s.length>=0 && s.length<=1 && isfinite(s.trim) && s.trim>=0 && s.trim<=1 && s.flags<=7 && s.stretch<=1; }
-int sampler_equal(Sampler a,Sampler b) { return a.pitch==b.pitch && a.time==b.time && a.start==b.start && a.length==b.length && a.trim==b.trim && a.flags==b.flags && a.stretch==b.stretch; }
-unsigned sample_trim_end(Sample source,float trim) {
+float audio_source_bpm(const Project *p,int channel) { return p->sampler[channel].fit_bpm?p->sampler[channel].fit_bpm:p->bpm; }
+int sampler_processing_equal(Sampler a,Sampler b) {
+    a.fit_bpm=b.fit_bpm=0;
+    return sampler_equal(a,b);
+}
+int sampler_valid(Sampler s) { return isfinite(s.pitch) && fabsf(s.pitch)<=12 && isfinite(s.time) && s.time>=.25f && s.time<=4 && isfinite(s.start) && s.start>=0 && s.start<=1 && isfinite(s.length) && s.length>=0 && s.length<=1 && isfinite(s.trim) && s.trim>=0 && s.trim<=1 && s.flags<=7 && s.stretch<=1 && isfinite(s.fit_bpm) && (!s.fit_bpm || (s.fit_bpm>=30 && s.fit_bpm<=300)); }
+int sampler_equal(Sampler a,Sampler b) { return a.pitch==b.pitch && a.time==b.time && a.start==b.start && a.length==b.length && a.trim==b.trim && a.flags==b.flags && a.stretch==b.stretch && a.fit_bpm==b.fit_bpm; }
+static float frame_peak(Sample source,unsigned frame) {
+    float peak=0;
+    for(unsigned side=0;side<sample_channels(source);side++) peak=fmaxf(peak,fabsf(sample_at(source,frame,side)));
+    return peak;
+}
+Sample sample_trim(Sample source,float trim) {
     if(trim>0) {
-        /* Silence first, then quiet tails: -90 to -30 dBFS, never full scale. */
+        /* Remove quiet edges at -90 to -30 dBFS; preserve a frame audible on either side. */
         float threshold=powf(10.f,-4.5f+3.f*trim);
-        while(source.frames) {
-            float peak=0;
-            for(unsigned side=0;side<sample_channels(source);side++) peak=fmaxf(peak,fabsf(sample_at(source,source.frames-1,side)));
-            if(peak>threshold) break;
-            source.frames--;
-        }
+        unsigned start=0,end=source.frames;
+        while(end && frame_peak(source,end-1)<=threshold) end--;
+        while(start<end && frame_peak(source,start)<=threshold) start++;
+        if(source.data) source.data+=(size_t)start*sample_channels(source);
+        source.frames=end-start;
     }
-    return source.frames;
+    return source;
 }
 int sample_process(Sample source,Sampler settings,Sample *result) {
     unsigned channels=sample_channels(source);
     if(channels>2 || !sampler_valid(settings) || source.frames>SAMPLE_MAX_FRAMES || (source.frames && !source.data)) return 0;
+    /* Bound every output/intermediate allocation. */
+    if(source.frames*(double)settings.time>INT_MAX/2 || source.frames*(double)settings.time*pow(2,settings.pitch/12.0)>INT_MAX/2) return 0;
     unsigned offset=llround(source.frames*(double)settings.start);
     source.data=source.data?source.data+(size_t)offset*channels:NULL;
     source.frames=llround((source.frames-offset)*(double)settings.length);
-    source.frames=sample_trim_end(source,settings.trim);
+    source=sample_trim(source,settings.trim);
     if(!source.frames) { *result=(Sample){0}; return 1; }
     float *input=malloc((size_t)source.frames*channels*sizeof *input); if(!input) return 0;
     for(unsigned i=0;i<source.frames;i++) for(unsigned side=0;side<channels;side++) input[(size_t)i*channels+side]=sample_at(source,(settings.flags&SAMPLE_REVERSE)?source.frames-1-i:i,side)*((settings.flags&SAMPLE_POLARITY)?-1:1);

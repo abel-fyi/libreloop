@@ -3,8 +3,8 @@
 #include <math.h>
 #include <string.h>
 static int clamp(int x,int lo,int hi) { return x<lo?lo:x>hi?hi:x; }
-static float quantum(const Arrangement *a) { return a->snap>0?a->snap:1; }
-static float snapped(const Arrangement *a,float x) { return floorf((x*STEPS+.00001f)/quantum(a))*quantum(a)/STEPS; }
+static float quantum(const Arrangement *a) { return a->snap>0?a->snap:.01f; }
+static float snapped(const Arrangement *a,float x) { return a->snap>0?snap_floor(x*STEPS+.00001f,a->snap)/STEPS:x; }
 float arrangement_edit_steps(const Arrangement *a,const Project *p,int pattern) {
     (void)a; return p->pattern_steps[pattern];
 }
@@ -18,14 +18,14 @@ int arrangement_place(Project *p,int l,float x,int pattern,float length) {
     for(int i=0;i<CLIPS;i++) if(p->clips[l][i] && x*STEPS<p->clip_starts[l][i]*STEPS+clip_length(p,l,i)-.0001f && p->clip_starts[l][i]*STEPS<x*STEPS+length-.0001f) return -1;
     int b=x<CLIPS?(int)x:0;
     if(p->clips[l][b]) { for(b=0;b<CLIPS && p->clips[l][b];b++) {} if(b==CLIPS) return -1; }
-    p->clips[l][b]=pattern+1; p->clip_steps[l][b]=AUDIO_SOURCE(pattern)?(fabsf(length-clip_source_steps(p,pattern))<.0001f?0:length*15/p->bpm):length; p->clip_starts[l][b]=x; p->clip_offsets[l][b]=0; return b;
+    p->clips[l][b]=pattern+1; p->clip_steps[l][b]=AUDIO_SOURCE(pattern)?(fabsf(length-clip_source_steps(p,pattern))<.0001f?0:length*15/audio_source_bpm(p,pattern-PATTERNS)):length; p->clip_starts[l][b]=x; p->clip_offsets[l][b]=0; return b;
 }
-static float source_steps(const Arrangement *a,const Project *p) { return AUDIO_SOURCE(a->source_pattern)?a->source_steps*p->bpm/15:a->source_steps; }
+static float source_steps(const Arrangement *a,const Project *p) { return AUDIO_SOURCE(a->source_pattern)?a->source_steps*audio_source_bpm(p,a->source_pattern-PATTERNS)/15:a->source_steps; }
 static int place_copy(Project *p,int lane,float start,int source,float length,float offset) {
     int slot=arrangement_place(p,lane,start,source,length);
     if(slot>=0) {
         p->clip_offsets[lane][slot]=offset;
-        if(AUDIO_SOURCE(source)) p->clip_steps[lane][slot]=fabsf(length-(clip_source_steps(p,source)-clip_offset_steps(p,lane,slot)))<.0001f?0:length*15/p->bpm;
+        if(AUDIO_SOURCE(source)) p->clip_steps[lane][slot]=fabsf(length-(clip_source_steps(p,source)-clip_offset_steps(p,lane,slot)))<.0001f?0:length*15/audio_source_bpm(p,source-PATTERNS);
     }
     return slot;
 }
@@ -50,17 +50,41 @@ void arrangement_press(Arrangement *a,Project *p,float x,float y,int right,int e
     if(x<0) { if(!additive) memset(a->selected,0,sizeof a->selected); a->gesture=TRACK_SELECT; arrangement_drag(a,p,x,y); return; }
     if(right) { a->gesture=ERASE_CLIPS; arrangement_drag(a,p,x,y); return; }
     if(additive) {
-        if(hit>=0) { a->selected[l][hit]^=1; a->source_pattern=p->clips[l][hit]-1; a->source_steps=AUDIO_SOURCE(a->source_pattern)?clip_length(p,l,hit)*15/p->bpm:clip_length(p,l,hit); a->source_offset=p->clip_offsets[l][hit]; }
+        if(hit>=0) { a->selected[l][hit]^=1; a->source_pattern=p->clips[l][hit]-1; a->source_steps=AUDIO_SOURCE(a->source_pattern)?clip_length(p,l,hit)*15/audio_source_bpm(p,a->source_pattern-PATTERNS):clip_length(p,l,hit); a->source_offset=p->clip_offsets[l][hit]; }
         else a->gesture=BOX_SELECT;
         return;
     }
+    if(a->tool==CUT) {
+        if(hit<0) return;
+        float split=snapped(a,x),start=p->clip_starts[l][hit],length=clip_length(p,l,hit);
+        float left=(split-start)*STEPS,right_length=length-left;
+        if(left<=.0001f || right_length<=.0001f) return;
+        int slot=0; while(slot<CLIPS && p->clips[l][slot]) slot++;
+        if(slot==CLIPS) return;
+        int source=p->clips[l][hit]-1;
+        float seconds=AUDIO_SOURCE(source)?15/audio_source_bpm(p,source-PATTERNS):1;
+        p->clips[l][slot]=p->clips[l][hit]; p->clip_starts[l][slot]=split;
+        p->clip_offsets[l][slot]=AUDIO_SOURCE(source)?audio_clip_position(p,l,hit,split*STEPS)/RATE:p->clip_offsets[l][hit]+left;
+        p->clip_steps[l][hit]=left*(AUDIO_SOURCE(source)?seconds:1);
+        p->clip_steps[l][slot]=right_length*(AUDIO_SOURCE(source)?seconds:1);
+        memset(a->selected,0,sizeof a->selected); a->selected[l][hit]=a->selected[l][slot]=1;
+        return;
+    }
+    if(a->tool==STRETCH && (hit<0 || !edge || !AUDIO_SOURCE(p->clips[l][hit]-1))) return;
     if(a->source_pattern<PATTERNS && a->source_pattern!=pattern) { a->source_pattern=pattern; a->source_steps=p->pattern_steps[pattern]; a->source_offset=0; }
     if(hit>=0) {
-        a->source_pattern=p->clips[l][hit]-1; a->source_steps=AUDIO_SOURCE(a->source_pattern)?clip_length(p,l,hit)*15/p->bpm:clip_length(p,l,hit);
+        a->source_pattern=p->clips[l][hit]-1; a->source_steps=AUDIO_SOURCE(a->source_pattern)?clip_length(p,l,hit)*15/audio_source_bpm(p,a->source_pattern-PATTERNS):clip_length(p,l,hit);
         a->source_offset=p->clip_offsets[l][hit];
         if(edge) {
             a->edge=edge; a->size_start=p->clip_starts[l][hit]; a->size_length=clip_length(p,l,hit); a->size_offset=clip_offset_steps(p,l,hit); a->size_cap=p->clip_steps[l][hit];
-            a->gesture=SIZE_CLIP; memset(a->selected,0,sizeof a->selected); a->selected[l][hit]=1; return;
+            a->gesture=a->tool==STRETCH?STRETCH_CLIP:SIZE_CLIP;
+            if(a->gesture==STRETCH_CLIP) {
+                int c=a->source_pattern-PATTERNS;
+                a->size_time=p->sampler[c].time; a->size_seconds=p->audio_seconds[c];
+                memcpy(a->offsets,p->clip_offsets,sizeof a->offsets);
+                memcpy(a->lengths,p->clip_steps,sizeof a->lengths);
+            }
+            memset(a->selected,0,sizeof a->selected); a->selected[l][hit]=1; return;
         }
     }
     if(a->tool==SELECT && hit<0) { memset(a->selected,0,sizeof a->selected); a->gesture=BOX_SELECT; return; }
@@ -83,17 +107,30 @@ void arrangement_press(Arrangement *a,Project *p,float x,float y,int right,int e
 void arrangement_drag(Arrangement *a,Project *p,float x,float y) {
     int l=clamp((int)floorf(y),0,LANES-1);
     float previous=a->now_x; a->now_x=x; a->now_y=y;
-    if(a->gesture==SIZE_CLIP) {
+    if(a->gesture==STRETCH_CLIP) {
+        int lane=a->lane,b=a->bar,c=a->source_pattern-PATTERNS;
+        float delta=snap_round((x-a->x)*STEPS,a->snap);
+        if(a->edge<0) delta=fmaxf(delta,-a->size_start*STEPS);
+        float n=fmaxf(.01f,a->size_length+(a->edge<0?-delta:delta));
+        float time=fmaxf(.25f,fminf(4,a->size_time*n/a->size_length));
+        float ratio=time/a->size_time;
+        p->sampler[c].time=time; p->audio_seconds[c]=a->size_seconds*ratio;
+        for(int l=0;l<LANES;l++) for(int j=0;j<CLIPS;j++) if(p->clips[l][j]==a->source_pattern+1) {
+            p->clip_offsets[l][j]=a->offsets[l][j]*ratio;
+            p->clip_steps[l][j]=a->lengths[l][j]*ratio;
+        }
+        p->clip_starts[lane][b]=a->edge<0?fmaxf(0,a->size_start+(a->size_length-a->size_length*ratio)/STEPS):a->size_start;
+    } else if(a->gesture==SIZE_CLIP) {
         int lane=a->lane,b=a->bar; float start=a->size_start,q=quantum(a),offset=a->size_offset;
         if(fabsf(x-a->x)<.00001f) {
             p->clip_starts[lane][b]=start; p->clip_steps[lane][b]=a->size_cap;
-            p->clip_offsets[lane][b]=AUDIO_SOURCE(a->source_pattern)?offset*15/p->bpm*channel_speed(p,a->source_pattern-PATTERNS):offset;
-            a->source_offset=p->clip_offsets[lane][b]; a->source_steps=AUDIO_SOURCE(a->source_pattern)?a->size_length*15/p->bpm:a->size_length;
+            p->clip_offsets[lane][b]=AUDIO_SOURCE(a->source_pattern)?offset*15/audio_source_bpm(p,a->source_pattern-PATTERNS)*channel_speed(p,a->source_pattern-PATTERNS):offset;
+            a->source_offset=p->clip_offsets[lane][b]; a->source_steps=AUDIO_SOURCE(a->source_pattern)?a->size_length*15/audio_source_bpm(p,a->source_pattern-PATTERNS):a->size_length;
             return;
         }
-        float n=fmaxf(q,roundf((x-start)*STEPS/q)*q);
+        float n=fmaxf(q,snap_round((x-start)*STEPS,a->snap));
         if(a->edge<0) {
-            float delta=roundf((x-a->x)*STEPS/q)*q;
+            float delta=snap_round((x-a->x)*STEPS,a->snap);
             delta=fmaxf(-start*STEPS,fminf(a->size_length-fminf(q,a->size_length),delta));
             if(a->source_pattern>=AUTOMATION_SOURCE && delta<-offset) {
                 int index=a->source_pattern-AUTOMATION_SOURCE; float shift=-offset-delta;
@@ -105,14 +142,14 @@ void arrangement_drag(Arrangement *a,Project *p,float x,float y) {
             }
             delta=fmaxf(-offset,delta);
             p->clip_starts[lane][b]=start+delta/STEPS; offset+=delta; n=a->size_length-delta;
-            p->clip_offsets[lane][b]=AUDIO_SOURCE(a->source_pattern)?offset*15/p->bpm*channel_speed(p,a->source_pattern-PATTERNS):offset;
+            p->clip_offsets[lane][b]=AUDIO_SOURCE(a->source_pattern)?offset*15/audio_source_bpm(p,a->source_pattern-PATTERNS)*channel_speed(p,a->source_pattern-PATTERNS):offset;
         } else if(a->source_pattern<PATTERNS) n=fminf(fmaxf(q,clip_source_steps(p,a->source_pattern)-offset),n);
         float available=fmaxf(0,clip_source_steps(p,a->source_pattern)-offset);
-        p->clip_steps[lane][b]=AUDIO_SOURCE(a->source_pattern)?(fabsf(n-available)<.0001f?0:n*15/p->bpm):n;
+        p->clip_steps[lane][b]=AUDIO_SOURCE(a->source_pattern)?(fabsf(n-available)<.0001f?0:n*15/audio_source_bpm(p,a->source_pattern-PATTERNS)):n;
         a->source_offset=p->clip_offsets[lane][b];
-        a->source_steps=AUDIO_SOURCE(a->source_pattern)?n*15/p->bpm:n;
+        a->source_steps=AUDIO_SOURCE(a->source_pattern)?n*15/audio_source_bpm(p,a->source_pattern-PATTERNS):n;
     } else if(a->gesture==MOVE_CLIPS) {
-        float dx=snapped(a,x)-snapped(a,a->x); int dy=l-a->lane;
+        float dx=a->snap>0?snapped(a,x)-snapped(a,a->x):x-a->x; int dy=l-a->lane;
         float first=INFINITY; int top=LANES,bottom=-1;
         for(int i=0;i<LANES;i++) for(int j=0;j<CLIPS;j++) if(a->selected[i][j]) {
             first=fminf(first,a->starts[i][j]); if(i<top) top=i; if(i>bottom) bottom=i;

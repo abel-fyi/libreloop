@@ -39,9 +39,9 @@ build, test and launch commands above. CMake builds the bundled graphics
 dependencies and links the system CoreAudio frameworks; no system raylib
 installation is needed. Build natively on either Apple Silicon or Intel.
 
-The macOS build produces `build/libreloop.app`, with its generated demo samples,
-font and license notices inside the bundle. Launch it with `open build/libreloop.app`.
-For command-line smoke checks use `build/libreloop.app/Contents/MacOS/libreloop --smoke`.
+The macOS build produces `build/LibreLoop.app`, with its generated demo samples,
+font and license notices inside the bundle. Launch it with `open build/LibreLoop.app`.
+For command-line smoke checks use `build/LibreLoop.app/Contents/MacOS/LibreLoop --smoke`.
 The bundle can be moved independently of the checkout. It is unsigned; signing
 and notarization are still required for a public macOS release. Imported sample
 paths in saved projects remain absolute.
@@ -76,7 +76,7 @@ cmake --build build --parallel
 ## Tests
 
 The desktop build has fifteen CTest tests: engine, automation, pitch_automation, arrangement, audio_clip,
-clip_trim, sampler, stereo, recording, navigation, waveform, windows, decoder, audio, and browser.
+clip_trim, sampler, tempo, stereo, recording, navigation, waveform, windows, decoder, audio, and browser.
 They exercise rendering, project validation and backward
 compatibility, crop boundaries, selection and movement, sampler processing,
 window ownership and stacking, sample decoding, and Browser persistence.
@@ -108,7 +108,7 @@ configuration on Linux.
 ## Visual checks
 
 `./build/libreloop --smoke` writes `libreloop-smoke.png` and three
-`libreloop-view-*.png` screenshots, then exits. It requires a display;
+`libreloop-view-*.png` screenshots, then exits. Smoke checks force opaque windows regardless of saved appearance preferences. It requires a display;
 Xvfb works for a headless run. For interactive changes, check stacking,
 resizing, capture during drags, hover help, and the affected playback behavior.
 Use an isolated configuration and audio output when automating GUI checks.
@@ -140,3 +140,8 @@ The callback continues playback when its UI mailbox is busy, applying pending
 edits on a later buffer. Automated callback and rendering checks do not establish
 dropout-free physical output; sustained interactive playback and device lifecycle
 checks remain necessary on both platforms.
+
+The in-app file chooser uses portable C directory enumeration and the existing
+raylib UI. There are no GTK, Zenity, KDialog or native file-panel dependencies.
+Chooser tests cover navigation, filtering, filename validation and overwrite
+confirmation; opening the chooser does not create or modify files.

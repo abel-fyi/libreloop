@@ -18,6 +18,7 @@ uint64_t audio_position(void);
 double audio_visual_position(void);
 void audio_meters(float peaks[INSERTS+1][2]);
 int audio_active(void);
+void audio_channel_activity(uint8_t active[CHANNELS],uint8_t triggered[CHANNELS]);
 void audio_track_activity(uint8_t active[LANES],uint8_t triggered[LANES]);
 int audio_devices(int capture,char names[][128],int capacity);
 /* One post-fader stereo take per bus. Start/end run on the UI thread. */

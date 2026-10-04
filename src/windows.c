@@ -11,6 +11,8 @@ void windows_init(Windows *w,float width,float height) {
         {{left+(available-mixer_width)/2,height-324,mixer_width,300},{0},460,300,1,0,0},
         {{(width-560)/2,(height-340)/2,560,340},{0},520,300,0,0,0}},
         .order={1,2,3,4,0},.owner=-1,.grab=-1,.title_id=-1};
+    w->editors[1].restore=w->editors[1].rect;
+    w->editors[1].maximized=1;
 }
 int windows_hit(const Windows *w,float x,float y) {
     for(int i=EDITORS-1;i>=0;i--) { int id=w->order[i]; if(w->editors[id].visible && inside(w->editors[id].rect,x,y)) return id; }
@@ -46,7 +48,7 @@ void windows_update(Windows *w,Rect d,float x,float y,int pressed,int down,doubl
             int control=x>=r.x+r.w-54;
             int maximize=(x>=r.x+r.w-36 && x<r.x+r.w-18) ||
                 (!control && time>0 && w->title_id==id && time-w->title_time<.3 && fabsf(x-w->title_x)<4 && fabsf(y-w->title_y)<4);
-            int rack_control=id==0 && x>=r.x+r.w-90 && x<r.x+r.w-54;
+            int rack_control=id==0 && x>=r.x+r.w-79 && x<r.x+r.w-65;
             if(rack_control) { w->grab=-1; w->title_id=-1; }
             else if(maximize) {
                 if(e->maximized) { e->rect=e->restore; e->maximized=0; }
@@ -60,7 +62,7 @@ void windows_update(Windows *w,Rect d,float x,float y,int pressed,int down,doubl
         } else if(!e->maximized && x>r.x+r.w-12 && y>r.y+r.h-12) {
             w->grab=id; w->resize=1; w->dx=r.x+r.w-x; w->dy=r.y+r.h-y;
         }
-        if(y<r.y+TITLE && !(id==0 && x>=r.x+r.w-90 && x<r.x+r.w-54)) id=-1;
+        if(y<r.y+TITLE && !(id==0 && x>=r.x+r.w-79 && x<r.x+r.w-65)) id=-1;
     }
     w->owner=w->grab>=0?-1:id;
 }

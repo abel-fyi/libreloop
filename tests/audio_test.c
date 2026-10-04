@@ -26,11 +26,55 @@ static void setup(Sample source) {
 int main(void) {
     float pcm[2048];
     for(unsigned i=0;i<1024;i++) { pcm[i*2]=.8f*sinf(i*.1f); pcm[i*2+1]=-.6f*cosf(i*.07f); }
-    setup((Sample){pcm,1024,2}); float out[128]; callback(NULL,out,NULL,64);
+    float out[128];
+    /* Song end wraps audio and the displayed cursor to zero, not the seek marker. */
+    setup((Sample){pcm,1024,2}); audio_update(&fixture,1,1,0,1,1,2,0,0);
+    double step_frames=RATE*60.0/fixture.bpm/4;
+    CHECK(player.frame==(uint64_t)llround(2*step_frames));
+    player.frame=(uint64_t)llround(song_steps(&fixture)*step_frames)-1;
+    callback(NULL,out,NULL,64); CHECK(player.frame==63 && view.visual_start==0 && player.start_step==2);
+    audio_update(&fixture,1,1,0,1,1,2,2,3);
+    player.frame=(uint64_t)llround(3*step_frames)-1;
+    callback(NULL,out,NULL,64); CHECK(player.frame==(uint64_t)llround(2*step_frames)+63 && view.visual_start==2*step_frames);
+    /* BPM mailbox edits retain PCM and voices, and preserve musical position. */
+    static float fitted_pcm[4096*2];
+    for(unsigned i=0;i<4096;i++) { fitted_pcm[i*2]=.3f*sinf(i*.04f); fitted_pcm[i*2+1]=-.7f*fitted_pcm[i*2]; }
+    for(int mode=0;mode<2;mode++) {
+        setup((Sample){fitted_pcm,4096,2});
+        fixture.sampler[0].fit_bpm=120; fixture.sampler[0].stretch=mode;
+        audio_update(&fixture,1,1,0,0,1,0,0,0); callback(NULL,out,NULL,64);
+        for(int edit=0;edit<12;edit++) {
+            double beat=player.frame*fixture.bpm/(RATE*15.0),source=player.voices[0].position;
+            float last=out[126]; fixture.bpm=edit%2?60:240;
+            audio_update(&fixture,1,1,0,0,1,0,0,0);
+            CHECK(!player.audio_resync && samples[0].data==fitted_pcm);
+            callback(NULL,out,NULL,64);
+            CHECK(!player.channel_trigger[0] && player.voices[0].position>source);
+            CHECK(fabs(player.frame*fixture.bpm/(RATE*15.0)-beat-64*fixture.bpm/(RATE*15.0))<.001);
+            CHECK(fabs(view.visual_frame*fixture.bpm/(RATE*15.0)-beat)<.001);
+            for(int i=0;i<64;i++) { CHECK(fabsf(out[i*2]-last)<.05f); last=out[i*2]; }
+        }
+    }
+    setup((Sample){pcm,1024,2}); callback(NULL,out,NULL,64);
     CHECK(!memcmp(out,pcm,sizeof out)); /* Device output is transparent at unity. */
+    uint8_t channel_active_ui[CHANNELS],channel_triggered[CHANNELS];
+    audio_channel_activity(channel_active_ui,channel_triggered);
+    CHECK(channel_active_ui[0] && channel_triggered[0]);
+    audio_channel_activity(channel_active_ui,channel_triggered); CHECK(!channel_triggered[0]);
+    callback(NULL,out,NULL,64); audio_channel_activity(channel_active_ui,channel_triggered);
+    CHECK(channel_active_ui[0] && !channel_triggered[0]);
+    /* A complete short note between UI frames still produces a flash. */
+    setup((Sample){pcm,4,2}); callback(NULL,out,NULL,64);
+    audio_channel_activity(channel_active_ui,channel_triggered); CHECK(channel_triggered[0]);
+    callback(NULL,out,NULL,64); audio_channel_activity(channel_active_ui,channel_triggered);
+    CHECK(!channel_active_ui[0] && !channel_triggered[0]);
+    setup((Sample){pcm,1024,2}); callback(NULL,out,NULL,64);
+    audio_channel_activity(channel_active_ui,channel_triggered);
     /* A UI lock may postpone a volume edit, but never silence or rewind playback. */
     ready=1; ma_atomic_device_state_set(&device.state,ma_device_state_started);
     audio_key(127,0,60,1); CHECK(audio_key_position(127,0)==0);
+    callback(NULL,out,NULL,64); audio_channel_activity(channel_active_ui,channel_triggered);
+    CHECK(channel_active_ui[0] && channel_triggered[0]);
     audio_key(127,0,60,0);
     /* Drain the key events separately before testing exact song samples. */
     pthread_mutex_lock(&mutex); consume_commands(); memset(live.voices,0,sizeof live.voices); pthread_mutex_unlock(&mutex);
@@ -66,6 +110,33 @@ int main(void) {
     ready=0; ma_atomic_device_state_set(&device.state,ma_device_state_uninitialized);
     float bad[]={NAN,INFINITY}; setup((Sample){bad,1,2}); callback(NULL,out,NULL,1);
     CHECK(out[0]==0 && out[1]==0);
+    /* Sample replacements and arrangement edits catch up inside an already playing clip. */
+    setup((Sample){pcm,1024,2}); callback(NULL,out,NULL,64);
+    uint64_t edit_frame=player.frame; int64_t edit_tick=player.last_step;
+    audio_sample(0,(Sample){pcm+40,1004,2}); callback(NULL,out,NULL,16);
+    CHECK(player.frame==edit_frame+16 && player.last_step==edit_tick);
+    CHECK(out[0]==pcm[(edit_frame+20)*2]); /* Resume at the song cursor, not frame zero. */
+    fixture.clip_starts[0][0]=.0005f; edit_frame=player.frame;
+    audio_update(&fixture,1,1,0,0,1,0,0,0); callback(NULL,out,NULL,64);
+    CHECK(player.frame==edit_frame+64 && fabsf(out[0]-pcm[(edit_frame-48+20)*2])<1e-6);
+    fixture.clip_starts[0][0]=.5f;
+    audio_update(&fixture,1,1,0,0,1,0,0,0); callback(NULL,out,NULL,64); CHECK(out[0]==0);
+    fixture.clips[0][0]=0; fixture.clips[2][0]=PATTERNS+1; fixture.clip_starts[2][0]=0;
+    edit_frame=player.frame; audio_update(&fixture,1,1,0,0,1,0,0,0); callback(NULL,out,NULL,64);
+    CHECK(out[0]==pcm[(edit_frame+20)*2] && player.lane_active[2] && !player.lane_active[0]);
+    fixture.clip_offsets[2][0]=20.f/RATE; edit_frame=player.frame;
+    audio_update(&fixture,1,1,0,0,1,0,0,0); callback(NULL,out,NULL,64);
+    CHECK(fabsf(out[0]-pcm[(edit_frame+40)*2])<1e-6);
+    /* Shortening an active clip stops it at the edited end; extending it resumes it. */
+    fixture.clip_steps[2][0]=1.f/RATE; audio_update(&fixture,1,1,0,0,1,0,0,0);
+    callback(NULL,out,NULL,64); CHECK(out[0]==0);
+    fixture.clip_steps[2][0]=0; audio_update(&fixture,1,1,0,0,1,0,0,0); callback(NULL,out,NULL,64); CHECK(out[0]!=0);
+    fixture.channel_count=2; Sample unaffected[CHANNELS]={{pcm+40,1004,2},{flat,1024,2}};
+    audio_channels(&fixture,unaffected);
+    player.voices[127]=(Voice){1,100,1,-1,.2f,6,0}; live.voices[127]=(Voice){1,100,1,-1,.2f,-1,0};
+    audio_sample(0,(Sample){pcm+40,900,2}); callback(NULL,out,NULL,1);
+    CHECK(player.voices[127].position==101 && live.voices[127].position==101);
+    CHECK(player.voices[127].gain==.2f && live.voices[127].gain==.2f);
     /* A real producer/consumer exchange acknowledges replacements before free. */
     float *data=malloc(RATE*2*sizeof(float)); CHECK(data);
     for(unsigned i=0;i<RATE*2;i++) data[i]=.1f;

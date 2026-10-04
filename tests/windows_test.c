@@ -4,6 +4,7 @@
 #define CHECK(x) do { if(!(x)) { fprintf(stderr,"Failed line %d: %s\n",__LINE__,#x); return 1; } } while(0)
 int main(void) {
     Windows w; Rect d={180,42,1020,609}; windows_init(&w,1200,675);
+    CHECK(w.editors[1].visible && w.editors[1].maximized && w.editors[1].restore.w>0);
     Rect start=w.editors[0].rect;
     CHECK(start.x>=392 && w.editors[3].rect.x>=392);
     CHECK(windows_hit(&w,start.x+50,start.y+60)==0); /* Rack occludes Playlist. */

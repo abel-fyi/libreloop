@@ -21,7 +21,7 @@ On Linux, launch the executable:
 On macOS, launch the app bundle:
 
 ```sh
-open build/libreloop.app
+open build/LibreLoop.app
 ```
 
 The macOS bundle includes its demo samples and font and can be moved out of

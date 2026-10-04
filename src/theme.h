@@ -7,6 +7,7 @@ typedef struct {
     Color hover,active_hover,selected_text,border,title,title_focus;
     Color disabled,step_alt,track,clip[2],note_drag,piano_white,patt;
     Color grid_major,grid_minor,signal,loop;
+    Color piano_black,piano_c,piano_row[2];
     Color meter_low,meter_mid,meter_high;
     Color rack,mixer,effects,browser,note,step_on[2],waveform;
     Color knob,swing,pan_left,pan_right,stereo,mono;

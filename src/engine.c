@@ -6,19 +6,31 @@
 #include <string.h>
 
 const uint32_t pattern_palette[PATTERNS]={0x697980,0x786d80,0x687f70,0x8b7861,0x6a7f91,0x897079,0x85845f,0x6e8582};
-const char *snap_names[SNAP_COUNT]={"Auto","Bar","Beat","1/2 beat","1/3 beat","Step","1/6 beat","1/2 step","1/3 step","1/4 step"};
-float snap_interval(int mode,float pixels) {
-    const float intervals[]={0,16,4,2,4.f/3,1,2.f/3,.5f,1.f/3,.25f};
-    if(mode>SNAP_AUTO && mode<SNAP_COUNT) return intervals[mode];
-    const float automatic[]={.25f,.5f,1,2,4,16};
-    for(int i=0;i<6;i++) if(automatic[i]*pixels>=12) return automatic[i];
-    return powf(2,ceilf(log2f(12/fmaxf(pixels,1e-30f))));
+float grid_interval(float pixels) {
+    TimelineGrid grid=timeline_grid_layout(pixels);
+    return grid.lines>0?grid.lines:grid.labels;
 }
+float snap_floor(float value,float interval) { return interval>0?floorf(value/interval)*interval:value; }
+float snap_round(float value,float interval) { return interval>0?roundf(value/interval)*interval:value; }
 void timeline_zoom(float *span,float *start,float wheel,float anchor,float unit) {
     (void)unit;
     float next=*span*expf(-wheel*logf(1.08f));
     if(!isfinite(next) || next<=0 || !isfinite(1/next)) return;
     *start=fmaxf(0,*start+anchor*(*span-next)); *span=next;
+}
+TimelineGrid timeline_grid_layout(float pixels) {
+    TimelineGrid grid={0,STEPS,0};
+    if(!isfinite(pixels) || pixels<=0) return grid;
+    float bar=STEPS*pixels;
+    while(grid.labels*pixels+.001f<30 && grid.labels<1e30f) grid.labels*=2;
+    if(bar+.001f>=12) {
+        grid.lines=.25f;
+        while(grid.lines*pixels+.001f>=32) grid.lines*=.5f;
+        while(grid.lines*pixels+.001f<16 && grid.lines<STEPS) grid.lines*=2;
+    }
+    /* Four-bar blocks survive after fine lines disappear, then fade at overview scale. */
+    grid.band_alpha=.09f*fminf(1,fmaxf(0,(bar-2)/2));
+    return grid;
 }
 float timeline_thumb(float width,float span,float range) { return fminf(width,fmaxf(24,width*span/range)); }
 float gain_db(float gain) { return gain>0?20*log10f(gain):-INFINITY; }
@@ -190,19 +202,19 @@ void samples_default(Sample s[CHANNELS]) {
 void player_reset(Player *p) { memset(p,0,sizeof *p); p->last_step=-1; }
 void player_seek(Player *p,const Project *pr,float step) {
     p->start_step=isfinite(step)?fmaxf(0,step):0;
-    p->frame=(uint64_t)llround(p->start_step*RATE*60.0/pr->bpm/4); p->last_step=-1;
+    p->frame=(uint64_t)llround(p->start_step*RATE*60.0/pr->bpm/4); p->last_step=-1; p->clock_bpm=pr->bpm;
     memset(p->voices,0,sizeof p->voices);
 }
 float channel_speed(const Project *p,int channel) { return p->channel_pitch[channel]?powf(2,p->channel_pitch[channel]*p->pitch_range[channel]/12):1; }
 float clip_source_steps(const Project *p,int source) {
     if(source<0 || source>=SOURCES) return 0;
     if(source>=AUTOMATION_SOURCE) return source-AUTOMATION_SOURCE<p->automation_count?p->automations[source-AUTOMATION_SOURCE].steps:0;
-    return source<PATTERNS?p->pattern_steps[source]:p->audio_seconds[source-PATTERNS]*p->bpm/15/channel_speed(p,source-PATTERNS);
+    return source<PATTERNS?p->pattern_steps[source]:p->audio_seconds[source-PATTERNS]*audio_source_bpm(p,source-PATTERNS)/15/channel_speed(p,source-PATTERNS);
 }
 float clip_offset_steps(const Project *p,int lane,int clip) {
     int source=p->clips[lane][clip]-1;
     float offset=p->clip_offsets[lane][clip];
-    return AUDIO_SOURCE(source)?offset*p->bpm/15/channel_speed(p,source-PATTERNS):offset;
+    return AUDIO_SOURCE(source)?offset*audio_source_bpm(p,source-PATTERNS)/15/channel_speed(p,source-PATTERNS):offset;
 }
 float clip_length(const Project *p,int lane,int bar) {
     float length=p->clip_steps[lane][bar]; int source=p->clips[lane][bar]-1;
@@ -237,9 +249,10 @@ static void trigger(Player *p,const Project *pr,int pat,int64_t tick,float remai
         double elapsed=(tick-onset)/96.0;
         if(onset!=tick && !(entering && n.length && elapsed>0 && elapsed<n.length)) continue;
         int v=0; while(v<127 && p->voices[v].gain!=0) v++;
+        p->channel_trigger[c]=1;
         if(lane>=0 && pr->volume[c]>0) p->lane_trigger[lane]=1;
         double speed=pow(2,((int)n.pitch-60)/12.0),frames_per_step=RATE*60.0/pr->bpm/4;
-        p->voices[v]=(Voice){c,elapsed*frames_per_step*speed*channel_speeds[c]*master_speed,speed,n.length?fmin(n.length-elapsed,remaining)*frames_per_step:-1,n.velocity/127.f,lane};
+        p->voices[v]=(Voice){.channel=c,.position=elapsed*frames_per_step*speed*channel_speeds[c]*master_speed*(pr->sampler[c].fit_bpm?pr->bpm/pr->sampler[c].fit_bpm:1),.speed=speed,.remaining=n.length?fmin(n.length-elapsed,remaining)*frames_per_step:-1,.gain=n.velocity/127.f,.lane=lane};
     }
 }
 static int active_voices(Player *p,Player *live,Voice *active[256]) {
@@ -249,11 +262,22 @@ static int active_voices(Player *p,Player *live,Voice *active[256]) {
     return count;
 }
 static void render_audio(Player *p,Player *live,const Project *pr,const Sample s[CHANNELS],float *out,unsigned frames,int sequence,float peaks[INSERTS+1][2],const MixerIO *io) {
+    memset(p->channel_active,0,sizeof p->channel_active); memset(p->channel_trigger,0,sizeof p->channel_trigger);
     memset(p->lane_active,0,sizeof p->lane_active); memset(p->lane_trigger,0,sizeof p->lane_trigger);
+    int tempo_changed=sequence && p->clock_bpm && p->clock_bpm!=pr->bpm;
+    if(tempo_changed) {
+        double ratio=p->clock_bpm/pr->bpm;
+        p->frame=llround(p->frame*ratio);
+        for(int v=0;v<128;v++) if(p->voices[v].gain && p->voices[v].remaining>=0) p->voices[v].remaining*=ratio;
+    }
+    p->clock_bpm=pr->bpm;
+    int resync=sequence && p->song && p->audio_resync;
+    p->audio_resync=0;
+    if(resync || tempo_changed) for(int v=0;v<128;v++) if(p->voices[v].audio_clip && (resync || !pr->sampler[p->voices[v].channel].fit_bpm)) p->voices[v].gain=0;
     Voice *active[256]; int count=active_voices(p,live,active);
     if(!sequence && !count && !io) { p->frame+=frames; return; }
     int loop=isfinite(p->loop_start) && isfinite(p->loop_end) && p->loop_start>=0 && p->loop_end>p->loop_start;
-    float begin=loop?p->loop_start:p->start_step;
+    float begin=loop?p->loop_start:p->song?0:p->start_step;
     float lengths[LANES][CLIPS],song_end=STEPS;
     if(sequence && p->song) for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) if(pr->clips[l][b]) {
         lengths[l][b]=clip_length(pr,l,b); song_end=fmaxf(song_end,pr->clip_starts[l][b]*STEPS+lengths[l][b]);
@@ -357,24 +381,28 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
             }
             if(master_changed) { bus_left[0]=bus_right[0]=master_controls[3]>=.5f?0:master_controls[0]; bus_width[0]=master_controls[1]; if(master_pitch_changed) pitch_speed=pow(2,master_controls[2]/12); }
         }
-        if(sequence && step!=p->last_step) {
-            int entered=p->last_step<0; p->last_step=step;
+        if(sequence && (step!=p->last_step || resync || tempo_changed)) {
+            int tick=step!=p->last_step,entered=p->last_step<0; p->last_step=step;
             if(p->song) {
                 for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) {
                     int pat=pr->clips[l][b]; if(!pat || pat>AUTOMATION_SOURCE || (pat<=PATTERNS && !lane_enabled[l])) continue;
                     int64_t local=step-(int64_t)llround(pr->clip_starts[l][b]*STEPS*96.0); float length=lengths[l][b];
                     if(pat>PATTERNS) {
                         int c=pat-PATTERNS-1;
-                        if(local>=0 && local<length*96 && (local==0 || entered)) {
+                        double song_position=p->frame/(stepframes*96),clip_start=pr->clip_starts[l][b]*STEPS;
+                        int reconcile=resync || (tempo_changed && !pr->sampler[c].fit_bpm);
+                        int inside=reconcile?(song_position>=clip_start && song_position<clip_start+length):(local>=0 && local<length*96);
+                        if(inside && (reconcile || (tick && (local==0 || entered)))) {
                             int v=0; while(v<127 && p->voices[v].gain) v++;
                             double position=fmax(0,p->frame-pr->clip_starts[l][b]*STEPS*stepframes*96);
                             if(lane_enabled[l] && (gain_left[c]>0 || gain_right[c]>0)) p->lane_trigger[l]=1;
-                            p->voices[v]=(Voice){c,audio_clip_position(pr,l,b,p->frame/(stepframes*96)),1,pr->clip_steps[l][b]?fmin(length*stepframes*96-position,end_frame-p->frame):-1,1,l};
+                            p->channel_trigger[c]=1;
+                            p->voices[v]=(Voice){.channel=c,.position=audio_clip_position(pr,l,b,p->frame/(stepframes*96)),.speed=1,.remaining=fmin(length*stepframes*96-position,end_frame-p->frame),.gain=1,.lane=l,.audio_clip=1};
                         }
-                    } else if(local>=0 && local<length*96 && local+pr->clip_offsets[l][b]*96<pr->pattern_steps[pat-1]*96) trigger(p,pr,pat-1,local+(int64_t)llround(pr->clip_offsets[l][b]*96),fminf(length-local/96.f,end-step/96.f),l,pr->clip_offsets[l][b]>0 && (local==0 || entered),master_controls[4],speed,pitch_speed,channel_mutes);
+                    } else if(tick && local>=0 && local<length*96 && local+pr->clip_offsets[l][b]*96<pr->pattern_steps[pat-1]*96) trigger(p,pr,pat-1,local+(int64_t)llround(pr->clip_offsets[l][b]*96),fminf(length-local/96.f,end-step/96.f),l,pr->clip_offsets[l][b]>0 && (local==0 || entered),master_controls[4],speed,pitch_speed,channel_mutes);
                 }
             } else trigger(p,pr,p->pattern,step,end-step/96.f,-1,0,master_controls[4],speed,pitch_speed,channel_mutes);
-            count=active_voices(p,live,active);
+            count=active_voices(p,live,active); resync=tempo_changed=0;
         }
         for(int at=0;at<buses_count;at++) buses[order[at]][0]=buses[order[at]][1]=0;
         if(io && io->input) {
@@ -383,20 +411,23 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
         }
         for(int v=0;v<count;v++) {
             Voice *voice=active[v]; if(!voice->gain) continue;
-            int c=voice->channel; if(c>=pr->channel_count || voice->position>=s[c].frames) { voice->gain=0; continue; } unsigned i=(unsigned)voice->position;
+            int c=voice->channel; if(c>=pr->channel_count || voice->position>=s[c].frames) { voice->gain=0; continue; }
             float gain=voice->gain;
+            if(pr->sampler[c].fit_bpm) {
+                double rate=voice->tempo_rate?voice->tempo_rate:pr->bpm/pr->sampler[c].fit_bpm;
+                gain*=fmin(1,(s[c].frames-voice->position)/(rate*voice->speed*pitch_speed*speed[c]*RATE*.005));
+            }
             if(voice->remaining>=0) {
                 gain*=fminf(1,voice->remaining/(RATE*.005f));
                 if(--voice->remaining<=0) voice->gain=0;
             }
             if(sequence && p->song && voice->lane>=0 && voice->lane<LANES && !lane_enabled[voice->lane]) gain=0;
+            if(gain>0 && !pr->master_mute && (gain_left[c]>0 || gain_right[c]>0)) p->channel_active[c]=1;
             int id=pr->route[c];
-            for(unsigned side=0;side<2;side++) {
-                float a=sample_at(s[c],i,side),b=sample_at(s[c],i+1,side);
-                float x=(a+(b-a)*(voice->position-i))*gain;
-                buses[id][side]+=x*(side?gain_right[c]:gain_left[c]);
-            }
-            voice->position+=voice->speed*pitch_speed*speed[c];
+            float stereo[2];
+            double rate=pr->sampler[c].fit_bpm?pr->bpm/pr->sampler[c].fit_bpm:1;
+            voice_tempo_sample(voice,s[c],voice->speed*pitch_speed*speed[c],rate,pr->sampler[c].fit_bpm && pr->sampler[c].stretch,stereo);
+            for(unsigned side=0;side<2;side++) buses[id][side]+=stereo[side]*gain*(side?gain_right[c]:gain_left[c]);
         }
         for(int at=0;at<buses_count;at++) {
             int id=order[at]; float l=buses[id][0]*bus_left[id],r=buses[id][1]*bus_right[id];
@@ -416,6 +447,7 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
         Voice voice=p->voices[v]; int l=voice.lane,c=voice.channel;
         if(voice.gain && l>=0 && l<LANES && c<pr->channel_count && voice.position<s[c].frames && lane_enabled[l] && (gain_left[c]>0 || gain_right[c]>0)) p->lane_active[l]=1;
     }
+    for(int c=0;c<pr->channel_count;c++) if(pr->master_mute || !(gain_left[c]>0 || gain_right[c]>0) || !s[c].frames) p->channel_trigger[c]=0;
     for(int l=0;l<LANES;l++) if(!lane_enabled[l] || pr->master_mute) p->lane_active[l]=p->lane_trigger[l]=0;
 }
 void render(Player *p,const Project *pr,const Sample s[CHANNELS],float *out,unsigned frames) {
@@ -467,7 +499,7 @@ int project_save(const char *path,const Project *p) {
     char tmp[4096]; if(snprintf(tmp,sizeof tmp,"%s.tmp",path)>=(int)sizeof tmp) return 0;
     FILE *f=fopen(tmp,"w"); if(!f) return 0;
     for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) if(!isfinite(p->clip_offsets[l][b]) || p->clip_offsets[l][b]<0 || p->clip_offsets[l][b]>1e15f) { fclose(f); remove(tmp); return 0; }
-    fprintf(f,"HOMEBEAT 30\n%.9g %.9g %d\n",p->bpm,p->master,p->channel_count);
+    fprintf(f,"HOMEBEAT 32\n%.9g %.9g %d\n",p->bpm,p->master,p->channel_count);
     for(int c=0;c<CHANNELS;c++) fprintf(f,"%.9g %.9g %u\n",p->volume[c],p->pan[c],p->mute[c]);
     for(int a=0;a<PATTERNS;a++) for(int c=0;c<CHANNELS;c++) for(int i=0;i<NOTES;i++) {
         Note n=p->notes[a][c][i]; fprintf(f,"%u %u %.9g %.9g\n",n.pitch,n.velocity,n.start,n.length);
@@ -506,6 +538,7 @@ int project_save(const char *path,const Project *p) {
         fprintf(f,"%u %u %u %.9g %d %u\n%s\n",a->target.parameter,a->target.owner,a->target.slot,a->steps,a->count,a->color,a->name);
         for(int n=0;n<a->count;n++) fprintf(f,"%.9g %.9g\n",a->points[n].step,a->points[n].value);
     }
+    for(int c=0;c<CHANNELS;c++) fprintf(f,"%.9g\n",p->sampler[c].fit_bpm);
     int ok=!ferror(f); if(fclose(f)) ok=0;
     if(ok && rename(tmp,path)==0) return 1;
     remove(tmp); return 0;
@@ -517,7 +550,7 @@ int project_load(const char *path,Project *p) {
     q.insert_count=4;
     for(int i=0;i<INSERTS;i++) q.insert_volume[i]=1;
     for(int c=0;c<4;c++) q.route[c]=c+1;
-    int ok=fscanf(f,"%31s %d",magic,&version)==2 && !strcmp(magic,"HOMEBEAT") && version>=1 && version<=30;
+    int ok=fscanf(f,"%31s %d",magic,&version)==2 && !strcmp(magic,"HOMEBEAT") && version>=1 && version<=32;
     ok=ok && fscanf(f,"%f %f",&q.bpm,&q.master)==2 && isfinite(q.bpm) && q.bpm>=30 && q.bpm<=300 && isfinite(q.master) && q.master>=0 && q.master<=(version>=18?MIXER_GAIN_MAX:1);
     if(version>=12) ok=ok && fscanf(f,"%d",&q.channel_count)==1 && q.channel_count>=0 && q.channel_count<=CHANNELS;
     int channels=version>=12?CHANNELS:4,inserts=version>=12?INSERTS:16,clips=version>=14?CLIPS:BARS;
@@ -618,6 +651,19 @@ int project_load(const char *path,Project *p) {
         }
         ok=ok && automation_valid(&q);
         for(int l=0;ok && l<LANES;l++) for(int b=0;ok && b<CLIPS;b++) if(q.clips[l][b]>AUTOMATION_SOURCE) ok=q.clips[l][b]<=AUTOMATION_SOURCE+q.automation_count;
+    }
+    if(version>=31) for(int c=0;ok && c<CHANNELS;c++) {
+        Sampler *s=&q.sampler[c];
+        ok=fscanf(f,"%f",&s->fit_bpm)==1;
+        ok=ok && sampler_valid(*s);
+    }
+    /* Version 31 stored BPM-fitted PCM lengths/offsets; restore reference seconds. */
+    if(version==31 && ok) for(int c=0;c<CHANNELS;c++) if(q.sampler[c].fit_bpm) {
+        float ratio=q.bpm/q.sampler[c].fit_bpm;
+        q.audio_seconds[c]*=ratio;
+        for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) if(q.clips[l][b]==PATTERNS+c+1) {
+            q.clip_steps[l][b]*=ratio; q.clip_offsets[l][b]*=ratio;
+        }
     }
     /* Version 23 imported full clips with a fixed cap; convert only that old layout. */
     if(version==23 && ok) for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) if(q.clips[l][b]>PATTERNS && q.clips[l][b]<=AUTOMATION_SOURCE) {
