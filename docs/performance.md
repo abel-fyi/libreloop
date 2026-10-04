@@ -53,23 +53,6 @@ An ASan/UBSan GUI check covers both palettes, menu dismissal, recoloring cached
 clip previews, editing after a switch, resizing, repeated switches, normal
 closure and loading the saved theme on restart.
 
-## Transparency toggle
-
-The updated build was compared with transparency off and on in the same dense
-32-channel scene. Six alternating runs (three per setting) used a hidden native
-Intel GPU window and forced continuous redraw. CPU was sampled after a
-three-second warm-up for six seconds. Median one-core CPU was 30.7% off and 29.7%
-on; resident memory was 64.8 MiB for both. Average FPS was 57.4 off and 57.7 on,
-including startup in the ten-second frame count. The observed differences are
-small relative to run-to-run variation; this test found no measurable CPU
-penalty from the toggle. It does not establish equal GPU power consumption.
-
-The existing surface draw calls use alpha blending when enabled; no additional
-render passes are added. Text, controls, waveforms and editing grids remain
-opaque. ASan/UBSan GUI checks cover switching alpha, retaining it across palette
-changes and restarts, old one-value preferences, recoloring previews, editing,
-resizing, repeated switches and normal resource cleanup.
-
 ## Audio renderer
 
 Offline rendering used 48 kHz stereo, 512-frame buffers, and 20 seconds of audio
@@ -131,7 +114,7 @@ idle event-wait behavior. Hidden meters do not keep the UI animating.
 ## Flat appearance
 
 Rounded/glossy surfaces and shadows have since been removed. The theme module
-now draws plain rectangles, retains dark/light palettes and optional transparency,
+now draws opaque rectangles, retains dark/light palettes,
 and no longer creates or caches surface textures. The Aero measurements above
 describe the previous implementation; the flat appearance has not yet been
 benchmarked separately.

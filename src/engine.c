@@ -5,7 +5,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-const uint32_t pattern_palette[PATTERNS]={0x697980,0x786d80,0x687f70,0x8b7861,0x6a7f91,0x897079,0x85845f,0x6e8582};
+// Twelve evenly spaced rainbow hues, in matched light and dark rows.
+// Each row shares OKLCH lightness and chroma to keep visual weight balanced.
+const uint32_t pattern_palette[COLOR_COUNT]={
+    0xd49e99,0xcfa487,0xc1ab7f,0xacb384,0x95b995,0x82bcac,0x7cbac2,0x86b5d2,0x9aaed8,0xb0a6d3,0xc4a0c5,0xd09db0,
+    0x855450,0x80593f,0x746036,0x62683b,0x4b6d4c,0x366f61,0x2f6e75,0x3c6983,0x516389,0x665c85,0x765678,0x815465
+};
 float grid_interval(float pixels) {
     TimelineGrid grid=timeline_grid_layout(pixels);
     return grid.lines>0?grid.lines:grid.labels;

@@ -9,7 +9,9 @@
 #define CHANNELS 32
 #define PATTERNS 8
 #define PATTERN_NAME 48
-extern const uint32_t pattern_palette[PATTERNS];
+#define COLOR_HUES 12
+#define COLOR_COUNT (COLOR_HUES*2)
+extern const uint32_t pattern_palette[COLOR_COUNT];
 #define STEPS 16
 #define NOTES 128
 #define LANES 100

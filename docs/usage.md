@@ -1,8 +1,9 @@
 # Using LibreLoop
 
-**VIEW → Dark / Light** changes the appearance. **VIEW → Transparency**
-toggles see-through window surfaces (off by default); text, controls and editing grids stay opaque.
-Both settings are remembered between launches. Preferences are stored in
+**VIEW → Dark / Light** changes the appearance. Both themes use neutral gray surfaces with a soft blue accent (`#516389`) by default. All window
+surfaces are opaque.
+**VIEW → Accent color** offers the shared rainbow palette for selection and active
+control accents. Theme and accent are remembered between launches. Preferences are stored in
 `$XDG_CONFIG_HOME/libreloop/theme.txt` (or `~/.config/libreloop/theme.txt`).
 
 Zooming reveals finer grid subdivisions; zooming out groups ruler numbers into
@@ -175,6 +176,11 @@ Mixer Master fader and does not affect WAV export.
   folder settings are read when no LibreLoop settings file exists.
 
 - FILE → New starts an empty project with one unloaded Sampler and selects Pattern mode.
+  New, Demo and Open ask Save / Discard / Cancel when the project has unsaved edits,
+  including projects opened from the Browser or dropped from the file manager.
+  A star beside the project filename marks unsaved edits. Cancelling the save chooser
+  keeps the current project. This guard applies to replacement; closing the app
+  still requires saving your work first.
   FILE → Demo loads the built-in eight-bar example and selects Song mode. Both stop
   playback and clear previews; save your work first. New uses `project.hbt`; Demo uses
   `demo.hbt`, rather than the previously opened project filename.
@@ -284,7 +290,7 @@ Knobs use a full-circle value sweep, except Swing, which keeps its horseshoe.
 Volume knobs mark unity (1 / 0 dB) with a fixed dot at three-quarters of the turn;
 the remaining quarter allows up to 1.25 (+1.94 dB). This applies to Channel Rack,
 sampler channel volume and listening output volume.
-Knobs show their value with an edge dot and a filling outer arc. Hovering smoothly reduces their size slightly; drag up/down to adjust or right-click for value entry and supported automation actions.
+Knobs show their value with an edge dot and a filling outer arc. Knob size stays fixed; drag up/down to adjust or right-click for value entry and supported automation actions.
 
 The Playlist, Rack and Piano Roll share the same compact ruler. Left-click or
 drag sets the playback start. Right-drag selects a red loop region; right-click
@@ -311,12 +317,12 @@ meters turn red to avoid clipping distortion. Saved projects
 retain their gain settings. The unlabeled orange knob at the right of the
 Channel Rack title bar controls Swing.
 
-The effect panel has an Input dropdown above its ten slots and an Output
-dropdown below. Device names come from miniaudio and refresh when opening a
-menu. Choices are saved per Mixer track. Input selects a capture device for
-recording; None records only the track's internal audio. Output device choices
-are saved for future external-output routing and do not switch playback hardware.
-Internal Mixer cable routing continues to work.
+The Mixer starts hidden; open it from the toolbar. Its compact side panel has
+an Input dropdown for recording and a short control legend. None records only
+the track's internal audio. Device names refresh when opening the menu; input
+choices are saved per track. External Output choices are hidden until external
+routing is implemented. Internal cable routing continues to work. The effects
+area shows one empty-state message until effects are available.
 
 To record a microphone, select its Input on a Mixer insert, click that insert's
 record-arm light so it turns red, then click the red Record button in the top bar.
@@ -342,8 +348,7 @@ memory as well as on disk; very long sessions depend on available RAM.
 
 The Playlist’s left pattern picker shows note previews; click to select a pattern,
 right-click for Rename, Color or Delete, and scroll the list when necessary. Right-click a Playlist
-track header to rename that track. Mixer slots have wet/dry knobs and enable lights;
-their saved settings are reserved for future effects and currently do not process audio.
+track header to rename that track. The Mixer effects area has no interactive placeholder controls.
 
 The top bar groups FILE, VIEW and HELP on the left. HELP → Keybindings opens
 the shortcut list. The arrow past a vertical marker toggles Follow playhead;
@@ -427,3 +432,28 @@ Fit to tempo changes playback rate smoothly while playing, without rebuilding th
 sample. Clip geometry and waveforms remain fixed at their reference tempo.
 Stretch preserves pitch using real-time grain alignment; large tempo changes
 can still change the texture of transients.
+
+The interface keeps its normal text and control sizes in small windows. Editors
+show less content rather than shrinking all controls; Help scrolls when needed,
+and file dialogs show fewer rows. Browser rows share a continuous background,
+with selection and hover cues. The initial layout shows Arrangement and Channel
+Rack; the Mixer opens on demand.
+
+Sampler **Pitch** changes playback speed using its Range. The separate
+**Pitch shift** control under Sample processing changes processed pitch.
+**Route** selects the Mixer destination (0 = Master). Resample/Stretch opens a
+two-choice menu. Sample region groups Start, Length and Trim above the waveform.
+Hovering even a short Arrangement clip shows its full source name and duration.
+
+Clip colors stay the same in Light and Dark themes. Clip titles, note previews,
+waveforms and automation curves use a contrasting foreground based on the clip
+color, including the source list and drag previews.
+
+The shared color picker has twelve evenly spaced rainbow hues in two rows:
+light fills with dark artwork, then matching dark fills with light artwork.
+Each row shares perceptual lightness and chroma. Pattern, audio, automation and
+accent color pickers all use this palette; saved project colors are retained.
+
+Light mode derives its surfaces, text, rulers and grid from the inverted dark
+brightness hierarchy. Clip colors, the chosen accent, piano key identities and
+semantic colors (such as recording red) retain their meaning in both themes.

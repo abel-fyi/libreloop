@@ -11,13 +11,12 @@ typedef struct {
     Color meter_low,meter_mid,meter_high;
     Color rack,mixer,effects,browser,note,step_on[2],waveform;
     Color knob,swing,pan_left,pan_right,stereo,mono;
-    int light,transparent;
+    int light;
 } Theme;
 extern Theme ui_theme;
 void theme_init(const char *browser_config);
 int theme_select(int light);
-int theme_transparency(int enabled);
-Color ui_glass(Color color,int opacity);
+int theme_accent(unsigned rgb);
 void ui_surface(Rectangle rect,Color color);
 void ui_frame(Rectangle rect);
 #endif

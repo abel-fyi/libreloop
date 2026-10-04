@@ -8,7 +8,7 @@ void windows_init(Windows *w,float width,float height) {
         {{left+(available-486)/2,156,486,168},{0},438,152,1,0,0},
         {{180,42,width-184,height-66},{0},440,240,1,0,0},
         {{320,128,760,430},{0},440,392,0,0,0},
-        {{left+(available-mixer_width)/2,height-324,mixer_width,300},{0},460,300,1,0,0},
+        {{left+(available-mixer_width)/2,height-324,mixer_width,300},{0},460,300,0,0,0},
         {{(width-560)/2,(height-340)/2,560,340},{0},520,300,0,0,0}},
         .order={1,2,3,4,0},.owner=-1,.grab=-1,.title_id=-1};
     w->editors[1].restore=w->editors[1].rect;
