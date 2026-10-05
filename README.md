@@ -24,6 +24,9 @@ On macOS, launch the app bundle:
 open build/LibreLoop.app
 ```
 
+On Linux, `cmake --install build --prefix "$HOME/.local"` installs the executable,
+resources, desktop entry and notices.
+
 The macOS bundle includes its demo samples and font and can be moved out of
 the checkout. It is currently unsigned.
 

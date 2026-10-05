@@ -12,6 +12,7 @@
 #define COLOR_HUES 12
 #define COLOR_COUNT (COLOR_HUES*2)
 extern const uint32_t pattern_palette[COLOR_COUNT];
+uint32_t next_source_color(const uint32_t *colors,int count);
 #define STEPS 16
 #define NOTES 128
 #define LANES 100
@@ -72,7 +73,14 @@ typedef struct {
     float swing; /* 0..1; delays offbeat sixteenths up to half a step */
 } Project;
 /* Interleaved PCM; channels 0 retains compatibility with mono initializers. */
-typedef struct { float *data; unsigned frames,channels; } Sample;
+typedef struct SampleStorage SampleStorage;
+typedef struct { float *data; unsigned frames,channels; SampleStorage *storage; } Sample;
+/* Owned samples must be released with sample_free; borrowed PCM has storage=NULL. */
+void sample_free(Sample sample);
+int sample_clone(Sample source,Sample *result);
+/* Map an IEEE float stereo recording without retaining a heap copy of its PCM. */
+int sample_map_recording(const char *path,unsigned frames,Sample *result);
+int sample_map_wav(const char *path,Sample *result);
 static inline unsigned sample_channels(Sample s) { return s.channels?s.channels:1; }
 static inline float sample_at(Sample s,unsigned frame,unsigned side) {
     unsigned channels=sample_channels(s);

@@ -23,13 +23,19 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake pkg-config libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev
+          sudo apt-get install -y cmake pkg-config libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev xvfb libxtst6
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
       - name: Build
         run: cmake --build build --parallel 2
       - name: Test
         run: ctest --test-dir build --output-on-failure
+      - name: Check Linux GUI and font rendering
+        if: runner.os == 'Linux'
+        run: |
+          for dpi in 96 120 144 192; do
+            python3 tools/check_gui.py --build build --dpi "$dpi"
+          done
       - name: Check macOS bundle resources
         if: runner.os == 'macOS'
         run: |

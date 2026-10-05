@@ -67,6 +67,9 @@ Sample sample_trim(Sample source,float trim) {
 int sample_process(Sample source,Sampler settings,Sample *result) {
     unsigned channels=sample_channels(source);
     if(channels>2 || !sampler_valid(settings) || source.frames>SAMPLE_MAX_FRAMES || (source.frames && !source.data)) return 0;
+    /* Unmodified mapped recordings share read-only storage instead of duplicating long takes. */
+    if(source.storage && settings.pitch==0 && settings.time==1 && settings.start==0 &&
+       settings.length==1 && settings.trim==0 && !settings.flags) return sample_clone(source,result);
     /* Bound every output/intermediate allocation. */
     if(source.frames*(double)settings.time>INT_MAX/2 || source.frames*(double)settings.time*pow(2,settings.pitch/12.0)>INT_MAX/2) return 0;
     unsigned offset=llround(source.frames*(double)settings.start);
@@ -98,5 +101,5 @@ int sample_process(Sample source,Sampler settings,Sample *result) {
         float peak=0; for(unsigned i=0;i<(size_t)length*channels;i++) peak=fmaxf(peak,fabsf(output[i]));
         if(peak>0) for(unsigned i=0;i<(size_t)length*channels;i++) output[i]/=peak;
     }
-    *result=(Sample){output,length,channels}; return 1;
+    *result=(Sample){.data=output,.frames=length,.channels=channels}; return 1;
 }

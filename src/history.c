@@ -9,12 +9,17 @@ static size_t sample_bytes(Sample s) { return (size_t)s.frames*sample_channels(s
 static void discard(History *h,HistoryEntry *e) {
     for(int c=0;c<CHANNELS;c++) if(e->sources[c] && !--e->sources[c]->refs) {
         h->bytes-=sizeof(HistorySample)+sample_bytes(e->sources[c]->sample);
-        free(e->sources[c]->sample.data); free(e->sources[c]);
+        sample_free(e->sources[c]->sample); free(e->sources[c]);
     }
     h->bytes-=sizeof *e; free(e);
 }
 void history_clear(History *h) { for(int i=0;i<h->count;i++) discard(h,h->entries[i]); *h=(History){0}; }
-static Project canonical(const Project *p) { Project copy=*p; memset(copy.audio_seconds,0,sizeof copy.audio_seconds); return copy; }
+static Project canonical(const Project *p,const Sample sources[CHANNELS]) {
+    Project copy=*p;
+    for(int c=0;c<CHANNELS;c++) if(sources[c].frames || !p->paths[c][0] || !strcmp(p->paths[c],SAMPLE_EMPTY)) copy.audio_seconds[c]=0;
+    /* Missing PCM cannot regenerate full-length clip duration during undo. */
+    return copy;
+}
 int history_capture(History *h,const Project *p,const Sample sources[CHANNELS],const uint64_t stamps[CHANNELS]) {
     HistoryEntry *previous=h->count?h->entries[h->cursor]:NULL;
     size_t derived=offsetof(Project,audio_seconds),tail=derived+sizeof p->audio_seconds;
@@ -26,14 +31,12 @@ int history_capture(History *h,const Project *p,const Sample sources[CHANNELS],c
     }
     if(same) return 1;
     HistoryEntry *e=calloc(1,sizeof *e); if(!e) return 0;
-    h->bytes+=sizeof *e; e->project=canonical(p);
+    h->bytes+=sizeof *e; e->project=canonical(p,sources);
     for(int c=0;c<CHANNELS;c++) if(sources[c].frames) {
         HistorySample *old=previous?previous->sources[c]:NULL;
         if(old && old->identity==sources[c].data && old->stamp==stamps[c]) { e->sources[c]=old; old->refs++; continue; }
         HistorySample *s=calloc(1,sizeof *s); if(!s) { discard(h,e); return 0; }
-        s->sample=sources[c]; s->sample.data=malloc(sample_bytes(sources[c]));
-        if(!s->sample.data) { free(s); discard(h,e); return 0; }
-        memcpy(s->sample.data,sources[c].data,sample_bytes(sources[c]));
+        if(!sample_clone(sources[c],&s->sample)) { free(s); discard(h,e); return 0; }
         s->identity=sources[c].data; s->stamp=stamps[c]; s->refs=1; e->sources[c]=s;
         h->bytes+=sizeof *s+sample_bytes(s->sample);
     }

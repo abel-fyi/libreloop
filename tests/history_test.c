@@ -27,5 +27,10 @@ int main(void) {
     for(int i=0;i<HISTORY_LIMIT+10;i++) { p.bpm=100+i; CHECK(history_capture(&h,&p,sources,stamps)); }
     CHECK(h.count==HISTORY_LIMIT && h.cursor==HISTORY_LIMIT-1);
     history_clear(&h); CHECK(!h.count && !h.bytes);
+    project_new(&p); snprintf(p.paths[0],sizeof p.paths[0],"/missing/take.wav"); p.channel_audio[0]=1; p.audio_seconds[0]=12;
+    memset(sources,0,sizeof sources); CHECK(history_capture(&h,&p,sources,stamps));
+    p.volume[0]=.5f; CHECK(history_capture(&h,&p,sources,stamps));
+    CHECK(history_peek(&h,-1,&restored,saved) && restored.audio_seconds[0]==12 && !saved[0].frames);
+    history_clear(&h);
     puts("Undo/redo branching, retained stereo PCM, shared buffers, derived fields, restoration and bounds passed."); return 0;
 }

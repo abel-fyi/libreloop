@@ -10,7 +10,12 @@ are a coherent mouse-driven workflow and minimal code and dependencies.
 | --- | --- |
 | `src/main.c` | raylib UI, gestures, transport, sampler worker orchestration |
 | `src/theme.c`, `theme.h` | light/dark palettes, flat rectangle drawing, appearance preference |
-| `src/engine.c`, `engine.h` | project model, synthesis, rendering, routing, save/load, export |
+| `src/engine.c`, `engine.h` | project model, synthesis, rendering and routing |
+| `src/project_io.c`, `atomic_file.c` | backward-compatible project serialization and atomic project/WAV replacement |
+| `src/project_assets.c`, `project_document.c` | relative references, collected audio, missing samples and unsaved document state |
+| `src/recording.c` | take preparation, writer lifecycle and live waveform updates |
+| `src/recording_writer.c`, `sample_storage.c` | background WAV writing and shared read-only mapped PCM |
+| `src/text_fonts.c` | physical-pixel font atlases, dynamic UTF-8 glyphs and text alignment |
 | `src/audio_timing.c` | pitch-curve speed integration, Audio clip duration and seek positions |
 | `src/automation.c` | stable parameter targets, normalized curves, source editing and validation |
 | `src/arrangement.c`, `arrangement.h` | Playlist editing, selection, timeline and snap helpers |
@@ -94,7 +99,11 @@ are a coherent mouse-driven workflow and minimal code and dependencies.
   there is no automatic compressor or lookahead limiter.
 - Project files currently use `.hbt` and the `HOMEBEAT` version-32 header for
   compatibility. Versions 1–31 remain readable. Renaming the app did not change
-  the project format. Sample paths are absolute and projects are not portable bundles.
+  the project format. Sample references are relative to the project directory, with old absolute paths
+  still readable. Collect samples and save writes original PCM into a unique companion
+  directory, and subsequent saves retain those references. Missing audio opens
+  with empty playback while preserving its path, clip duration and editing state; the UI
+  marks missing channels and offers relinking.
 - Browser roots are written under the `libreloop` configuration directory;
   legacy `homebeat` roots are read when no new configuration exists.
 
@@ -110,7 +119,7 @@ Note starts and lengths use the selected snap grid; notes stay inside their
 pattern. The Piano Roll shows 25 pitches at a time and scrolls through MIDI pitches 0–127. Drum steps are one-shots; Piano Roll notes have duration gates with a
 short fade at note-off. Sampler processing can change pitch and duration; held notes stop at the
 processed sample's end. Mixer inserts can route to one other insert or Master; no effects,
-MIDI device I/O, external plugins, undo, or FLP import. WAV export ends at
+MIDI device I/O, external plugins, or FLP import. WAV export ends at
 the arrangement boundary without an added tail; standard RIFF exports must
 fit below 4 GiB. This is a workflow prototype,
 not a production recording tool. Device changes, sleep/wake and sustained
@@ -157,20 +166,23 @@ Audio voices finish at the sample end instead of an obsolete duration gate.
 Mixer inputs use miniaudio capture devices at the engine sample rate. Armed
 tracks that share an input device share one capture stream. Preallocated stereo
 SPSC rings pass capture audio to the playback callback and each armed bus's
-post-fader tap back to the UI. The callback does no allocation, disk I/O or
+post-fader tap to a background writer. The callback does no allocation, disk I/O or
 blocking synchronization. Inputs follow normal mixer routing and level controls;
 unused armed buses are included in the routing graph. Recording suppresses Song
 looping, so empty arrangements and long takes keep a continuous cursor.
 
-The UI drains takes into uniquely named float WAV files and growing PCM buffers.
-Live waveforms update only newly captured peak blocks, rebuilding their hierarchy
-when capacity grows. The live preview is kept separate from playback PCM until
-recording ends; finalized samples use the existing acknowledged replacement path.
-Project files reference the recordings through existing Audio channels, with no
-format version change. Device and buffer errors are reported, and partial takes
-are finalized. Capture device opening/closing and disk writes currently run on
-the UI thread; hardware latency compensation, channel-pair selection and streaming
-long recordings without retaining full PCM in memory remain future work.
+A worker per take drains its SPSC ring into a uniquely named float WAV with bounded
+scratch buffers. The UI maps committed frames read-only and updates only new waveform
+peak blocks. Finished playback, sampler identity processing and undo share mapped PCM;
+reopening a canonical 48 kHz float-stereo WAV also maps it. Sampler transformations still
+create heap-backed output. Recording previews remain separate from playback until
+finalization, using the acknowledged replacement path.
+
+Each writer periodically updates its header and finalizes the successfully committed
+frames on Stop or error. Device, buffer, mapping and disk errors are reported. Takes
+are bounded by `SAMPLE_MAX_FRAMES` (about 93 minutes at 48 kHz) and standard RIFF size.
+Capture device opening/closing remains on the UI thread; hardware latency compensation
+and channel-pair selection remain future work.
 
 Undo history captures completed editing gestures as project snapshots. Original
 sample PCM is retained in reference-counted buffers shared between snapshots;
@@ -191,3 +203,13 @@ Tempo-fitted samplers retain PCM and clip offsets in reference seconds. BPM edit
 change a voice’s playback rate with a 20 ms slew, without sample rebuilding.
 Stretch uses overlapping, stereo-aligned grains per voice to preserve pitch.
 The audio thread owns this state; its playback path allocates no memory.
+
+Window close uses the same Save/Discard/Cancel decision as project replacement.
+Failed saves keep the pending action available, and canceled choosers cancel it.
+Project and WAV replacement uses unique sibling temporary files, checks write/flush/close
+errors, syncs file data, and renames only after success.
+
+Text uses font atlases rasterized at the actual framebuffer density on both platforms.
+Encountered UTF-8 codepoints extend each size's atlas, within the bundled font's glyph
+coverage. Rebuilds flush queued drawing before retiring textures. Arrangement labels
+align to physical pixels while clip geometry retains fractional movement.

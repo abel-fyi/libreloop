@@ -25,11 +25,17 @@ ctest --test-dir build --output-on-failure
 ./build/libreloop
 ```
 
-The samples and bundled TTF paths are currently set to the checkout's `samples/`
-and `assets/fonts/` directories at build time. Run from a writable directory:
-project saves, WAV exports, and
-smoke screenshots are written into the launch directory. Installation and
-Linux release packaging is not implemented yet.
+Development builds fall back to the checkout's `samples/` and `assets/fonts/`.
+Install the Linux executable, samples, font, desktop entry and license notices with:
+
+```sh
+cmake --install build --prefix "$HOME/.local"
+```
+
+Installed resources resolve relative to the executable under `../share/libreloop`,
+so the installation can be moved independently of the checkout. Run from a writable
+directory for recording files and smoke screenshots. Project saves and exports use
+the location selected in the file chooser.
 
 ## Build on macOS
 
@@ -43,12 +49,13 @@ The macOS build produces `build/LibreLoop.app`, with its generated demo samples,
 font and license notices inside the bundle. Launch it with `open build/LibreLoop.app`.
 For command-line smoke checks use `build/LibreLoop.app/Contents/MacOS/LibreLoop --smoke`.
 The bundle can be moved independently of the checkout. It is unsigned; signing
-and notarization are still required for a public macOS release. Imported sample
-paths in saved projects remain absolute.
+and notarization are still required for a public macOS release. Saved sample references are relative to the project directory; Collect samples
+and save creates a companion directory for moving projects.
 
 Command+A/V select all and paste in text fields on macOS; Control+A/V remain
 Linux shortcuts. Both Mac Delete and forward Delete remove focused selections.
-Retina rendering uses framebuffer-density font and icon atlases, while input
+Linux and Retina rendering use the actual GLFW framebuffer-to-window ratio for
+font and icon atlases. Text positions align to physical pixels, while input
 and editor layout remain in logical window coordinates.
 A small AppKit event monitor supplies precise trackpad scroll and pinch events;
 GLFW continues to handle mouse wheel events. Linux uses GLFW scroll events only.
@@ -75,14 +82,19 @@ cmake --build build --parallel
 
 ## Tests
 
-The desktop build has fifteen CTest tests: engine, automation, pitch_automation, arrangement, audio_clip,
-clip_trim, sampler, tempo, stereo, recording, navigation, waveform, windows, decoder, audio, and browser.
+The desktop build has 23 headless CTest tests (19 in core-only builds). In addition
+to engine, editing, audio and persistence checks, tests cover atomic write failures,
+relative/collected assets, document close decisions, background recording and mapped
+sample ownership through playback and undo.
 They exercise rendering, project validation and backward
 compatibility, crop boundaries, selection and movement, sampler processing,
 window ownership and stacking, sample decoding, and Browser persistence.
 The audio test invokes the callback without a device and checks unity gain,
 continued playback under UI lock contention, output bounds, ordered controls
-and safe sample replacement. Tests do not open an audio device or require a display.
+and safe sample replacement. CTest tests do not open an audio device or require a display.
+Owned `Sample` values must be released with `sample_free`, and cloned with
+`sample_clone`; mapped samples share read-only storage with reference counting.
+The audio callback borrows samples and does not release storage.
 
 Core-only builds need no network, graphics dependencies, or audio library:
 
@@ -109,7 +121,20 @@ configuration on Linux.
 
 `./build/libreloop --smoke` writes `libreloop-smoke.png` and three
 `libreloop-view-*.png` screenshots, then exits. Smoke checks force opaque windows regardless of saved appearance preferences. It requires a display;
-Xvfb works for a headless run. For interactive changes, check stacking,
+Xvfb works for a headless run. Smoke scenes use the populated demo project.
+Linux CI also runs the isolated GUI regression script:
+
+```sh
+python3 tools/check_gui.py --build build --dpi 144
+```
+
+It requires Xvfb, libX11 and libXtst, creates a temporary configuration, and checks
+physical-pixel text rendering at 100/125/150/200%, dynamic UTF-8 glyphs, populated
+smoke screenshots, and close/cancel/discard/save in the running app. It does not
+require `xvfb-run` or `xdotool`. CI repeats the actual app input checks with X11
+monitor DPI settings of 96, 120, 144 and 192. Linux keeps raylib's high-DPI window
+flag off to avoid its separate mouse/scissor scaling conflicting with the UI's
+2D cameras; font density still follows the actual framebuffer. For interactive changes, check stacking,
 resizing, capture during drags, hover help, and the affected playback behavior.
 Use an isolated configuration and audio output when automating GUI checks.
 

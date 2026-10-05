@@ -17,7 +17,17 @@ static int compare(const void *a,const void *b) {
     const FileEntry *x=a,*y=b;
     return x->directory!=y->directory?y->directory-x->directory:strcasecmp(x->name,y->name);
 }
-static int matches(const char *name,const char *extension) { const char *dot=strrchr(name,'.'); return dot && !strcasecmp(dot+1,extension); }
+static int matches(const char *name,const char *extensions) {
+    const char *dot=strrchr(name,'.'); if(!dot) return 0;
+    size_t length=strlen(dot+1);
+    for(const char *at=extensions;*at;) {
+        const char *end=strchr(at,';'); size_t n=end?(size_t)(end-at):strlen(at);
+        if(n==length && !strncasecmp(dot+1,at,n)) return 1;
+        if(!end) break;
+        at=end+1;
+    }
+    return 0;
+}
 int file_chooser_folder(FileChooser *c,const char *path) {
     char resolved[PATH_MAX];
     if(!realpath(path,resolved)) { snprintf(c->error,sizeof c->error,"Cannot open folder: %s",strerror(errno)); return 0; }

@@ -52,7 +52,7 @@ Mixer Master fader and does not affect WAV export.
   Clip and note drags, brush strokes, automation-point drags and control drags
   each undo as one action. Samples, sampler settings, routing, names and colors
   are included; recording becomes one action after it stops. Original audio is
-  retained in memory, so sample replacement and deletion can be undone even if
+  retained in memory or shared file mappings, so sample replacement and deletion can be undone even if
   the source file is unavailable. A new edit after undo discards the redo branch.
   New, Demo and Open start fresh history. History retains up to 64 states within
   a 256 MiB budget (the latest state is always retained). Undo does not delete
@@ -153,7 +153,8 @@ Mixer Master fader and does not affect WAV export.
   Up to 32 channels can be added; wheel over Rack rows to scroll. Right-click a
   channel name for Piano Roll, rename, mute or delete. Deleting removes its notes in
   every pattern and any Playlist audio clips using that channel. Mono and stereo samples retain their channel count and decode at
-  48 kHz and are held in memory. Songs longer than a minute are supported;
+  48 kHz. Canonical float-stereo WAVs use shared file mappings; other formats
+  decode into memory. Songs longer than a minute are supported;
   the processing frame limit is approximately 93 minutes per file.
 - Browser: an expandable folder tree with **LibreLoop samples** as its first
   root. **+ Add folder** adds another root, up to eight, saved between sessions.
@@ -179,8 +180,8 @@ Mixer Master fader and does not affect WAV export.
   New, Demo and Open ask Save / Discard / Cancel when the project has unsaved edits,
   including projects opened from the Browser or dropped from the file manager.
   A star beside the project filename marks unsaved edits. Cancelling the save chooser
-  keeps the current project. This guard applies to replacement; closing the app
-  still requires saving your work first.
+  keeps the current project. Closing the app uses the same Save / Discard / Cancel
+  prompt, and exits only after a successful save or an explicit Discard.
   FILE → Demo loads the built-in eight-bar example and selects Song mode. Both stop
   playback and clear previews; save your work first. New uses `project.hbt`; Demo uses
   `demo.hbt`, rather than the previously opened project filename.
@@ -212,10 +213,17 @@ Mixer Master fader and does not affect WAV export.
   Cancel/Escape leaves files unchanged. The chooser is the same on Linux and
   macOS and needs no external file-manager or dialog packages.
 
-Sample paths are stored as absolute paths; keep imported files available when
-reopening projects. Generated demo sounds need no external files. Save/load
-and export report errors in the status bar. Save and export replace their
-existing target files. Project writes use a temporary file and rename.
+Sample references are saved relative to the project directory. **FILE → Collect
+samples and save…** writes the original audio into a companion directory beside
+the project; move both together to another machine. Later saves retain those collected
+references. Generated demo sounds need no external files. Projects with missing audio
+still open, preserving notes, clips, source settings and sample paths. Missing channel
+names show `[missing]`; right-click the Rack channel or Audio source and choose
+**Relink sample…**, or drop the replacement file onto its Rack row.
+
+Save/load and export report errors in the status bar. Project saves and WAV exports
+write unique temporary files and replace existing destinations only after success.
+A failed write preserves the previous file.
 Dialogs open centred and remain draggable. Hover controls to see their function
 and relevant optional keys in the bottom helper.
 
@@ -344,11 +352,13 @@ the existing arrangement end without looping. Click Record again to finish the
 takes while playback continues; Stop or Space finishes them and stops playback.
 Tempo and recording-arm choices stay fixed during a take. WAV files are written
 as 48 kHz stereo float audio in `recordings/` under the launch working directory.
-Projects reference those files by absolute path. Saving, exporting, replacing a
-project or closing the app finishes the current take first. Buffer overrun, device
-failure, memory exhaustion or a disk write error ends recording with a status
-message and retains the successfully captured audio. Takes currently remain in
-memory as well as on disk; very long sessions depend on available RAM.
+Projects save relative references to those files. Saving, exporting, replacing a
+project or closing the app finishes the current take first. Background workers write
+the audio; live previews, unprocessed playback and undo share read-only file mappings
+instead of holding full copies of long takes in RAM. Waveform caches still grow with
+the take, and sampler processing can allocate full output buffers. Buffer overrun,
+device failure, mapping/memory exhaustion or disk errors finish the successfully
+captured portion and report the error. Each take supports about 93 minutes at 48 kHz.
 
 The Playlist’s left pattern picker shows note previews; click to select a pattern,
 right-click for Rename, Color or Delete, and scroll the list when necessary. Right-click a Playlist
@@ -464,8 +474,9 @@ semantic colors (such as recording red) retain their meaning in both themes.
 
 Tempo, pitch range and Mixer routing number controls show the vertical resize
 cursor while hovering or dragging, like Mixer faders. Knobs retain the regular
-cursor. Arrangement labels and track surfaces retain fractional positions while
-panning; stationary text remains aligned to display pixels.
+cursor. Arrangement clip and track geometry retain fractional positions while
+panning; all text remains aligned to physical display pixels. Font atlases extend
+for UTF-8 names using the glyphs available in the bundled font.
 
 Waveforms share a continuous filled style in Arrangement clips, source previews,
 the Browser and Sampler. Display bins follow the source audio and blend smoothly

@@ -10,12 +10,12 @@ int main(void) {
     ok=ok && decoded.frames==32*2*RATE && decoded.channels==2;
     Sample processed={0};
     ok=ok && sample_process(decoded,(Sampler){.time=1,.length=1},&processed) && processed.frames==decoded.frames;
-    free(processed.data);
+    sample_free(processed);
     double power=0;
     for(unsigned i=0;i<(size_t)decoded.frames*sample_channels(decoded);i++) { if(!isfinite(decoded.data[i])) ok=0; power+=decoded.data[i]*decoded.data[i]; }
     ok=ok && power>1;
     Sample unused={0}; ok=ok && !sample_load("does-not-exist.wav",&unused);
-    free(decoded.data); for(int c=0;c<CHANNELS;c++) free(samples[c].data);
+    sample_free(decoded); for(int c=0;c<CHANNELS;c++) sample_free(samples[c]);
     remove("decoder-fixture.wav");
     /* Independent PCM fixture: anti-phase stereo must not disappear in decoding. */
     const unsigned char wav[]={
@@ -39,7 +39,7 @@ int main(void) {
     ok=ok && export_wav("stereo-export.wav",&p,samples) && sample_load("stereo-export.wav",&roundtrip)
         && roundtrip.channels==2 && roundtrip.frames==2*RATE;
     if(roundtrip.data) for(unsigned i=0;i<4;i++) ok=ok && fabsf(roundtrip.data[i]-cooked.data[i])<=2.f/32768;
-    free(stereo.data); free(cooked.data); free(roundtrip.data);
+    sample_free(stereo); sample_free(cooked); sample_free(roundtrip);
     remove("stereo-fixture.wav"); remove("stereo-export.wav");
     /* Overloads saturate at the PCM boundary, without wrapping or early clipping. */
     float loud[]={2,-2,.5f,-.5f}; samples[0]=(Sample){loud,2,2};
@@ -47,10 +47,10 @@ int main(void) {
     ok=ok && export_wav("limited-export.wav",&p,samples) && sample_load("limited-export.wav",&roundtrip);
     if(roundtrip.data) ok=ok && fabsf(roundtrip.data[0]-1)<=2.f/32768 && fabsf(roundtrip.data[1]+1)<=2.f/32768
         && fabsf(roundtrip.data[2]-.5f)<=2.f/32768 && fabsf(roundtrip.data[3]+.5f)<=2.f/32768;
-    free(roundtrip.data); roundtrip=(Sample){0}; p.master=.25f;
+    sample_free(roundtrip); roundtrip=(Sample){0}; p.master=.25f;
     ok=ok && export_wav("limited-export.wav",&p,samples) && sample_load("limited-export.wav",&roundtrip);
     if(roundtrip.data) ok=ok && fabsf(roundtrip.data[0]-.5f)<=2.f/32768 && fabsf(roundtrip.data[1]+.5f)<=2.f/32768;
-    free(roundtrip.data); remove("limited-export.wav");
+    sample_free(roundtrip); remove("limited-export.wav");
     const unsigned char mono_wav[]={
         'R','I','F','F',40,0,0,0,'W','A','V','E','f','m','t',' ',16,0,0,0,
         1,0,1,0,128,187,0,0,0,119,1,0,2,0,16,0,'d','a','t','a',4,0,0,0,
@@ -61,6 +61,6 @@ int main(void) {
     Sample mono={0};
     ok=ok && sample_load("mono-fixture.wav",&mono) && mono.channels==1 && mono.frames==2;
     if(mono.data) ok=ok && fabsf(mono.data[0]-.25f)<1e-6 && fabsf(mono.data[1]+.25f)<1e-6;
-    free(mono.data); remove("mono-fixture.wav");
+    sample_free(mono); remove("mono-fixture.wav");
     puts(ok?"Mono/stereo decoding, channel separation, WAV export and missing-file rejection passed.":"Decoder test failed."); return !ok;
 }

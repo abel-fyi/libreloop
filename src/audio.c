@@ -508,6 +508,7 @@ void audio_close(void) {
     pthread_mutex_lock(&mutex); consume_commands(); publish_view(); pthread_mutex_unlock(&mutex);
 }
 int sample_load(const char *path,Sample *s) {
+    if(sample_map_wav(path,s)) return 1;
     ma_decoder decoder;
     ma_decoder_config config=ma_decoder_config_init(ma_format_f32,0,RATE);
     if(ma_decoder_init_file(path,&config,&decoder)!=MA_SUCCESS) return 0;
@@ -518,5 +519,5 @@ int sample_load(const char *path,Sample *s) {
     ok=data && ma_decoder_read_pcm_frames(&decoder,data,frames,&read)==MA_SUCCESS && read==frames;
     ma_decoder_uninit(&decoder);
     if(!ok) { free(data); return 0; }
-    *s=(Sample){data,(unsigned)frames,channels}; return 1;
+    *s=(Sample){.data=data,.frames=(unsigned)frames,.channels=channels}; return 1;
 }

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=LibreLoop
+Comment=Pattern-based audio workstation
+Exec=libreloop
+Icon=audio-card
+Terminal=false
+Categories=AudioVideo;Audio;

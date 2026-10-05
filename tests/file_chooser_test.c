@@ -32,6 +32,8 @@ int main(void) {
     snprintf(c.name,sizeof c.name,"../Other.hbt"); CHECK(file_chooser_path(&c,path,sizeof path)==1 && strstr(path,"/Other.hbt"));
     CHECK(file_chooser_path(&c,path,8)==-1);
     CHECK(file_chooser_folder(&c,"/") && file_chooser_parent(&c) && !strcmp(c.directory,"/"));
+    CHECK(file_chooser_begin(&c,wave,"wav;flac;mp3",0));
+    snprintf(c.name,sizeof c.name,"Audio.wav"); CHECK(file_chooser_path(&c,path,sizeof path)==1);
     file_chooser_close(&c); CHECK(!c.entries && !c.count);
     CHECK(!remove(project) && !remove(wave) && !remove(hidden) && !rmdir(folder) && !rmdir(root));
     puts("Chooser filtering, spaces, hidden files, parent/root navigation, failures, extensions and overwrite checks passed."); return 0;
