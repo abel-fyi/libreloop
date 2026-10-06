@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "fm_synth.h"
 #include "engine.h"
+#include "preset.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,6 +24,23 @@ int main(void) {
     fm_note_on(&a,440,settings); settings.depth=8;
     for(int i=0;i<RATE/10;i++) { float x=fm_sample(&a,settings,1); CHECK(isfinite(x) && fabsf(x)<=.201f); }
     fm_note_on(&a,20000,settings); for(int i=0;i<1000;i++) CHECK(isfinite(fm_sample(&a,settings,16)));
+    FMSettings ep=fm_epiano(); CHECK(fm_valid(ep));
+    fm_note_on_velocity(&a,440,ep,1); fm_note_on_velocity(&b,440,ep,.2f); float difference=0;
+    for(int i=0;i<RATE;i++) { float x=fm_sample(&a,ep,1),y=fm_sample(&b,ep,1); CHECK(isfinite(x) && fabsf(x)<=.201f); difference+=fabsf(x-y); }
+    CHECK(difference>10 && a.mod_envelope<.09f && a.mod_envelope>=.079f);
+    FMSettings motion=fm_default(); motion.depth=0; motion.attack=.001f; motion.sustain=1; motion.vibrato=25; motion.tremolo=.8f;
+    fm_note_on(&a,440,motion); double low_frequency=1000,high_frequency=0,last_phase=0; float loud=0,quiet=0;
+    for(int i=0;i<RATE/4;i++) {
+        float x=fm_sample(&a,motion,1); CHECK(isfinite(x) && fabsf(x)<=.201f);
+        double advance=a.carrier-last_phase; if(advance<0) advance+=6.283185307179586; last_phase=a.carrier;
+        double hz=advance*RATE/6.283185307179586; low_frequency=fmin(low_frequency,hz); high_frequency=fmax(high_frequency,hz);
+        if(i>RATE*.01 && i<RATE*.03) loud+=x*x;
+        if(i>RATE*.09 && i<RATE*.11) quiet+=x*x;
+    }
+    CHECK(low_frequency<435 && high_frequency>445 && quiet<loud*.2f);
+    DevicePreset factory; CHECK(preset_load(FM_FACTORY_PRESET,&factory) && factory.kind==PRESET_FM);
+    CHECK(!memcmp(&factory.fm,&ep,sizeof ep));
+    motion.tremolo=NAN; CHECK(!fm_valid(motion));
     project_new(&project); project.instrument[0]=INSTRUMENT_FM; project.fm[0]=settings;
     project.notes[0][0][0]=(Note){69,127,0,1}; project.notes[0][0][1]=(Note){72,100,0,1};
     Sample samples[CHANNELS]={0}; Player player; player_reset(&player);
@@ -32,8 +50,9 @@ int main(void) {
     for(int block=0;block<32;block++) render(&player,&project,samples,out,512);
     CHECK(!player.voices[0].gain && !player.voices[1].gain); /* Gate plus release, no stuck notes. */
     CHECK(project_save("fm.hbt",&project) && project_load("fm.hbt",&loaded));
-    CHECK(loaded.instrument[0]==INSTRUMENT_FM && loaded.fm[0].depth==8 && loaded.fm[0].release==.01f); remove("fm.hbt");
+    CHECK(loaded.instrument[0]==INSTRUMENT_FM && loaded.fm[0].depth==8 && loaded.fm[0].release==.01f && loaded.fm[0].mod_sustain==1 && loaded.fm[0].lfo_rate==5); remove("fm.hbt");
     ParameterTarget target; CHECK(parameter_from_pointer(&project,&project.fm[0].ratio,&target) && target.parameter==PARAM_FM_RATIO);
+    CHECK(parameter_from_pointer(&project,&project.fm[0].vibrato,&target) && target.parameter==PARAM_FM_VIBRATO);
     int index=automation_create(&project,(ParameterTarget){PARAM_FM_SUSTAIN,0,0},"FM sustain",16); CHECK(index>=0);
     project.automations[index].points[0].value=project.automations[index].points[1].value=0;
     project.clips[0][0]=AUTOMATION_SOURCE+index+1; project.clips[1][0]=1;

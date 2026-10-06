@@ -134,8 +134,8 @@ bindings when that device exists. The chorus establishes the effect contract bel
   metronome and listening gain mix before the final device clamp to -1..1.
   PCM16 export clamps at conversion. Overloaded mixes still need gain reduction;
   there is no automatic compressor or lookahead limiter.
-- Project files currently use `.hbt` and the `HOMEBEAT` version-36 header for
-  compatibility. Versions 1–35 remain readable. Renaming the app did not change
+- Project files currently use `.hbt` and the `HOMEBEAT` version-37 header for
+  compatibility. Versions 1–36 remain readable. Renaming the app did not change
   the project format. Sample references are relative to the project directory, with old absolute paths
   still readable. Collect samples and save writes original PCM into a unique companion
   directory, and subsequent saves retain those references. Missing audio opens
@@ -153,7 +153,9 @@ horizontal navigation reveal additional empty bars. Drawing farther right
 extends the source pattern; existing Playlist copies keep their own crop lengths.
 Unused Rack steps stay grey until painted.
 Note starts and lengths use the selected snap grid; notes stay inside their
-pattern. The Piano Roll shows 25 pitches at a time and scrolls through MIDI pitches 0–127. Drum steps are one-shots; Piano Roll notes have duration gates with a
+pattern. The Piano Roll defaults to 25 visible pitches; its corner zoom control adjusts
+the view from 8 to all 128 MIDI pitches. Keyboard rendering, hit testing, note
+editing and scrolling share that row scale. Drum steps are one-shots; Piano Roll notes have duration gates with a
 short fade at note-off. Sampler processing can change pitch and duration; held notes stop at the
 processed sample's end. Mixer inserts can route to one other insert or Master, with built-in Chorus and Equalizer slots; no
 MIDI device I/O, external plugins, or FLP import. WAV export ends at
@@ -319,3 +321,12 @@ summing audio, preserving opposite-phase content. Spectrum and meters share the
 existing animation/event-wait lifecycle. No FFT, allocation or file I/O runs in
 the audio callback. Monitor-only mixer taps preserve transport loops; recording
 taps retain continuous recording behavior.
+
+FM modulation has a separate exponentially decaying tone envelope and velocity
+response, plus a per-note sine LFO for vibrato and tremolo. These states belong
+to each voice and require no callback allocation. IDs 1107–1112 bind the new
+controls; version 37 appends their settings after the existing FM fields and
+before EQ data. Preset version 3 stores the same controls. Earlier files retain
+neutral defaults: full tone sustain, no velocity brightness response, vibrato
+or tremolo. The Electric Piano factory patch is bundled and seeded into the
+user's device preset folder without overwriting an existing file.

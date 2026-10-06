@@ -19,9 +19,10 @@ int preset_save(const char *path,const DevicePreset *p) {
         } else snprintf(reference,sizeof reference,"%s",p->sample_path);
     }
     AtomicFile out; if(!atomic_file_open(&out,path)) return 0;
-    fprintf(out.file,"LIBRELOOP_PRESET 2 %d\n",p->kind);
+    fprintf(out.file,"LIBRELOOP_PRESET 3 %d\n",p->kind);
     if(p->kind==PRESET_FM) {
         FMSettings s=p->fm; fprintf(out.file,"%.9g %.9g %.9g %.9g %.9g %.9g\n",s.ratio,s.depth,s.attack,s.decay,s.sustain,s.release);
+        fprintf(out.file,"%.9g %.9g %.9g %.9g %.9g %.9g\n",s.mod_decay,s.mod_sustain,s.velocity,s.lfo_rate,s.vibrato,s.tremolo);
     } else if(p->kind==PRESET_CHORUS) fprintf(out.file,"%.9g %.9g %.9g\n",p->chorus.rate,p->chorus.depth,p->mix);
     else if(p->kind==PRESET_EQ) {
         for(int b=0;b<EQ_BANDS;b++) { EQBand v=p->eq.bands[b]; fprintf(out.file,"%.9g %.9g %.9g %u\n",v.frequency,v.gain,v.q,v.shape); }
@@ -35,9 +36,10 @@ int preset_save(const char *path,const DevicePreset *p) {
 int preset_load(const char *path,DevicePreset *p) {
     FILE *f=fopen(path,"r"); if(!f) return 0;
     DevicePreset next={0}; char magic[32]; int version;
-    int ok=fscanf(f,"%31s %d %d",magic,&version,&next.kind)==3 && !strcmp(magic,"LIBRELOOP_PRESET") && (version==1 || version==2);
+    int ok=fscanf(f,"%31s %d %d",magic,&version,&next.kind)==3 && !strcmp(magic,"LIBRELOOP_PRESET") && (version>=1 && version<=3);
     if(ok && next.kind==PRESET_FM) {
-        FMSettings *s=&next.fm; ok=fscanf(f,"%f %f %f %f %f %f",&s->ratio,&s->depth,&s->attack,&s->decay,&s->sustain,&s->release)==6;
+        next.fm=fm_default(); FMSettings *s=&next.fm; ok=fscanf(f,"%f %f %f %f %f %f",&s->ratio,&s->depth,&s->attack,&s->decay,&s->sustain,&s->release)==6;
+        if(ok && version>=3) ok=fscanf(f,"%f %f %f %f %f %f",&s->mod_decay,&s->mod_sustain,&s->velocity,&s->lfo_rate,&s->vibrato,&s->tremolo)==6;
     } else if(ok && next.kind==PRESET_CHORUS) ok=fscanf(f,"%f %f %f",&next.chorus.rate,&next.chorus.depth,&next.mix)==3;
     else if(ok && next.kind==PRESET_EQ) {
         next.eq=version==1?equalizer_legacy():equalizer_default();

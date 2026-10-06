@@ -233,6 +233,18 @@ int main(void) {
     CHECK(live.voices[127].instrument==INSTRUMENT_FM && out[20]!=0);
     for(int i=0;i<40;i++) callback(NULL,out,NULL,64);
     CHECK(!live.voices[127].gain);
+    /* Song and Pattern playback expose the sounding source notes to editors. */
+    static uint8_t activity[CHANNELS][NOTES];
+    project_new(&fixture); fixture.instrument[0]=INSTRUMENT_FM;
+    fixture.fm[0].release=.01f; fixture.notes[0][0][0]=(Note){60,100,0,2}; fixture.clips[0][0]=1;
+    audio_update(&fixture,1,1,0,1,1,0,0,0); callback(NULL,out,NULL,64);
+    audio_pattern_activity(0,activity); CHECK(activity[0][0] && player.voices[0].note_id==1);
+    audio_pattern_activity(1,activity); CHECK(!activity[0][0]);
+    fixture.lane_mute[0]=1; audio_update(&fixture,1,1,0,0,1,0,0,0); callback(NULL,out,NULL,64);
+    audio_pattern_activity(0,activity); CHECK(!activity[0][0]);
+    fixture.lane_mute[0]=0; audio_update(&fixture,1,0,0,1,1,0,0,0); callback(NULL,out,NULL,64);
+    audio_pattern_activity(0,activity); CHECK(activity[0][0]);
+    audio_stop(); audio_pattern_activity(0,activity); CHECK(!activity[0][0]);
     puts("Transparent output, capture, post-fader recording, ring bounds, mixing and ordered controls passed.");
     return 0;
 }

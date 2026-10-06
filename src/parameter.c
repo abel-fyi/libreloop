@@ -28,6 +28,12 @@ static const ParameterDescriptor descriptors[]={
     {PARAM_FM_DECAY,"FM decay",.01f,3,.3f,PARAMETER_CONTINUOUS},
     {PARAM_FM_SUSTAIN,"FM sustain",0,1,.65f,PARAMETER_CONTINUOUS},
     {PARAM_FM_RELEASE,"FM release",.01f,3,.2f,PARAMETER_CONTINUOUS},
+    {PARAM_FM_MOD_DECAY,"FM tone decay",.01f,5,.5f,PARAMETER_CONTINUOUS},
+    {PARAM_FM_MOD_SUSTAIN,"FM tone sustain",0,1,1,PARAMETER_CONTINUOUS},
+    {PARAM_FM_VELOCITY,"FM velocity response",0,1,0,PARAMETER_CONTINUOUS},
+    {PARAM_FM_LFO_RATE,"FM LFO rate",.1f,12,5,PARAMETER_CONTINUOUS},
+    {PARAM_FM_VIBRATO,"FM vibrato",0,100,0,PARAMETER_CONTINUOUS},
+    {PARAM_FM_TREMOLO,"FM tremolo",0,1,0,PARAMETER_CONTINUOUS},
     {PARAM_CHORUS_RATE,"Chorus rate",.05f,5,.8f,PARAMETER_CONTINUOUS},
     {PARAM_CHORUS_DEPTH,"Chorus depth",0,8,3,PARAMETER_CONTINUOUS},
     {PARAM_EFFECT_MIX,"Effect mix",0,1,.5f,PARAMETER_CONTINUOUS},
@@ -58,13 +64,16 @@ static const float *parameter_pointer(const Project *p,ParameterTarget t,float *
         const EQBand *b=&p->eq[t.owner][t.slot].bands[(t.parameter-PARAM_EQ_FIRST)/3];
         return (t.parameter-PARAM_EQ_FIRST)%3==0?&b->frequency:(t.parameter-PARAM_EQ_FIRST)%3==1?&b->gain:&b->q;
     }
-    if(t.parameter>=PARAM_FM_RATIO && t.parameter<=PARAM_FM_RELEASE) {
+    if(t.parameter>=PARAM_FM_RATIO && t.parameter<=PARAM_FM_TREMOLO) {
         if(t.owner>=(unsigned)p->channel_count || t.slot || p->instrument[t.owner]!=INSTRUMENT_FM) return NULL;
         const FMSettings *s=&p->fm[t.owner];
         switch(t.parameter) {
         case PARAM_FM_RATIO: return &s->ratio; case PARAM_FM_DEPTH: return &s->depth;
         case PARAM_FM_ATTACK: return &s->attack; case PARAM_FM_DECAY: return &s->decay;
         case PARAM_FM_SUSTAIN: return &s->sustain; case PARAM_FM_RELEASE: return &s->release;
+        case PARAM_FM_MOD_DECAY: return &s->mod_decay; case PARAM_FM_MOD_SUSTAIN: return &s->mod_sustain;
+        case PARAM_FM_VELOCITY: return &s->velocity; case PARAM_FM_LFO_RATE: return &s->lfo_rate;
+        case PARAM_FM_VIBRATO: return &s->vibrato; case PARAM_FM_TREMOLO: return &s->tremolo;
         }
     }
     if(t.parameter>=PARAM_CHORUS_RATE && t.parameter<=PARAM_EFFECT_MIX) {
@@ -107,7 +116,7 @@ int parameter_from_pointer(const Project *p,const void *ptr,ParameterTarget *t) 
         if(id==PARAM_MASTER_MUTE) address=&p->master_mute;
         if(address==ptr) { *t=candidate; return 1; }
     }
-    for(unsigned id=PARAM_FM_RATIO;id<=PARAM_FM_RELEASE;id++) for(unsigned owner=0;owner<(unsigned)p->channel_count;owner++) {
+    for(unsigned id=PARAM_FM_RATIO;id<=PARAM_FM_TREMOLO;id++) for(unsigned owner=0;owner<(unsigned)p->channel_count;owner++) {
         ParameterTarget candidate={id,owner,0}; float lo,hi;
         if(parameter_pointer(p,candidate,&lo,&hi)==ptr) { *t=candidate; return 1; }
     }

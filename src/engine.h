@@ -76,7 +76,7 @@ typedef struct {
     float swing; /* 0..1; delays offbeat sixteenths up to half a step */
 } Project;
 /* Sequencing/mixing state wraps device-owned DSP state. */
-typedef struct { int channel; union { SamplerVoice sampler; FMVoice fm; }; uint8_t instrument; double remaining; float gain; int lane,audio_clip; } Voice;
+typedef struct { int channel; union { SamplerVoice sampler; FMVoice fm; }; uint8_t instrument; double remaining; float gain; int lane,audio_clip,pattern,note_id; } Voice;
 typedef struct {
     EffectRack *effects; /* borrowed runtime rack; attach after player_reset */
     uint64_t frame;

@@ -90,7 +90,7 @@ Mixer Master fader and does not affect WAV export.
   still return to their selected loop start. Wheel scrolls vertically; Shift+wheel
   scrolls horizontally. Command+wheel on macOS or Ctrl+wheel on Linux zooms
   around the pointer. Middle-button drag pans freely. On macOS, two-finger
-  scrolling pans both axes and pinching zooms. The bottom scrollbar also pans.
+  scrolling pans both axes and pinching zooms. The top scrollbar also pans.
   Use the right scrollbar to scroll vertically.
   Clip resize handles highlight on hover, and the cursor updates once per frame.
 - Click or drag either editor's bar ruler to position its downward start arrow.
@@ -119,7 +119,7 @@ Mixer Master fader and does not affect WAV export.
   length and velocity stay intact, and duplicate onset/pitch collisions are blocked.
   Dragging a note auditions it at each new pitch. The right scrollbar scrolls pitches.
   Piano Roll uses the same mouse/trackpad navigation as Playlist; vertical
-  scrolling browses pitches. Drag the bottom scrollbar to pan across the pattern. Bar numbers appear above the notes. Drag an existing note's right edge to resize
+  scrolling browses pitches. Drag the top scrollbar to pan across the pattern. Bar numbers appear above the notes. Drag an existing note's right edge to resize
   it; right-click its body to erase it. Dragging a velocity bar changes every
   note that starts at that position. C4 plays the sample at its original pitch;
   other pitches resample it. Notes stop at their duration or the sample's end.
@@ -494,7 +494,7 @@ number. Slots process in numeric order, before the selected track's fader.
 3 ms depth and 50% mix. **Bypass** smoothly returns to dry; **x** removes the effect.
 Right-click any of the three knobs to enter a value, reset, or create automation.
 Settings are included in undo, project saves, recording and WAV export. Old
-projects load without effects; newly saved projects use format version 36.
+projects load without effects; newly saved projects use format version 37.
 
 ### Built-in FM Synth
 
@@ -556,3 +556,57 @@ saving projects, exporting WAVs, choosing samples, loading presets and saving
 presets. Locations persist across app restarts; browsing and cancelling also
 remembers the folder. Unavailable folders fall back to the normal starting path.
 Saving an already saved project still writes directly to that project's file.
+
+Arrangement and Piano Roll horizontal scrollbars sit above their timeline rulers.
+The small arrow button at the right end controls vertical zoom: hover for the
+vertical resize cursor, then drag up for taller rows or down to show more tracks
+or notes. Arrangement zoom preserves custom track heights and the top visible
+track. Piano Roll keys, notes and pitch scrolling follow the same row scale.
+
+### FM electric piano and modulation
+
+Click **Electric Piano** in FM Synth to load the factory patch. **Tone decay**
+and **Tone sustain** control how its bright FM attack settles into a softer tone,
+independently of the amplitude ADSR. **Velocity** makes quieter Piano Roll notes
+softer in timbre as well as volume. The LFO has **Rate** in Hz, **Vibrato** in
+cents and **Tremolo** amount. Each note starts its own LFO; rate and amounts slew
+smoothly, and every new knob supports Reset, exact entry and automation.
+
+This is a two-operator FM electric piano, rather than a full six-operator DX7
+emulation. A gentle Mixer Chorus adds stereo movement if desired.
+
+Default preset folders sit under LibreLoop's configuration directory, normally
+`~/.config/libreloop/presets/`, with a folder for Sampler, FM Synth, Chorus and
+Equalizer. `XDG_CONFIG_HOME` is respected. The FM folder receives
+`Electric Piano.llpreset` on first use; an existing user file is preserved.
+Load/Save still remember the last folder chosen. Older projects and presets
+retain their previous tone with the new modulation controls initially neutral.
+
+Song playback also animates sounding notes in the Channel Rack and Piano Roll.
+The Piano Roll playhead follows the selected pattern's playing Playlist instance,
+including clip offsets, and Follow playhead works in Song mode as well.
+Piano Roll note placement starts at two steps and remembers the length of the
+last note clicked or resized. Hold and drag after placing a pencil
+note to move it in time and pitch; drag an existing note's right edge to resize.
+Brush placement uses that remembered length too. Movement follows the current grid.
+
+### Copy and paste
+
+Focus the Piano Roll or Arrangement, select items, then use **Edit → Copy**,
+**Cut**, **Paste** or **Select all**. The standard shortcuts are Cmd+C/X/V/A on
+macOS and Ctrl+C/X/V/A on Linux. Text dialogs retain their text clipboard.
+
+Paste places the group's earliest note or clip at that editor's start marker.
+Notes keep pitches, velocities, lengths and relative timing, and can be pasted
+into another channel or pattern. Clips keep their sources, trims, offsets and
+relative track positions; choose a track header for the destination, or retain
+the copied group's original tracks. Pasted items become selected. Cut and Paste
+support undo. If space is occupied or capacity is insufficient, the whole paste
+is rejected without changing the project. Clip copies stay within the current
+project; changing its source list requires copying again.
+
+In Piano Roll Pencil mode, Cmd+Up/Down (macOS) or Ctrl+Up/Down (Linux) moves the
+selected notes up/down exactly one octave. Cmd/Ctrl+K goes up and Cmd/Ctrl+J
+goes down. The same actions appear in Edit as **Octave up/down**. They preserve
+timing, lengths and velocities, support undo, and reject a shift if any selected
+note would leave MIDI pitches 0–127 or collide with an existing note.

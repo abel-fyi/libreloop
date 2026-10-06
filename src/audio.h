@@ -22,6 +22,7 @@ void audio_spectrum_bus(int bus);
 unsigned audio_spectrum_read(int selected,float *stereo,unsigned capacity);
 int audio_active(void);
 void audio_channel_activity(uint8_t active[CHANNELS],uint8_t triggered[CHANNELS]);
+void audio_pattern_activity(int pattern,uint8_t notes[CHANNELS][NOTES]);
 void audio_track_activity(uint8_t active[LANES],uint8_t triggered[LANES]);
 int audio_devices(int capture,char names[][128],int capacity);
 /* One post-fader stereo take per bus. Start/end run on the UI thread. */

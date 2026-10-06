@@ -19,11 +19,13 @@ int main(void) {
     CHECK(loaded.kind==PRESET_SAMPLER && loaded.sampler.pitch==3 && !strcmp(loaded.sample_path,audio));
     snprintf(moved,sizeof moved,"%s-moved",root); CHECK(!rename(root,moved)); snprintf(path,sizeof path,"%s/patch.llpreset",moved);
     CHECK(preset_load(path,&loaded)); snprintf(audio,sizeof audio,"%s/sample.wav",moved); CHECK(!strcmp(loaded.sample_path,audio));
-    preset=(DevicePreset){.kind=PRESET_FM,.fm={3,4,.02f,.5f,.4f,.3f}};
+    preset=(DevicePreset){.kind=PRESET_FM,.fm=fm_default()}; preset.fm.ratio=3; preset.fm.depth=4;
     CHECK(preset_save(path,&preset) && preset_load(path,&loaded)); CHECK(loaded.kind==PRESET_FM && loaded.fm.ratio==3 && loaded.fm.depth==4);
     preset=(DevicePreset){.kind=PRESET_CHORUS,.chorus={1.2f,5},.mix=.3f};
     CHECK(preset_save(path,&preset) && preset_load(path,&loaded)); CHECK(loaded.kind==PRESET_CHORUS && loaded.mix==.3f && loaded.chorus.depth==5);
     preset.chorus.depth=NAN; CHECK(!preset_save(path,&preset)); CHECK(preset_load(path,&loaded) && loaded.chorus.depth==5);
+    f=fopen(path,"w"); CHECK(f); fputs("LIBRELOOP_PRESET 2 2\n3 4 .02 .5 .4 .3\n",f); fclose(f);
+    CHECK(preset_load(path,&loaded) && loaded.fm.mod_sustain==1 && loaded.fm.vibrato==0 && loaded.fm.tremolo==0);
     DevicePreset before=loaded; f=fopen(path,"w"); CHECK(f); fputs("LIBRELOOP_PRESET 1 2\n2 nan .1 .2 .3 .4\n",f); fclose(f);
     CHECK(!preset_load(path,&loaded) && !memcmp(&before,&loaded,sizeof loaded));
     f=fopen(path,"w"); CHECK(f); fputs("LIBRELOOP_PRESET 99 3\n1 3 .5\n",f); fclose(f); CHECK(!preset_load(path,&loaded));

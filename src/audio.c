@@ -35,6 +35,7 @@ static struct {
     unsigned preview_end,preview_remaining;
     Voice voices[128];
     uint8_t instrument[CHANNELS];
+    uint8_t pattern_notes[PATTERNS][CHANNELS][NOTES];
     unsigned sample_frames[CHANNELS],live_frames,visual_frames;
     double speeds[CHANNELS],live_time,visual_frame,visual_time,visual_start,visual_end;
     int playing;
@@ -218,6 +219,12 @@ static void callback(ma_device *d, void *out, const void *in, ma_uint32 frames) 
     }
 }
 static void publish_view(void) {
+    memset(view.pattern_notes,0,sizeof view.pattern_notes);
+    if(playing) for(int i=0;i<128;i++) {
+        const Voice *v=&player.voices[i];
+        if(v->gain>0 && v->note_id>0 && v->note_id<=NOTES && v->pattern>=0 && v->pattern<PATTERNS && v->channel>=0 && v->channel<CHANNELS && player.channel_active[v->channel] && (v->lane<0 || (v->lane<LANES && player.lane_active[v->lane])))
+            view.pattern_notes[v->pattern][v->channel][v->note_id-1]=1;
+    }
     view.preview=preview; view.preview_position=preview_position;
     view.preview_frame=preview_frame; view.preview_time=preview_time; view.preview_rate=preview_rate;
     view.preview_end=preview_end; view.preview_remaining=preview_remaining;
@@ -283,7 +290,7 @@ static void consume_commands(void) {
                 if(project.instrument[c->channel]==INSTRUMENT_FM) {
                     Voice *voice=&live.voices[127];
                     *voice=(Voice){.channel=c->channel,.instrument=INSTRUMENT_FM,.remaining=(c->note.length?c->note.length:1)*RATE*15/project.bpm,.gain=c->note.velocity/127.f,.lane=-1};
-                    fm_note_on(&voice->fm,440*pow(2,(c->note.pitch-69)/12.0),project.fm[c->channel]);
+                    fm_note_on_velocity(&voice->fm,440*pow(2,(c->note.pitch-69)/12.0),project.fm[c->channel],c->note.velocity/127.f);
                     atomic_store(&channel_trigger[c->channel],1); break;
                 }
                 preview=samples[c->channel]; preview_position=preview_frame=0; preview_time=monotonic_time();
@@ -528,6 +535,12 @@ void audio_channel_activity(uint8_t active[CHANNELS],uint8_t triggered[CHANNELS]
         active[c]=atomic_load_explicit(&channel_active[c],memory_order_relaxed);
         triggered[c]=atomic_exchange_explicit(&channel_trigger[c],0,memory_order_relaxed);
     }
+}
+void audio_pattern_activity(int pattern,uint8_t notes[CHANNELS][NOTES]) {
+    pthread_mutex_lock(&mutex);
+    if(pattern>=0 && pattern<PATTERNS) memcpy(notes,view.pattern_notes[pattern],CHANNELS*NOTES);
+    else memset(notes,0,CHANNELS*NOTES);
+    pthread_mutex_unlock(&mutex);
 }
 void audio_track_activity(uint8_t active[LANES],uint8_t triggered[LANES]) {
     for(int l=0;l<LANES;l++) {

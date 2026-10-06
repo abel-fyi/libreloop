@@ -68,7 +68,8 @@ int main(void) {
     for(int i=0;i<lines;i++) {
         CHECK(fgets(line,sizeof line,f));
         if(!i) fputs("HOMEBEAT 35\n",old);
-        else if(i<lines-tail) fputs(line,old);
+        else if(i<lines-tail-CHANNELS) fputs(line,old);
+        else if(i<lines-tail) continue;
         else if((i-lines+tail)%EQ_BANDS<4) {
             float frequency,gain,q; CHECK(sscanf(line,"%f %f %f",&frequency,&gain,&q)==3);
             fprintf(old,"%.9g %.9g %.9g\n",frequency,gain,q);

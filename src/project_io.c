@@ -45,7 +45,7 @@ int project_save(const char *path,const Project *p) {
     AtomicFile output; if(!atomic_file_open(&output,path)) return 0;
     FILE *f=output.file;
     for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) if(!isfinite(p->clip_offsets[l][b]) || p->clip_offsets[l][b]<0 || p->clip_offsets[l][b]>1e15f) { atomic_file_abort(&output); return 0; }
-    fprintf(f,"HOMEBEAT 36\n%.9g %.9g %d\n",p->bpm,p->master,p->channel_count);
+    fprintf(f,"HOMEBEAT 37\n%.9g %.9g %d\n",p->bpm,p->master,p->channel_count);
     for(int c=0;c<CHANNELS;c++) fprintf(f,"%.9g %.9g %u\n",p->volume[c],p->pan[c],p->mute[c]);
     for(int a=0;a<PATTERNS;a++) for(int c=0;c<CHANNELS;c++) for(int i=0;i<NOTES;i++) {
         Note n=p->notes[a][c][i]; fprintf(f,"%u %u %.9g %.9g\n",n.pitch,n.velocity,n.start,n.length);
@@ -90,6 +90,7 @@ int project_save(const char *path,const Project *p) {
     for(int c=0;c<CHANNELS;c++) {
         FMSettings v=p->fm[c]; fprintf(f,"%u %.9g %.9g %.9g %.9g %.9g %.9g\n",p->instrument[c],v.ratio,v.depth,v.attack,v.decay,v.sustain,v.release);
     }
+    for(int c=0;c<CHANNELS;c++) { FMSettings v=p->fm[c]; fprintf(f,"%.9g %.9g %.9g %.9g %.9g %.9g\n",v.mod_decay,v.mod_sustain,v.velocity,v.lfo_rate,v.vibrato,v.tremolo); }
     for(int bus=0;bus<=INSERTS;bus++) for(int slot=0;slot<EFFECT_SLOTS;slot++) for(int b=0;b<EQ_BANDS;b++) {
         EQBand v=p->eq[bus][slot].bands[b]; fprintf(f,"%.9g %.9g %.9g %u\n",v.frequency,v.gain,v.q,v.shape);
     }
@@ -102,7 +103,7 @@ int project_load(const char *path,Project *p) {
     q.insert_count=4;
     for(int i=0;i<INSERTS;i++) q.insert_volume[i]=1;
     for(int c=0;c<4;c++) q.route[c]=c+1;
-    int ok=fscanf(f,"%31s %d",magic,&version)==2 && !strcmp(magic,"HOMEBEAT") && version>=1 && version<=36;
+    int ok=fscanf(f,"%31s %d",magic,&version)==2 && !strcmp(magic,"HOMEBEAT") && version>=1 && version<=37;
     ok=ok && fscanf(f,"%f %f",&q.bpm,&q.master)==2 && isfinite(q.bpm) && q.bpm>=30 && q.bpm<=300 && isfinite(q.master) && q.master>=0 && q.master<=(version>=18?MIXER_GAIN_MAX:1);
     if(version>=12) ok=ok && fscanf(f,"%d",&q.channel_count)==1 && q.channel_count>=0 && q.channel_count<=CHANNELS;
     int channels=version>=12?CHANNELS:4,inserts=version>=12?INSERTS:16,clips=version>=14?CLIPS:BARS;
@@ -217,6 +218,10 @@ int project_load(const char *path,Project *p) {
         FMSettings *v=&q.fm[c];
         ok=fscanf(f,"%u %f %f %f %f %f %f",&x,&v->ratio,&v->depth,&v->attack,&v->decay,&v->sustain,&v->release)==7 && x<=INSTRUMENT_FM && fm_valid(*v) && !(x==INSTRUMENT_FM && q.channel_audio[c]);
         if(ok) q.instrument[c]=x;
+    }
+    if(version>=37) for(int c=0;ok && c<CHANNELS;c++) {
+        FMSettings *v=&q.fm[c];
+        ok=fscanf(f,"%f %f %f %f %f %f",&v->mod_decay,&v->mod_sustain,&v->velocity,&v->lfo_rate,&v->vibrato,&v->tremolo)==6 && fm_valid(*v);
     }
     if(version>=35) for(int bus=0;ok && bus<=INSERTS;bus++) for(int slot=0;ok && slot<EFFECT_SLOTS;slot++) {
         if(version==35) q.eq[bus][slot]=equalizer_legacy();
