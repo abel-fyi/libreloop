@@ -17,6 +17,9 @@ double audio_key_position(int slot,int channel);
 uint64_t audio_position(void);
 double audio_visual_position(void);
 void audio_meters(float peaks[INSERTS+1][2]);
+/* UI drains bounded stereo taps; FFT work stays outside the callback. */
+void audio_spectrum_bus(int bus);
+unsigned audio_spectrum_read(int selected,float *stereo,unsigned capacity);
 int audio_active(void);
 void audio_channel_activity(uint8_t active[CHANNELS],uint8_t triggered[CHANNELS]);
 void audio_track_activity(uint8_t active[LANES],uint8_t triggered[LANES]);

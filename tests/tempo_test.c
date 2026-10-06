@@ -38,14 +38,14 @@ int main(void) {
     for(int mode=0;mode<2;mode++) {
         project.sampler[0].stretch=mode; project.bpm=120;
         player_reset(&player); player.song=1; render(&player,&project,samples,out,512);
-        float previous=out[1022],maximum=0; double cursor=player.voices[0].position;
+        float previous=out[1022],maximum=0; double cursor=player.voices[0].sampler.position;
         for(int block=0;block<180;block++) {
             double song_step=player.frame*project.bpm/(RATE*15.0);
             project.bpm=block<60?240: block<120?60:180;
             render(&player,&project,samples,out,128);
-            CHECK(player.voices[0].position>cursor && !player.channel_trigger[0]);
+            CHECK(player.voices[0].sampler.position>cursor && !player.channel_trigger[0]);
             CHECK(fabs(player.frame*project.bpm/(RATE*15.0)-song_step-128*project.bpm/(RATE*15.0))<.001);
-            cursor=player.voices[0].position;
+            cursor=player.voices[0].sampler.position;
             for(int i=0;i<128;i++) {
                 CHECK(isfinite(out[i*2]) && fabsf(out[i*2])<=.301f);
                 CHECK(fabsf(out[i*2+1]+.7f*out[i*2])<.0001f);
@@ -55,9 +55,9 @@ int main(void) {
         CHECK(maximum<.08f); printf("%s maximum sample jump: %.6f\n",mode?"Stretch":"Resample",maximum);
     }
     /* A tempo edit slews rather than stepping directly to its target. */
-    Voice voice={.speed=1,.gain=1,.remaining=-1}; float stereo[2];
-    voice_tempo_sample(&voice,source,1,1,0,stereo); double position=voice.position;
-    voice_tempo_sample(&voice,source,1,2,0,stereo);
+    SamplerVoice voice; sampler_voice_reset(&voice,0,1); float stereo[2];
+    sampler_voice_sample(&voice,source,1,1,0,stereo); double position=voice.position;
+    sampler_voice_sample(&voice,source,1,2,0,stereo);
     CHECK(voice.position-position>1 && voice.position-position<1.01);
     /* Version 31 conversion restores the same grid and source trim. */
     Project old=project,loaded;

@@ -35,6 +35,25 @@ int main(void) {
     CHECK(file_chooser_begin(&c,wave,"wav;flac;mp3",0));
     snprintf(c.name,sizeof c.name,"Audio.wav"); CHECK(file_chooser_path(&c,path,sizeof path)==1);
     file_chooser_close(&c); CHECK(!c.entries && !c.count);
-    CHECK(!remove(project) && !remove(wave) && !remove(hidden) && !rmdir(folder) && !rmdir(root));
+    char config[PATH_MAX],locations[PATH_MAX];
+    snprintf(config,sizeof config,"%s/folders.txt",root);
+    snprintf(locations,sizeof locations,"%s/chooser-folders.txt",root);
+    file_chooser_locations(config);
+    CHECK(file_chooser_begin_recent(&c,project,"hbt",0,FILE_OPEN));
+    CHECK(file_chooser_folder(&c,folder)); file_chooser_close(&c); /* Cancel remembers navigation. */
+    file_chooser_locations(config); /* Simulate an app restart. */
+    CHECK(file_chooser_begin_recent(&c,project,"hbt",0,FILE_OPEN) && !strcmp(c.directory,folder) && !c.name[0]);
+    file_chooser_close(&c);
+    CHECK(file_chooser_begin_recent(&c,project,"hbt",1,FILE_SAVE) && !strcmp(c.directory,root));
+    CHECK(file_chooser_folder(&c,folder)); file_chooser_close(&c);
+    CHECK(file_chooser_begin_recent(&c,project,"hbt",1,FILE_SAVE) && !strcmp(c.directory,folder) && !strcmp(c.name,"My Song.hbt"));
+    file_chooser_remember(&c,project); file_chooser_close(&c); /* Absolute filename uses its actual parent. */
+    file_chooser_locations(config);
+    CHECK(file_chooser_begin_recent(&c,project,"hbt",1,FILE_SAVE) && !strcmp(c.directory,root)); file_chooser_close(&c);
+    CHECK(file_chooser_begin_recent(&c,wave,"wav",1,FILE_EXPORT) && !strcmp(c.directory,root)); file_chooser_close(&c);
+    CHECK(!rmdir(folder));
+    CHECK(file_chooser_begin_recent(&c,project,"hbt",0,FILE_OPEN) && !strcmp(c.directory,root) && !c.error[0]); file_chooser_close(&c);
+    CHECK(!remove(locations));
+    CHECK(!remove(project) && !remove(wave) && !remove(hidden) && !rmdir(root));
     puts("Chooser filtering, spaces, hidden files, parent/root navigation, failures, extensions and overwrite checks passed."); return 0;
 }

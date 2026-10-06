@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "file_chooser.h"
+#include "atomic_file.h"
 #include <dirent.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -8,11 +9,41 @@
 #include <string.h>
 #include <strings.h>
 #include <errno.h>
+static char recent[FILE_PURPOSES][PATH_MAX],locations_path[PATH_MAX];
+void file_chooser_locations(const char *browser_config) {
+    memset(recent,0,sizeof recent); locations_path[0]=0;
+    const char *slash=strrchr(browser_config,'/');
+    if(!slash || snprintf(locations_path,sizeof locations_path,"%.*s/chooser-folders.txt",(int)(slash-browser_config),browser_config)>=(int)sizeof locations_path) { locations_path[0]=0; return; }
+    FILE *f=fopen(locations_path,"r"); if(!f) return;
+    char line[PATH_MAX+32];
+    while(fgets(line,sizeof line,f)) {
+        char *end,*newline=strchr(line,'\n'); if(!newline) continue;
+        *newline=0; long purpose=strtol(line,&end,10);
+        if(end!=line && *end=='\t' && end[1]=='/' && purpose>=0 && purpose<FILE_PURPOSES && strlen(end+1)<PATH_MAX)
+            snprintf(recent[purpose],PATH_MAX,"%s",end+1);
+    }
+    fclose(f);
+}
+static void remember_folder(int purpose,const char *folder) {
+    if(purpose<0 || purpose>=FILE_PURPOSES || !folder[0] || strlen(folder)>=PATH_MAX || !strcmp(recent[purpose],folder)) return;
+    snprintf(recent[purpose],PATH_MAX,"%s",folder);
+    AtomicFile out;
+    if(!locations_path[0] || !atomic_file_open(&out,locations_path)) return;
+    for(int i=0;i<FILE_PURPOSES;i++) if(recent[i][0] && !strchr(recent[i],'\n') && !strchr(recent[i],'\r')) fprintf(out.file,"%d\t%s\n",i,recent[i]);
+    atomic_file_commit(&out);
+}
+void file_chooser_remember(FileChooser *c,const char *chosen) {
+    if(!c->remember) return;
+    char parent[PATH_MAX]; if(strlen(chosen)>=sizeof parent) return;
+    snprintf(parent,sizeof parent,"%s",chosen); char *slash=strrchr(parent,'/');
+    if(!slash) return; if(slash==parent) slash[1]=0; else *slash=0;
+    remember_folder(c->purpose,parent); c->remember=0;
+}
 static void free_entries(FileEntry *entries,int count) {
     for(int i=0;i<count;i++) free(entries[i].name);
     free(entries);
 }
-void file_chooser_close(FileChooser *c) { free_entries(c->entries,c->count); *c=(FileChooser){.selected=-1}; }
+void file_chooser_close(FileChooser *c) { if(c->remember) remember_folder(c->purpose,c->directory); free_entries(c->entries,c->count); *c=(FileChooser){.selected=-1}; }
 static int compare(const void *a,const void *b) {
     const FileEntry *x=a,*y=b;
     return x->directory!=y->directory?y->directory-x->directory:strcasecmp(x->name,y->name);
@@ -101,4 +132,14 @@ int file_chooser_path(FileChooser *c,char *path,size_t capacity) {
     }
     if(c->save && errno==ENOENT) return 1;
     snprintf(c->error,sizeof c->error,"File is unavailable: %s",strerror(errno)); return -1;
+}
+
+int file_chooser_begin_recent(FileChooser *c,const char *initial,const char *extension,int save,int purpose) {
+    file_chooser_close(c);
+    if(!file_chooser_begin(c,initial,extension,save)) return 0;
+    if(purpose>=0 && purpose<FILE_PURPOSES) {
+        if(recent[purpose][0]) { file_chooser_folder(c,recent[purpose]); c->error[0]=0; }
+        c->purpose=purpose; c->remember=1;
+    }
+    return 1;
 }

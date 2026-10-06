@@ -14,6 +14,9 @@ static int read_line(FILE *f,char *out,size_t capacity) {
 }
 int project_save(const char *path,const Project *p) {
     if(!automation_valid(p)) return 0;
+    for(int c=0;c<CHANNELS;c++) if(p->instrument[c]>INSTRUMENT_FM || !fm_valid(p->fm[c]) || (p->instrument[c]==INSTRUMENT_FM && p->channel_audio[c])) return 0;
+    for(int bus=0;bus<=INSERTS;bus++) for(int slot=0;slot<EFFECT_SLOTS;slot++)
+        if(p->effect_type[bus][slot]>EFFECT_EQ || !chorus_valid(p->chorus[bus][slot]) || !equalizer_valid(p->eq[bus][slot])) return 0;
     if(p->channel_count<0 || p->channel_count>CHANNELS || p->insert_count<0 || p->insert_count>INSERTS) return 0;
     for(int c=0;c<CHANNELS;c++) if(!p->channel_names[c][0] || strchr(p->channel_names[c],'\n') || strchr(p->channel_names[c],'\r')) return 0;
     for(int c=0;c<CHANNELS;c++) if(strchr(p->paths[c],'\n') || strchr(p->paths[c],'\r')) return 0;
@@ -42,7 +45,7 @@ int project_save(const char *path,const Project *p) {
     AtomicFile output; if(!atomic_file_open(&output,path)) return 0;
     FILE *f=output.file;
     for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) if(!isfinite(p->clip_offsets[l][b]) || p->clip_offsets[l][b]<0 || p->clip_offsets[l][b]>1e15f) { atomic_file_abort(&output); return 0; }
-    fprintf(f,"HOMEBEAT 32\n%.9g %.9g %d\n",p->bpm,p->master,p->channel_count);
+    fprintf(f,"HOMEBEAT 36\n%.9g %.9g %d\n",p->bpm,p->master,p->channel_count);
     for(int c=0;c<CHANNELS;c++) fprintf(f,"%.9g %.9g %u\n",p->volume[c],p->pan[c],p->mute[c]);
     for(int a=0;a<PATTERNS;a++) for(int c=0;c<CHANNELS;c++) for(int i=0;i<NOTES;i++) {
         Note n=p->notes[a][c][i]; fprintf(f,"%u %u %.9g %.9g\n",n.pitch,n.velocity,n.start,n.length);
@@ -82,6 +85,14 @@ int project_save(const char *path,const Project *p) {
         for(int n=0;n<a->count;n++) fprintf(f,"%.9g %.9g\n",a->points[n].step,a->points[n].value);
     }
     for(int c=0;c<CHANNELS;c++) fprintf(f,"%.9g\n",p->sampler[c].fit_bpm);
+    for(int bus=0;bus<=INSERTS;bus++) for(int slot=0;slot<EFFECT_SLOTS;slot++)
+        fprintf(f,"%u %.9g %.9g\n",p->effect_type[bus][slot],p->chorus[bus][slot].rate,p->chorus[bus][slot].depth);
+    for(int c=0;c<CHANNELS;c++) {
+        FMSettings v=p->fm[c]; fprintf(f,"%u %.9g %.9g %.9g %.9g %.9g %.9g\n",p->instrument[c],v.ratio,v.depth,v.attack,v.decay,v.sustain,v.release);
+    }
+    for(int bus=0;bus<=INSERTS;bus++) for(int slot=0;slot<EFFECT_SLOTS;slot++) for(int b=0;b<EQ_BANDS;b++) {
+        EQBand v=p->eq[bus][slot].bands[b]; fprintf(f,"%.9g %.9g %.9g %u\n",v.frequency,v.gain,v.q,v.shape);
+    }
     return atomic_file_commit(&output);
 }
 int project_load(const char *path,Project *p) {
@@ -91,7 +102,7 @@ int project_load(const char *path,Project *p) {
     q.insert_count=4;
     for(int i=0;i<INSERTS;i++) q.insert_volume[i]=1;
     for(int c=0;c<4;c++) q.route[c]=c+1;
-    int ok=fscanf(f,"%31s %d",magic,&version)==2 && !strcmp(magic,"HOMEBEAT") && version>=1 && version<=32;
+    int ok=fscanf(f,"%31s %d",magic,&version)==2 && !strcmp(magic,"HOMEBEAT") && version>=1 && version<=36;
     ok=ok && fscanf(f,"%f %f",&q.bpm,&q.master)==2 && isfinite(q.bpm) && q.bpm>=30 && q.bpm<=300 && isfinite(q.master) && q.master>=0 && q.master<=(version>=18?MIXER_GAIN_MAX:1);
     if(version>=12) ok=ok && fscanf(f,"%d",&q.channel_count)==1 && q.channel_count>=0 && q.channel_count<=CHANNELS;
     int channels=version>=12?CHANNELS:4,inserts=version>=12?INSERTS:16,clips=version>=14?CLIPS:BARS;
@@ -198,6 +209,23 @@ int project_load(const char *path,Project *p) {
         ok=fscanf(f,"%f",&s->fit_bpm)==1;
         ok=ok && sampler_valid(*s);
     }
+    if(version>=33) for(int bus=0;ok && bus<=INSERTS;bus++) for(int slot=0;ok && slot<EFFECT_SLOTS;slot++) {
+        ok=fscanf(f,"%u %f %f",&x,&q.chorus[bus][slot].rate,&q.chorus[bus][slot].depth)==3 && x<=(version>=35?EFFECT_EQ:EFFECT_CHORUS) && chorus_valid(q.chorus[bus][slot]);
+        if(ok) q.effect_type[bus][slot]=x;
+    }
+    if(version>=34) for(int c=0;ok && c<CHANNELS;c++) {
+        FMSettings *v=&q.fm[c];
+        ok=fscanf(f,"%u %f %f %f %f %f %f",&x,&v->ratio,&v->depth,&v->attack,&v->decay,&v->sustain,&v->release)==7 && x<=INSTRUMENT_FM && fm_valid(*v) && !(x==INSTRUMENT_FM && q.channel_audio[c]);
+        if(ok) q.instrument[c]=x;
+    }
+    if(version>=35) for(int bus=0;ok && bus<=INSERTS;bus++) for(int slot=0;ok && slot<EFFECT_SLOTS;slot++) {
+        if(version==35) q.eq[bus][slot]=equalizer_legacy();
+        for(int b=0;ok && b<(version==35?4:EQ_BANDS);b++) {
+            EQBand *v=&q.eq[bus][slot].bands[b]; ok=fscanf(f,"%f %f %f",&v->frequency,&v->gain,&v->q)==3;
+            if(ok && version>=36) ok=fscanf(f,"%u",&v->shape)==1;
+        }
+        ok=ok && equalizer_valid(q.eq[bus][slot]);
+    }
     /* Version 31 stored BPM-fitted PCM lengths/offsets; restore reference seconds. */
     if(version==31 && ok) for(int c=0;c<CHANNELS;c++) if(q.sampler[c].fit_bpm) {
         float ratio=q.bpm/q.sampler[c].fit_bpm;
@@ -222,6 +250,8 @@ int export_wav(const char *path,const Project *pr,const Sample s[CHANNELS]) {
     FILE *f=output.file;
     fwrite("RIFF",1,4,f); le(f,36+frames*4,4); fwrite("WAVEfmt ",1,8,f); le(f,16,4); le(f,1,2); le(f,2,2); le(f,RATE,4); le(f,RATE*4,4); le(f,4,2); le(f,16,2); fwrite("data",1,4,f); le(f,frames*4,4);
     Player player; player_reset(&player); player.song=1; float block[1024];
+    player.effects=effects_create(INSERTS+1);
+    if(!player.effects) { atomic_file_abort(&output); return 0; }
     for(uint32_t i=0;i<frames;) {
         unsigned n=frames-i>512?512:frames-i; render(&player,pr,s,block,n);
         for(unsigned j=0;j<n*2;j++) {
@@ -230,5 +260,6 @@ int export_wav(const char *path,const Project *pr,const Sample s[CHANNELS]) {
         }
         i+=n;
     }
+    effects_free(player.effects);
     return atomic_file_commit(&output);
 }

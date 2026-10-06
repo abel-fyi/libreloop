@@ -2,6 +2,7 @@
 #include "engine.h"
 #include <math.h>
 #include <float.h>
+float audio_source_bpm(const Project *p,int channel) { return p->sampler[channel].fit_bpm?p->sampler[channel].fit_bpm:p->bpm; }
 /* Integrate playback speed over straight automation segments. Pitch is linear
    in semitones, so speed is exponential; its integral and inverse are analytic. */
 void audio_timeline_init(AudioTimeline *map,const Project *p,int channel) {

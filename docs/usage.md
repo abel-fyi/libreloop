@@ -133,7 +133,7 @@ Mixer Master fader and does not affect WAV export.
   has one destination; default is Master. Connections cannot create feedback
   loops. The selected insert shows its cable. Use the wheel over strips or the
   bottom scrollbar to browse inserts. The fixed-width panel on the right has
-  ten empty effect slots for the selected channel; plugins are not implemented yet.
+  ten built-in effect slots for the selected channel; select a slot to add Chorus.
 - Drop a WAV, FLAC or MP3 onto the Playlist grid to create a waveform clip
   and a reusable Audio channel. Double-click the clip to open its sampler;
   sampler changes affect every copy. Full-length clips follow trimmed sample
@@ -362,7 +362,7 @@ captured portion and report the error. Each take supports about 93 minutes at 48
 
 The Playlist’s left pattern picker shows note previews; click to select a pattern,
 right-click for Rename, Color or Delete, and scroll the list when necessary. Right-click a Playlist
-track header to rename that track. The Mixer effects area has no interactive placeholder controls.
+track header to rename that track. The Mixer effects area provides Chorus slots with rate, depth, mix and bypass controls.
 
 The top bar groups FILE, VIEW and HELP on the left. HELP → Keybindings opens
 the shortcut list. The arrow past a vertical marker toggles Follow playhead;
@@ -482,3 +482,77 @@ Waveforms share a continuous filled style in Arrangement clips, source previews,
 the Browser and Sampler. Display bins follow the source audio and blend smoothly
 while panning or zooming, without changing the audio. Pattern previews use display
 resolution and filtered textures for fractional movement.
+
+### Built-in Chorus
+
+Open the Mixer, select an insert or Master, and select one of its ten effect slots
+on the right. Click **+ Chorus** to add it. Occupied slots have a dot beside their
+number. Slots process in numeric order, before the selected track's fader.
+
+**Rate** controls modulation speed (.05–5 Hz), **Depth** controls delay variation
+(0–8 ms), and **Mix** blends dry and delayed sound. New instances start at .8 Hz,
+3 ms depth and 50% mix. **Bypass** smoothly returns to dry; **x** removes the effect.
+Right-click any of the three knobs to enter a value, reset, or create automation.
+Settings are included in undo, project saves, recording and WAV export. Old
+projects load without effects; newly saved projects use format version 36.
+
+### Built-in FM Synth
+
+Click the instrument-shaped **+** row in the Channel Rack and choose **FM Synth**.
+Sequence it with Rack steps or the Piano Roll, or audition with the typing keyboard.
+Click the oscillator preview to audition C4. **Ratio** selects a harmonic ratio
+(1–8); **Depth** adds modulation for brighter, more complex timbres. **Attack**,
+**Decay**, **Sustain** and **Release** shape each note's envelope. Rack steps hold
+for one step; Piano Roll notes hold for their drawn length, followed by release.
+The header's pan, volume, pitch and mixer routing work like the Sampler's.
+Right-click any FM knob to create automation. Projects, undo and export include FM.
+
+### Device presets
+
+Sampler, FM Synth and Chorus each have **Load** and **Save** preset buttons.
+These open the in-app file chooser for `.llpreset` files. Presets store the
+instrument/effect settings; channel volume, pan and routing stay with the project.
+A preset must match the device it is loaded into.
+
+Sampler presets reference the original sample file rather than embedding audio.
+Keep that audio available; when moving presets, preserve its relative location.
+Presets made from generated sources without a file path save only settings and
+apply to the receiving Sampler's current audio. Missing sample files and invalid
+presets report an error and leave the device unchanged.
+
+### Equalizer and live spectrum
+
+Select an empty Mixer effect slot and click **+ Equalizer**. **Open Equalizer**
+opens its resizable editor. Seven fixed bands cover 20 Hz–20 kHz. Select a numbered band and use its shape
+menu to choose Bell, Low Shelf, High Shelf, Low Cut, High Cut, or Off. New EQs
+start with a low shelf, five bells and a high shelf. Drag a numbered point horizontally for frequency and
+vertically for gain (±18 dB). Right-click a dot and choose **Reset** to restore
+that band’s default frequency, gain, Q and shape. Wheel over a point adjusts Q; larger Q narrows the
+bells and adds resonance to shelves/cuts. Cuts have a fixed 12 dB/octave slope
+and use frequency/Q rather than gain. Off skips the band. Select a band to use its frequency, gain
+and Q knobs. Frequency knobs follow the logarithmic graph scale for even drag
+and wheel movement, while still showing Hz. Right-click the knobs for exact
+values or automation.
+
+The colored spectrum shows the selected bus's post-effect, post-fader stereo
+power on a logarithmic frequency axis; its level range is -78 to 0 dBFS. The
+response curve and point positions use the separate ±18 dB EQ gain scale.
+**Mix**, **Bypass**, and **Load/Save** presets work like other effects. EQ settings
+are included in project saves, undo, recording and WAV export. Older four-band
+projects and presets retain their original shapes and disable the extra bands.
+
+The top bar shows the listening output's frequency spectrum beside a stereo
+level meter. Red marks indicate an overloaded Master output. The analyzer is
+visual only and does not change the sound.
+
+Knobs, mixer faders and numeric value controls use the same right-click menu:
+**Reset** restores that control's default, **Enter value** accepts an exact value,
+and supported controls also offer **Create automation**. No reset shortcut is
+required. Click a channel's miniature note preview in the Channel Rack to open
+its Piano Roll; right-click retains the channel options menu.
+
+The file chooser remembers its last folder separately for opening projects,
+saving projects, exporting WAVs, choosing samples, loading presets and saving
+presets. Locations persist across app restarts; browsing and cancelling also
+remembers the folder. Unavailable folders fall back to the normal starting path.
+Saving an already saved project still writes directly to that project's file.

@@ -32,6 +32,11 @@ static int relative_path(const char *directory,const char *absolute,char *out,si
     if(strlen(absolute+common)>=capacity-used) return 0;
     strcpy(out+used,absolute+common); return 1;
 }
+int project_relative_reference(const char *path,const char *absolute,char *out,size_t capacity) {
+    char directory[PATH_MAX],canonical[PATH_MAX];
+    if(absolute[0]!='/' || !project_directory(path,directory)) return 0;
+    return relative_path(directory,realpath(absolute,canonical)?canonical:absolute,out,capacity);
+}
 static void le(FILE *f,uint32_t value,int bytes) { for(int i=0;i<bytes;i++) fputc((value>>(8*i))&255,f); }
 static int save_sample(const char *path,Sample sample) {
     unsigned channels=sample_channels(sample);

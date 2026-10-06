@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #ifndef WINDOWS_H
 #define WINDOWS_H
-#define EDITORS 5
+#define EDITORS 6
 #define TITLE 18
 typedef struct { float x,y,w,h; } Rect;
 typedef struct { Rect rect,restore; float minw,minh; int visible,maximized,pinned; } Editor;

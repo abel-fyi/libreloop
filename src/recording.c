@@ -46,7 +46,7 @@ int recording_prepare(RecordingSession *session,Project *next,const int buses[],
         take->writer=recording_writer_open(directory); if(!take->writer) goto failed;
         if(strlen(recording_writer_path(take->writer))>=sizeof next->paths[0]) goto failed;
         snprintf(take->path,sizeof take->path,"%s",recording_writer_path(take->writer));
-        int c=take->channel; next->channel_audio[c]=1; next->audio_seconds[c]=.001f;
+        int c=take->channel; next->instrument[c]=INSTRUMENT_SAMPLER; next->fm[c]=fm_default(); next->channel_audio[c]=1; next->audio_seconds[c]=.001f;
         next->volume[c]=1; next->pan[c]=next->channel_pitch[c]=0; next->pitch_range[c]=2; next->mute[c]=0;
         next->route[c]=0; next->sampler[c]=(Sampler){.time=1,.length=1};
         snprintf(next->paths[c],sizeof next->paths[c],"%s",take->path);

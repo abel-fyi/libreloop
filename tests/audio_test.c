@@ -44,12 +44,12 @@ int main(void) {
         fixture.sampler[0].fit_bpm=120; fixture.sampler[0].stretch=mode;
         audio_update(&fixture,1,1,0,0,1,0,0,0); callback(NULL,out,NULL,64);
         for(int edit=0;edit<12;edit++) {
-            double beat=player.frame*fixture.bpm/(RATE*15.0),source=player.voices[0].position;
+            double beat=player.frame*fixture.bpm/(RATE*15.0),source=player.voices[0].sampler.position;
             float last=out[126]; fixture.bpm=edit%2?60:240;
             audio_update(&fixture,1,1,0,0,1,0,0,0);
             CHECK(!player.audio_resync && samples[0].data==fitted_pcm);
             callback(NULL,out,NULL,64);
-            CHECK(!player.channel_trigger[0] && player.voices[0].position>source);
+            CHECK(!player.channel_trigger[0] && player.voices[0].sampler.position>source);
             CHECK(fabs(player.frame*fixture.bpm/(RATE*15.0)-beat-64*fixture.bpm/(RATE*15.0))<.001);
             CHECK(fabs(view.visual_frame*fixture.bpm/(RATE*15.0)-beat)<.001);
             for(int i=0;i<64;i++) { CHECK(fabsf(out[i*2]-last)<.05f); last=out[i*2]; }
@@ -57,6 +57,13 @@ int main(void) {
     }
     setup((Sample){pcm,1024,2}); callback(NULL,out,NULL,64);
     CHECK(!memcmp(out,pcm,sizeof out)); /* Device output is transparent at unity. */
+    float tapped[8192*2]; unsigned tap_frames=audio_spectrum_read(0,tapped,8192);
+    CHECK(tap_frames>=64 && !memcmp(tapped+(tap_frames-64)*2,out,sizeof out));
+    audio_spectrum_bus(0); callback(NULL,out,NULL,64);
+    tap_frames=audio_spectrum_read(1,tapped,8192); CHECK(tap_frames>=64);
+    CHECK(!memcmp(tapped+(tap_frames-64)*2,out,sizeof out));
+    audio_spectrum_bus(-1);
+    setup((Sample){pcm,1024,2}); callback(NULL,out,NULL,64);
     uint8_t channel_active_ui[CHANNELS],channel_triggered[CHANNELS];
     audio_channel_activity(channel_active_ui,channel_triggered);
     CHECK(channel_active_ui[0] && channel_triggered[0]);
@@ -133,9 +140,9 @@ int main(void) {
     fixture.clip_steps[2][0]=0; audio_update(&fixture,1,1,0,0,1,0,0,0); callback(NULL,out,NULL,64); CHECK(out[0]!=0);
     fixture.channel_count=2; Sample unaffected[CHANNELS]={{pcm+40,1004,2},{flat,1024,2}};
     audio_channels(&fixture,unaffected);
-    player.voices[127]=(Voice){1,100,1,-1,.2f,6,0}; live.voices[127]=(Voice){1,100,1,-1,.2f,-1,0};
+    player.voices[127]=(Voice){.channel=1,.sampler={.position=100,.speed=1},.remaining=-1,.gain=.2f,.lane=6,.audio_clip=0}; live.voices[127]=(Voice){.channel=1,.sampler={.position=100,.speed=1},.remaining=-1,.gain=.2f,.lane=-1,.audio_clip=0};
     audio_sample(0,(Sample){pcm+40,900,2}); callback(NULL,out,NULL,1);
-    CHECK(player.voices[127].position==101 && live.voices[127].position==101);
+    CHECK(player.voices[127].sampler.position==101 && live.voices[127].sampler.position==101);
     CHECK(player.voices[127].gain==.2f && live.voices[127].gain==.2f);
     /* A real producer/consumer exchange acknowledges replacements before free. */
     float *data=malloc(RATE*2*sizeof(float)); CHECK(data);
@@ -213,6 +220,19 @@ int main(void) {
     atomic_store(&ring->write,atomic_load(&ring->read)+RECORD_RING_FRAMES);
     CHECK(!ring_push(ring,1,1) && atomic_load(&ring->overflow));
     recording.active=0; CHECK(audio_record_failed()); record_release();
+    /* FM uses the real keyboard/note mailbox, without needing sample PCM. */
+    ready=0; project_new(&fixture); fixture.instrument[0]=INSTRUMENT_FM; fixture.fm[0].release=.01f;
+    audio_stop(); audio_update(&fixture,0,0,0,1,1,0,0,0);
+    audio_key(0,0,69,1); callback(NULL,out,NULL,64);
+    CHECK(live.voices[0].instrument==INSTRUMENT_FM && fm_active(&live.voices[0].fm));
+    CHECK(audio_key_position(0,0)>=0 && out[20]!=0);
+    audio_key(0,0,69,0);
+    for(int i=0;i<20;i++) callback(NULL,out,NULL,64);
+    CHECK(!live.voices[0].gain && audio_key_position(0,0)<0);
+    audio_note(0,(Note){69,127,0,.25f}); callback(NULL,out,NULL,64);
+    CHECK(live.voices[127].instrument==INSTRUMENT_FM && out[20]!=0);
+    for(int i=0;i<40;i++) callback(NULL,out,NULL,64);
+    CHECK(!live.voices[127].gain);
     puts("Transparent output, capture, post-fader recording, ring bounds, mixing and ordered controls passed.");
     return 0;
 }

@@ -161,9 +161,9 @@ int main(void) {
     pitched.notes[0][0][0]=(Note){60,127,0,4}; pitched.master_pitch=12;
     float ramp[]={.1f,.2f,.3f,.4f,.5f,.6f}; Sample pitched_sample[CHANNELS]={{ramp,6},{0},{0},{0}};
     float pitched_out[4]; player_reset(&rp); render(&rp,&pitched,pitched_sample,pitched_out,2);
-    CHECK(rp.voices[0].position==4 && rp.frame==2 && rp.voices[0].remaining==24000-2);
+    CHECK(rp.voices[0].sampler.position==4 && rp.frame==2 && rp.voices[0].remaining==24000-2);
     CHECK(fabsf(pitched_out[2]-.3f)<.00001f);
-    pitched.master_pitch=-12; render(&rp,&pitched,pitched_sample,result,1); CHECK(rp.voices[0].position==4.5 && rp.frame==3);
+    pitched.master_pitch=-12; render(&rp,&pitched,pitched_sample,result,1); CHECK(rp.voices[0].sampler.position==4.5 && rp.frame==3);
     CHECK(pitched.notes[0][0][0].pitch==60 && pitched.bpm==120);
     CHECK(project_save("test-project.hbt",&pitched)); CHECK(project_load("test-project.hbt",&q)); CHECK(project_equal(&pitched,&q));
     old=fopen("test-project.hbt","r"); legacy=fopen("bad-project.hbt","w"); CHECK(old && legacy);
@@ -240,10 +240,10 @@ int main(void) {
     render_live(&keys,&p,live_samples,live_out,16);
     for(int i=0;i<32;i++) CHECK(live_out[i]==.125f);
     CHECK(keys.frame==16 && keys.last_step==-1);
-    keys.voices[0]=(Voice){0,0,1,-1,.4f}; keys.voices[1]=(Voice){0,0,2,-1,.4f};
+    keys.voices[0]=(Voice){.channel=0,.sampler={.position=0,.speed=1},.remaining=-1,.gain=.4f}; keys.voices[1]=(Voice){.channel=0,.sampler={.position=0,.speed=2},.remaining=-1,.gain=.4f};
     render_live(&keys,&p,live_samples,live_out,16);
     CHECK(fabsf(live_out[0]-.925f)<.00001f && keys.last_step==-1);
-    CHECK(keys.voices[0].position==16 && keys.voices[1].position==32);
+    CHECK(keys.voices[0].sampler.position==16 && keys.voices[1].sampler.position==32);
     keys.voices[0].remaining=1; render_live(&keys,&p,live_samples,live_out,1);
     CHECK(keys.voices[0].gain==0 && keys.voices[1].gain==.4f);
     p.mute[0]=1; for(int i=0;i<32;i++) live_out[i]=.125f;
@@ -251,11 +251,11 @@ int main(void) {
     for(int i=0;i<32;i++) CHECK(live_out[i]==.125f);
     /* Sparse voice slots keep their mix order and stop independently. */
     player_reset(&keys); p.mute[0]=0;
-    keys.voices[7]=(Voice){0,0,1,-1,.2f}; keys.voices[127]=(Voice){0,0,1,1,.4f};
+    keys.voices[7]=(Voice){.channel=0,.sampler={.position=0,.speed=1},.remaining=-1,.gain=.2f}; keys.voices[127]=(Voice){.channel=0,.sampler={.position=0,.speed=1},.remaining=1,.gain=.4f};
     memset(live_out,0,sizeof live_out); render_live(&keys,&p,live_samples,live_out,2);
     CHECK(fabsf(live_out[0]-(.2f+.4f/(RATE*.005f)))<.00001f);
     CHECK(fabsf(live_out[2]-.2f)<.00001f);
-    CHECK(keys.voices[127].gain==0 && keys.voices[7].position==2 && keys.frame==2);
+    CHECK(keys.voices[127].gain==0 && keys.voices[7].sampler.position==2 && keys.frame==2);
     /* Mute/solo preserves other manual mutes and affects existing song tails. */
     uint8_t states[3]={1,0,0}; solo_toggle(states,3,1);
     CHECK(states[0]==1 && states[1]==2 && solo_any(states,3));
@@ -285,7 +285,7 @@ int main(void) {
     p.insert_width[0]=2; player_reset(&a); render(&a,&p,live_samples,result,1);
     CHECK(fabsf(result[0]-1.5f)<.00001f && fabsf(result[1]+.5f)<.00001f);
     p.insert_width[0]=1; p.pan[0]=0; player_reset(&a); player_reset(&keys);
-    keys.voices[0]=(Voice){0,0,1,-1,1,-1}; memset(peaks,0,sizeof peaks);
+    keys.voices[0]=(Voice){.channel=0,.sampler={.position=0,.speed=1},.remaining=-1,.gain=1,.lane=-1}; memset(peaks,0,sizeof peaks);
     render_mixer(&a,&keys,&p,live_samples,result,1,1,peaks);
     CHECK(peaks[0][0]==2 && peaks[1][0]==2 && fabsf(result[0]-2)<.00001f);
     p.master_mute=1; player_reset(&a); render(&a,&p,live_samples,result,1); CHECK(result[0]==0);

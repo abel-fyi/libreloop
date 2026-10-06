@@ -4,7 +4,11 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <limits.h>
-#define SAMPLE_MAX_FRAMES (INT_MAX/8) /* Leave room for 4x time and 2x pitch processing. */
+#include "sampler.h"
+#include "effects.h"
+#include "fm_synth.h"
+enum { INSTRUMENT_SAMPLER, INSTRUMENT_FM };
+#include "parameter.h"
 #define SAMPLE_EMPTY "@empty" /* stored in paths for an unloaded sampler */
 #define CHANNELS 32
 #define PATTERNS 8
@@ -23,20 +27,14 @@ uint32_t next_source_color(const uint32_t *colors,int count);
 #define AUTOMATION_SOURCE (PATTERNS+CHANNELS)
 #define SOURCES (AUTOMATION_SOURCE+AUTOMATIONS)
 #define AUDIO_SOURCE(s) ((s)>=PATTERNS && (s)<AUTOMATION_SOURCE)
-/* Saved IDs, independent of UI addresses. Plugin IDs are reserved for future processors. */
-enum { PARAM_CHANNEL_VOLUME=1, PARAM_CHANNEL_PAN, PARAM_CHANNEL_PITCH, PARAM_INSERT_VOLUME, PARAM_INSERT_PAN, PARAM_INSERT_WIDTH, PARAM_MASTER_VOLUME, PARAM_MASTER_WIDTH, PARAM_MASTER_PITCH, PARAM_CHANNEL_MUTE, PARAM_INSERT_MUTE, PARAM_MASTER_MUTE, PARAM_SWING, PARAM_PITCH_RANGE, PARAM_PLUGIN=1024 };
-typedef struct { unsigned parameter,owner,slot; } ParameterTarget;
 typedef struct { float step,value; } AutomationPoint;
 typedef struct { ParameterTarget target; float steps; int count; uint32_t color; char name[48]; AutomationPoint points[AUTOMATION_POINTS]; } Automation;
-#define RATE 48000
 #define INSERTS 100
 #define VOLUME_KNOB_MAX 1.25f
 #define MIXER_GAIN_MAX 2.f /* +6.02 dB; unity is 1 */
 float gain_db(float gain);
 float fader_position(float gain);
 float fader_gain(float position);
-enum { SAMPLE_NORMALIZE=1, SAMPLE_REVERSE=2, SAMPLE_POLARITY=4 };
-typedef struct { float pitch,time,start,length,trim; uint8_t flags,stretch; float fit_bpm; /* reference BPM; zero disables tempo fitting */ } Sampler;
 typedef struct { uint8_t pitch, velocity; float start, length; } Note; /* length 0 = drum one-shot */
 typedef struct {
     float bpm;
@@ -60,11 +58,16 @@ typedef struct {
     float insert_volume[INSERTS],insert_pan[INSERTS];
     uint8_t insert_output[INSERTS]; /* 0 = Master, 1..count = insert, 255 = disconnected */
     Sampler sampler[CHANNELS];
+    uint8_t instrument[CHANNELS];
+    FMSettings fm[CHANNELS];
     float master_pitch; /* semitones; sample speed, independent of tempo */
     float insert_width[INSERTS],master_width; /* 0 mono, 1 unchanged, 2 wider */
     uint8_t master_mute,lane_mute[LANES]; /* lane bits: 1 mute, 2 solo */
     char audio_io[INSERTS+1][2][128]; /* input/output device choices; routing/recording reserved */
-    float effect_mix[INSERTS+1][10]; /* wet/dry; reserved until effects exist */
+    uint8_t effect_type[INSERTS+1][EFFECT_SLOTS];
+    ChorusSettings chorus[INSERTS+1][EFFECT_SLOTS];
+    EQSettings eq[INSERTS+1][EFFECT_SLOTS];
+    float effect_mix[INSERTS+1][10]; /* wet/dry */
     uint8_t effect_bypass[INSERTS+1][10];
     char track_names[LANES][PATTERN_NAME];
     char insert_names[INSERTS][PATTERN_NAME];
@@ -72,22 +75,10 @@ typedef struct {
     Automation automations[AUTOMATIONS];
     float swing; /* 0..1; delays offbeat sixteenths up to half a step */
 } Project;
-/* Interleaved PCM; channels 0 retains compatibility with mono initializers. */
-typedef struct SampleStorage SampleStorage;
-typedef struct { float *data; unsigned frames,channels; SampleStorage *storage; } Sample;
-/* Owned samples must be released with sample_free; borrowed PCM has storage=NULL. */
-void sample_free(Sample sample);
-int sample_clone(Sample source,Sample *result);
-/* Map an IEEE float stereo recording without retaining a heap copy of its PCM. */
-int sample_map_recording(const char *path,unsigned frames,Sample *result);
-int sample_map_wav(const char *path,Sample *result);
-static inline unsigned sample_channels(Sample s) { return s.channels?s.channels:1; }
-static inline float sample_at(Sample s,unsigned frame,unsigned side) {
-    unsigned channels=sample_channels(s);
-    return frame<s.frames?s.data[(size_t)frame*channels+(channels==1?0:side)]:0;
-}
-typedef struct { int channel; double position, speed, remaining; float gain; int lane,audio_clip; double tempo_rate,grains[2]; unsigned grain_phase; int grain_ready; } Voice;
+/* Sequencing/mixing state wraps device-owned DSP state. */
+typedef struct { int channel; union { SamplerVoice sampler; FMVoice fm; }; uint8_t instrument; double remaining; float gain; int lane,audio_clip; } Voice;
 typedef struct {
+    EffectRack *effects; /* borrowed runtime rack; attach after player_reset */
     uint64_t frame;
     float clock_bpm; /* preserve musical position when BPM changes */
     int64_t last_step;
@@ -117,9 +108,7 @@ int automation_move_point(Project *p,int index,int point,float step,float value)
 int automation_create(Project *p,ParameterTarget target,const char *name,float steps);
 int automation_delete(Project *p,int index);
 int automation_valid(const Project *p);
-int sampler_processing_equal(Sampler a,Sampler b);
 float audio_source_bpm(const Project *p,int channel);
-void voice_tempo_sample(Voice *voice,Sample sample,double pitch,double rate,int stretch,float stereo[2]);
 void project_default(Project *p);
 void project_new(Project *p);
 void project_demo(Project *p);
@@ -145,11 +134,6 @@ double audio_timeline_duration(const AudioTimeline *map,double start,double sour
 float audio_clip_steps(const Project *p,int lane,int clip);
 double audio_clip_position(const Project *p,int lane,int clip,double step);
 void samples_default(Sample s[CHANNELS]);
-int sampler_valid(Sampler settings);
-int sampler_equal(Sampler a,Sampler b);
-/* Non-owning view of the source with quiet leading/trailing frames removed. */
-Sample sample_trim(Sample source,float threshold);
-int sample_process(Sample source,Sampler settings,Sample *result);
 void player_reset(Player *p);
 void player_seek(Player *p,const Project *project,float step);
 void render(Player *p, const Project *project, const Sample s[CHANNELS], float *out, unsigned frames);
@@ -162,6 +146,7 @@ typedef struct {
     void (*input)(void *context,float buses[INSERTS+1][2]);
     void (*output)(void *context,int bus,float left,float right);
     void *context;
+    int monitor_only; /* Analyzer taps preserve looping; recording taps suppress it. */
 } MixerIO;
 void render_mixer_io(Player *p,Player *live,const Project *project,const Sample s[CHANNELS],float *out,unsigned frames,int sequence,float peaks[INSERTS+1][2],const MixerIO *io);
 int project_save(const char *path, const Project *p);

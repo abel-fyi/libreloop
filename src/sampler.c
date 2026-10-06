@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-#include "engine.h"
+#include "sampler.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,7 +40,6 @@ static float *stretch(const float *in,unsigned frames,unsigned length,unsigned c
     }
     return out;
 }
-float audio_source_bpm(const Project *p,int channel) { return p->sampler[channel].fit_bpm?p->sampler[channel].fit_bpm:p->bpm; }
 int sampler_processing_equal(Sampler a,Sampler b) {
     a.fit_bpm=b.fit_bpm=0;
     return sampler_equal(a,b);

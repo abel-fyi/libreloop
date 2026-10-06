@@ -34,6 +34,7 @@ static struct {
     double preview_position,preview_frame,preview_time,preview_rate;
     unsigned preview_end,preview_remaining;
     Voice voices[128];
+    uint8_t instrument[CHANNELS];
     unsigned sample_frames[CHANNELS],live_frames,visual_frames;
     double speeds[CHANNELS],live_time,visual_frame,visual_time,visual_start,visual_end;
     int playing;
@@ -53,6 +54,7 @@ static unsigned preview_end;
 static unsigned preview_remaining;
 static int preview_channel=-1;
 static Player player,live;
+static EffectRack *effects;
 static int playing, ready;
 static float output_volume=1;
 static atomic_uint_fast64_t position;
@@ -66,6 +68,26 @@ static int click_accent;
 static double visual_frame,visual_time,visual_end,visual_start;
 static unsigned visual_frames,live_frames;
 static double live_time;
+#define ANALYZER_FRAMES 8192u
+typedef struct { float pcm[ANALYZER_FRAMES][2]; atomic_uint read,write; } AnalyzerRing;
+static AnalyzerRing analyzer[2];
+static atomic_int analyzer_bus;
+static int callback_bus;
+static unsigned callback_taps;
+static void analyzer_push(int stream,float l,float r) {
+    AnalyzerRing *ring=&analyzer[stream]; unsigned w=atomic_load_explicit(&ring->write,memory_order_relaxed);
+    if(w-atomic_load_explicit(&ring->read,memory_order_acquire)>=ANALYZER_FRAMES) return;
+    ring->pcm[w%ANALYZER_FRAMES][0]=isfinite(l)?l:0; ring->pcm[w%ANALYZER_FRAMES][1]=isfinite(r)?r:0;
+    atomic_store_explicit(&ring->write,w+1,memory_order_release);
+}
+void audio_spectrum_bus(int bus) { atomic_store_explicit(&analyzer_bus,bus,memory_order_relaxed); }
+unsigned audio_spectrum_read(int stream,float *pcm,unsigned capacity) {
+    if(stream<0 || stream>1) return 0;
+    AnalyzerRing *ring=&analyzer[stream]; unsigned r=atomic_load_explicit(&ring->read,memory_order_relaxed);
+    unsigned n=atomic_load_explicit(&ring->write,memory_order_acquire)-r; if(n>capacity) n=capacity;
+    for(unsigned i=0;i<n;i++) { pcm[i*2]=ring->pcm[(r+i)%ANALYZER_FRAMES][0]; pcm[i*2+1]=ring->pcm[(r+i)%ANALYZER_FRAMES][1]; }
+    atomic_store_explicit(&ring->read,r+n,memory_order_release); return n;
+}
 #define RECORD_RING_FRAMES (RATE*4u)
 typedef struct {
     float *pcm;
@@ -108,6 +130,7 @@ static void record_input(void *context,float buses[INSERTS+1][2]) {
 }
 static void record_output(void *context,int bus,float left,float right) {
     (void)context;
+    if(bus==callback_bus) { analyzer_push(1,left,right); callback_taps++; }
     for(int i=0;i<recording.count;i++) if(recording.buses[i]==bus) ring_push(&recording.takes[i],left,right);
 }
 static double monotonic_time(void) {
@@ -122,10 +145,13 @@ static void callback(ma_device *d, void *out, const void *in, ma_uint32 frames) 
         consume_commands();
         pthread_mutex_unlock(&mutex);
     }
+    callback_taps=0;
+    callback_bus=atomic_load_explicit(&analyzer_bus,memory_order_relaxed);
+    MixerIO taps=recording.active?recording.io:(MixerIO){0}; taps.output=record_output; taps.monitor_only=!recording.active;
     float peaks[INSERTS+1][2]={{0}};
     if(playing) {
         visual_frame=llround(player.frame*(player.clock_bpm?player.clock_bpm/project.bpm:1));
-        render_mixer_io(&player,&live,&project,samples,out,frames,1,peaks,recording.active?&recording.io:NULL);
+        render_mixer_io(&player,&live,&project,samples,out,frames,1,peaks,&taps);
         visual_time=monotonic_time(); visual_frames=frames;
         double step_frames=RATE*60.0/project.bpm/4;
         visual_start=(player.loop_end?player.loop_start:player.song?0:player.start_step)*step_frames;
@@ -133,7 +159,7 @@ static void callback(ma_device *d, void *out, const void *in, ma_uint32 frames) 
         if(visual_start>=end*step_frames) visual_start=0;
         visual_end=recording.active?INFINITY:end*step_frames;
     }
-    else render_mixer_io(&live,NULL,&project,samples,out,frames,0,peaks,recording.active?&recording.io:NULL);
+    else render_mixer_io(&live,NULL,&project,samples,out,frames,0,peaks,&taps);
     for(int l=0;l<LANES;l++) {
         atomic_store_explicit(&track_active[l],playing && player.song && player.lane_active[l],memory_order_relaxed);
         if(playing && player.song && player.lane_trigger[l]) atomic_store_explicit(&track_trigger[l],1,memory_order_relaxed);
@@ -176,6 +202,8 @@ static void callback(ma_device *d, void *out, const void *in, ma_uint32 frames) 
         peaks[0][i%2]=fmaxf(peaks[0][i%2],fabsf(x));
         buffer[i]=isfinite(x)?fmaxf(-1,fminf(1,x)):0;
     }
+    for(unsigned i=0;i<frames;i++) analyzer_push(0,buffer[i*2],buffer[i*2+1]);
+    for(unsigned i=callback_taps;callback_bus>=0 && i<frames;i++) analyzer_push(1,0,0);
     int active=0;
     for(int id=0;id<=INSERTS;id++) for(int side=0;side<2;side++) {
         float peak=peaks[id][side],old=atomic_load_explicit(&meter_peak[id][side],memory_order_relaxed);
@@ -196,7 +224,7 @@ static void publish_view(void) {
     memcpy(view.voices,live.voices,sizeof view.voices);
     double pitch_speed=pow(2,project.master_pitch/12.0);
     for(int c=0;c<CHANNELS;c++) {
-        view.sample_frames[c]=samples[c].frames;
+        view.sample_frames[c]=samples[c].frames; view.instrument[c]=project.instrument[c];
         view.speeds[c]=pitch_speed*channel_speed(&project,c)*(project.sampler[c].fit_bpm?project.bpm/project.sampler[c].fit_bpm:1);
     }
     view.live_frames=live_frames; view.live_time=live_time;
@@ -218,9 +246,10 @@ static void consume_commands(void) {
         AudioCommand *c=&pending.commands[pending.read++%AUDIO_COMMANDS];
         switch(c->kind) {
         case UPDATE:
+            if(c->reset || playing!=c->run || player.song!=c->song || player.pattern!=c->pattern) effects_reset(effects);
             playing=c->run; output_volume=c->output;
             if(c->reset || !playing || player.song!=c->song || player.pattern!=c->pattern) {
-                click_position=1200; player_reset(&player); player_seek(&player,&project,c->start);
+                click_position=1200; player_reset(&player); player.effects=effects; player_seek(&player,&project,c->start);
                 atomic_store(&position,player.frame); visual_frame=player.frame; visual_frames=0;
             }
             player.song=c->song; player.pattern=c->pattern;
@@ -251,6 +280,12 @@ static void consume_commands(void) {
             break;
         case NOTE:
             if(c->channel>=0 && c->channel<project.channel_count) {
+                if(project.instrument[c->channel]==INSTRUMENT_FM) {
+                    Voice *voice=&live.voices[127];
+                    *voice=(Voice){.channel=c->channel,.instrument=INSTRUMENT_FM,.remaining=(c->note.length?c->note.length:1)*RATE*15/project.bpm,.gain=c->note.velocity/127.f,.lane=-1};
+                    fm_note_on(&voice->fm,440*pow(2,(c->note.pitch-69)/12.0),project.fm[c->channel]);
+                    atomic_store(&channel_trigger[c->channel],1); break;
+                }
                 preview=samples[c->channel]; preview_position=preview_frame=0; preview_time=monotonic_time();
                 preview_remaining=UINT_MAX; preview_speed=pow(2,((int)c->note.pitch-60)/12.0)*channel_speed(&project,c->channel);
                 preview_rate=preview_speed*pow(2,project.master_pitch/12.0);
@@ -262,16 +297,24 @@ static void consume_commands(void) {
             break;
         case KEY:
             if(c->down && c->channel>=0 && c->channel<project.channel_count) {
-                if(samples[c->channel].frames && project.volume[c->channel]>0 && !(project.mute[c->channel]&1)) atomic_store(&channel_trigger[c->channel],1);
-                live.voices[c->slot]=(Voice){.channel=c->channel,.speed=pow(2,(c->pitch-60)/12.0),.remaining=-1,.gain=100/127.f,.lane=-1};
-            } else if(live.voices[c->slot].gain) live.voices[c->slot].remaining=RATE*.005;
+                if((samples[c->channel].frames || project.instrument[c->channel]==INSTRUMENT_FM) && project.volume[c->channel]>0 && !(project.mute[c->channel]&1)) atomic_store(&channel_trigger[c->channel],1);
+                live.voices[c->slot]=(Voice){.channel=c->channel,.sampler={.speed=pow(2,(c->pitch-60)/12.0)},.remaining=-1,.gain=100/127.f,.lane=-1};
+                if(project.instrument[c->channel]==INSTRUMENT_FM) {
+                    live.voices[c->slot].instrument=INSTRUMENT_FM;
+                    fm_note_on(&live.voices[c->slot].fm,440*pow(2,(c->pitch-69)/12.0),project.fm[c->channel]);
+                }
+            } else if(live.voices[c->slot].gain) {
+                Voice *voice=&live.voices[c->slot];
+                if(voice->instrument==INSTRUMENT_FM) fm_note_off(&voice->fm,project.fm[voice->channel]);
+                else voice->remaining=RATE*.005;
+            }
             break;
         case STOP: {
             int active=playing || (preview_remaining && preview_position<preview_end);
             for(int i=0;i<128;i++) active|=live.voices[i].gain!=0;
             atomic_store(&stopped_active,active);
             playing=0; preview=(Sample){0}; preview_end=preview_remaining=0; preview_channel=-1; click_position=1200;
-            memset(player.voices,0,sizeof player.voices); memset(live.voices,0,sizeof live.voices);
+            memset(player.voices,0,sizeof player.voices); memset(live.voices,0,sizeof live.voices); effects_reset(effects);
             break;
         }
         }
@@ -320,13 +363,15 @@ int audio_start(const Project *p,const Sample s[CHANNELS]) {
     memset(&pending,0,sizeof pending); memset(&view,0,sizeof view);
     atomic_store(&acknowledged,0); atomic_store(&position,0);
     project=pending.project=*p; memcpy(samples,s,sizeof samples);
-    player_reset(&player); player_reset(&live); playing=0; preview=(Sample){0}; preview_end=preview_remaining=0; preview_channel=-1;
+    player_reset(&player); player_reset(&live);
+    effects=effects_create(INSERTS+1); if(!effects) return 0;
+    player.effects=live.effects=effects; playing=0; preview=(Sample){0}; preview_end=preview_remaining=0; preview_channel=-1;
     visual_frames=live_frames=0; output_volume=1; publish_view();
     ma_device_config config=ma_device_config_init(ma_device_type_playback);
     config.playback.format=ma_format_f32; config.playback.channels=2;
     config.sampleRate=RATE; config.dataCallback=callback;
-    if(ma_device_init(NULL,&config,&device)!=MA_SUCCESS) return 0;
-    if(ma_device_start(&device)!=MA_SUCCESS) { ma_device_uninit(&device); return 0; }
+    if(ma_device_init(NULL,&config,&device)!=MA_SUCCESS) { effects_free(effects); effects=NULL; player.effects=live.effects=NULL; return 0; }
+    if(ma_device_start(&device)!=MA_SUCCESS) { ma_device_uninit(&device); effects_free(effects); effects=NULL; player.effects=live.effects=NULL; return 0; }
     ready=1; return 1;
 }
 int audio_devices(int capture,char names[][128],int capacity) {
@@ -466,9 +511,10 @@ double audio_key_position(int slot,int channel) {
             }
         }
     }
-    if(v.gain && v.channel==channel && view.sample_frames[channel]) {
+    if(v.gain && v.channel==channel && view.instrument[channel]==INSTRUMENT_FM) progress=0;
+    else if(v.gain && v.channel==channel && view.sample_frames[channel]) {
         double behind=fmax(0,view.live_frames-(monotonic_time()-view.live_time)*RATE);
-        progress=queued?0:fmin(1,fmax(0,v.position-behind*v.speed*view.speeds[channel])/view.sample_frames[channel]);
+        progress=queued?0:fmin(1,fmax(0,v.sampler.position-behind*v.sampler.speed*view.speeds[channel])/view.sample_frames[channel]);
     }
     pthread_mutex_unlock(&mutex); return progress;
 }
@@ -505,6 +551,7 @@ void audio_close(void) {
     audio_record_end(); record_release();
     if(ma_device_get_state(&device)!=ma_device_state_uninitialized) ma_device_uninit(&device);
     ready=0;
+    effects_free(effects); effects=NULL; player.effects=live.effects=NULL;
     pthread_mutex_lock(&mutex); consume_commands(); publish_view(); pthread_mutex_unlock(&mutex);
 }
 int sample_load(const char *path,Sample *s) {

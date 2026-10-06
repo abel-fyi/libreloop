@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
-#include "engine.h"
+#include "sampler.h"
 #include <math.h>
+
+void sampler_voice_reset(SamplerVoice *voice,double position,double speed) {
+    *voice=(SamplerVoice){.position=position,.speed=speed};
+}
 
 /* Two overlapping grains, aligned on both stereo channels. State belongs to
    each voice: tempo edits never allocate, rebuild PCM or restart a voice. */
@@ -36,7 +40,7 @@ static double align_grain(Sample sample,double nominal,double reference,double p
     }
     return best;
 }
-void voice_tempo_sample(Voice *voice,Sample sample,double pitch,double rate,int stretch,float stereo[2]) {
+void sampler_voice_sample(SamplerVoice *voice,Sample sample,double pitch,double rate,int stretch,float stereo[2]) {
     if(!voice->tempo_rate) voice->tempo_rate=rate;
     /* 20 ms rate slew: keep source phase continuous even for a large BPM jump. */
     voice->tempo_rate+=(rate-voice->tempo_rate)*(1.0/(RATE*.02));

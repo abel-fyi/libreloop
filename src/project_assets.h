@@ -4,6 +4,8 @@
 #include "engine.h"
 /* Resolve relative references against the project, independent of launch directory. */
 int project_sample_path(const char *project_path,const char *reference,char *out,size_t capacity);
+/* Rebase an absolute audio reference for a project or preset file. */
+int project_relative_reference(const char *path,const char *absolute,char *out,size_t capacity);
 /* Successful collection rebinds references to the new companion files for later saves. */
 int project_save_assets(const char *path,Project *project,const Sample originals[CHANNELS],int collect);
 typedef int (*ProjectSampleLoad)(const char *path,Sample *sample);

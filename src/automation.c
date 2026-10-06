@@ -3,46 +3,6 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
-/* Stable built-in parameter IDs. Plugin processors will register parameter IDs
-   with the same normalized point contract; unresolved IDs survive save/load. */
-static const float *parameter_pointer(const Project *p,ParameterTarget t,float *lo,float *hi) {
-    *lo=0; *hi=1;
-    switch(t.parameter) {
-    case PARAM_CHANNEL_VOLUME: *hi=VOLUME_KNOB_MAX; return t.owner<(unsigned)p->channel_count?&p->volume[t.owner]:NULL;
-    case PARAM_CHANNEL_PAN: *lo=-1; return t.owner<(unsigned)p->channel_count?&p->pan[t.owner]:NULL;
-    case PARAM_CHANNEL_PITCH: *lo=-1; return t.owner<(unsigned)p->channel_count?&p->channel_pitch[t.owner]:NULL;
-    case PARAM_INSERT_VOLUME: *hi=MIXER_GAIN_MAX; return t.owner<(unsigned)p->insert_count?&p->insert_volume[t.owner]:NULL;
-    case PARAM_INSERT_PAN: *lo=-1; return t.owner<(unsigned)p->insert_count?&p->insert_pan[t.owner]:NULL;
-    case PARAM_INSERT_WIDTH: *hi=2; return t.owner<(unsigned)p->insert_count?&p->insert_width[t.owner]:NULL;
-    case PARAM_MASTER_VOLUME: *hi=MIXER_GAIN_MAX; return &p->master;
-    case PARAM_MASTER_WIDTH: *hi=2; return &p->master_width;
-    case PARAM_MASTER_PITCH: *lo=-12; *hi=12; return &p->master_pitch;
-    case PARAM_SWING: return &p->swing;
-    case PARAM_PITCH_RANGE: *lo=1; *hi=48; return t.owner<(unsigned)p->channel_count?&p->pitch_range[t.owner]:NULL;
-    default: return NULL;
-    }
-}
-int parameter_info(const Project *p,ParameterTarget t,float *v,float *lo,float *hi) {
-    const float *ptr=parameter_pointer(p,t,lo,hi);
-    if(ptr) { *v=*ptr; return 1; }
-    *lo=0; *hi=1;
-    if(t.parameter==PARAM_CHANNEL_MUTE && t.owner<(unsigned)p->channel_count) *v=!!(p->mute[t.owner]&1);
-    else if(t.parameter==PARAM_INSERT_MUTE && t.owner<(unsigned)p->insert_count) *v=!!(p->insert_mute[t.owner]&1);
-    else if(t.parameter==PARAM_MASTER_MUTE) *v=!!p->master_mute;
-    else return 0;
-    return 1;
-}
-int parameter_from_pointer(const Project *p,const void *ptr,ParameterTarget *t) {
-    for(unsigned id=1;id<=PARAM_PITCH_RANGE;id++) for(unsigned owner=0;owner<(id<=PARAM_CHANNEL_PITCH || id==PARAM_CHANNEL_MUTE || id==PARAM_PITCH_RANGE?CHANNELS:id<=PARAM_INSERT_WIDTH || id==PARAM_INSERT_MUTE?INSERTS:1);owner++) {
-        ParameterTarget candidate={id,owner,0}; float lo,hi;
-        const void *address=parameter_pointer(p,candidate,&lo,&hi);
-        if(id==PARAM_CHANNEL_MUTE) address=&p->mute[owner];
-        if(id==PARAM_INSERT_MUTE) address=&p->insert_mute[owner];
-        if(id==PARAM_MASTER_MUTE) address=&p->master_mute;
-        if(address==ptr) { *t=candidate; return 1; }
-    }
-    return 0;
-}
 float automation_value(const Automation *a,float step) {
     if(!a->count) return 0;
     if(step<a->points[0].step) return a->points[0].value;

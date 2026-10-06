@@ -10,16 +10,25 @@ are a coherent mouse-driven workflow and minimal code and dependencies.
 | --- | --- |
 | `src/main.c` | raylib UI, gestures, transport, sampler worker orchestration |
 | `src/theme.c`, `theme.h` | light/dark palettes, flat rectangle drawing, appearance preference |
-| `src/engine.c`, `engine.h` | project model, synthesis, rendering and routing |
+| `src/engine.c`, `engine.h` | project model, note scheduling, rendering and routing |
 | `src/project_io.c`, `atomic_file.c` | backward-compatible project serialization and atomic project/WAV replacement |
 | `src/project_assets.c`, `project_document.c` | relative references, collected audio, missing samples and unsaved document state |
 | `src/recording.c` | take preparation, writer lifecycle and live waveform updates |
 | `src/recording_writer.c`, `sample_storage.c` | background WAV writing and shared read-only mapped PCM |
 | `src/text_fonts.c` | physical-pixel font atlases, dynamic UTF-8 glyphs and text alignment |
 | `src/audio_timing.c` | pitch-curve speed integration, Audio clip duration and seek positions |
-| `src/automation.c` | stable parameter targets, normalized curves, source editing and validation |
+| `src/parameter.c`, `parameter.h` | stable parameter IDs, control metadata and project bindings shared by UI and automation |
+| `src/automation.c` | normalized curves, source editing and validation |
 | `src/arrangement.c`, `arrangement.h` | Playlist editing, selection, timeline and snap helpers |
-| `src/sampler.c` | non-destructive crop, normalize, reverse, polarity, pitch and time processing |
+| `src/sample.h` | PCM view and owned/shared sample lifetime contract |
+| `src/sampler.c`, `sampler.h` | independent sampler settings and offline crop, normalize, reverse, polarity, pitch and time processing |
+| `src/fm_synth.c`, `fm_synth.h` | two-operator FM settings, per-note oscillators and ADSR envelope |
+| `src/preset.c`, `preset.h` | validated, atomic built-in device presets and relative sample references |
+| `src/chorus.c`, `chorus.h` | stereo modulated-delay DSP and saved rate/depth settings |
+| `src/equalizer.c`, `equalizer.h` | seven-band stereo biquads, control smoothing and response evaluation |
+| `src/spectrum.c`, `spectrum.h` | UI-owned stereo FFT, logarithmic bins and level smoothing |
+| `src/effects.c`, `effects.h` | instance-owned mixer slot state and ordered wet/dry processing |
+| `src/sampler_voice.c` | per-note sampler DSP, interpolation and realtime tempo stretching |
 | `src/audio.c`, `audio.h` | miniaudio playback, live notes and sample decoding |
 | `src/browser.c`, `browser.h` | folder trees, selection and saved roots |
 | `src/windows.c`, `windows.h` | floating editor rectangles, stacking and mouse ownership |
@@ -27,6 +36,34 @@ are a coherent mouse-driven workflow and minimal code and dependencies.
 | `samples/` | generated demo one-shots |
 | `tools/` | sample generator |
 | `docs/` | usage, development notes and third-party notices |
+
+## Built-in device baseline
+
+The sampler is a built-in instrument, with no external plugin ABI or loader.
+`sampler.h` depends only on `sample.h`. Its DSP can be used without a `Project`,
+raylib, miniaudio or window. `Sampler` holds saved settings; `SamplerVoice` holds
+one note's transient source position, note speed and tempo-stretch grain history.
+A sequencer `Voice` wraps that DSP state with channel, lane, gain and note lifetime.
+Both live audition and arrangement playback use the same sampler voice processor.
+
+`sampler_voice_reset` resets one instance, and `sampler_voice_sample` advances it
+without allocating or reading files. Processed PCM is a borrowed input during
+playback. Source ownership and reference counting live in `sample_storage.c`;
+`sample_process` is explicitly offline work performed on the UI's worker thread.
+The engine owns note timing, channel gain/pan, routing and activity reporting.
+Sampler views and worker orchestration stay in `main.c`.
+
+`parameter.h` describes existing controls with stable IDs, names, ranges, defaults
+and continuous/integer/toggle kinds. Project bindings in `parameter.c` resolve
+those IDs to existing fields. UI drag capture and automation use the same ranges.
+Existing parameter IDs and sampler fields are preserved; DSP voice state is never saved.
+Offline sampler edits are not made realtime automation parameters by this change.
+
+Add a future synth or effect as its own `.c`/`.h` module with instance-owned state,
+explicit preparation/reset/cleanup and allocation-free processing. Instruments
+receive timed notes; effects process audio. Keep the processing API independent of
+project/UI types, prepare buffers outside the callback, and add parameter/state
+bindings when that device exists. The chorus establishes the effect contract below; there is no external plugin loader.
 
 ## Decisions
 
@@ -97,8 +134,8 @@ are a coherent mouse-driven workflow and minimal code and dependencies.
   metronome and listening gain mix before the final device clamp to -1..1.
   PCM16 export clamps at conversion. Overloaded mixes still need gain reduction;
   there is no automatic compressor or lookahead limiter.
-- Project files currently use `.hbt` and the `HOMEBEAT` version-32 header for
-  compatibility. Versions 1–31 remain readable. Renaming the app did not change
+- Project files currently use `.hbt` and the `HOMEBEAT` version-36 header for
+  compatibility. Versions 1–35 remain readable. Renaming the app did not change
   the project format. Sample references are relative to the project directory, with old absolute paths
   still readable. Collect samples and save writes original PCM into a unique companion
   directory, and subsequent saves retain those references. Missing audio opens
@@ -118,7 +155,7 @@ Unused Rack steps stay grey until painted.
 Note starts and lengths use the selected snap grid; notes stay inside their
 pattern. The Piano Roll shows 25 pitches at a time and scrolls through MIDI pitches 0–127. Drum steps are one-shots; Piano Roll notes have duration gates with a
 short fade at note-off. Sampler processing can change pitch and duration; held notes stop at the
-processed sample's end. Mixer inserts can route to one other insert or Master; no effects,
+processed sample's end. Mixer inserts can route to one other insert or Master, with built-in Chorus and Equalizer slots; no
 MIDI device I/O, external plugins, or FLP import. WAV export ends at
 the arrangement boundary without an added tail; standard RIFF exports must
 fit below 4 GiB. This is a workflow prototype,
@@ -213,3 +250,72 @@ Text uses font atlases rasterized at the actual framebuffer density on both plat
 Encountered UTF-8 codepoints extend each size's atlas, within the bundled font's glyph
 coverage. Rebuilds flush queued drawing before retiring textures. Arrangement labels
 align to physical pixels while clip geometry retains fractional movement.
+
+## Chorus and mixer effect runtime
+
+Each Master/insert has ten ordered built-in effect slots. The initial device is
+Chorus: a stereo 10 ms modulated delay, .05–5 Hz rate, 0–8 ms depth, and wet/dry mix.
+The LFOs are offset by a quarter cycle. Rate, depth and wet amount slew over 20 ms;
+bypass/removal fades toward dry while the delay continues running. There is no
+feedback or hidden output gain, and dry-path compensation latency is zero.
+
+`Chorus` owns a fixed stereo delay buffer and transient LFO/smoothing state.
+`EffectRack` prepares bounded storage outside playback (~8 MiB for all 101 buses
+and ten slots), so adding slots during playback needs no allocation. Unused slots
+perform no DSP. A generation reset clears individual used slots lazily. The
+playback callback owns a rack shared by song/live rendering; it is borrowed by
+`Player` and freed after stopping the audio device. Export owns a separate rack.
+Standalone engine clients attach a prepared rack to `Player.effects` after reset
+when effects are needed. A null rack retains the dry rendering API.
+
+The engine runs each bus's chain before its fader/pan/width and routes its output
+onward. Record taps and meters therefore include effects. Rate, depth and mix
+use stable `(parameter, bus, slot)` automation targets (1025–1027), sampled at the
+same song position as other controls. Version 33 stores slot types and chorus
+settings, while earlier versions open with empty slots. Existing mix/bypass fields
+are retained. Undo includes settings; delay buffers and LFO state are runtime only.
+
+## FM instrument and device presets
+
+`FMSettings` stores harmonic ratio, modulation depth and ADSR settings. `FMVoice`
+owns oscillator phases, envelope and smoothing state; its processing API depends
+on neither Project nor UI. The sequencer wraps sampler/FM state in a tagged union,
+keeps note gates, and mixes either instrument through the same channel routing.
+FM uses two sine operators with four substeps per output sample. Modulation is
+limited at high pitches to reduce aliasing; this is not an alias-free oscillator.
+Ratio, depth, sustain and pitch changes slew over 20 ms. Note-off starts a release
+from the current envelope level. Rack steps gate for one step; Piano Roll notes
+use their entered duration. Parameters 1101–1106 bind the six FM controls to
+existing automation. Version 34 saves instrument types and FM settings; older
+projects retain sampler channels. Oscillator/envelope state is never serialized.
+
+Sampler, FM, Chorus and Equalizer share versioned `.llpreset` files. Presets store device
+settings, excluding channel routing, channel gain and runtime state. Sampler
+presets reference original audio relative to the preset directory; they do not
+embed PCM. Generated sources without a file reference produce settings-only
+presets. Loading validates the file and device type first, and prepares sampler
+PCM before replacing current settings. Missing audio or invalid presets leave the
+device unchanged. Writes use the same atomic replacement helper as projects.
+
+## Equalizer and spectrum
+
+Equalizer slots use seven fixed stereo biquads with selectable bell, shelf, cut
+or Off shapes, with
+frequency, ±18 dB gain and Q per band. Controls slew over 20 ms; coefficients
+update every 64 samples, while wet/bypass changes slew per sample. Shape changes crossfade between two
+filter states over 20 ms; Off bands skip filtering. Low/high cuts use a fixed
+12 dB/octave slope. Slot state
+shares storage with Chorus through a tagged union. The same mixer chain serves
+playback, recording and export. IDs 1201–1221 bind frequency/gain/Q automation. Version 36 and preset version 2
+store seven bands and their shapes. Version-35 projects and version-1 EQ presets
+retain their four original bands and stable automation IDs, with extra bands Off.
+Presets retain settings and mix only.
+
+Two bounded SPSC rings pass listening output and one selected post-fader bus to
+the UI. A full analyzer ring drops visual samples without blocking playback.
+The UI runs 4096-point Hann-windowed stereo FFTs with 1024-frame hops and groups
+power into 96 logarithmic display bins. Left/right power is averaged rather than
+summing audio, preserving opposite-phase content. Spectrum and meters share the
+existing animation/event-wait lifecycle. No FFT, allocation or file I/O runs in
+the audio callback. Monitor-only mixer taps preserve transport loops; recording
+taps retain continuous recording behavior.
