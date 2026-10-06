@@ -1,5 +1,78 @@
 # Performance checks
 
+## Current checks — 2026-10-06
+
+Current Release code was measured on the Intel Celeron N4020 (two cores), Intel UHD Graphics 600 and Gentoo Linux. Measurements include the layered FM synth and recent editor changes. They are local workload measurements, not guarantees for other machines.
+
+### Offline audio
+
+48 kHz stereo; 512-frame buffers (10.67 ms deadline), 128 warmup blocks, 10 seconds of audio per run. Values are medians of three runs. CPU is CPU time divided by audio duration; 100% uses a full single-thread real-time budget. Block latency is wall time and includes scheduling interruptions. FM comparisons alternate before/after executables.
+
+| Workload | CPU before | CPU after | Block p99 after |
+| --- | ---: | ---: | ---: |
+| fm_8 | 13.9% | 10.9% | 1.28 ms |
+| fm_32 | 53.8% | 41.5% | 4.64 ms |
+| fm_128 | 212.3% | 165.6% | 18.40 ms |
+| fm_legacy_32 | 53.1% | 41.6% | 4.60 ms |
+| fm_32_motion | 64.6% | 53.3% | 5.92 ms |
+
+Skipping inactive modulation/tremolo math reduces FM CPU by about 23%. Rendered float PCM hashes match before/after for 8/32/128 FM voices, legacy FM, LFO motion and sampler control cases. Oscillator phase still advances while modulation is muted.
+
+Unchanged engine baselines:
+
+| Workload | CPU | Block p99 |
+| --- | ---: | ---: |
+| idle_monitor | 0.54% | 0.08 ms |
+| demo_song | 4.03% | 0.52 ms |
+| sampler_32 | 6.34% | 0.75 ms |
+| sampler_128 | 23.93% | 2.68 ms |
+| song_100 | 22.29% | 2.50 ms |
+| sampler_32_stretch | 33.41% | 3.79 ms |
+| sampler_32_chorus | 6.88% | 0.82 ms |
+| sampler_32_eq | 7.10% | 0.83 ms |
+
+32 FM voices remain below the 512-frame deadline on this machine. 128 sustained FM voices exceed it even after optimization. At 64-frame buffers (1.33 ms), the optimized 32-voice FM p99 is about 0.74 ms, but scheduling outliers occur. The 32-voice tempo-stretch stress case has bursty grain alignment and a roughly 2.72 ms p99 at 64 frames. These stress limits do not establish hardware dropouts or physical latency.
+
+### Native desktop CPU and RAM
+
+A hidden native X11 window used the Intel GPU and an isolated PulseAudio null sink. Two seconds of warmup followed by six seconds of process CPU/RSS/PSS sampling; two runs per scene. CPU below is actual process utilization, with 100% equal to one core. A hidden window excludes compositor presentation. These short runs cannot prove absence of leaks during hours of use.
+
+Baseline application figures before these optimizations:
+
+| Scene | CPU | RSS | PSS |
+| --- | ---: | ---: | ---: |
+| empty_idle | 4.7% | 64.9 MiB | 32.1 MiB |
+| demo_pattern | 39.2% | 67.8 MiB | 34.9 MiB |
+| demo_song | 40.5% | 67.7 MiB | 34.9 MiB |
+| fm_chord_song | 48.8% | 64.9 MiB | 32.0 MiB |
+| fm_editor_idle | 4.5% | 65.1 MiB | 32.2 MiB |
+
+RAM remained around 65–68 MiB RSS (32–35 MiB PSS); observed growth within a sample window was under 0.4 MiB. Long imported samples and processor output naturally add PCM storage; those files are not represented by these small scenes.
+
+### Dense Arrangement drawing
+
+100 tracks with 64 clips each, forced redraw, playback stopped; cached pattern previews. The candidate skips per-clip scissor changes only for cached pattern textures, whose geometry is already cropped. Audio, automation and vector fallbacks retain their scissors.
+
+| Channels | CPU before | CPU after | FPS before | FPS after |
+| --- | ---: | ---: | ---: | ---: |
+| 8 | 103.8% | 43.9% | 40.4 | 59.0 |
+| 32 | 99.2% | 46.4% | 38.2 | 59.3 |
+
+The complete 1200×675 screenshots match byte for byte in the 8/32-channel scenes and an additional scene with cropped clips, source offsets, fractional scrolling/row zoom and a UTF-8 pattern name. Memory was unchanged.
+
+### Reproduce and inspect
+
+Build the optional `benchmark_engine` target and run `python3 tools/run_benchmarks.py`; see the development guide. Each scenario uses a separate process. Source PCM is intentionally shared in sample stress fixtures, so their RSS does not model 32 separately imported recordings.
+
+Local raw records are `local/performance/2026-10-06-engine-before.json`, `2026-10-06-fm-comparison.json`, `2026-10-06-gui-before.json`, `2026-10-06-gui-clipping-comparison.json`, `2026-10-06-pcm-equivalence.json` and `2026-10-06-pixel-equivalence.json`. Native GUI diagnostics and logs are also retained there; they are not production code.
+
+No broad source rewrite is justified by these results. The fixes address measured FM math and rendering submission costs. An additional concrete control bug was corrected: integer FM harmonic ratios now remain integer when adjusted with the wheel, so the edited patch remains valid for saving.
+
+---
+
+## Earlier measurements
+
+
 Measured on 2026-10-02 with a Release build on a two-core Intel Celeron N4020,
 Intel UHD Graphics 600, and Gentoo Linux. CPU percentages use **100% = one core**.
 

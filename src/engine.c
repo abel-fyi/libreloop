@@ -103,6 +103,16 @@ void project_demo(Project *p) {
     for(int n=0;n<8;n++) p->notes[1][3][n]=(Note){pitches[n],85,n*4,3};
     for(int b=0;b<8;b+=b<2?1:2) { p->clips[0][b]=b<2?1:2; p->clip_steps[0][b]=b<2?16:32; }
 }
+int channel_replace_instrument(Project *p,int c,int type) {
+    if(c<0 || c>=p->channel_count || (type!=INSTRUMENT_SAMPLER && type!=INSTRUMENT_FM) ||
+       (type==INSTRUMENT_FM && p->channel_audio[c])) return 0;
+    if(p->instrument[c]==type) return 1;
+    if(type!=INSTRUMENT_FM) for(int a=p->automation_count-1;a>=0;a--) {
+        ParameterTarget target=p->automations[a].target;
+        if(target.owner==(unsigned)c && target.parameter>=PARAM_FM_RATIO && target.parameter<=PARAM_FM_LAST) automation_delete(p,a);
+    }
+    p->instrument[c]=type; return 1;
+}
 int channel_delete(Project *p,int c) {
     if(c<0 || c>=p->channel_count) return 0;
     for(int i=c;i<p->channel_count-1;i++) {
@@ -121,7 +131,7 @@ int channel_delete(Project *p,int c) {
     }
     for(int i=p->automation_count-1;i>=0;i--) {
         ParameterTarget *t=&p->automations[i].target;
-        if(t->parameter==PARAM_CHANNEL_VOLUME || t->parameter==PARAM_CHANNEL_PAN || t->parameter==PARAM_CHANNEL_PITCH || t->parameter==PARAM_CHANNEL_MUTE || t->parameter==PARAM_PITCH_RANGE || (t->parameter>=PARAM_FM_RATIO && t->parameter<=PARAM_FM_TREMOLO)) {
+        if(t->parameter==PARAM_CHANNEL_VOLUME || t->parameter==PARAM_CHANNEL_PAN || t->parameter==PARAM_CHANNEL_PITCH || t->parameter==PARAM_CHANNEL_MUTE || t->parameter==PARAM_PITCH_RANGE || (t->parameter>=PARAM_FM_RATIO && t->parameter<=PARAM_FM_LAST)) {
             if(t->owner==(unsigned)c) automation_delete(p,i);
             else if(t->owner>(unsigned)c) t->owner--;
         }
@@ -252,7 +262,7 @@ void solo_toggle(uint8_t *states,int count,int selected) {
     if(states[selected]&2) states[selected]&=~2;
     else states[selected]=(states[selected]&~1)|2;
 }
-static void trigger(Player *p,const Project *pr,int pat,int64_t tick,float remaining,int lane,int entering,float swing,const float *channel_speeds,double master_speed,const uint8_t *channel_mutes) {
+static void trigger(Player *p,const Project *pr,int pat,int64_t tick,float remaining,int lane,int entering,float swing,const float *channel_speeds,double master_speed,const uint8_t *channel_mutes,const FMSettings *fm_settings) {
     for(int c=0;c<pr->channel_count;c++) for(int i=0;i<NOTES;i++) {
         Note n=pr->notes[pat][c][i];
         if(!n.velocity || (channel_mutes[c]&1)) continue;
@@ -273,7 +283,7 @@ static void trigger(Player *p,const Project *pr,int pat,int64_t tick,float remai
         if(pr->instrument[c]==INSTRUMENT_FM) {
             Voice *voice=&p->voices[v]; voice->instrument=INSTRUMENT_FM;
             voice->remaining=fmin(n.length?n.length-elapsed:1,remaining)*frames_per_step;
-            fm_note_on_velocity(&voice->fm,261.6255653005986*speed,pr->fm[c],n.velocity/127.f);
+            fm_note_on_velocity(&voice->fm,261.6255653005986*speed,fm_settings[c],n.velocity/127.f);
         }
     }
 }
@@ -371,22 +381,9 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
         for(int a=0;a<pr->automation_count;a++) {
             ParameterTarget t=pr->automations[a].target; unsigned id=t.parameter,c=t.owner;
             if(!parameter_info(pr,t,&baseline[a],&low[a],&high[a])) continue;
-            if(id>=PARAM_FM_RATIO && id<=PARAM_FM_TREMOLO) {
+            if(id>=PARAM_FM_RATIO && id<=PARAM_FM_LAST) {
                 FMSettings *settings=&fm_controls[c];
-                switch(id) {
-                case PARAM_FM_RATIO: bindings[a]=&settings->ratio; break;
-                case PARAM_FM_DEPTH: bindings[a]=&settings->depth; break;
-                case PARAM_FM_ATTACK: bindings[a]=&settings->attack; break;
-                case PARAM_FM_DECAY: bindings[a]=&settings->decay; break;
-                case PARAM_FM_SUSTAIN: bindings[a]=&settings->sustain; break;
-                case PARAM_FM_RELEASE: bindings[a]=&settings->release; break;
-                case PARAM_FM_MOD_DECAY: bindings[a]=&settings->mod_decay; break;
-                case PARAM_FM_MOD_SUSTAIN: bindings[a]=&settings->mod_sustain; break;
-                case PARAM_FM_VELOCITY: bindings[a]=&settings->velocity; break;
-                case PARAM_FM_LFO_RATE: bindings[a]=&settings->lfo_rate; break;
-                case PARAM_FM_VIBRATO: bindings[a]=&settings->vibrato; break;
-                case PARAM_FM_TREMOLO: bindings[a]=&settings->tremolo; break;
-                }
+                bindings[a]=(float *)fm_parameter_pointer(settings,id);
             }
             else if(id>=PARAM_EQ_FIRST && id<=PARAM_EQ_LAST) {
                 EQBand *b=&eq_controls[c][t.slot].bands[(id-PARAM_EQ_FIRST)/3];
@@ -459,9 +456,9 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
                             p->channel_trigger[c]=1;
                             p->voices[v]=(Voice){.channel=c,.sampler={.position=audio_clip_position(pr,l,b,p->frame/(stepframes*96)),.speed=1},.remaining=fmin(length*stepframes*96-position,end_frame-p->frame),.gain=1,.lane=l,.audio_clip=1};
                         }
-                    } else if(tick && local>=0 && local<length*96 && local+pr->clip_offsets[l][b]*96<pr->pattern_steps[pat-1]*96) trigger(p,pr,pat-1,local+(int64_t)llround(pr->clip_offsets[l][b]*96),fminf(length-local/96.f,end-step/96.f),l,pr->clip_offsets[l][b]>0 && (local==0 || entered),master_controls[4],speed,pitch_speed,channel_mutes);
+                    } else if(tick && local>=0 && local<length*96 && local+pr->clip_offsets[l][b]*96<pr->pattern_steps[pat-1]*96) trigger(p,pr,pat-1,local+(int64_t)llround(pr->clip_offsets[l][b]*96),fminf(length-local/96.f,end-step/96.f),l,pr->clip_offsets[l][b]>0 && (local==0 || entered),master_controls[4],speed,pitch_speed,channel_mutes,fm_controls);
                 }
-            } else trigger(p,pr,p->pattern,step,end-step/96.f,-1,0,master_controls[4],speed,pitch_speed,channel_mutes);
+            } else trigger(p,pr,p->pattern,step,end-step/96.f,-1,0,master_controls[4],speed,pitch_speed,channel_mutes,fm_controls);
             count=active_voices(p,live,active); resync=tempo_changed=0;
         }
         for(int at=0;at<buses_count;at++) buses[order[at]][0]=buses[order[at]][1]=0;

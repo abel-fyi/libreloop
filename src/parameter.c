@@ -22,18 +22,34 @@ static const ParameterDescriptor descriptors[]={
     {PARAM_EQ_FIRST+18,"EQ 7 frequency",20,20000,12000,PARAMETER_LOGARITHMIC},
     {PARAM_EQ_FIRST+19,"EQ 7 gain",-18,18,0,PARAMETER_CONTINUOUS},
     {PARAM_EQ_FIRST+20,"EQ 7 Q",0.2,10,0.707,PARAMETER_CONTINUOUS},
-    {PARAM_FM_RATIO,"FM ratio",1,8,2,PARAMETER_INTEGER},
-    {PARAM_FM_DEPTH,"FM depth",0,8,2,PARAMETER_CONTINUOUS},
-    {PARAM_FM_ATTACK,"FM attack",.001f,2,.005f,PARAMETER_CONTINUOUS},
-    {PARAM_FM_DECAY,"FM decay",.01f,3,.3f,PARAMETER_CONTINUOUS},
-    {PARAM_FM_SUSTAIN,"FM sustain",0,1,.65f,PARAMETER_CONTINUOUS},
-    {PARAM_FM_RELEASE,"FM release",.01f,3,.2f,PARAMETER_CONTINUOUS},
-    {PARAM_FM_MOD_DECAY,"FM tone decay",.01f,5,.5f,PARAMETER_CONTINUOUS},
-    {PARAM_FM_MOD_SUSTAIN,"FM tone sustain",0,1,1,PARAMETER_CONTINUOUS},
-    {PARAM_FM_VELOCITY,"FM velocity response",0,1,0,PARAMETER_CONTINUOUS},
-    {PARAM_FM_LFO_RATE,"FM LFO rate",.1f,12,5,PARAMETER_CONTINUOUS},
+    {PARAM_FM_RATIO,"Body harmonic ratio",1,8,1,PARAMETER_INTEGER},
+    {PARAM_FM_DEPTH,"Body FM amount",0,8,2.6f,PARAMETER_CONTINUOUS},
+    {PARAM_FM_ATTACK,"Sound attack",.001f,2,.0015f,PARAMETER_CONTINUOUS},
+    {PARAM_FM_DECAY,"Sound decay",.01f,3,2.5f,PARAMETER_CONTINUOUS},
+    {PARAM_FM_SUSTAIN,"Sound sustain",0,1,.08f,PARAMETER_CONTINUOUS},
+    {PARAM_FM_RELEASE,"Sound release",.01f,3,.45f,PARAMETER_CONTINUOUS},
+    {PARAM_FM_MOD_DECAY,"Body decay",.01f,5,1.2f,PARAMETER_CONTINUOUS},
+    {PARAM_FM_MOD_SUSTAIN,"Body sustain",0,1,.12f,PARAMETER_CONTINUOUS},
+    {PARAM_FM_VELOCITY,"Velocity brightness",0,1,.8f,PARAMETER_CONTINUOUS},
+    {PARAM_FM_LFO_RATE,"Motion rate",.1f,12,4.8f,PARAMETER_CONTINUOUS},
     {PARAM_FM_VIBRATO,"FM vibrato",0,100,0,PARAMETER_CONTINUOUS},
     {PARAM_FM_TREMOLO,"FM tremolo",0,1,0,PARAMETER_CONTINUOUS},
+    {PARAM_FM_CARRIER_RATIO,"Carrier pitch ratio",.125f,32,1,PARAMETER_LOGARITHMIC},
+    {PARAM_FM_CARRIER_DETUNE,"Carrier fine tuning (cents)",-100,100,0,PARAMETER_CONTINUOUS},
+    {PARAM_FM_BODY_DETUNE,"Body fine tuning (cents)",-100,100,0,PARAMETER_CONTINUOUS},
+    {PARAM_FM_MOD_ATTACK,"Body attack",0,2,.001f,PARAMETER_CONTINUOUS},
+    {PARAM_FM_MOD_RELEASE,"Body release",0,5,.4f,PARAMETER_CONTINUOUS},
+    {PARAM_FM_ATTACK_RATIO,"Attack pitch ratio",.125f,32,14,PARAMETER_LOGARITHMIC},
+    {PARAM_FM_ATTACK_DETUNE,"Attack fine tuning (cents)",-100,100,0,PARAMETER_CONTINUOUS},
+    {PARAM_FM_ATTACK_DEPTH,"Attack FM amount",0,12,4.5f,PARAMETER_CONTINUOUS},
+    {PARAM_FM_ATTACK_ATTACK,"Strike attack",.001f,2,.001f,PARAMETER_LOGARITHMIC},
+    {PARAM_FM_ATTACK_DECAY,"Strike decay",.005f,5,.09f,PARAMETER_LOGARITHMIC},
+    {PARAM_FM_ATTACK_SUSTAIN,"Strike sustain",0,1,0,PARAMETER_CONTINUOUS},
+    {PARAM_FM_ATTACK_RELEASE,"Strike release",.01f,5,.07f,PARAMETER_LOGARITHMIC},
+    {PARAM_FM_ROUTING,"FM routing",0,1,0,PARAMETER_INTEGER},
+    {PARAM_FM_LFO_SHAPE,"LFO shape",0,3,0,PARAMETER_INTEGER},
+    {PARAM_FM_LFO_FADE,"LFO fade in",0,5,.3f,PARAMETER_CONTINUOUS},
+    {PARAM_FM_BODY_PITCH,"Body pitch (semitones)",-48,48,0,PARAMETER_CONTINUOUS},
     {PARAM_CHORUS_RATE,"Chorus rate",.05f,5,.8f,PARAMETER_CONTINUOUS},
     {PARAM_CHORUS_DEPTH,"Chorus depth",0,8,3,PARAMETER_CONTINUOUS},
     {PARAM_EFFECT_MIX,"Effect mix",0,1,.5f,PARAMETER_CONTINUOUS},
@@ -64,18 +80,11 @@ static const float *parameter_pointer(const Project *p,ParameterTarget t,float *
         const EQBand *b=&p->eq[t.owner][t.slot].bands[(t.parameter-PARAM_EQ_FIRST)/3];
         return (t.parameter-PARAM_EQ_FIRST)%3==0?&b->frequency:(t.parameter-PARAM_EQ_FIRST)%3==1?&b->gain:&b->q;
     }
-    if(t.parameter>=PARAM_FM_RATIO && t.parameter<=PARAM_FM_TREMOLO) {
+    if(t.parameter>=PARAM_FM_RATIO && t.parameter<=PARAM_FM_LAST) {
         if(t.owner>=(unsigned)p->channel_count || t.slot || p->instrument[t.owner]!=INSTRUMENT_FM) return NULL;
-        const FMSettings *s=&p->fm[t.owner];
-        switch(t.parameter) {
-        case PARAM_FM_RATIO: return &s->ratio; case PARAM_FM_DEPTH: return &s->depth;
-        case PARAM_FM_ATTACK: return &s->attack; case PARAM_FM_DECAY: return &s->decay;
-        case PARAM_FM_SUSTAIN: return &s->sustain; case PARAM_FM_RELEASE: return &s->release;
-        case PARAM_FM_MOD_DECAY: return &s->mod_decay; case PARAM_FM_MOD_SUSTAIN: return &s->mod_sustain;
-        case PARAM_FM_VELOCITY: return &s->velocity; case PARAM_FM_LFO_RATE: return &s->lfo_rate;
-        case PARAM_FM_VIBRATO: return &s->vibrato; case PARAM_FM_TREMOLO: return &s->tremolo;
-        }
+        return fm_parameter_pointer(&p->fm[t.owner],t.parameter);
     }
+
     if(t.parameter>=PARAM_CHORUS_RATE && t.parameter<=PARAM_EFFECT_MIX) {
         if(t.owner>(unsigned)p->insert_count || t.slot>=EFFECT_SLOTS || (p->effect_type[t.owner][t.slot]==EFFECT_EMPTY || (t.parameter!=PARAM_EFFECT_MIX && p->effect_type[t.owner][t.slot]!=EFFECT_CHORUS))) return NULL;
         if(t.parameter==PARAM_CHORUS_RATE) return &p->chorus[t.owner][t.slot].rate;
@@ -116,7 +125,7 @@ int parameter_from_pointer(const Project *p,const void *ptr,ParameterTarget *t) 
         if(id==PARAM_MASTER_MUTE) address=&p->master_mute;
         if(address==ptr) { *t=candidate; return 1; }
     }
-    for(unsigned id=PARAM_FM_RATIO;id<=PARAM_FM_TREMOLO;id++) for(unsigned owner=0;owner<(unsigned)p->channel_count;owner++) {
+    for(unsigned id=PARAM_FM_RATIO;id<=PARAM_FM_LAST;id++) for(unsigned owner=0;owner<(unsigned)p->channel_count;owner++) {
         ParameterTarget candidate={id,owner,0}; float lo,hi;
         if(parameter_pointer(p,candidate,&lo,&hi)==ptr) { *t=candidate; return 1; }
     }

@@ -499,13 +499,10 @@ projects load without effects; newly saved projects use format version 37.
 ### Built-in FM Synth
 
 Click the instrument-shaped **+** row in the Channel Rack and choose **FM Synth**.
-Sequence it with Rack steps or the Piano Roll, or audition with the typing keyboard.
-Click the oscillator preview to audition C4. **Ratio** selects a harmonic ratio
-(1–8); **Depth** adds modulation for brighter, more complex timbres. **Attack**,
-**Decay**, **Sustain** and **Release** shape each note's envelope. Rack steps hold
-for one step; Piano Roll notes hold for their drawn length, followed by release.
-The header's pan, volume, pitch and mixer routing work like the Sampler's.
-Right-click any FM knob to create automation. Projects, undo and export include FM.
+It shares channel volume, pan, pitch, mixer routing, note gates and automation with
+Sampler. New channels start with the dry Bright EP patch. Sound, Body, Attack and
+Motion tabs expose independent tuning, modulation envelopes and a graphical LFO.
+See [FM electric piano and modulation](#fm-electric-piano-and-modulation).
 
 ### Device presets
 
@@ -565,20 +562,44 @@ track. Piano Roll keys, notes and pitch scrolling follow the same row scale.
 
 ### FM electric piano and modulation
 
-Click **Electric Piano** in FM Synth to load the factory patch. **Tone decay**
-and **Tone sustain** control how its bright FM attack settles into a softer tone,
-independently of the amplitude ADSR. **Velocity** makes quieter Piano Roll notes
-softer in timbre as well as volume. The LFO has **Rate** in Hz, **Vibrato** in
-cents and **Tremolo** amount. Each note starts its own LFO; rate and amounts slew
-smoothly, and every new knob supports Reset, exact entry and automation.
+New FM Synth channels start with **Bright EP**, a dry electric piano with a
+long-lived Body tone and a separate short, bright Attack. **Bright EP** resets
+the synth to that factory patch. No chorus is added by the synth or preset.
 
-This is a two-operator FM electric piano, rather than a full six-operator DX7
-emulation. A gentle Mixer Chorus adds stereo movement if desired.
+The panel has four tabs:
+
+- **Sound:** pitch/fine tuning of the audible oscillator, velocity brightness,
+  routing, and the volume ADSR envelope.
+- **Body:** independent semitone pitch, fine tuning, harmonic ratio and FM amount,
+  plus its own attack, decay, sustain and release. This shapes the lasting tone.
+- **Attack:** independent pitch, fine tuning and FM amount, plus a separate
+  envelope for the bright strike. Increase amount for a harder attack; shorten
+  decay to keep it out of the tail.
+- **Motion:** per-note LFO speed, pitch motion in cents, volume motion and fade-in.
+  Choose Sine, Triangle, Saw or Square from the waveform menu. Select Pitch or
+  Volume and drag the graph horizontally for speed, vertically for amount.
+
+Drag envelope handles horizontally to change stage time; the middle handle also
+changes sustain vertically. The graph gives short times extra space, and the knobs
+show milliseconds/seconds. Knobs support exact entry, Reset and automation. Pitch
+ratios of 1x, 2x and 0.5x mean the played pitch, one octave up and one octave down;
+Fine is in cents. Body additionally has a semitone control and integer harmonic ratio.
+
+**Body + Attack** routes both modulation layers into the audible oscillator.
+**Attack into Body** stacks them for a different, more complex tone. Routing and
+LFO waveform also support right-click automation. **Play C4 / Release C4** auditions
+without leaving the synth. Settings, graphs, tuning and routing survive project
+save/load, presets and undo, and playback/export share the same DSP.
+
+This is a three-oscillator FM instrument inspired by a bright digital electric
+piano; it does not reproduce Roland's MK-80 preset or implement a complete DX7.
+Older projects and presets retain their two-oscillator sound: the added Attack
+layer is muted, carrier tuning is neutral, and original automation ranges remain.
 
 Default preset folders sit under LibreLoop's configuration directory, normally
 `~/.config/libreloop/presets/`, with a folder for Sampler, FM Synth, Chorus and
 Equalizer. `XDG_CONFIG_HOME` is respected. The FM folder receives
-`Electric Piano.llpreset` on first use; an existing user file is preserved.
+`Bright Electric Piano.llpreset` on first use; existing user presets are preserved.
 Load/Save still remember the last folder chosen. Older projects and presets
 retain their previous tone with the new modulation controls initially neutral.
 
@@ -610,3 +631,15 @@ selected notes up/down exactly one octave. Cmd/Ctrl+K goes up and Cmd/Ctrl+J
 goes down. The same actions appear in Edit as **Octave up/down**. They preserve
 timing, lengths and velocities, support undo, and reject a shift if any selected
 note would leave MIDI pitches 0–127 or collide with an existing note.
+
+Right-click a Channel Rack name and choose **Replace instrument…** to switch
+between Sampler and FM Synth while retaining notes, channel settings, mixer routing
+and sample settings. This changes the shared channel across every pattern. The
+inactive sampler's audio is retained so switching back can restore it; automation
+specific to FM is removed when switching to Sampler, and Undo can restore the change.
+
+In Arrangement, right-click a pattern clip's title (or its entry in the pattern
+picker), choose **Replace instrument…**, then choose the channel and instrument type.
+Patterns containing several channels list their instruments individually. Right-drag
+on clip bodies continues to erase clips. Audio clips require a Sampler and cannot be
+switched to FM Synth; use their sample replacement action instead.

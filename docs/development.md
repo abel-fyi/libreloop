@@ -82,7 +82,7 @@ cmake --build build --parallel
 
 ## Tests
 
-The desktop build has 23 headless CTest tests (19 in core-only builds). In addition
+The desktop build has 32 headless CTest tests (28 in core-only builds). In addition
 to engine, editing, audio and persistence checks, tests cover atomic write failures,
 relative/collected assets, document close decisions, background recording and mapped
 sample ownership through playback and undo.
@@ -170,3 +170,27 @@ The in-app file chooser uses portable C directory enumeration and the existing
 raylib UI. There are no GTK, Zenity, KDialog or native file-panel dependencies.
 Chooser tests cover navigation, filtering, filename validation and overwrite
 confirmation; opening the chooser does not create or modify files.
+
+## Reproducible engine benchmarks
+
+Use a Release build; the optional benchmark target is excluded from ordinary builds:
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --target benchmark_engine --parallel
+python3 tools/run_benchmarks.py --build build --seconds 10 --repeats 3
+```
+
+The runner writes raw results and medians to `local/performance/engine.json`. Each
+scenario gets a separate process, 128 warmup blocks, 48 kHz stereo output, and
+512-frame or 64-frame buffers. Engine CPU is process CPU seconds divided by
+rendered audio seconds: 100% uses an entire realtime core budget. Block latency
+uses the monotonic wall clock, so scheduling interruptions can affect the maximum.
+These are offline engine measurements, not hardware dropout or audible latency
+measurements. Sample stress cases deliberately share one read-only PCM buffer;
+their memory figures do not represent importing 32 distinct long recordings.
+
+`build/benchmark_engine fm_32 3 512 verify` additionally hashes the rendered PCM
+for differential checks. Hashing is excluded from ordinary timing runs. Native
+GUI benchmarks require a separate measurement because they include graphics,
+analyzers, the audio callback and device threads.

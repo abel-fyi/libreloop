@@ -9,7 +9,7 @@
 #define CHECK(x) do { if(!(x)) { fprintf(stderr,"Failed line %d: %s\n",__LINE__,#x); return 1; } } while(0)
 static Project project,loaded;
 int main(void) {
-    FMSettings settings=fm_default(); CHECK(fm_valid(settings));
+    FMSettings settings=fm_legacy(); CHECK(fm_valid(settings));
     CHECK(!fm_valid((FMSettings){2.5f,2,.005f,.3f,.65f,.2f}));
     FMVoice a,b; settings.depth=0; settings.attack=.001f; settings.decay=.01f; settings.sustain=1; settings.release=.01f;
     fm_note_on(&a,440,settings); fm_note_on(&b,880,settings);
@@ -27,8 +27,8 @@ int main(void) {
     FMSettings ep=fm_epiano(); CHECK(fm_valid(ep));
     fm_note_on_velocity(&a,440,ep,1); fm_note_on_velocity(&b,440,ep,.2f); float difference=0;
     for(int i=0;i<RATE;i++) { float x=fm_sample(&a,ep,1),y=fm_sample(&b,ep,1); CHECK(isfinite(x) && fabsf(x)<=.201f); difference+=fabsf(x-y); }
-    CHECK(difference>10 && a.mod_envelope<.09f && a.mod_envelope>=.079f);
-    FMSettings motion=fm_default(); motion.depth=0; motion.attack=.001f; motion.sustain=1; motion.vibrato=25; motion.tremolo=.8f;
+    CHECK(difference>10 && a.mod_envelope<.2f && a.mod_envelope>=.119f);
+    FMSettings motion=fm_legacy(); motion.depth=0; motion.attack=.001f; motion.sustain=1; motion.vibrato=25; motion.tremolo=.8f;
     fm_note_on(&a,440,motion); double low_frequency=1000,high_frequency=0,last_phase=0; float loud=0,quiet=0;
     for(int i=0;i<RATE/4;i++) {
         float x=fm_sample(&a,motion,1); CHECK(isfinite(x) && fabsf(x)<=.201f);
@@ -62,6 +62,6 @@ int main(void) {
     energy=0; for(int i=0;i<1024;i++) energy+=fabsf(out[i]); CHECK(energy<.001f);
     CHECK(export_wav("fm.wav",&project,samples)); remove("fm.wav");
     project.instrument[1]=INSTRUMENT_FM; project.fm[1]=fm_default(); project.channel_count=2;
-    CHECK(channel_delete(&project,0) && project.instrument[0]==INSTRUMENT_FM && project.fm[0].depth==2 && !project.automation_count);
+    CHECK(channel_delete(&project,0) && project.instrument[0]==INSTRUMENT_FM && project.fm[0].depth==fm_default().depth && !project.automation_count);
     puts("FM tuning, polyphony, release, bounded output, automation, save/load and channel deletion passed."); return 0;
 }

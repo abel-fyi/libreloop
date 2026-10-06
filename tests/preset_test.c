@@ -9,7 +9,7 @@
 #include <math.h>
 #define CHECK(x) do { if(!(x)) { fprintf(stderr,"Failed line %d: %s\n",__LINE__,#x); return 1; } } while(0)
 int main(void) {
-    char root[1024]="/tmp/libreloop-presets-XXXXXX",canonical[1024],path[1024],audio[1024],moved[1024]; CHECK(mkdtemp(root));
+    char root[1024]="/tmp/libreloop-presets-XXXXXX",canonical[PATH_MAX],path[1024],audio[1024],moved[1024]; CHECK(mkdtemp(root));
     CHECK(realpath(root,canonical)); snprintf(root,sizeof root,"%s",canonical);
     snprintf(path,sizeof path,"%s/patch.llpreset",root); snprintf(audio,sizeof audio,"%s/sample.wav",root);
     FILE *f=fopen(audio,"wb"); CHECK(f); fclose(f);

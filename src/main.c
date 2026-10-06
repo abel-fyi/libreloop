@@ -214,7 +214,7 @@ static int rack_channels(int *rows) {
     return count;
 }
 static int rack_channel_at(int row) { int rows[CHANNELS],count=rack_channels(rows); return row>=0 && row<count?rows[row]:-1; }
-static int rack_scroll,context_kind,context_target,context_opened;
+static int rack_scroll,context_kind,context_target,context_opened,instrument_replace_scroll;
 static Vector2 context_position;
 static int pattern_popup,popup_opened,rename_pattern,rename_select_all,popup_drag;
 static Vector2 popup_position[13],popup_offset;
@@ -263,7 +263,9 @@ static Vector2 navigation_last;
 static NavigationInput navigation_input;
 static float piano_scroll_remainder;
 static int eq_drag=-1;
-static int captured(void) { return row_zoom_drag>=0 || eq_drag>=0 || automation_node>=0 || picker_drag>=0 || navigation_drag>=0 || track_resize>=0 || rack_hdrag || rack_vdrag || piano_key_drag || control_drag || route_drag>=0 || note_drag || velocity_drag>=0 || arrangement.gesture || playlist_pan || browser_resize || rack_paint>=0 || cable_drag>0 || playlist_vpan || mixer_pan || piano_scroll_drag || piano_vdrag || piano_gesture || marker_drag>=0; }
+static int fm_tab,fm_motion_target,fm_graph_drag=-1,fm_graph_channel;
+static Rectangle fm_graph_area;
+static int captured(void) { return fm_graph_drag>=0 || row_zoom_drag>=0 || eq_drag>=0 || automation_node>=0 || picker_drag>=0 || navigation_drag>=0 || track_resize>=0 || rack_hdrag || rack_vdrag || piano_key_drag || control_drag || route_drag>=0 || note_drag || velocity_drag>=0 || arrangement.gesture || playlist_pan || browser_resize || rack_paint>=0 || cable_drag>0 || playlist_vpan || mixer_pan || piano_scroll_drag || piano_vdrag || piano_gesture || marker_drag>=0; }
 static void sampler_queue(void) {
     if(recording_ui.active) return;
     sampler_update();
@@ -353,7 +355,7 @@ static void circle(float x,float y,float radius,Color color) {
     DrawTexturePro(circle_texture,(Rectangle){0,0,64,64},(Rectangle){x-radius,y-radius,radius*2,radius*2},(Vector2){0},0,color);
 }
 /* Monochrome symbols rasterized once at 4x, then reduced for smooth edges. */
-enum { ICON_RACK,ICON_PLAYLIST,ICON_PIANO,ICON_MIXER,ICON_PENCIL,ICON_BRUSH,ICON_SELECT,ICON_METRO,ICON_PLAY,ICON_STOP,ICON_PAUSE,ICON_CLOSE,ICON_BACK,ICON_FOLLOW,ICON_KEYS,ICON_WAVE,ICON_AUTOMATION,ICON_CUT,ICON_STRETCH,ICON_COUNT };
+enum { ICON_RACK,ICON_PLAYLIST,ICON_PIANO,ICON_MIXER,ICON_PENCIL,ICON_BRUSH,ICON_SELECT,ICON_METRO,ICON_PLAY,ICON_STOP,ICON_PAUSE,ICON_CLOSE,ICON_BACK,ICON_FOLLOW,ICON_KEYS,ICON_WAVE,ICON_AUTOMATION,ICON_CUT,ICON_STRETCH,ICON_ROW_ZOOM,ICON_COUNT };
 static Texture2D icons;
 static int icon_large,icon_small,icon_medium;
 static void icons_init(float scale) {
@@ -412,6 +414,13 @@ static void icons_init(float scale) {
             DrawLineEx((Vector2){5,14},(Vector2){10,19},2,WHITE);
             DrawLineEx((Vector2){23,14},(Vector2){18,9},2,WHITE);
             DrawLineEx((Vector2){23,14},(Vector2){18,19},2,WHITE);
+        }
+        if(id==ICON_ROW_ZOOM) {
+            DrawLineEx((Vector2){14,5},(Vector2){14,23},1.75f,WHITE);
+            DrawLineEx((Vector2){9,10},(Vector2){14,5},1.75f,WHITE);
+            DrawLineEx((Vector2){19,10},(Vector2){14,5},1.75f,WHITE);
+            DrawLineEx((Vector2){9,18},(Vector2){14,23},1.75f,WHITE);
+            DrawLineEx((Vector2){19,18},(Vector2){14,23},1.75f,WHITE);
         }
         if(id==ICON_METRO) {
             DrawLineEx((Vector2){7,22},(Vector2){11,6},1.8f,WHITE);
@@ -479,6 +488,7 @@ static void icon(int id,float x,float y,float size,Color color) {
 static Texture2D knob_arcs;
 static int knob_context=-1;
 #define KNOB_RADIUS 10
+#define SWING_RADIUS 8
 static void arcs_init(void) {
     /* Swing horseshoe, centered full turn, and minimum-to-value full turn. */
     Image image=GenImageColor(1536,288,BLANK);
@@ -700,7 +710,7 @@ static int preset_directory(char *out,size_t capacity,int kind) {
     if(snprintf(out,capacity,"%s/%s",root,device)>=(int)capacity || MakeDirectory(out)) return 0;
     if(kind==PRESET_FM) {
         char factory[PATH_MAX];
-        if(snprintf(factory,sizeof factory,"%s/Electric Piano.llpreset",out)<(int)sizeof factory && !FileExists(factory)) {
+        if(snprintf(factory,sizeof factory,"%s/Bright Electric Piano.llpreset",out)<(int)sizeof factory && !FileExists(factory)) {
             DevicePreset preset={.kind=PRESET_FM,.fm=fm_epiano()}; preset_save(factory,&preset);
         }
     }
@@ -737,7 +747,7 @@ static void create_automation(void) {
     float steps=song_loop[1]>song_loop[0]?song_loop[1]-song_loop[0]:fmaxf(STEPS,project.pattern_steps[pattern]);
     char name[PATTERN_NAME];
     unsigned id=automation_target.parameter,owner=automation_target.owner;
-    const char *prefix=id>=PARAM_FM_RATIO && id<=PARAM_FM_TREMOLO?project.channel_names[owner]:id>=PARAM_CHORUS_RATE && id<=PARAM_EFFECT_MIX?(owner?project.insert_names[owner-1]:"Master"):id<=PARAM_CHANNEL_PITCH || id==PARAM_CHANNEL_MUTE || id==PARAM_PITCH_RANGE?project.channel_names[owner]:id<=PARAM_INSERT_WIDTH || id==PARAM_INSERT_MUTE?project.insert_names[owner]:"Master";
+    const char *prefix=id>=PARAM_FM_RATIO && id<=PARAM_FM_LAST?project.channel_names[owner]:id>=PARAM_CHORUS_RATE && id<=PARAM_EFFECT_MIX?(owner?project.insert_names[owner-1]:"Master"):id<=PARAM_CHANNEL_PITCH || id==PARAM_CHANNEL_MUTE || id==PARAM_PITCH_RANGE?project.channel_names[owner]:id<=PARAM_INSERT_WIDTH || id==PARAM_INSERT_MUTE?project.insert_names[owner]:"Master";
     const char *parameter=menu_name;
     if(!strncmp(parameter,"Insert ",7)) parameter+=7;
     else if(!strncmp(parameter,"Channel ",8)) parameter+=8;
@@ -1024,7 +1034,7 @@ static int import_sample(const char *path,int c) {
     Sample cooked;
     if(!sample_process(s,project.sampler[c],&cooked)) { sample_free(s); snprintf(status,sizeof status,"Sample processing failed; channel unchanged"); return 0; }
     if(project.instrument[c]==INSTRUMENT_FM) {
-        for(int a=project.automation_count-1;a>=0;a--) if(project.automations[a].target.owner==(unsigned)c && project.automations[a].target.parameter>=PARAM_FM_RATIO && project.automations[a].target.parameter<=PARAM_FM_TREMOLO) automation_delete(&project,a);
+        for(int a=project.automation_count-1;a>=0;a--) if(project.automations[a].target.owner==(unsigned)c && project.automations[a].target.parameter>=PARAM_FM_RATIO && project.automations[a].target.parameter<=PARAM_FM_LAST) automation_delete(&project,a);
         project.instrument[c]=INSTRUMENT_SAMPLER;
     }
     Sample old=samples[c],raw=originals[c]; audio_sample(c,cooked); samples[c]=cooked; originals[c]=s; sample_free(old); sample_free(raw);
@@ -1065,6 +1075,25 @@ static void add_instrument(int type) {
     Sample old=samples[c],raw=originals[c]; originals[c]=samples[c]=(Sample){0}; audio_channels(&project,samples); sample_free(old); sample_free(raw);
     sample_generation[c]++; sampler_generation[c]=sample_generation[c]; sampler_applied[c]=project.sampler[c];
     channel=instrument_channel=c; browser_focus=0; rack_reveal_last(); windows_focus(&windows,4);
+}
+static void replace_instrument(int c,int type) {
+    if(recording_ui.active) { snprintf(status,sizeof status,"Finish recording before replacing an instrument."); return; }
+    if(!sampler_flush()) { snprintf(status,sizeof status,"Could not prepare the current sample; instrument unchanged."); return; }
+    if(!channel_replace_instrument(&project,c,type)) {
+        snprintf(status,sizeof status,"Audio clip channels use a Sampler. Replace an instrument in a pattern to use FM Synth."); return;
+    }
+    automation_selected=automation_node=-1; control_drag=NULL; menu_value=NULL;
+    if(!strcmp(project.channel_names[c],"Sampler") || !strcmp(project.channel_names[c],"FM Synth"))
+        snprintf(project.channel_names[c],PATTERN_NAME,"%s",type==INSTRUMENT_FM?"FM Synth":"Sampler");
+    channel=instrument_channel=c; browser_focus=0; windows_focus(&windows,4);
+    snprintf(status,sizeof status,"%s now uses %s; notes and routing kept across all patterns.",project.channel_names[c],type==INSTRUMENT_FM?"FM Synth":"Sampler");
+}
+static int pattern_instruments(int pat,int rows[CHANNELS]) {
+    int count=0;
+    if(pat<0 || pat>=project.pattern_count) return 0;
+    for(int c=0;c<project.channel_count;c++) for(int n=0;n<NOTES;n++) if(project.notes[pat][c][n].velocity) { rows[count++]=c; break; }
+    if(!count && channel>=0 && channel<project.channel_count) rows[count++]=channel;
+    return count;
 }
 static Color source_rgb(uint32_t rgb) {
     Color color={rgb>>16,(rgb>>8)&255,rgb&255,255};
@@ -1318,7 +1347,7 @@ static void delete_channel(int c) {
 }
 static void install_project(Project next,Sample fresh[CHANNELS],Sample processed[CHANNELS],const char *filename) {
     recording_finish();
-    sample_epoch++; audio_stop();
+    sample_epoch++; audio_stop(); fm_graph_drag=-1;
     sample_free(audition); free(audition_wave.tree); audition_wave=(Waveform){0}; audition=(Sample){0}; audition_path[0]=0; browser_progress=-1;
     memset(keyboard_notes,0,sizeof keyboard_notes); piano_note_length=2; if(edit_clipboard.kind==COPY_CLIPS) edit_clipboard.kind=COPY_EMPTY;
     picker_tab=picker_scroll=0; picker_drag=-1; automation_selected=automation_node=automation_lane=automation_clip=-1; sample_drag[0]=0;
@@ -1623,7 +1652,7 @@ static void capture_control(float *value,float low,float high,int fader) {
 }
 enum { KNOB_NORMAL,KNOB_SWING,KNOB_PAN,KNOB_WIDTH,KNOB_CENTER,KNOB_VOLUME,KNOB_LOGARITHMIC };
 static void knob_style(int x,int y,float *value,float low,float high,float initial,const char *name,int style) {
-    float size=style==KNOB_SWING?6:KNOB_RADIUS,shown=displayed_value(value,*value);
+    float size=style==KNOB_SWING?SWING_RADIUS:KNOB_RADIUS,shown=displayed_value(value,*value);
     int over=hover(x-size-1,y-size-1,size*2+2,size*2+2);
     if(over || control_drag==value) {
         if(style==KNOB_VOLUME) snprintf(status,sizeof status,"%s: %.4g (%.2f dB) | Dot marks 0 dB; drag or wheel; right-click for value / automation",name,shown,gain_db(shown));
@@ -1633,7 +1662,13 @@ static void knob_style(int x,int y,float *value,float low,float high,float initi
         if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) control_menu(value,low,high,initial,name);
         if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { capture_control(value,low,high,0); control_reverse=style==KNOB_WIDTH; }
         float wheel=GetMouseWheelMove();
-        *value=fmaxf(low,fminf(high,style==KNOB_LOGARITHMIC?*value*powf(high/low,wheel/20):*value+wheel*(high-low)/20*(style==KNOB_WIDTH?-1:1)));
+        if(wheel) {
+            ParameterTarget target;
+            const ParameterDescriptor *info=parameter_from_pointer(&project,value,&target)?parameter_descriptor(target.parameter):NULL;
+            int integer=info && info->kind==PARAMETER_INTEGER;
+            float next=style==KNOB_LOGARITHMIC?*value*powf(high/low,wheel/20):*value+wheel*(integer?1:(high-low)/20)*(style==KNOB_WIDTH?-1:1);
+            *value=fmaxf(low,fminf(high,integer?roundf(next):next));
+        }
     }
     float radius=size,fraction=(shown-low)/(high-low);
     if(style==KNOB_LOGARITHMIC) fraction=logf(shown/low)/logf(high/low);
@@ -1987,10 +2022,7 @@ static void row_zoom_button(int id,float width,float top) {
         row_zoom_drag=id; row_zoom_y=mouse.y+windows.editors[id].rect.y;
         row_zoom_start=id==1?track_zoom:piano_zoom; row_zoom_anchor=track_at(track_scroll); input_enabled=0;
     }
-    Color color=muted;
-    DrawLineEx((Vector2){x+8,top+3},(Vector2){x+8,top+13},1,color);
-    DrawLineEx((Vector2){x+5,top+6},(Vector2){x+8,top+3},1,color); DrawLineEx((Vector2){x+11,top+6},(Vector2){x+8,top+3},1,color);
-    DrawLineEx((Vector2){x+5,top+10},(Vector2){x+8,top+13},1,color); DrawLineEx((Vector2){x+11,top+10},(Vector2){x+8,top+13},1,color);
+    icon(ICON_ROW_ZOOM,x+EDITOR_CORNER/2,top+EDITOR_CORNER/2,16,muted);
     if(active) { SetMouseCursor(MOUSE_CURSOR_RESIZE_NS); snprintf(status,sizeof status,"Vertical zoom: drag up for taller %s, down to show more",id==1?"tracks":"notes"); }
 }
 static void ruler_press(int id,int button,float at,double time,Vector2 position) {
@@ -2244,12 +2276,15 @@ static void playlist(float width,float height,float scale) {
             const char *name=source_name(pat); if(pat<PATTERNS && !strcmp(name,TextFormat("Pattern %d",pat+1))) name=TextFormat("P%d",pat+1);
             if(x>=gx) label(fit_text(name,fminf(gridw,w-9),10),x+3,y+2,10,clip_foreground(source_color(pat)));
             float clip_left=floorf((rect.x+left)*scale),clip_top=floorf((rect.y+top)*scale);
-            BeginScissorMode(clip_left,clip_top,ceilf((rect.x+left+bounds.width)*scale)-clip_left,fmaxf(0,ceilf((rect.y+bottom)*scale)-clip_top));
+            /* Cached pattern previews already crop their geometry to the clip.
+               Keep per-clip scissors for curves, waveforms and vector fallbacks. */
+            int clip_scissor=pat>=PATTERNS || !previews[pat].valid;
+            if(clip_scissor) BeginScissorMode(clip_left,clip_top,ceilf((rect.x+left+bounds.width)*scale)-clip_left,fmaxf(0,ceilf((rect.y+bottom)*scale)-clip_top));
             float offset=clip_offset_steps(&project,l,b),origin=x-offset*barw/STEPS;
             if(pat>=AUTOMATION_SOURCE) automation_curve(pat-AUTOMATION_SOURCE,origin,y,barw/STEPS,rowh,left,right,1);
             else if(AUDIO_SOURCE(pat)) audio_waveform_at(pat-PATTERNS,x,y,left,right,barw/STEPS,rowh,l,b);
             else clip_preview(pat,origin,y,left,right,barw/STEPS,clip_length(&project,l,b)+offset,rowh);
-            BeginScissorMode((rect.x+gx)*scale,(rect.y+gy)*scale,gridw*scale,track_area*scale);
+            if(clip_scissor) BeginScissorMode((rect.x+gx)*scale,(rect.y+gy)*scale,gridw*scale,track_area*scale);
             if(arrangement.gesture==MOVE_CLIPS?arrangement.moved[l][b]:arrangement.selected[l][b]) DrawRectangleLinesEx(bounds,2,ui_theme.signal);
         }
         BeginScissorMode(rect.x*scale,rect.y*scale,rect.w*scale,rect.h*scale);
@@ -2344,6 +2379,14 @@ static void playlist(float width,float height,float scale) {
         if(mouse.x>=gx && arrangement.tool==STRETCH) snprintf(status,sizeof status,"Stretch: drag either audio edge; Resample changes pitch, Stretch preserves pitch");
         if(mouse.x<gx && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
             rename_channel=rename_mixer=-1; rename_track=(int)ly; snprintf(rename_text,sizeof rename_text,"%s",project.track_names[rename_track]); rename_select_all=1; open_popup(2); input_enabled=0; return;
+        }
+        if(!live && mouse.x>=gx && hit>=0 && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) &&
+           mouse.y<gy+track_position((int)ly)-track_scroll+14) {
+            int source=project.clips[(int)ly][hit]-1;
+            if(source<PATTERNS) { pattern=source; open_context(4,source,(Vector2){mouse.x+rect.x,mouse.y+rect.y}); }
+            else if(AUDIO_SOURCE(source)) open_context(7,source-PATTERNS,(Vector2){mouse.x+rect.x,mouse.y+rect.y});
+            else open_context(11,source-AUTOMATION_SOURCE,(Vector2){mouse.x+rect.x,mouse.y+rect.y});
+            arrangement.gesture=IDLE; last_click=-1; return;
         }
         if(shortcut_down() && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             arrangement_select_press(&arrangement,bx,ly,IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT));
@@ -3106,12 +3149,40 @@ static void delete_pattern(int target) {
 static void draw_context(void) {
     if(!context_kind) return;
     float scale=ui_scale();
-    int w=context_kind==14 || context_kind==16?160:(context_kind==5 || context_kind==8 || context_kind==12)?304:228,h=context_kind==16?32:context_kind==15?58:context_kind==14?8+EQ_SHAPES*25:context_kind==13?58:context_kind==2?133:context_kind==7?108:(context_kind==5 || context_kind==8 || context_kind==12)?76:context_kind==3 && !context_target?32:82,x=fmaxf(0,fminf(GetScreenWidth()/scale-w,context_position.x)),y=fmaxf(0,fminf(GetScreenHeight()/scale-h,context_position.y));
+    int instrument_rows[CHANNELS],instrument_count=context_kind==17?pattern_instruments(context_target,instrument_rows):0;
+    int w=context_kind==14 || context_kind==16?160:(context_kind==5 || context_kind==8 || context_kind==12)?304:228,h=context_kind==19?108:context_kind==20?58:context_kind==17?8+25*(int)fminf(8,instrument_count):context_kind==18?58:context_kind==4?108:context_kind==16?32:context_kind==15?58:context_kind==14?8+EQ_SHAPES*25:context_kind==13?58:context_kind==2?158:context_kind==7?133:(context_kind==5 || context_kind==8 || context_kind==12)?76:context_kind==3 && !context_target?32:82,x=fmaxf(0,fminf(GetScreenWidth()/scale-w,context_position.x)),y=fmaxf(0,fminf(GetScreenHeight()/scale-h,context_position.y));
     input_enabled=1;
     if(IsKeyPressed(KEY_ESCAPE) || (!context_opened && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !hover(x,y,w,h))) { context_kind=0; return; }
     ui_frame((Rectangle){x,y,w,h});
     int target=context_target,kind=context_kind;
-    if(kind==16) {
+    if(kind==19 || kind==20) {
+        if(target<0 || target>=project.channel_count || project.instrument[target]!=INSTRUMENT_FM) { context_kind=0; return; }
+        const char *shapes[]={"Sine","Triangle","Saw","Square"},*routing[]={"Body + Attack","Attack into Body"};
+        float *value=kind==19?&project.fm[target].lfo_shape:&project.fm[target].routing;
+        for(int i=0;i<(kind==19?4:2);i++) if(button(kind==19?shapes[i]:routing[i],x+4,y+4+i*25,w-8,24,*value==i)) { *value=i; context_kind=0; return; }
+    } else if(kind==17) {
+        int visible=(int)fminf(8,instrument_count);
+        if(hover(x,y,w,h)) instrument_replace_scroll=(int)fmaxf(0,fminf(instrument_count-visible,instrument_replace_scroll-GetMouseWheelMove()));
+        for(int row=0;row<visible;row++) {
+            int c=instrument_rows[row+instrument_replace_scroll];
+            if(button(fit_text(TextFormat("Replace %s...",project.channel_names[c]),w-16,13),x+4,y+4+row*25,w-8,24,0)) {
+                open_context(18,c,context_position); return;
+            }
+        }
+        if(hover(x,y,w,h)) snprintf(status,sizeof status,"Choose the pattern's instrument to replace; the change applies across all patterns. Scroll for more instruments.");
+    } else if(kind==18) {
+        if(target<0 || target>=project.channel_count) { context_kind=0; return; }
+        for(int type=INSTRUMENT_SAMPLER;type<=INSTRUMENT_FM;type++) {
+            int enabled=input_enabled;
+            if(type==INSTRUMENT_FM && project.channel_audio[target]) input_enabled=0;
+            if(button(type==INSTRUMENT_FM?"FM Synth":"Sampler",x+4,y+4+type*25,w-8,24,project.instrument[target]==type)) {
+                context_kind=0; replace_instrument(target,type); return;
+            }
+            input_enabled=enabled;
+            if(hover(x+4,y+4+type*25,w-8,24)) snprintf(status,sizeof status,
+                type==INSTRUMENT_FM && project.channel_audio[target]?"Audio clips require a Sampler; FM Synth replaces pattern instruments":"Replace this channel's instrument; keep notes, sample settings, name and mixer routing across all patterns");
+        }
+    } else if(kind==16) {
         if(eq_bus>project.insert_count || project.effect_type[eq_bus][eq_slot]!=EFFECT_EQ || target<0 || target>=EQ_BANDS) { context_kind=0; return; }
         if(button("Reset",x+4,y+4,w-8,24,0)) { project.eq[eq_bus][eq_slot].bands[target]=equalizer_default().bands[target]; context_kind=0; }
         if(hover(x+4,y+4,w-8,24)) snprintf(status,sizeof status,"Reset band %d frequency, gain, Q and shape to defaults",target+1);
@@ -3153,11 +3224,13 @@ static void draw_context(void) {
         if(button("Color",x+4,y+29,w-8,24,0)) { context_kind=8; context_opened=1; }
         if(button("Delete",x+4,y+54,w-8,24,0)) { picker_drag=-1; delete_channel(target); context_kind=0; }
         if(button(project.instrument[target]==INSTRUMENT_FM?"Replace with sample...":"Relink sample...",x+4,y+79,w-8,24,0)) { relink_channel=target; context_kind=0; project_file_action(7); }
+        if(button("Replace instrument...",x+4,y+104,w-8,24,0)) { open_context(18,target,context_position); return; }
         if(hover(x+4,y+54,w-8,24)) snprintf(status,sizeof status,"Delete this Audio channel and all its Playlist clips; the source file stays on disk");
     } else if(kind==4) {
         if(button("Rename",x+4,y+4,w-8,24,0)) { pattern=target; begin_rename(); context_kind=0; }
         if(button("Color",x+4,y+29,w-8,24,0)) { context_kind=5; context_opened=1; }
         if(button("Delete",x+4,y+54,w-8,24,0)) { delete_pattern(target); context_kind=0; }
+        if(button("Replace instrument...",x+4,y+79,w-8,24,0)) { instrument_replace_scroll=0; open_context(17,target,context_position); return; }
         if(hover(x+4,y+54,w-8,24)) snprintf(status,sizeof status,"Delete this pattern and all its Playlist clips; the last pattern becomes blank");
     } else if(kind==1) {
         if(button("Stay on top",x+4,y+4,w-8,24,windows.editors[target].pinned)) { windows_pin(&windows,target); context_kind=0; }
@@ -3171,6 +3244,7 @@ static void draw_context(void) {
         if(button("Rename",x+4,y+54,w-8,24,0)) { rename_track=rename_mixer=-1; rename_channel=target; snprintf(rename_text,sizeof rename_text,"%s",project.channel_names[target]); rename_select_all=1; open_popup(2); context_kind=0; }
         if(button("Delete channel",x+4,y+79,w-8,24,0)) { delete_channel(target); context_kind=0; }
         if(button(project.instrument[target]==INSTRUMENT_FM?"Replace with sample...":"Relink sample...",x+4,y+104,w-8,24,0)) { relink_channel=target; context_kind=0; project_file_action(7); }
+        if(button("Replace instrument...",x+4,y+129,w-8,24,0)) { open_context(18,target,context_position); return; }
     } else if(!target) {
         if(button("Reset Master volume",x+4,y+4,w-8,24,0)) { project.master=1; context_kind=0; }
     } else {
@@ -3208,42 +3282,142 @@ static int sampler_toggle(int x,int y,int width,const char *name,int active) {
 static void sampler_switch(int x,int y,int width,const char *name,uint8_t *flags,int bit) {
     if(sampler_toggle(x,y,width,name,*flags&bit)) *flags^=bit;
 }
-static void fm_editor(float width,float height) {
-    int c=instrument_channel; FMSettings *settings=&project.fm[c];
-    label(fit_text(project.channel_names[c],width-298,14),12,30,14,ink); channel_controls(c,width);
-    float column=(width-32)/4;
-    float *values[]={&settings->ratio,&settings->depth,&settings->mod_decay,&settings->mod_sustain,
-        &settings->attack,&settings->decay,&settings->sustain,&settings->release,
-        &settings->lfo_rate,&settings->vibrato,&settings->tremolo,&settings->velocity};
-    const unsigned ids[]={PARAM_FM_RATIO,PARAM_FM_DEPTH,PARAM_FM_MOD_DECAY,PARAM_FM_MOD_SUSTAIN,
-        PARAM_FM_ATTACK,PARAM_FM_DECAY,PARAM_FM_SUSTAIN,PARAM_FM_RELEASE,
-        PARAM_FM_LFO_RATE,PARAM_FM_VIBRATO,PARAM_FM_TREMOLO,PARAM_FM_VELOCITY};
-    const char *names[]={"Ratio","Depth","Tone decay","Tone sustain","Attack","Decay","Sustain","Release","LFO rate","Vibrato","Tremolo","Velocity"};
-    const char *groups[]={"Tone","Amplitude envelope","LFO and velocity response"};
-    for(int row=0;row<3;row++) {
-        label(groups[row],20,80+row*56,12,muted);
-        for(int col=0;col<4;col++) {
-            int i=row*4+col,x=20+column*(col+.5f),y=102+row*56;
-            const ParameterDescriptor *info=parameter_descriptor(ids[i]);
-            knob(x,y,values[i],info->low,info->high,info->initial,info->name);
-            label(names[i],x-text_width(names[i],11)/2,y+18,11,muted);
+static const unsigned fm_envelope_ids[3][4]={
+    {PARAM_FM_ATTACK,PARAM_FM_DECAY,PARAM_FM_SUSTAIN,PARAM_FM_RELEASE},
+    {PARAM_FM_MOD_ATTACK,PARAM_FM_MOD_DECAY,PARAM_FM_MOD_SUSTAIN,PARAM_FM_MOD_RELEASE},
+    {PARAM_FM_ATTACK_ATTACK,PARAM_FM_ATTACK_DECAY,PARAM_FM_ATTACK_SUSTAIN,PARAM_FM_ATTACK_RELEASE}
+};
+static void fm_graph_update(void) {
+    if(fm_graph_channel<0 || fm_graph_channel>=project.channel_count) return;
+    FMSettings *s=&project.fm[fm_graph_channel]; Rect r=windows.editors[4].rect;
+    float x=mouse.x-r.x,y=mouse.y-r.y;
+    if(fm_graph_drag==3) {
+        float position=fmaxf(0,fminf(1,(x-fm_graph_area.x-8)/(fm_graph_area.width-16)));
+        s->lfo_rate=.1f*powf(120,position);
+        float amount=fmaxf(0,fminf(1,(fm_graph_area.y+fm_graph_area.height-22-y)/(fm_graph_area.height-34)));
+        if(fm_motion_target) s->tremolo=amount; else s->vibrato=amount*100;
+        return;
+    }
+    int field=fm_graph_drag==0?0:fm_graph_drag==1?1:3;
+    const ParameterDescriptor *info=parameter_descriptor(fm_envelope_ids[fm_tab][field]);
+    float slot=(fm_graph_area.width-24)/3;
+    float position=fmaxf(0,fminf(1,(x-fm_graph_area.x-8-slot*fm_graph_drag)/(.9f*slot)));
+    float value=expm1f(position*log1pf(info->high*100))/100;
+    *(float *)fm_parameter_pointer(s,info->id)=fmaxf(info->low,fminf(info->high,value));
+    if(fm_graph_drag==1) {
+        float sustain=fmaxf(0,fminf(1,(fm_graph_area.y+fm_graph_area.height-22-y)/(fm_graph_area.height-34)));
+        *(float *)fm_parameter_pointer(s,fm_envelope_ids[fm_tab][2])=sustain;
+    }
+}
+static void fm_control(FMSettings *s,unsigned id,const char *caption,int x,int y) {
+    const ParameterDescriptor *info=parameter_descriptor(id);
+    float *value=(float *)fm_parameter_pointer(s,id);
+    int logarithmic=info->kind==PARAMETER_LOGARITHMIC ||
+        (info->low>0 && (!strcmp(caption,"Attack") || !strcmp(caption,"Decay") || !strcmp(caption,"Release")));
+    knob_style(x,y,value,info->low,info->high,info->initial,info->name,logarithmic?KNOB_LOGARITHMIC:info->low<0?KNOB_CENTER:KNOB_NORMAL);
+    if(control_drag==value && logarithmic) control_logarithmic=1;
+    label(caption,x-text_width(caption,11)/2,y+17,11,muted);
+    const char *shown;
+    if(id==PARAM_FM_CARRIER_RATIO || id==PARAM_FM_ATTACK_RATIO) shown=TextFormat("%.2gx",*value);
+    else if(id==PARAM_FM_BODY_PITCH) shown=TextFormat("%+.1f st",*value);
+    else if(id==PARAM_FM_CARRIER_DETUNE || id==PARAM_FM_BODY_DETUNE || id==PARAM_FM_ATTACK_DETUNE) shown=TextFormat("%+.0f ct",*value);
+    else if(id==PARAM_FM_ATTACK || id==PARAM_FM_DECAY || id==PARAM_FM_RELEASE || id==PARAM_FM_MOD_ATTACK || id==PARAM_FM_MOD_DECAY || id==PARAM_FM_MOD_RELEASE ||
+            id==PARAM_FM_ATTACK_ATTACK || id==PARAM_FM_ATTACK_DECAY || id==PARAM_FM_ATTACK_RELEASE || id==PARAM_FM_LFO_FADE)
+        shown=*value<1?TextFormat("%.0f ms",*value*1000):TextFormat("%.2g s",*value);
+    else shown=TextFormat("%.2g",*value);
+    label(shown,x-text_width(shown,10)/2,y+31,10,ink);
+}
+static void fm_envelope_graph(FMSettings *s,Rectangle plot) {
+    DrawRectangleRec(plot,bg);
+    float slot=(plot.width-24)/3,base=plot.y+plot.height-22,range=plot.height-34;
+    float times[3]={*fm_parameter_pointer(s,fm_envelope_ids[fm_tab][0]),*fm_parameter_pointer(s,fm_envelope_ids[fm_tab][1]),*fm_parameter_pointer(s,fm_envelope_ids[fm_tab][3])};
+    int fields[]={0,1,3}; Vector2 handles[3];
+    float sustain=*fm_parameter_pointer(s,fm_envelope_ids[fm_tab][2]);
+    for(int i=0;i<3;i++) {
+        const ParameterDescriptor *info=parameter_descriptor(fm_envelope_ids[fm_tab][fields[i]]);
+        float t=log1pf(times[i]*100)/log1pf(info->high*100);
+        handles[i]=(Vector2){plot.x+8+slot*i+.9f*slot*t,i==0?base-range:i==1?base-sustain*range:base};
+        DrawLineEx((Vector2){plot.x+8+slot*i,plot.y+8},(Vector2){plot.x+8+slot*i,base},1,ui_theme.grid_minor);
+    }
+    smooth_line((Vector2){plot.x+8,base},handles[0],1.5f,accent);
+    Vector2 previous=handles[0];
+    for(int i=1;i<=40;i++) {
+        float t=i/40.f,level=fm_tab?sustain+(1-sustain)*expf(-4.6051702f*t):1-(1-sustain)*t;
+        Vector2 point={handles[0].x+(handles[1].x-handles[0].x)*t,base-level*range};
+        smooth_line(previous,point,1.5f,accent); previous=point;
+    }
+    smooth_line(previous,handles[1],1.5f,accent);
+    Vector2 release={plot.x+8+slot*2,handles[1].y};
+    smooth_line(handles[1],release,1.5f,accent); smooth_line(release,handles[2],1.5f,accent);
+    const char *captions[]={"Attack","Decay / sustain","Release"};
+    for(int i=0;i<3;i++) {
+        circle(handles[i].x,handles[i].y,4,ink); circle(handles[i].x,handles[i].y,2,accent);
+        label(captions[i],plot.x+8+slot*i,base+7,10,muted);
+        if(hover(handles[i].x-7,handles[i].y-7,14,14)) {
+            SetMouseCursor(MOUSE_CURSOR_POINTING_HAND);
+            if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { fm_graph_drag=i; fm_graph_channel=instrument_channel; fm_graph_area=plot; input_enabled=0; }
         }
     }
-    if(button("Electric Piano",12,256,132,24,0)) *settings=fm_epiano();
-    if(button("Load",148,256,70,24,0)) preset_action(PRESET_FM,c,0,0);
-    if(button("Save",222,256,70,24,0)) preset_action(PRESET_FM,c,0,1);
-    Rectangle preview={12,292,width-24,fmaxf(24,height-304)}; DrawRectangleRec(preview,bg);
-    float middle=preview.y+preview.height/2; Vector2 previous={preview.x,middle};
-    for(int i=0;i<(int)preview.width;i++) {
-        double phase=6.283185307179586*i/preview.width*3;
-        Vector2 next={preview.x+i,middle-sinf(phase+settings->depth*sinf(phase*settings->ratio))*preview.height*.35f};
-        if(i) smooth_line(previous,next,1.5f,ui_theme.waveform); previous=next;
+    if(hover(plot.x,plot.y,plot.width,plot.height)) snprintf(status,sizeof status,"Drag envelope points: left/right changes time; the middle point also changes sustain. Knobs offer exact entry and automation.");
+}
+static void fm_editor(float width,float height) {
+    int c=instrument_channel; FMSettings *s=&project.fm[c];
+    label(fit_text(project.channel_names[c],width-298,14),12,30,14,ink); channel_controls(c,width);
+    label("Electric piano: a lasting body with a separate bright strike",12,56,11,muted);
+    const char *tabs[]={"Sound","Body","Attack","Motion"}; float tabw=(width-24)/4;
+    for(int i=0;i<4;i++) if(button(tabs[i],12+i*tabw,78,tabw-3,26,fm_tab==i)) fm_tab=i;
+    float column=(width-32)/4;
+    const unsigned head[4][4]={
+        {PARAM_FM_CARRIER_RATIO,PARAM_FM_CARRIER_DETUNE,PARAM_FM_VELOCITY,0},
+        {PARAM_FM_BODY_PITCH,PARAM_FM_BODY_DETUNE,PARAM_FM_RATIO,PARAM_FM_DEPTH},
+        {PARAM_FM_ATTACK_RATIO,PARAM_FM_ATTACK_DETUNE,PARAM_FM_ATTACK_DEPTH,PARAM_FM_VELOCITY},
+        {PARAM_FM_LFO_RATE,PARAM_FM_VIBRATO,PARAM_FM_TREMOLO,PARAM_FM_LFO_FADE}
+    };
+    const char *captions[4][4]={{"Pitch","Fine","Velocity",""},{"Pitch","Fine","Harmonic","FM amount"},{"Pitch","Fine","FM amount","Velocity"},{"Speed","Pitch motion","Volume motion","Fade in"}};
+    const char *descriptions[]={"Audible oscillator and volume envelope","Long-lived tone modulation","Short, bright attack modulation","A separate, per-note LFO for pitch and volume"};
+    label(descriptions[fm_tab],20,113,12,muted);
+    for(int i=0;i<4;i++) if(head[fm_tab][i]) fm_control(s,head[fm_tab][i],captions[fm_tab][i],20+column*(i+.5f),139);
+    if(fm_tab==0) {
+        int x=20+column*3;
+        if(button(s->routing?"Stacked":"Body + Attack",x,131,column-8,24,0)) open_context(20,c,(Vector2){mouse.x+windows.editors[4].rect.x,mouse.y+windows.editors[4].rect.y});
+        if(hover(x,131,column-8,24) && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) control_menu(&s->routing,0,1,0,"FM routing");
+        label("Routing",x+8,159,11,muted);
     }
+    if(fm_tab<3) {
+        const char *names[]={"Attack","Decay","Sustain","Release"};
+        label("Envelope",20,184,12,muted);
+        for(int i=0;i<4;i++) fm_control(s,fm_envelope_ids[fm_tab][i],names[i],20+column*(i+.5f),207);
+        fm_envelope_graph(s,(Rectangle){12,252,width-24,height-294});
+    } else {
+        const char *shapes[]={"Sine","Triangle","Saw","Square"};
+        if(button(shapes[(int)s->lfo_shape],12,184,112,24,0)) open_context(19,c,(Vector2){mouse.x+windows.editors[4].rect.x,mouse.y+windows.editors[4].rect.y});
+        if(hover(12,184,112,24) && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) control_menu(&s->lfo_shape,0,3,0,"LFO shape");
+        if(button("Pitch",132,184,72,24,!fm_motion_target)) fm_motion_target=0;
+        if(button("Volume",208,184,80,24,fm_motion_target)) fm_motion_target=1;
+        Rectangle plot={12,216,width-24,height-258}; DrawRectangleRec(plot,bg);
+        float base=plot.y+plot.height-22,range=plot.height-34,mid=plot.y+(plot.height-22)/2;
+        float amount=fm_motion_target?s->tremolo:s->vibrato/100;
+        Vector2 previous={plot.x+8,mid};
+        for(int i=0;i<(int)plot.width-16;i++) {
+            float t=i/(plot.width-16)*s->lfo_rate*.5f;
+            Vector2 point={plot.x+8+i,mid-fm_lfo_value(t,(int)s->lfo_shape)*range*.42f};
+            if(i) smooth_line(previous,point,1.5f,Fade(accent,.35f+amount*.65f));
+            previous=point;
+        }
+        Vector2 handle={plot.x+8+logf(s->lfo_rate/.1f)/logf(120)*(plot.width-16),base-amount*range};
+        circle(handle.x,handle.y,5,ink); circle(handle.x,handle.y,3,accent);
+        label("Drag: speed / amount",plot.x+8,base+7,10,muted);
+        if(hover(plot.x,plot.y,plot.width,plot.height)) {
+            SetMouseCursor(MOUSE_CURSOR_POINTING_HAND);
+            snprintf(status,sizeof status,"Drag the LFO graph horizontally for speed, vertically for %s amount; choose a waveform above",fm_motion_target?"volume":"pitch");
+            if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { fm_graph_drag=3; fm_graph_channel=c; fm_graph_area=plot; fm_graph_update(); input_enabled=0; }
+        }
+    }
+    if(button("Bright EP",12,height-34,98,24,0)) *s=fm_epiano();
+    if(button("Load",114,height-34,64,24,0)) preset_action(PRESET_FM,c,0,0);
+    if(button("Save",182,height-34,64,24,0)) preset_action(PRESET_FM,c,0,1);
     double active=audio_key_position(127,c);
-    if(hover(preview.x,preview.y,preview.width,preview.height)) {
-        snprintf(status,sizeof status,"FM Synth: click to %s C4; Tone decay softens the attack, Velocity controls brightness",active>=0?"release":"audition");
-        if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { channel=c; audio_key(127,c,60,active<0); }
-    }
+    if(button(active>=0?"Release C4":"Play C4",width-112,height-34,100,24,active>=0)) { channel=c; audio_key(127,c,60,active<0); }
 }
 static void sampler(float width,float height) {
     int c=instrument_channel;
@@ -3311,7 +3485,7 @@ static void sampler(float width,float height) {
 static void draw_editor(int id,float scale) {
     Editor *e=&windows.editors[id]; if(!e->visible) return;
     knob_context=id;
-    if(id==4) { e->minh=project.instrument[instrument_channel]==INSTRUMENT_FM?340:300; e->rect.h=fmaxf(e->minh,e->rect.h); }
+    if(id==4) { e->minh=project.instrument[instrument_channel]==INSTRUMENT_FM?420:300; e->rect.h=fmaxf(e->minh,e->rect.h); }
     Rect r=e->rect; int top=EDITORS-1;
     while(top>0 && !windows.editors[windows.order[top]].visible) top--;
     int focused=(windows.editors[windows.focused].visible?windows.focused:windows.order[top])==id;
@@ -3322,7 +3496,7 @@ static void draw_editor(int id,float scale) {
     ui_surface((Rectangle){0,0,r.w,TITLE},focused?ui_theme.title_focus:ui_theme.title);
     const char *titles[]={"Channel Rack","Arrangement","Piano Roll","Mixer","Sampler","Equalizer"};
     label(TextFormat("%s%s",id==4 && project.instrument[instrument_channel]==INSTRUMENT_FM?"FM Synth":titles[id],e->pinned?" (on top)":""),8,3,13,ink);
-    int rack_title_knob=id==0 && ((mouse.x>=r.x+r.w-79 && mouse.x<r.x+r.w-65) || (mouse.x>=r.x+124 && mouse.x<r.x+180));
+    int rack_title_knob=id==0 && ((mouse.x>=r.x+r.w-72-SWING_RADIUS-1 && mouse.x<r.x+r.w-72+SWING_RADIUS+1) || (mouse.x>=r.x+124 && mouse.x<r.x+180));
     if(input_enabled && !rack_title_knob && windows_hit(&windows,mouse.x,mouse.y)==id && mouse.y<r.y+TITLE && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) open_context(1,id,mouse);
     int chrome=input_enabled && !rack_title_knob && windows_hit(&windows,mouse.x,mouse.y)==id && mouse.y<r.y+TITLE;
     if(chrome && mouse.x>=r.x+r.w-54) {
@@ -3342,7 +3516,7 @@ static void draw_editor(int id,float scale) {
         label(rack_filters[rack_filter],124+(56-text_width(rack_filters[rack_filter],11))/2,3,11,ink);
         if(hover(124,2,56,TITLE-4)) snprintf(status,sizeof status,"Channel filter: All, Audio (Playlist drops), Unsorted (Rack samples)");
         knob_style(r.w-72,TITLE/2,&project.swing,0,1,0,"Swing",KNOB_SWING);
-        if(hover(r.w-79,2,14,TITLE-4) || control_drag==&project.swing) snprintf(status,sizeof status,"Swing: %.0f%% | delays alternate steps; drag or wheel; right-click to enter",project.swing*100);
+        if(hover(r.w-72-SWING_RADIUS-1,TITLE/2-SWING_RADIUS-1,2*SWING_RADIUS+2,2*SWING_RADIUS+2) || control_drag==&project.swing) snprintf(status,sizeof status,"Swing: %.0f%% | delays alternate steps; drag or wheel; right-click to enter",project.swing*100);
     }
     input_enabled=input_enabled && mouse.y>=TITLE && !(mouse.x>r.w-12 && mouse.y>r.h-12);
     if(id==0) rack(r.w,r.h); else if(id==1) playlist(r.w,r.h,scale); else if(id==2) piano(r.w,r.h); else if(id==3) mixer(r.w,r.h); else if(id==5) eq_editor(r.w,r.h); else if(project.instrument[instrument_channel]==INSTRUMENT_FM) fm_editor(r.w,r.h); else sampler(r.w,r.h);
@@ -3468,6 +3642,11 @@ int main(int argc,char **argv) {
             arrangement_drag(&arrangement,&project,arrangement.view_start+(mouse.x-r.x-212)/((r.w-236)/BARS*arrangement.zoom),track_at(track_scroll+mouse.y-r.y-PLAYLIST_GRID_TOP));
             int held=arrangement.gesture==ERASE_CLIPS?(IsMouseButtonDown(MOUSE_BUTTON_RIGHT) || IsMouseButtonDown(MOUSE_BUTTON_LEFT)):IsMouseButtonDown(MOUSE_BUTTON_LEFT);
             if(!held) arrangement_release(&arrangement);
+        }
+        if(fm_graph_drag>=0) {
+            if(!IsMouseButtonDown(MOUSE_BUTTON_LEFT) || IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || pattern_popup || context_kind || !IsWindowFocused() ||
+               instrument_channel!=fm_graph_channel || project.instrument[fm_graph_channel]!=INSTRUMENT_FM || !windows.editors[4].visible) fm_graph_drag=-1;
+            else fm_graph_update();
         }
         if(row_zoom_drag>=0) {
             if(!IsMouseButtonDown(MOUSE_BUTTON_LEFT) || IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || pattern_popup || context_kind || !IsWindowFocused()) row_zoom_drag=-1;

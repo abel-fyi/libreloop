@@ -44,8 +44,9 @@ static int legacy_save(const char *path,Project *p,int version) {
     return fclose(f)==0;
 }
 int main(void) {
+    /* Keep large project fixtures off the stack as device settings grow. */
     CHECK(grid_interval(100)<grid_interval(2));
-    Project fine,roundtrip; project_default(&fine); memset(fine.notes,0,sizeof fine.notes);
+    static Project fine,roundtrip; project_default(&fine); memset(fine.notes,0,sizeof fine.notes);
     fine.volume[0]=fine.master=1; fine.route[0]=0;
     CHECK(note_add(&fine,0,0,.5f,60,.5f)); CHECK(note_add(&fine,0,0,4.f/3,64,2.f/3));
     fine.clips[0][0]=1; fine.clip_starts[0][0]=.0625f; fine.clip_steps[0][0]=2.5f;
@@ -88,7 +89,7 @@ int main(void) {
     clock.frame=(uint64_t)llround(song_steps(&fine)*6000.0);
     render(&clock,&fine,exact,timed,1); CHECK(clock.frame==1 && clock.start_step==15000*STEPS);
     player_seek(&clock,&fine,clock.start_step); CHECK(clock.frame==(uint64_t)15000*STEPS*6000);
-    Project deleted,reloaded; project_default(&deleted);
+    static Project deleted,reloaded; project_default(&deleted);
     CHECK(deleted.pattern_count==1 && deleted.channel_count==4 && deleted.insert_count==100);
     for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) CHECK(deleted.clips[l][b]==0);
     deleted.route[0]=deleted.route[1]=2; deleted.insert_volume[1]=.35f; deleted.insert_mute[1]=3;
@@ -115,7 +116,7 @@ int main(void) {
     CHECK(pattern_delete(&reloaded,0) && reloaded.pattern_count==1 && reloaded.pattern_steps[0]==STEPS);
     CHECK(!strcmp(reloaded.pattern_names[0],"Pattern 1") && !reloaded.clips[2][0]);
     for(int c=0;c<CHANNELS;c++) for(int n=0;n<NOTES;n++) CHECK(!reloaded.notes[0][c][n].velocity);
-    Project p,q; project_default(&p);
+    static Project p,q; project_default(&p);
     strcpy(p.paths[0],"/tmp/sample with spaces.wav"); strcpy(p.pattern_names[0],"Drums + Bass");
     memset(p.pattern_names[7],'X',PATTERN_NAME-1); p.pattern_names[7][PATTERN_NAME-1]=0;
     p.insert_count=6; p.route[0]=5; p.route[1]=5; p.insert_volume[4]=.35f; p.insert_pan[4]=-.25f; p.insert_mute[5]=1;
@@ -144,7 +145,7 @@ int main(void) {
     fputs("60 100 15 2\n",f); fclose(f); /* Note exceeds the pattern boundary. */
     CHECK(!project_load("bad-project.hbt",&q)); CHECK(project_equal(&p,&q));
     Sample s[CHANNELS]; samples_default(s); for(int c=0;c<4;c++) CHECK(s[c].data);
-    Project routing; project_default(&routing); memset(routing.notes,0,sizeof routing.notes);
+    static Project routing; project_default(&routing); memset(routing.notes,0,sizeof routing.notes);
     routing.notes[0][0][0]=(Note){60,127,0,0}; routing.notes[0][1][0]=(Note){60,127,0,0};
     routing.volume[0]=routing.volume[1]=.5f; routing.master=1;
     routing.route[0]=routing.route[1]=1; routing.insert_volume[0]=.5f; routing.insert_pan[0]=.5f;
@@ -157,7 +158,7 @@ int main(void) {
     CHECK(fabsf(result[0]-.1f)<.00001f && fabsf(result[1]-.1f)<.00001f);
     /* Master pitch changes playback rate, including active voices, without
        changing the pattern clock or stored note pitches. */
-    Project pitched; project_default(&pitched); memset(pitched.notes,0,sizeof pitched.notes);
+    static Project pitched; project_default(&pitched); memset(pitched.notes,0,sizeof pitched.notes);
     pitched.notes[0][0][0]=(Note){60,127,0,4}; pitched.master_pitch=12;
     float ramp[]={.1f,.2f,.3f,.4f,.5f,.6f}; Sample pitched_sample[CHANNELS]={{ramp,6},{0},{0},{0}};
     float pitched_out[4]; player_reset(&rp); render(&rp,&pitched,pitched_sample,pitched_out,2);
@@ -169,7 +170,7 @@ int main(void) {
     old=fopen("test-project.hbt","r"); legacy=fopen("bad-project.hbt","w"); CHECK(old && legacy);
     for(int i=0;i<1+1+CHANNELS+PATTERNS*CHANNELS*NOTES+LANES*CLIPS+CHANNELS+PATTERNS+1+CHANNELS+INSERTS+PATTERNS+LANES*CLIPS;i++) { CHECK(fgets(line,sizeof line,old)); fputs(line,legacy); }
     fputs("nan\n",legacy); fclose(old); fclose(legacy); CHECK(!project_load("bad-project.hbt",&q)); CHECK(project_equal(&pitched,&q));
-    Project bus; project_default(&bus); memset(bus.notes,0,sizeof bus.notes);
+    static Project bus; project_default(&bus); memset(bus.notes,0,sizeof bus.notes);
     bus.notes[0][0][0]=(Note){60,127,0,0}; bus.notes[0][1][0]=(Note){60,127,0,0};
     bus.volume[0]=bus.volume[1]=bus.master=1; bus.insert_volume[0]=.5f; bus.insert_volume[1]=.25f; bus.insert_volume[2]=.4f; bus.insert_pan[2]=.5f;
     CHECK(insert_connect(&bus,1,3) && insert_connect(&bus,2,3)); CHECK(!insert_connect(&bus,3,1) && !insert_connect(&bus,1,1));
@@ -355,7 +356,7 @@ int main(void) {
         rewind(current); fprintf(old,"HOMEBEAT %d\n",version); CHECK(fgets(line,sizeof line,current));
         for(int i=1;i<lines-omitted;i++) { CHECK(fgets(line,sizeof line,current)); fputs(line,old); }
         fclose(current); fclose(old);
-        Project previous; CHECK(project_load("recent-legacy.hbt",&previous));
+        static Project previous; CHECK(project_load("recent-legacy.hbt",&previous));
         CHECK(previous.clip_offsets[0][0]==0 && previous.channel_colors[0]==0);
         CHECK(!strcmp(previous.insert_names[0],version>=21?"Drum bus":"Insert 1"));
         CHECK(!strcmp(previous.track_names[0],version>=20?"Drums":"Track 1"));

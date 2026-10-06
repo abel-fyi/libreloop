@@ -22,7 +22,7 @@ are a coherent mouse-driven workflow and minimal code and dependencies.
 | `src/arrangement.c`, `arrangement.h` | Playlist editing, selection, timeline and snap helpers |
 | `src/sample.h` | PCM view and owned/shared sample lifetime contract |
 | `src/sampler.c`, `sampler.h` | independent sampler settings and offline crop, normalize, reverse, polarity, pitch and time processing |
-| `src/fm_synth.c`, `fm_synth.h` | two-operator FM settings, per-note oscillators and ADSR envelope |
+| `src/fm_synth.c`, `fm_synth.h` | three-oscillator FM settings, independent envelopes, tuning and per-note LFO |
 | `src/preset.c`, `preset.h` | validated, atomic built-in device presets and relative sample references |
 | `src/chorus.c`, `chorus.h` | stereo modulated-delay DSP and saved rate/depth settings |
 | `src/equalizer.c`, `equalizer.h` | seven-band stereo biquads, control smoothing and response evaluation |
@@ -134,8 +134,8 @@ bindings when that device exists. The chorus establishes the effect contract bel
   metronome and listening gain mix before the final device clamp to -1..1.
   PCM16 export clamps at conversion. Overloaded mixes still need gain reduction;
   there is no automatic compressor or lookahead limiter.
-- Project files currently use `.hbt` and the `HOMEBEAT` version-37 header for
-  compatibility. Versions 1–36 remain readable. Renaming the app did not change
+- Project files currently use `.hbt` and the `HOMEBEAT` version-38 header for
+  compatibility. Versions 1–37 remain readable. Renaming the app did not change
   the project format. Sample references are relative to the project directory, with old absolute paths
   still readable. Collect samples and save writes original PCM into a unique companion
   directory, and subsequent saves retain those references. Missing audio opens
@@ -283,12 +283,12 @@ are retained. Undo includes settings; delay buffers and LFO state are runtime on
 owns oscillator phases, envelope and smoothing state; its processing API depends
 on neither Project nor UI. The sequencer wraps sampler/FM state in a tagged union,
 keeps note gates, and mixes either instrument through the same channel routing.
-FM uses two sine operators with four substeps per output sample. Modulation is
+FM uses three sine oscillators with four substeps per output sample. Modulation is
 limited at high pitches to reduce aliasing; this is not an alias-free oscillator.
 Ratio, depth, sustain and pitch changes slew over 20 ms. Note-off starts a release
 from the current envelope level. Rack steps gate for one step; Piano Roll notes
-use their entered duration. Parameters 1101–1106 bind the six FM controls to
-existing automation. Version 34 saves instrument types and FM settings; older
+use their entered duration. Parameters 1101–1128 bind the FM controls to existing automation. Version 34
+introduced instrument types and FM settings; version 38 adds layered modulation. Older
 projects retain sampler channels. Oscillator/envelope state is never serialized.
 
 Sampler, FM, Chorus and Equalizer share versioned `.llpreset` files. Presets store device
@@ -330,3 +330,25 @@ before EQ data. Preset version 3 stores the same controls. Earlier files retain
 neutral defaults: full tone sustain, no velocity brightness response, vibrato
 or tremolo. The Electric Piano factory patch is bundled and seeded into the
 user's device preset folder without overwriting an existing file.
+
+## Layered FM and format compatibility
+
+Version 38 appends FM carrier tuning, independent Body tuning/envelope controls,
+a second Attack modulator with its own tuning/envelope, parallel/stacked routing,
+and LFO waveform/fade-in. Preset version 4 saves these same controls. Older files
+initialize the added fields neutrally through `fm_legacy`; their Attack amount is
+zero, and original parameter IDs and normalized automation ranges are retained.
+New instances use `fm_epiano`, with a short high-ratio strike and a slower Body tone.
+
+Parameter IDs 1101–1128 resolve through `fm_parameter_pointer`, shared by UI lookup
+and renderer binding. Sequenced notes initialize from the current automated FM
+settings so an automated Attack amount is effective on the first note sample.
+Oscillator tuning, depth and LFO amounts slew; note-off releases each modulation
+envelope from its current level. A shared sideband budget reduces high-note aliasing;
+this remains an approximation rather than an alias-free oscillator.
+
+The FM editor separates Sound, Body, Attack and Motion. Graph gestures hold mouse
+capture until release and become a single undo entry. Envelope time axes use a log
+mapping per stage to make millisecond attacks editable; Motion graph gestures edit
+speed and the selected pitch/volume amount. No audio buffers or effect slots are
+created by opening the editor or applying the factory FM preset.
