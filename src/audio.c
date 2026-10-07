@@ -29,11 +29,12 @@ static struct {
     unsigned read,write;
     uint64_t serial;
 } pending;
+typedef struct { int channel; float gain; struct { double position,speed; } sampler; } VoiceView;
 static struct {
     Sample preview;
     double preview_position,preview_frame,preview_time,preview_rate;
     unsigned preview_end,preview_remaining;
-    Voice voices[128];
+    VoiceView voices[128];
     uint8_t instrument[CHANNELS];
     uint8_t pattern_notes[PATTERNS][CHANNELS][NOTES];
     unsigned sample_frames[CHANNELS],live_frames,visual_frames;
@@ -228,7 +229,10 @@ static void publish_view(void) {
     view.preview=preview; view.preview_position=preview_position;
     view.preview_frame=preview_frame; view.preview_time=preview_time; view.preview_rate=preview_rate;
     view.preview_end=preview_end; view.preview_remaining=preview_remaining;
-    memcpy(view.voices,live.voices,sizeof view.voices);
+    for(int i=0;i<128;i++) {
+        const Voice *v=&live.voices[i];
+        view.voices[i]=(VoiceView){.channel=v->channel,.gain=v->gain,.sampler={v->instrument==INSTRUMENT_FM?0:v->sampler.position,v->instrument==INSTRUMENT_FM?1:v->sampler.speed}};
+    }
     double pitch_speed=pow(2,project.master_pitch/12.0);
     for(int c=0;c<CHANNELS;c++) {
         view.sample_frames[c]=samples[c].frames; view.instrument[c]=project.instrument[c];
@@ -288,9 +292,12 @@ static void consume_commands(void) {
         case NOTE:
             if(c->channel>=0 && c->channel<project.channel_count) {
                 if(project.instrument[c->channel]==INSTRUMENT_FM) {
-                    Voice *voice=&live.voices[127];
+                    Voice *voice=&live.voices[127]; uint32_t phase[6];
+                    int retain=voice->instrument==INSTRUMENT_FM && voice->channel==c->channel && voice->fm.engine==1 && project.fm[c->channel].engine==1 && !project.fm[c->channel].dx7.value[136];
+                    if(retain) memcpy(phase,voice->fm.dx7.phase,sizeof phase);
                     *voice=(Voice){.channel=c->channel,.instrument=INSTRUMENT_FM,.remaining=(c->note.length?c->note.length:1)*RATE*15/project.bpm,.gain=c->note.velocity/127.f,.lane=-1};
                     fm_note_on_velocity(&voice->fm,440*pow(2,(c->note.pitch-69)/12.0),project.fm[c->channel],c->note.velocity/127.f);
+                    if(retain) memcpy(voice->fm.dx7.phase,phase,sizeof phase);
                     atomic_store(&channel_trigger[c->channel],1); break;
                 }
                 preview=samples[c->channel]; preview_position=preview_frame=0; preview_time=monotonic_time();
@@ -305,10 +312,14 @@ static void consume_commands(void) {
         case KEY:
             if(c->down && c->channel>=0 && c->channel<project.channel_count) {
                 if((samples[c->channel].frames || project.instrument[c->channel]==INSTRUMENT_FM) && project.volume[c->channel]>0 && !(project.mute[c->channel]&1)) atomic_store(&channel_trigger[c->channel],1);
+                uint32_t phase[6]; Voice *old=&live.voices[c->slot];
+                int retain=old->instrument==INSTRUMENT_FM && old->channel==c->channel && old->fm.engine==1 && project.fm[c->channel].engine==1 && !project.fm[c->channel].dx7.value[136];
+                if(retain) memcpy(phase,old->fm.dx7.phase,sizeof phase);
                 live.voices[c->slot]=(Voice){.channel=c->channel,.sampler={.speed=pow(2,(c->pitch-60)/12.0)},.remaining=-1,.gain=100/127.f,.lane=-1};
                 if(project.instrument[c->channel]==INSTRUMENT_FM) {
                     live.voices[c->slot].instrument=INSTRUMENT_FM;
-                    fm_note_on(&live.voices[c->slot].fm,440*pow(2,(c->pitch-69)/12.0),project.fm[c->channel]);
+                    fm_note_on_velocity(&live.voices[c->slot].fm,440*pow(2,(c->pitch-69)/12.0),project.fm[c->channel],100/127.f);
+                    if(retain) memcpy(live.voices[c->slot].fm.dx7.phase,phase,sizeof phase);
                 }
             } else if(live.voices[c->slot].gain) {
                 Voice *voice=&live.voices[c->slot];
@@ -506,7 +517,7 @@ double audio_preview_position(Sample sample) {
 double audio_key_position(int slot,int channel) {
     if(slot<0 || slot>=128 || channel<0 || channel>=CHANNELS) return -1;
     pthread_mutex_lock(&mutex);
-    Voice v=view.voices[slot]; double progress=-1;
+    VoiceView v=view.voices[slot]; double progress=-1;
     int queued=0;
     /* Keep a new key visible immediately so an idle sampler keeps animating. */
     for(unsigned i=pending.read;i!=pending.write;i++) {
@@ -514,7 +525,7 @@ double audio_key_position(int slot,int channel) {
         if(c->kind==STOP || c->kind==SAMPLE || c->kind==CHANNEL_SAMPLES) v.gain=0;
         if(c->kind==KEY && c->slot==slot) {
             if(c->down && c->channel>=0 && c->channel<pending.project.channel_count) {
-                v=(Voice){.channel=c->channel,.gain=1}; queued=1;
+                v=(VoiceView){.channel=c->channel,.gain=1}; queued=1;
             }
         }
     }

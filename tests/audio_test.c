@@ -221,7 +221,7 @@ int main(void) {
     CHECK(!ring_push(ring,1,1) && atomic_load(&ring->overflow));
     recording.active=0; CHECK(audio_record_failed()); record_release();
     /* FM uses the real keyboard/note mailbox, without needing sample PCM. */
-    ready=0; project_new(&fixture); fixture.instrument[0]=INSTRUMENT_FM; fixture.fm[0].release=.01f;
+    ready=0; project_new(&fixture); fixture.instrument[0]=INSTRUMENT_FM; fixture.fm[0]=fm_legacy(); fixture.fm[0].release=.01f;
     audio_stop(); audio_update(&fixture,0,0,0,1,1,0,0,0);
     audio_key(0,0,69,1); callback(NULL,out,NULL,64);
     CHECK(live.voices[0].instrument==INSTRUMENT_FM && fm_active(&live.voices[0].fm));

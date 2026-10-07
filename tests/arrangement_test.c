@@ -182,5 +182,64 @@ int main(void) {
     arrangement_press(&grid_snap,&aligned,1.749f,.2f,0,1,0,0);
     arrangement_drag(&grid_snap,&aligned,1.495f,.2f); arrangement_release(&grid_snap);
     CHECK(clip_length(&aligned,0,aligned_slot)==12);
+    /* A shared edge delta preserves different lengths and the selection. */
+    static Project grouped; static Arrangement resizing;
+    project_new(&grouped); grouped.pattern_count=2;
+    grouped.pattern_steps[0]=64; grouped.pattern_steps[1]=32;
+    int first=arrangement_place(&grouped,0,1,0,8),group_second=arrangement_place(&grouped,1,2,1,16);
+    CHECK(first>=0 && group_second>=0); resizing.snap=1;
+    resizing.selected[0][first]=resizing.selected[1][group_second]=1;
+    arrangement_press(&resizing,&grouped,1.49f,.4f,0,1,0,0);
+    arrangement_drag(&resizing,&grouped,1.75f,.4f);
+    CHECK(clip_length(&grouped,0,first)==12 && clip_length(&grouped,1,group_second)==20);
+    CHECK(resizing.selected[0][first] && resizing.selected[1][group_second]);
+    arrangement_drag(&resizing,&grouped,100,.4f);
+    CHECK(clip_length(&grouped,0,first)==24 && clip_length(&grouped,1,group_second)==32);
+    arrangement_drag(&resizing,&grouped,0,.4f);
+    CHECK(clip_length(&grouped,0,first)==1 && clip_length(&grouped,1,group_second)==9);
+    arrangement_drag(&resizing,&grouped,1.49f,.4f);
+    CHECK(clip_length(&grouped,0,first)==8 && clip_length(&grouped,1,group_second)==16);
+    arrangement_release(&resizing);
+    grouped.clip_offsets[0][first]=4; grouped.clip_offsets[1][group_second]=8;
+    arrangement_press(&resizing,&grouped,1,.4f,0,-1,0,0);
+    arrangement_drag(&resizing,&grouped,1.25f,.4f);
+    CHECK(clip_length(&grouped,0,first)==4 && clip_length(&grouped,1,group_second)==12);
+    CHECK(grouped.clip_starts[0][first]==1.25f && grouped.clip_starts[1][group_second]==2.25f);
+    arrangement_drag(&resizing,&grouped,-10,.4f);
+    CHECK(grouped.clip_offsets[0][first]==0 && grouped.clip_offsets[1][group_second]==4);
+    CHECK(clip_length(&grouped,0,first)==12 && clip_length(&grouped,1,group_second)==20);
+    arrangement_release(&resizing);
+    /* Audio seconds are converted independently of pattern step lengths. */
+    project_new(&grouped); grouped.pattern_steps[0]=64; grouped.channel_count=2;
+    grouped.channel_audio[1]=1; grouped.audio_seconds[1]=2;
+    first=arrangement_place(&grouped,0,1,0,8);
+    group_second=arrangement_place(&grouped,1,2,PATTERNS+1,16);
+    memset(&resizing,0,sizeof resizing); resizing.snap=1;
+    resizing.selected[0][first]=resizing.selected[1][group_second]=1;
+    arrangement_press(&resizing,&grouped,1.49f,.4f,0,1,0,0);
+    arrangement_drag(&resizing,&grouped,1.75f,.4f);
+    CHECK(clip_length(&grouped,0,first)==12 && clip_length(&grouped,1,group_second)==20);
+    CHECK(grouped.clip_steps[1][group_second]==2.5f && grouped.pattern_steps[0]==64);
+    arrangement_release(&resizing);
+    /* A left resize extends a shared automation only as needed and retains
+       the time of the existing points in an unselected copy. */
+    project_new(&grouped); grouped.pattern_steps[0]=64;
+    int curve=automation_create(&grouped,(ParameterTarget){PARAM_CHANNEL_VOLUME,0,0},"Group curve",16);
+    CHECK(curve>=0);
+    first=arrangement_place(&grouped,0,1,0,8); grouped.clip_offsets[0][first]=4;
+    group_second=arrangement_place(&grouped,1,2,AUTOMATION_SOURCE+curve,16);
+    int copy=arrangement_place(&grouped,2,4,AUTOMATION_SOURCE+curve,16);
+    CHECK(group_second>=0 && copy>=0);
+    memset(&resizing,0,sizeof resizing); resizing.snap=1;
+    resizing.selected[0][first]=resizing.selected[1][group_second]=1;
+    arrangement_press(&resizing,&grouped,1,.4f,0,-1,0,0);
+    arrangement_drag(&resizing,&grouped,.75f,.4f);
+    CHECK(grouped.automations[curve].points[0].step==4 && grouped.automations[curve].steps==20);
+    CHECK(grouped.clip_offsets[1][group_second]==0 && grouped.clip_offsets[2][copy]==4);
+    CHECK(clip_length(&grouped,0,first)==12 && clip_length(&grouped,1,group_second)==20);
+    arrangement_drag(&resizing,&grouped,1,.4f);
+    CHECK(clip_length(&grouped,0,first)==8 && clip_length(&grouped,1,group_second)==16);
+    CHECK(grouped.clip_starts[1][group_second]==2 && grouped.clip_offsets[1][group_second]==4);
+    arrangement_release(&resizing);
     puts("Pencil, brush source and spacing, resize, selection, group movement and erase passed."); return 0;
 }

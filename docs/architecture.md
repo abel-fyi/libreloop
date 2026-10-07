@@ -22,6 +22,8 @@ are a coherent mouse-driven workflow and minimal code and dependencies.
 | `src/arrangement.c`, `arrangement.h` | Playlist editing, selection, timeline and snap helpers |
 | `src/sample.h` | PCM view and owned/shared sample lifetime contract |
 | `src/sampler.c`, `sampler.h` | independent sampler settings and offline crop, normalize, reverse, polarity, pitch and time processing |
+| `src/dx7.c`, `dx7.h`, `dx7_tables.h` | bounded C adaptation of the MSFA Modern six-operator engine |
+| `src/analog.c`, `analog.h` | detuned oscillators, PWM, resonant filter and DC removal |
 | `src/fm_synth.c`, `fm_synth.h` | three-oscillator FM settings, independent envelopes, tuning and per-note LFO |
 | `src/preset.c`, `preset.h` | validated, atomic built-in device presets and relative sample references |
 | `src/chorus.c`, `chorus.h` | stereo modulated-delay DSP and saved rate/depth settings |
@@ -134,8 +136,8 @@ bindings when that device exists. The chorus establishes the effect contract bel
   metronome and listening gain mix before the final device clamp to -1..1.
   PCM16 export clamps at conversion. Overloaded mixes still need gain reduction;
   there is no automatic compressor or lookahead limiter.
-- Project files currently use `.hbt` and the `HOMEBEAT` version-38 header for
-  compatibility. Versions 1–37 remain readable. Renaming the app did not change
+- Project files currently use `.hbt` and the `HOMEBEAT` version-39 header for
+  compatibility. Versions 1–38 remain readable. Renaming the app did not change
   the project format. Sample references are relative to the project directory, with old absolute paths
   still readable. Collect samples and save writes original PCM into a unique companion
   directory, and subsequent saves retain those references. Missing audio opens
@@ -256,8 +258,10 @@ align to physical pixels while clip geometry retains fractional movement.
 ## Chorus and mixer effect runtime
 
 Each Master/insert has ten ordered built-in effect slots. The initial device is
-Chorus: a stereo 10 ms modulated delay, .05–5 Hz rate, 0–8 ms depth, and wet/dry mix.
-The LFOs are offset by a quarter cycle. Rate, depth and wet amount slew over 20 ms;
+Chorus: a vintage-inspired stereo modulated delay, .05–5 Hz rate, 0–8 ms depth,
+and wet/dry mix. Opposed triangle modulation sweeps around 3.5 ms; at depths
+above 1.85 ms the center moves outward to keep the minimum delay at 1.65 ms.
+One-pole 7 kHz filters before and after the delay soften the wet path. Rate, depth and wet amount slew over 20 ms;
 bypass/removal fades toward dry while the delay continues running. There is no
 feedback or hidden output gain, and dry-path compensation latency is zero.
 
@@ -338,7 +342,7 @@ a second Attack modulator with its own tuning/envelope, parallel/stacked routing
 and LFO waveform/fade-in. Preset version 4 saves these same controls. Older files
 initialize the added fields neutrally through `fm_legacy`; their Attack amount is
 zero, and original parameter IDs and normalized automation ranges are retained.
-New instances use `fm_epiano`, with a short high-ratio strike and a slower Body tone.
+Custom FM uses `fm_epiano`, with a short high-ratio strike and a slower Body tone.
 
 Parameter IDs 1101–1128 resolve through `fm_parameter_pointer`, shared by UI lookup
 and renderer binding. Sequenced notes initialize from the current automated FM
@@ -352,3 +356,45 @@ capture until release and become a single undo entry. Envelope time axes use a l
 mapping per stage to make millisecond attacks editable; Motion graph gestures edit
 speed and the selected pitch/volume amount. No audio buffers or effect slots are
 created by opening the editor or applying the factory FM preset.
+
+## Multi-engine synthesis
+
+`FMSettings` keeps earlier fields and appends engine selection, analog settings
+and 145 native DX7 voice parameters plus six continuous key-tracking values. Engine 0 preserves Custom FM, engine 1 uses
+six-operator MSFA Modern synthesis, and engine 2 uses analog-style synthesis.
+Version 39 appended native settings before EQ data. Version 40 and preset
+version 6 append six tracking percentages to each native voice block; older
+files derive 100% for ratio operators and 0% for fixed-Hz operators. Older files before version 39 initialize the engine extension neutrally and keep
+engine 0.
+New channels use the original E.PIANO 1 voice. Nine factory files are bundled and
+seeded into the device preset directory without overwriting user files.
+
+DX7 state has six four-stage logarithmic envelopes, keyboard/rate/velocity scaling,
+ratio/fixed oscillator tuning, pitch EG, feedback and 32 algorithm routing tables.
+It renders 64-frame blocks with gain interpolation. Lookup tables initialize once
+outside playback and then stay immutable. Callback processing uses fixed voice
+buffers, with no allocation, file I/O or C++ runtime. Factory reference fixtures
+come from independent Dexed/MSFA renders across pitch, velocity and release.
+A uniform headroom trim follows the reference core; reference PCM fixtures compare
+before that trim. Native operator velocity replaces the mixer's generic per-note velocity scaling;
+channel and bus gain/pan still use the ordinary path. Retired slots preserve
+operator phases when oscillator sync is disabled and the channel remains the same.
+
+Analog uses PolyBLEP saw/pulse oscillators, a second detuned oscillator, sub/noise,
+PWM and a four-pole TPT filter with bounded nonlinear feedback. Per-voice settings
+slew over 20 ms; stereo chorus uses the existing fixed-buffer processor. The
+runtime union is bounded by its largest engine. UI voice publication now copies
+small channel/gain/source-position views instead of complete oscillator/delay state.
+
+Native parameter IDs 2001–2145 bind directly to voice settings, with integer
+quantization for automation, including held curve values. The native pointer lookup
+uses the field offset rather than scanning every parameter. Engine selection is
+structural and does not resolve as an automation target. Editor graph coordinates
+are explicitly local on the first click and transformed once on subsequent frames.
+
+DX key tracking uses IDs 2146–2151 (Op 6 through Op 1), with continuous 0–100%
+values. Frequencies interpolate in logarithmic pitch around MIDI 60 (middle C).
+Ratio tuning interpolates native note pitch toward its middle-C pitch; Hz tuning
+adds the scaled keyboard interval to its anchor frequency. At 100% ratio and 0%
+Hz, original DX tuning is preserved exactly. Tracking updates at the existing
+64-frame DSP boundary without resetting oscillator phase or allocating memory.

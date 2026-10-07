@@ -8,6 +8,7 @@ typedef struct {
     float delay[CHORUS_DELAY_FRAMES][2];
     double phase;
     float rate,depth,wet;
+    float pre[2],post[2];
     unsigned cursor;
     int ready;
 } Chorus;

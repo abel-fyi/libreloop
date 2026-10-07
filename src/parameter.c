@@ -50,8 +50,20 @@ static const ParameterDescriptor descriptors[]={
     {PARAM_FM_LFO_SHAPE,"LFO shape",0,3,0,PARAMETER_INTEGER},
     {PARAM_FM_LFO_FADE,"LFO fade in",0,5,.3f,PARAMETER_CONTINUOUS},
     {PARAM_FM_BODY_PITCH,"Body pitch (semitones)",-48,48,0,PARAMETER_CONTINUOUS},
-    {PARAM_CHORUS_RATE,"Chorus rate",.05f,5,.8f,PARAMETER_CONTINUOUS},
-    {PARAM_CHORUS_DEPTH,"Chorus depth",0,8,3,PARAMETER_CONTINUOUS},
+    {PARAM_FM_ENGINE,"Synth engine",0,2,1,PARAMETER_INTEGER},
+    {PARAM_FM_ANALOG_WAVE,"Oscillator waveform",0,3,0,PARAMETER_INTEGER},
+    {PARAM_FM_ANALOG_DETUNE,"Oscillator detune",0,50,8,PARAMETER_CONTINUOUS},
+    {PARAM_FM_ANALOG_MIX,"Second oscillator",0,1,.65f,PARAMETER_CONTINUOUS},
+    {PARAM_FM_ANALOG_SUB,"Sub oscillator",0,1,.2f,PARAMETER_CONTINUOUS},
+    {PARAM_FM_ANALOG_NOISE,"Noise",0,1,0,PARAMETER_CONTINUOUS},
+    {PARAM_FM_ANALOG_PULSE,"Pulse width",.05f,.95f,.5f,PARAMETER_CONTINUOUS},
+    {PARAM_FM_ANALOG_PWM,"Pulse modulation",0,.45f,.15f,PARAMETER_CONTINUOUS},
+    {PARAM_FM_FILTER_CUTOFF,"Filter cutoff",20,20000,5000,PARAMETER_LOGARITHMIC},
+    {PARAM_FM_FILTER_RESONANCE,"Filter resonance",0,.95f,.2f,PARAMETER_CONTINUOUS},
+    {PARAM_FM_FILTER_ENV,"Filter envelope octaves",-6,6,1,PARAMETER_CONTINUOUS},
+    {PARAM_FM_ANALOG_CHORUS,"Synth chorus",0,1,.35f,PARAMETER_CONTINUOUS},
+    {PARAM_CHORUS_RATE,"Chorus rate",.05f,5,.513f,PARAMETER_CONTINUOUS},
+    {PARAM_CHORUS_DEPTH,"Chorus depth",0,8,1.85f,PARAMETER_CONTINUOUS},
     {PARAM_EFFECT_MIX,"Effect mix",0,1,.5f,PARAMETER_CONTINUOUS},
     {PARAM_CHANNEL_VOLUME,"Volume",0,VOLUME_KNOB_MAX,1,PARAMETER_CONTINUOUS},
     {PARAM_CHANNEL_PAN,"Pan",-1,1,0,PARAMETER_CONTINUOUS},
@@ -69,6 +81,7 @@ static const ParameterDescriptor descriptors[]={
     {PARAM_PITCH_RANGE,"Pitch range",1,48,2,PARAMETER_INTEGER},
 };
 const ParameterDescriptor *parameter_descriptor(unsigned id) {
+    if(id>=PARAM_DX7_FIRST && id<=PARAM_DX7_LAST) return dx7_parameter_descriptor(id-PARAM_DX7_FIRST);
     for(size_t i=0;i<sizeof descriptors/sizeof *descriptors;i++) if(descriptors[i].id==id) return &descriptors[i];
     return NULL;
 }
@@ -80,7 +93,12 @@ static const float *parameter_pointer(const Project *p,ParameterTarget t,float *
         const EQBand *b=&p->eq[t.owner][t.slot].bands[(t.parameter-PARAM_EQ_FIRST)/3];
         return (t.parameter-PARAM_EQ_FIRST)%3==0?&b->frequency:(t.parameter-PARAM_EQ_FIRST)%3==1?&b->gain:&b->q;
     }
+    if(t.parameter>=PARAM_DX7_FIRST && t.parameter<=PARAM_DX7_LAST) {
+        if(t.owner>=(unsigned)p->channel_count || t.slot || p->instrument[t.owner]!=INSTRUMENT_FM || p->fm[t.owner].engine!=1) return NULL;
+        return fm_parameter_pointer(&p->fm[t.owner],t.parameter);
+    }
     if(t.parameter>=PARAM_FM_RATIO && t.parameter<=PARAM_FM_LAST) {
+        if(t.parameter==PARAM_FM_ENGINE) return NULL;
         if(t.owner>=(unsigned)p->channel_count || t.slot || p->instrument[t.owner]!=INSTRUMENT_FM) return NULL;
         return fm_parameter_pointer(&p->fm[t.owner],t.parameter);
     }
@@ -117,6 +135,10 @@ int parameter_info(const Project *p,ParameterTarget t,float *v,float *lo,float *
     return 1;
 }
 int parameter_from_pointer(const Project *p,const void *ptr,ParameterTarget *t) {
+    for(unsigned c=0;c<(unsigned)p->channel_count;c++) if(p->instrument[c]==INSTRUMENT_FM && p->fm[c].engine==1) {
+        uintptr_t address=(uintptr_t)ptr,start=(uintptr_t)p->fm[c].dx7.value,end=start+sizeof p->fm[c].dx7.value;
+        if(address>=start && address<end && (address-start)%sizeof(float)==0) { *t=(ParameterTarget){PARAM_DX7_FIRST+(address-start)/sizeof(float),c,0}; return 1; }
+    }
     for(unsigned id=1;id<=PARAM_PITCH_RANGE;id++) for(unsigned owner=0;owner<(id<=PARAM_CHANNEL_PITCH || id==PARAM_CHANNEL_MUTE || id==PARAM_PITCH_RANGE?CHANNELS:id<=PARAM_INSERT_WIDTH || id==PARAM_INSERT_MUTE?INSERTS:1);owner++) {
         ParameterTarget candidate={id,owner,0}; float lo,hi;
         const void *address=parameter_pointer(p,candidate,&lo,&hi);

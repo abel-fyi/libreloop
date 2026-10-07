@@ -256,13 +256,16 @@ static Vector2 note_grab;
 static float piano_note_length=2;
 static EditClipboard edit_clipboard;
 static float piano_span[PATTERNS]={16,16,16,16,16,16,16,16},piano_pan[PATTERNS],piano_range[PATTERNS];
-static float velocity_drag=-1;
+static int velocity_drag=-1,velocity_pattern,velocity_channel; /* 0 paint, 1 line */
+static Vector2 velocity_from,velocity_now;
+static Note velocity_before[NOTES];
 static int rack_paint=-1,rack_paint_channel=-1; static float rack_paint_step;
 static int navigation_drag=-1,navigation_active;
 static Vector2 navigation_last;
 static NavigationInput navigation_input;
 static float piano_scroll_remainder;
 static int eq_drag=-1;
+static int fm_dx_operator,fm_dx_page,fm_analog_tab,fm_dx_drag_base;
 static int fm_tab,fm_motion_target,fm_graph_drag=-1,fm_graph_channel;
 static Rectangle fm_graph_area;
 static int captured(void) { return fm_graph_drag>=0 || row_zoom_drag>=0 || eq_drag>=0 || automation_node>=0 || picker_drag>=0 || navigation_drag>=0 || track_resize>=0 || rack_hdrag || rack_vdrag || piano_key_drag || control_drag || route_drag>=0 || note_drag || velocity_drag>=0 || arrangement.gesture || playlist_pan || browser_resize || rack_paint>=0 || cable_drag>0 || playlist_vpan || mixer_pan || piano_scroll_drag || piano_vdrag || piano_gesture || marker_drag>=0; }
@@ -708,10 +711,10 @@ static int preset_directory(char *out,size_t capacity,int kind) {
     if(snprintf(root,sizeof root,"%.*s/presets",(int)(slash-browser.config),browser.config)>=(int)sizeof root || MakeDirectory(root)) return 0;
     const char *device=kind==PRESET_FM?"FM Synth":kind==PRESET_EQ?"Equalizer":kind==PRESET_CHORUS?"Chorus":"Sampler";
     if(snprintf(out,capacity,"%s/%s",root,device)>=(int)capacity || MakeDirectory(out)) return 0;
-    if(kind==PRESET_FM) {
+    if(kind==PRESET_FM) for(int i=0;i<FM_FACTORY_COUNT;i++) {
         char factory[PATH_MAX];
-        if(snprintf(factory,sizeof factory,"%s/Bright Electric Piano.llpreset",out)<(int)sizeof factory && !FileExists(factory)) {
-            DevicePreset preset={.kind=PRESET_FM,.fm=fm_epiano()}; preset_save(factory,&preset);
+        if(snprintf(factory,sizeof factory,"%s/%s.llpreset",out,fm_factory_name(i))<(int)sizeof factory && !FileExists(factory)) {
+            DevicePreset preset={.kind=PRESET_FM,.fm=fm_factory(i)}; preset_save(factory,&preset);
         }
     }
     return 1;
@@ -747,7 +750,7 @@ static void create_automation(void) {
     float steps=song_loop[1]>song_loop[0]?song_loop[1]-song_loop[0]:fmaxf(STEPS,project.pattern_steps[pattern]);
     char name[PATTERN_NAME];
     unsigned id=automation_target.parameter,owner=automation_target.owner;
-    const char *prefix=id>=PARAM_FM_RATIO && id<=PARAM_FM_LAST?project.channel_names[owner]:id>=PARAM_CHORUS_RATE && id<=PARAM_EFFECT_MIX?(owner?project.insert_names[owner-1]:"Master"):id<=PARAM_CHANNEL_PITCH || id==PARAM_CHANNEL_MUTE || id==PARAM_PITCH_RANGE?project.channel_names[owner]:id<=PARAM_INSERT_WIDTH || id==PARAM_INSERT_MUTE?project.insert_names[owner]:"Master";
+    const char *prefix=((id>=PARAM_FM_RATIO && id<=PARAM_FM_LAST) || (id>=PARAM_DX7_FIRST && id<=PARAM_DX7_LAST))?project.channel_names[owner]:id>=PARAM_CHORUS_RATE && id<=PARAM_EFFECT_MIX?(owner?project.insert_names[owner-1]:"Master"):id<=PARAM_CHANNEL_PITCH || id==PARAM_CHANNEL_MUTE || id==PARAM_PITCH_RANGE?project.channel_names[owner]:id<=PARAM_INSERT_WIDTH || id==PARAM_INSERT_MUTE?project.insert_names[owner]:"Master";
     const char *parameter=menu_name;
     if(!strncmp(parameter,"Insert ",7)) parameter+=7;
     else if(!strncmp(parameter,"Channel ",8)) parameter+=8;
@@ -955,6 +958,9 @@ static void draw_popup(void) {
         help_binding(left,&ly,"Ctrl + Z / Shift + Z","Undo / redo (also Ctrl + Y)");
         help_binding(left,&ly,"Ctrl + S / O","Save / open (Shift+S: As)");
 #endif
+        ly+=12; help_group(left,&ly,"Piano Roll velocity lane");
+        help_binding(left,&ly,"Left-drag","Paint note velocities");
+        help_binding(left,&ly,"Right-drag","Draw a straight velocity ramp");
         help_group(right,&ry,"Editing & selection");
 #ifdef __APPLE__
         help_binding(right,&ry,"Cmd + drag","Temporarily box-select");
@@ -1034,7 +1040,7 @@ static int import_sample(const char *path,int c) {
     Sample cooked;
     if(!sample_process(s,project.sampler[c],&cooked)) { sample_free(s); snprintf(status,sizeof status,"Sample processing failed; channel unchanged"); return 0; }
     if(project.instrument[c]==INSTRUMENT_FM) {
-        for(int a=project.automation_count-1;a>=0;a--) if(project.automations[a].target.owner==(unsigned)c && project.automations[a].target.parameter>=PARAM_FM_RATIO && project.automations[a].target.parameter<=PARAM_FM_LAST) automation_delete(&project,a);
+        for(int a=project.automation_count-1;a>=0;a--) if(project.automations[a].target.owner==(unsigned)c && ((project.automations[a].target.parameter>=PARAM_FM_RATIO && project.automations[a].target.parameter<=PARAM_FM_LAST) || (project.automations[a].target.parameter>=PARAM_DX7_FIRST && project.automations[a].target.parameter<=PARAM_DX7_LAST))) automation_delete(&project,a);
         project.instrument[c]=INSTRUMENT_SAMPLER;
     }
     Sample old=samples[c],raw=originals[c]; audio_sample(c,cooked); samples[c]=cooked; originals[c]=s; sample_free(old); sample_free(raw);
@@ -1650,17 +1656,25 @@ static void capture_control(float *value,float low,float high,int fader) {
     control_low=descriptor?descriptor->low:low; control_high=descriptor?descriptor->high:high;
     control_fader=fader; control_reverse=0; input_enabled=0;
 }
-enum { KNOB_NORMAL,KNOB_SWING,KNOB_PAN,KNOB_WIDTH,KNOB_CENTER,KNOB_VOLUME,KNOB_LOGARITHMIC };
+enum { KNOB_NORMAL,KNOB_SWING,KNOB_PAN,KNOB_WIDTH,KNOB_CENTER,KNOB_VOLUME,KNOB_LOGARITHMIC,KNOB_FIXED_COARSE };
 static void knob_style(int x,int y,float *value,float low,float high,float initial,const char *name,int style) {
     float size=style==KNOB_SWING?SWING_RADIUS:KNOB_RADIUS,shown=displayed_value(value,*value);
     int over=hover(x-size-1,y-size-1,size*2+2,size*2+2);
+    int fixed_coarse=style==KNOB_FIXED_COARSE;
+    if(fixed_coarse) {
+        high=3; initial=(int)initial&3; shown=(int)roundf(shown)&3;
+        /* Old DX files may store aliases 4..31. Canonicalize on interaction,
+           preserving their audible frequency and leaving unopened files alone. */
+        if(over && (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || GetMouseWheelMove()))
+            *value=(int)roundf(*value)&3;
+    }
     if(over || control_drag==value) {
         if(style==KNOB_VOLUME) snprintf(status,sizeof status,"%s: %.4g (%.2f dB) | Dot marks 0 dB; drag or wheel; right-click for value / automation",name,shown,gain_db(shown));
         else snprintf(status,sizeof status,"%s: %.4g | Drag up/down or wheel; right-click for value / automation",name,shown);
     }
     if(over) {
         if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) control_menu(value,low,high,initial,name);
-        if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { capture_control(value,low,high,0); control_reverse=style==KNOB_WIDTH; }
+        if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { capture_control(value,low,high,0); control_low=low; control_high=high; control_reverse=style==KNOB_WIDTH; }
         float wheel=GetMouseWheelMove();
         if(wheel) {
             ParameterTarget target;
@@ -2527,10 +2541,10 @@ static void piano_gesture_update(float step,float pitch,float q) {
             float t=j/(float)count,at=piano_now.x+dx*t; int key=ceilf(piano_now.y+dy*t);
             if(at<0 || piano_inactive(at) || key<0 || key>127) continue;
             if(piano_gesture==PIANO_ERASE) {
-                for(int i=0;i<NOTES;i++) {
-                    Note *n=&project.notes[pattern][channel][i];
-                    if(n->velocity && n->pitch==key && n->start<=at && n->start+(n->length?n->length:1)>at) { n->velocity=0; selected[i]=0; }
-                }
+                /* Hit the gesture's original stack so holding the button or
+                   repeated stroke samples cannot peel off underlying notes. */
+                int i=note_hit(note_before,at,key);
+                if(i>=0) { project.notes[pattern][channel][i].velocity=0; selected[i]=0; }
             } else {
                 float start=piano_from.x+floorf((at-piano_from.x)/spacing)*spacing;
                 piano_extend(start+piano_note_length);
@@ -2559,7 +2573,11 @@ static void piano_note_drag_update(float step,float row,float q) {
         int old_pitch=note_drag->pitch;
         notes_move(&project,pattern,channel,note_before,selected,dx,dy,edit_steps());
         if(note_drag->pitch!=old_pitch) audio_note(channel,*note_drag);
-    } else { float length=fmaxf(q>0?q:.01f,snap_round(step-note_drag->start,q)); piano_extend(note_drag->start+length); note_drag->length=length; piano_note_length=length; }
+    } else {
+        float delta=snap_round(step-note_grab.x,q);
+        float end=notes_resize(&project,pattern,channel,note_before,note_selected[pattern][channel],delta,q>0?q:.01f);
+        piano_extend(end); piano_note_length=note_drag->length;
+    }
 }
 static int piano_black_key(int pitch) {
     int pc=pitch%12; return pc==1 || pc==3 || pc==6 || pc==8 || pc==10;
@@ -2669,7 +2687,10 @@ static void piano(float width,float height) {
             int shift=IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT),group=0;
             for(int i=0;i<NOTES;i++) group+=selected[i]!=0;
             piano_from=piano_now=point; piano_additive=shift; memcpy(note_selection_before,selected,NOTES);
-            if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) piano_gesture=PIANO_ERASE;
+            if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
+                memcpy(note_before,project.notes[pattern][channel],sizeof note_before);
+                piano_gesture=PIANO_ERASE;
+            }
             else if(shortcut_down()) {
                 if(!shift) memset(selected,0,NOTES);
                 piano_gesture=PIANO_BOX;
@@ -2725,15 +2746,22 @@ static void piano(float width,float height) {
         Color color=note_selected[pattern][channel][i]?ui_theme.note_drag:ui_theme.note;
         DrawRectangleRec((Rectangle){x,top,2,n.velocity*.48f},color);
         circle(x+1,top,2.5f,color); circle(x+1,top,1.25f,ui_theme.piano_row[0]);
-        if(hover(gx,vy,gridw,62) && hover(x,vy,fmaxf(5,cw*q),62)) {
-            snprintf(status,sizeof status,"Velocity: drag to set loudness of notes at this position");
-            if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-                velocity_drag=n.start; input_enabled=0;
-                int value=fmaxf(1,fminf(127,(vy+62-mouse.y)/.48f));
-                for(int j=0;j<NOTES;j++) { Note *other=&project.notes[pattern][channel][j]; if(other->velocity && fabsf(other->start-n.start)<.00001f) other->velocity=value; }
-            }
+    }
+    if(hover(gx,vy,gridw,62)) {
+        snprintf(status,sizeof status,"Velocity: left-drag paints; right-drag draws a straight ramp");
+        if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
+            velocity_drag=IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)?1:0;
+            velocity_pattern=pattern; velocity_channel=channel;
+            velocity_from=velocity_now=(Vector2){view+(mouse.x-gx)/cw,fmaxf(1,fminf(127,(vy+62-mouse.y)/.48f))};
+            memcpy(velocity_before,project.notes[pattern][channel],sizeof velocity_before);
+            notes_velocity(project.notes[pattern][channel],velocity_drag?velocity_before:NULL,
+                velocity_from.x,velocity_from.x,velocity_from.y,velocity_from.y,3/cw);
+            input_enabled=0;
         }
     }
+    if(velocity_drag==1 && velocity_pattern==pattern && velocity_channel==channel)
+        DrawLineEx((Vector2){gx+(velocity_from.x-view)*cw,vy+62-velocity_from.y*.48f},
+            (Vector2){gx+(velocity_now.x-view)*cw,vy+62-velocity_now.y*.48f},1,accent);
     BeginScissorMode(r.x*scale,r.y*scale,r.w*scale,r.h*scale);
     float rail_top=gy-14,varea=rh*piano_visible_rows()+14,vthumb=varea*piano_visible_rows()/128,vypos=rail_top+(127-piano_top)/128.f*varea;
     DrawRectangleRec((Rectangle){width-4-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_top,EDITOR_SCROLLBAR,varea},bg);
@@ -3111,8 +3139,8 @@ static void mixer(float width,float height) {
             if(button("Save",fx+82,TITLE+253,70,24,0)) preset_action(PRESET_EQ,bus,slot,1);
         } else {
             ChorusSettings *settings=&project.chorus[bus][slot];
-            knob(fx+27,TITLE+183,&settings->rate,.05f,5,.8f,"Chorus rate (Hz)");
-            knob(fx+78,TITLE+183,&settings->depth,0,8,3,"Chorus depth (ms)");
+            knob(fx+27,TITLE+183,&settings->rate,.05f,5,.513f,"Chorus rate (Hz)");
+            knob(fx+78,TITLE+183,&settings->depth,0,8,1.85f,"Chorus depth (ms)");
             knob(fx+129,TITLE+183,&project.effect_mix[bus][slot],0,1,.5f,"Chorus mix");
             label("Rate",fx+15,TITLE+203,10,muted); label("Depth",fx+64,TITLE+203,10,muted); label("Mix",fx+120,TITLE+203,10,muted);
             if(button("Bypass",fx+8,TITLE+225,MIXER_PANEL-16,24,project.effect_bypass[bus][slot])) project.effect_bypass[bus][slot]^=1;
@@ -3150,12 +3178,22 @@ static void draw_context(void) {
     if(!context_kind) return;
     float scale=ui_scale();
     int instrument_rows[CHANNELS],instrument_count=context_kind==17?pattern_instruments(context_target,instrument_rows):0;
-    int w=context_kind==14 || context_kind==16?160:(context_kind==5 || context_kind==8 || context_kind==12)?304:228,h=context_kind==19?108:context_kind==20?58:context_kind==17?8+25*(int)fminf(8,instrument_count):context_kind==18?58:context_kind==4?108:context_kind==16?32:context_kind==15?58:context_kind==14?8+EQ_SHAPES*25:context_kind==13?58:context_kind==2?158:context_kind==7?133:(context_kind==5 || context_kind==8 || context_kind==12)?76:context_kind==3 && !context_target?32:82,x=fmaxf(0,fminf(GetScreenWidth()/scale-w,context_position.x)),y=fmaxf(0,fminf(GetScreenHeight()/scale-h,context_position.y));
+    int w=context_kind==14 || context_kind==16?160:(context_kind==5 || context_kind==8 || context_kind==12)?304:228,h=context_kind==21?8+25*FM_FACTORY_COUNT:context_kind==22?83:context_kind==23?108:context_kind==19?108:context_kind==20?58:context_kind==17?8+25*(int)fminf(8,instrument_count):context_kind==18?58:context_kind==4?108:context_kind==16?32:context_kind==15?58:context_kind==14?8+EQ_SHAPES*25:context_kind==13?58:context_kind==2?158:context_kind==7?133:(context_kind==5 || context_kind==8 || context_kind==12)?76:context_kind==3 && !context_target?32:82,x=fmaxf(0,fminf(GetScreenWidth()/scale-w,context_position.x)),y=fmaxf(0,fminf(GetScreenHeight()/scale-h,context_position.y));
     input_enabled=1;
     if(IsKeyPressed(KEY_ESCAPE) || (!context_opened && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !hover(x,y,w,h))) { context_kind=0; return; }
     ui_frame((Rectangle){x,y,w,h});
     int target=context_target,kind=context_kind;
-    if(kind==19 || kind==20) {
+    if(kind==21 || kind==22 || kind==23) {
+        if(target<0 || target>=project.channel_count || project.instrument[target]!=INSTRUMENT_FM) { context_kind=0; return; }
+        const char *engines[]={"Custom FM","Six-operator FM","Analog"},*waves[]={"Saw","Pulse","Triangle","Sine"};
+        int count=kind==21?FM_FACTORY_COUNT:kind==22?3:4;
+        for(int i=0;i<count;i++) if(button(kind==21?fm_factory_name(i):kind==22?engines[i]:waves[i],x+4,y+4+i*25,w-8,24,0)) {
+            if(kind==21) project.fm[target]=fm_factory(i);
+            else if(kind==22) project.fm[target].engine=i;
+            else project.fm[target].analog.wave=i;
+            fm_graph_drag=-1; context_kind=0; return;
+        }
+    } else if(kind==19 || kind==20) {
         if(target<0 || target>=project.channel_count || project.instrument[target]!=INSTRUMENT_FM) { context_kind=0; return; }
         const char *shapes[]={"Sine","Triangle","Saw","Square"},*routing[]={"Body + Attack","Attack into Body"};
         float *value=kind==19?&project.fm[target].lfo_shape:&project.fm[target].routing;
@@ -3287,10 +3325,16 @@ static const unsigned fm_envelope_ids[3][4]={
     {PARAM_FM_MOD_ATTACK,PARAM_FM_MOD_DECAY,PARAM_FM_MOD_SUSTAIN,PARAM_FM_MOD_RELEASE},
     {PARAM_FM_ATTACK_ATTACK,PARAM_FM_ATTACK_DECAY,PARAM_FM_ATTACK_SUSTAIN,PARAM_FM_ATTACK_RELEASE}
 };
-static void fm_graph_update(void) {
+static void fm_graph_update_at(float x,float y) {
     if(fm_graph_channel<0 || fm_graph_channel>=project.channel_count) return;
-    FMSettings *s=&project.fm[fm_graph_channel]; Rect r=windows.editors[4].rect;
-    float x=mouse.x-r.x,y=mouse.y-r.y;
+    FMSettings *s=&project.fm[fm_graph_channel];
+    if(fm_graph_drag>=4) {
+        int stage=fm_graph_drag-4; float slot=(fm_graph_area.width-16)/4;
+        float position=fmaxf(0,fminf(1,(x-fm_graph_area.x-8-slot*(stage+.1f))/(slot*.8f)));
+        s->dx7.value[fm_dx_drag_base+stage]=roundf((1-position)*99);
+        s->dx7.value[fm_dx_drag_base+4+stage]=roundf(fmaxf(0,fminf(99,(1-(y-fm_graph_area.y-6)/fmaxf(1,fm_graph_area.height-12))*99)));
+        return;
+    }
     if(fm_graph_drag==3) {
         float position=fmaxf(0,fminf(1,(x-fm_graph_area.x-8)/(fm_graph_area.width-16)));
         s->lfo_rate=.1f*powf(120,position);
@@ -3309,23 +3353,55 @@ static void fm_graph_update(void) {
         *(float *)fm_parameter_pointer(s,fm_envelope_ids[fm_tab][2])=sustain;
     }
 }
+static void fm_graph_update(void) {
+    Rect r=windows.editors[4].rect; fm_graph_update_at(mouse.x-r.x,mouse.y-r.y);
+}
 static void fm_control(FMSettings *s,unsigned id,const char *caption,int x,int y) {
     const ParameterDescriptor *info=parameter_descriptor(id);
     float *value=(float *)fm_parameter_pointer(s,id);
     int logarithmic=info->kind==PARAMETER_LOGARITHMIC ||
         (info->low>0 && (!strcmp(caption,"Attack") || !strcmp(caption,"Decay") || !strcmp(caption,"Release")));
-    knob_style(x,y,value,info->low,info->high,info->initial,info->name,logarithmic?KNOB_LOGARITHMIC:info->low<0?KNOB_CENTER:KNOB_NORMAL);
+    int fixed_coarse=id>=PARAM_DX7_FIRST && id<PARAM_DX7_FIRST+126 &&
+        (id-PARAM_DX7_FIRST)%21==18 && s->dx7.value[id-PARAM_DX7_FIRST-1];
+    knob_style(x,y,value,info->low,info->high,info->initial,info->name,
+        fixed_coarse?KNOB_FIXED_COARSE:logarithmic?KNOB_LOGARITHMIC:info->low<0?KNOB_CENTER:KNOB_NORMAL);
     if(control_drag==value && logarithmic) control_logarithmic=1;
     label(caption,x-text_width(caption,11)/2,y+17,11,muted);
+    float display=displayed_value(value,*value);
     const char *shown;
-    if(id==PARAM_FM_CARRIER_RATIO || id==PARAM_FM_ATTACK_RATIO) shown=TextFormat("%.2gx",*value);
-    else if(id==PARAM_FM_BODY_PITCH) shown=TextFormat("%+.1f st",*value);
-    else if(id==PARAM_FM_CARRIER_DETUNE || id==PARAM_FM_BODY_DETUNE || id==PARAM_FM_ATTACK_DETUNE) shown=TextFormat("%+.0f ct",*value);
+    if(id>=PARAM_DX7_FIRST && id<=PARAM_DX7_LAST) {
+        int index=id-PARAM_DX7_FIRST,field=index%21;
+        if(index>=DX7_NATIVE_PARAMETERS) shown=TextFormat("%.1f%%",display);
+        else if(index<126 && field==18) {
+            int base=index-field;
+            double fine=s->dx7.value[base+19]/100;
+            if(s->dx7.value[base+17]) {
+                double frequency=pow(10,((int)display&3)+fine);
+                shown=frequency>=1000?TextFormat("%.2f kHz",frequency/1000):
+                    TextFormat(frequency<10?"%.2f Hz":"%.0f Hz",frequency);
+            } else shown=TextFormat("%.2fx",fmaxf(.5f,display)*(1+fine));
+        }
+        else if(index<126 && field==8) { static const char *notes[]={"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"}; int key=(int)display+17; shown=TextFormat("%s%d",notes[key%12],key/12-1); }
+        else if(index<126 && (field==11 || field==12)) { static const char *curves[]={"-Lin","-Exp","+Exp","+Lin"}; shown=curves[(int)display]; }
+        else if(index==136 || index==141) shown=display>=.5f?"On":"Off";
+        else if(index==142) { static const char *waves[]={"Triangle","Saw down","Saw up","Square","Sine","S&H"}; shown=waves[(int)display]; }
+        else if(index<126 && field==20) shown=TextFormat("%+.0f",display-7);
+        else if(index==134) shown=TextFormat("%.0f",display+1);
+        else if(index==144) shown=TextFormat("%+.0f st",display-24);
+        else shown=TextFormat("%.0f",display);
+    }
+    else if(id==PARAM_FM_FILTER_CUTOFF) shown=TextFormat(display>=1000?"%.2g kHz":"%.0f Hz",display>=1000?display/1000:display);
+    else if(id==PARAM_FM_CARRIER_RATIO || id==PARAM_FM_ATTACK_RATIO) shown=TextFormat("%.2gx",display);
+    else if(id==PARAM_FM_BODY_PITCH) shown=TextFormat("%+.1f st",display);
+    else if(id==PARAM_FM_CARRIER_DETUNE || id==PARAM_FM_BODY_DETUNE || id==PARAM_FM_ATTACK_DETUNE) shown=TextFormat("%+.0f ct",display);
     else if(id==PARAM_FM_ATTACK || id==PARAM_FM_DECAY || id==PARAM_FM_RELEASE || id==PARAM_FM_MOD_ATTACK || id==PARAM_FM_MOD_DECAY || id==PARAM_FM_MOD_RELEASE ||
             id==PARAM_FM_ATTACK_ATTACK || id==PARAM_FM_ATTACK_DECAY || id==PARAM_FM_ATTACK_RELEASE || id==PARAM_FM_LFO_FADE)
-        shown=*value<1?TextFormat("%.0f ms",*value*1000):TextFormat("%.2g s",*value);
-    else shown=TextFormat("%.2g",*value);
+        shown=display<1?TextFormat("%.0f ms",display*1000):TextFormat("%.2g s",display);
+    else shown=TextFormat("%.2g",display);
     label(shown,x-text_width(shown,10)/2,y+31,10,ink);
+    if(id>=PARAM_DX7_FIRST+DX7_NATIVE_PARAMETERS && id<=PARAM_DX7_LAST &&
+       (hover(x-16,y-16,32,32) || control_drag==value))
+        snprintf(status,sizeof status,"Key tracking: 0%% fixed, 50%% half an octave per octave, 100%% follows notes. Anchor: middle C (C4).");
 }
 static void fm_envelope_graph(FMSettings *s,Rectangle plot) {
     DrawRectangleRec(plot,bg);
@@ -3360,10 +3436,10 @@ static void fm_envelope_graph(FMSettings *s,Rectangle plot) {
     }
     if(hover(plot.x,plot.y,plot.width,plot.height)) snprintf(status,sizeof status,"Drag envelope points: left/right changes time; the middle point also changes sustain. Knobs offer exact entry and automation.");
 }
-static void fm_editor(float width,float height) {
+static void fm_legacy_editor(float width,float height) {
     int c=instrument_channel; FMSettings *s=&project.fm[c];
     label(fit_text(project.channel_names[c],width-298,14),12,30,14,ink); channel_controls(c,width);
-    label("Electric piano: a lasting body with a separate bright strike",12,56,11,muted);
+    label("Custom three-operator FM",12,56,11,muted);
     const char *tabs[]={"Sound","Body","Attack","Motion"}; float tabw=(width-24)/4;
     for(int i=0;i<4;i++) if(button(tabs[i],12+i*tabw,78,tabw-3,26,fm_tab==i)) fm_tab=i;
     float column=(width-32)/4;
@@ -3410,15 +3486,131 @@ static void fm_editor(float width,float height) {
         if(hover(plot.x,plot.y,plot.width,plot.height)) {
             SetMouseCursor(MOUSE_CURSOR_POINTING_HAND);
             snprintf(status,sizeof status,"Drag the LFO graph horizontally for speed, vertically for %s amount; choose a waveform above",fm_motion_target?"volume":"pitch");
-            if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { fm_graph_drag=3; fm_graph_channel=c; fm_graph_area=plot; fm_graph_update(); input_enabled=0; }
+            if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { fm_graph_drag=3; fm_graph_channel=c; fm_graph_area=plot; fm_graph_update_at(mouse.x,mouse.y); input_enabled=0; }
         }
     }
-    if(button("Bright EP",12,height-34,98,24,0)) *s=fm_epiano();
+    if(button("Factory",12,height-34,98,24,0)) open_context(21,c,(Vector2){mouse.x+windows.editors[4].rect.x,mouse.y+windows.editors[4].rect.y});
     if(button("Load",114,height-34,64,24,0)) preset_action(PRESET_FM,c,0,0);
     if(button("Save",182,height-34,64,24,0)) preset_action(PRESET_FM,c,0,1);
     double active=audio_key_position(127,c);
     if(button(active>=0?"Release C4":"Play C4",width-112,height-34,100,24,active>=0)) { channel=c; audio_key(127,c,60,active<0); }
 }
+static const char *fm_sound_name(const FMSettings *s) {
+    for(int i=0;i<FM_FACTORY_COUNT;i++) { FMSettings factory=fm_factory(i); if(!memcmp(s,&factory,sizeof factory)) return fm_factory_name(i); }
+    return "Edited sound";
+}
+static void fm_footer(int c,float width,float height) {
+    if(button("Factory",12,height-34,98,24,0)) open_context(21,c,(Vector2){mouse.x+windows.editors[4].rect.x,mouse.y+windows.editors[4].rect.y});
+    if(button("Load",114,height-34,64,24,0)) preset_action(PRESET_FM,c,0,0);
+    if(button("Save",182,height-34,64,24,0)) preset_action(PRESET_FM,c,0,1);
+    int active=audio_key_position(127,c)>=0;
+    if(button(active?"Release C4":"Play C4",width-112,height-34,100,24,active)) { channel=c; audio_key(127,c,60,!active); }
+}
+static void fm_controls_row(FMSettings *s,const unsigned *ids,const char *const *names,int count,float width,int y) {
+    float column=(width-32)/count;
+    for(int i=0;i<count;i++) fm_control(s,ids[i],names[i],20+column*(i+.5f),y);
+}
+static void dx7_envelope_graph(FMSettings *s,int base,Rectangle plot) {
+    DrawRectangleRec(plot,bg); float width=(plot.width-16)/4,height=fmaxf(1,plot.height-12);
+    Vector2 previous={plot.x+8,plot.y+height};
+    for(int i=0;i<4;i++) {
+        float rate=s->dx7.value[base+i],level=s->dx7.value[base+4+i];
+        Vector2 point={plot.x+8+width*(i+.1f+.8f*(1-rate/99)),plot.y+6+height*(1-level/99)};
+        smooth_line(previous,point,1.5f,accent); circle(point.x,point.y,3,ink); previous=point;
+        if(hover(point.x-7,point.y-7,14,14)) {
+            SetMouseCursor(MOUSE_CURSOR_POINTING_HAND); snprintf(status,sizeof status,"Drag stage %d: left/right changes rate, up/down changes level",i+1);
+            if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { fm_graph_drag=4+i; fm_graph_channel=instrument_channel; fm_graph_area=plot; fm_dx_drag_base=base; input_enabled=0; }
+        }
+    }
+}
+static void fm_dx_editor(float width,float height) {
+    int c=instrument_channel; FMSettings *s=&project.fm[c];
+    label(fit_text(project.channel_names[c],width-298,14),12,30,14,ink); channel_controls(c,width);
+    label(fit_text(fm_sound_name(s),width-160,11),12,56,11,muted);
+    float tab=(width-24)/7;
+    for(int i=0;i<7;i++) if(button(i==6?"Global":TextFormat("Op %d",i+1),12+i*tab,78,tab-3,26,fm_dx_operator==i)) fm_dx_operator=i;
+    if(fm_dx_operator<6) {
+        int base=(5-fm_dx_operator)*21;
+        label(TextFormat("Operator %d",fm_dx_operator+1),20,113,12,muted);
+        unsigned head[]={PARAM_DX7_FIRST+base+16,PARAM_DX7_FIRST+base+18,PARAM_DX7_FIRST+base+19,PARAM_DX7_FIRST+base+20,PARAM_DX7_FIRST+base+15,PARAM_DX7_FIRST+DX7_NATIVE_PARAMETERS+base/21};
+        const char *head_names[]={"Output","Coarse","Fine","Detune","Velocity","Tracking"}; fm_controls_row(s,head,head_names,6,width,136);
+        if(button("Envelope",12,184,100,24,!fm_dx_page)) fm_dx_page=0;
+        if(button("Keyboard",116,184,100,24,fm_dx_page)) fm_dx_page=1;
+        float *mode=&s->dx7.value[base+17];
+        if(button(*mode?"Hz at C4":"Ratio",width-112,184,100,24,0)) {
+            *mode=1-*mode; s->dx7.value[DX7_NATIVE_PARAMETERS+base/21]=*mode?0:100;
+            if(*mode) s->dx7.value[base+18]=(int)s->dx7.value[base+18]&3;
+        }
+        if(hover(width-112,184,100,24) && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) control_menu(mode,0,1,0,"Operator frequency mode");
+        if(!fm_dx_page) {
+            unsigned rates[4],levels[4]; for(int i=0;i<4;i++) { rates[i]=PARAM_DX7_FIRST+base+i; levels[i]=PARAM_DX7_FIRST+base+4+i; }
+            const char *rnames[]={"Rate 1","Rate 2","Rate 3","Release rate"},*lnames[]={"Level 1","Level 2","Sustain level","Release level"};
+            fm_controls_row(s,rates,rnames,4,width,226); fm_controls_row(s,levels,lnames,4,width,292);
+            dx7_envelope_graph(s,base,(Rectangle){12,336,width-24,height-378});
+        } else {
+            const int fields[]={8,9,10,14,11,12,13,15}; const char *names[]={"Breakpoint","Left depth","Right depth","Amp motion","Left curve","Right curve","Key rate","Velocity"};
+            for(int row=0;row<2;row++) { unsigned ids[4]; for(int i=0;i<4;i++) ids[i]=PARAM_DX7_FIRST+base+fields[row*4+i]; fm_controls_row(s,ids,names+row*4,4,width,226+row*66); }
+            label("Curves: 0 -linear, 1 -exponential, 2 +exponential, 3 +linear",20,344,11,muted);
+        }
+    } else {
+        unsigned head[]={PARAM_DX7_FIRST+134,PARAM_DX7_FIRST+135,PARAM_DX7_FIRST+144,PARAM_DX7_FIRST+136};
+        const char *names[]={"Algorithm","Feedback","Transpose","Osc sync"}; label("Routing and tuning",20,113,12,muted); fm_controls_row(s,head,names,4,width,136);
+        if(button("Motion",12,184,100,24,!fm_dx_page)) fm_dx_page=0;
+        if(button("Pitch envelope",116,184,140,24,fm_dx_page)) fm_dx_page=1;
+        if(!fm_dx_page) {
+            unsigned a[]={PARAM_DX7_FIRST+137,PARAM_DX7_FIRST+138,PARAM_DX7_FIRST+139,PARAM_DX7_FIRST+140},b[]={PARAM_DX7_FIRST+142,PARAM_DX7_FIRST+141,PARAM_DX7_FIRST+143};
+            const char *an[]={"Speed","Delay","Pitch amount","Volume amount"},*bn[]={"Waveform","Key sync","Pitch sense"};
+            fm_controls_row(s,a,an,4,width,226); fm_controls_row(s,b,bn,3,width,292);
+            label("Waves: triangle, saw down, saw up, square, sine, sample & hold",20,344,11,muted);
+        } else {
+            unsigned rates[4],levels[4]; for(int i=0;i<4;i++) { rates[i]=PARAM_DX7_FIRST+126+i; levels[i]=PARAM_DX7_FIRST+130+i; }
+            const char *rn[]={"Rate 1","Rate 2","Rate 3","Release rate"},*ln[]={"Level 1","Level 2","Sustain level","Release level"};
+            fm_controls_row(s,rates,rn,4,width,226); fm_controls_row(s,levels,ln,4,width,292);
+            dx7_envelope_graph(s,126,(Rectangle){12,336,width-24,height-378});
+        }
+    }
+    fm_footer(c,width,height);
+}
+static void fm_analog_editor(float width,float height) {
+    int c=instrument_channel; FMSettings *s=&project.fm[c];
+    label(fit_text(project.channel_names[c],width-298,14),12,30,14,ink); channel_controls(c,width);
+    label(fit_text(fm_sound_name(s),width-160,11),12,56,11,muted);
+    const char *tabs[]={"Sound","Amplitude","Filter","Motion"}; float tab=(width-24)/4;
+    for(int i=0;i<4;i++) if(button(tabs[i],12+i*tab,78,tab-3,26,fm_analog_tab==i)) fm_analog_tab=i;
+    if(fm_analog_tab==0) {
+        unsigned a[]={PARAM_FM_CARRIER_RATIO,PARAM_FM_ANALOG_DETUNE,PARAM_FM_ANALOG_MIX,PARAM_FM_ANALOG_SUB,PARAM_FM_ANALOG_NOISE},b[]={PARAM_FM_ANALOG_PULSE,PARAM_FM_ANALOG_PWM,PARAM_FM_ANALOG_CHORUS,PARAM_FM_VELOCITY};
+        const char *an[]={"Pitch","Detune","Osc 2","Sub","Noise"},*bn[]={"Pulse width","PWM","Chorus","Velocity"};
+        label("Oscillators",20,113,12,muted); fm_controls_row(s,a,an,5,width,136);
+        const char *waves[]={"Saw","Pulse","Triangle","Sine"};
+        if(button(waves[(int)s->analog.wave],12,184,112,24,0)) open_context(23,c,(Vector2){mouse.x+windows.editors[4].rect.x,mouse.y+windows.editors[4].rect.y});
+        if(hover(12,184,112,24) && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) control_menu(&s->analog.wave,0,3,0,"Oscillator waveform");
+        fm_controls_row(s,b,bn,4,width,226); label("PWM moves the Pulse shape. Chorus spreads the sound in stereo.",20,296,11,muted);
+    } else if(fm_analog_tab==1 || fm_analog_tab==2) {
+        fm_tab=fm_analog_tab==1?0:1;
+        if(fm_analog_tab==2) {
+            unsigned a[]={PARAM_FM_FILTER_CUTOFF,PARAM_FM_FILTER_RESONANCE,PARAM_FM_FILTER_ENV,PARAM_FM_VELOCITY}; const char *names[]={"Cutoff","Resonance","Envelope","Velocity"};
+            label("Filter",20,113,12,muted); fm_controls_row(s,a,names,4,width,136);
+        } else label("Volume envelope",20,113,12,muted);
+        unsigned ids[4]; for(int i=0;i<4;i++) ids[i]=fm_envelope_ids[fm_tab][i]; const char *names[]={"Attack","Decay","Sustain","Release"};
+        fm_controls_row(s,ids,names,4,width,207); fm_envelope_graph(s,(Rectangle){12,252,width-24,height-294});
+    } else {
+        unsigned ids[]={PARAM_FM_LFO_RATE,PARAM_FM_VIBRATO,PARAM_FM_TREMOLO,PARAM_FM_LFO_FADE}; const char *names[]={"Speed","Pitch motion","Volume motion","Fade in"};
+        label("Per-note modulation",20,113,12,muted); fm_controls_row(s,ids,names,4,width,136);
+        const char *waves[]={"Sine","Triangle","Saw","Square"};
+        if(button(waves[(int)s->lfo_shape],12,184,112,24,0)) open_context(19,c,(Vector2){mouse.x+windows.editors[4].rect.x,mouse.y+windows.editors[4].rect.y});
+        if(hover(12,184,112,24) && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) control_menu(&s->lfo_shape,0,3,0,"LFO shape");
+        label("Pitch motion adds vibrato; volume motion adds tremolo. PWM follows this LFO.",20,228,11,muted);
+    }
+    fm_footer(c,width,height);
+}
+static void fm_editor(float width,float height) {
+    FMSettings *s=&project.fm[instrument_channel];
+    if(s->engine==1) fm_dx_editor(width,height); else if(s->engine==2) fm_analog_editor(width,height); else fm_legacy_editor(width,height);
+    const char *engines[]={"Custom FM","Six-op FM","Analog"};
+    if(button(engines[(int)s->engine],width-132,52,120,22,0)) open_context(22,instrument_channel,(Vector2){mouse.x+windows.editors[4].rect.x,mouse.y+windows.editors[4].rect.y});
+    if(hover(width-132,52,120,22)) snprintf(status,sizeof status,"Choose the synthesis engine; factory presets select their own engine");
+}
+
 static void sampler(float width,float height) {
     int c=instrument_channel;
     Sampler *settings=&project.sampler[c];
@@ -3688,7 +3880,7 @@ int main(int argc,char **argv) {
             }
         }
         int modal=pattern_popup!=0 || context_kind!=0,dragging=sample_drag[0]!=0;
-        if(!IsMouseButtonDown(MOUSE_BUTTON_LEFT) || IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || modal) { route_drag=-1; control_drag=NULL; note_drag=NULL; velocity_drag=-1; }
+        if(!IsMouseButtonDown(MOUSE_BUTTON_LEFT) || IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || modal) { route_drag=-1; control_drag=NULL; note_drag=NULL; }
         if(!modal && !captured() && shortcut_down() && IsKeyPressed(KEY_Z)) undo_redo(IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)?1:-1);
 #ifndef __APPLE__
         if(!modal && !captured() && shortcut_down() && IsKeyPressed(KEY_Y)) undo_redo(1);
@@ -3788,9 +3980,19 @@ int main(int argc,char **argv) {
             piano_note_drag_update(piano_pan[pattern]+(mouse.x-r.x-60)/cw,(mouse.y-r.y-PIANO_GRID_TOP)/rh,grid_interval(cw));
         }
         if(velocity_drag>=0) {
-            Rect r=windows.editors[2].rect;
-            int velocity=fmaxf(1,fminf(127,(r.y+r.h-22-mouse.y)/.48f));
-            for(int i=0;i<NOTES;i++) { Note *n=&project.notes[pattern][piano_channel][i]; if(n->velocity && fabsf(n->start-velocity_drag)<.00001f) n->velocity=velocity; }
+            int button=velocity_drag?MOUSE_BUTTON_RIGHT:MOUSE_BUTTON_LEFT;
+            if(modal || pattern!=velocity_pattern || piano_channel!=velocity_channel ||
+               IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) velocity_drag=-1;
+            else {
+                Rect r=windows.editors[2].rect; float cw=(r.w-84)/piano_span[pattern];
+                Vector2 point={piano_pan[pattern]+(mouse.x-r.x-60)/cw,
+                    fmaxf(1,fminf(127,(r.y+r.h-22-mouse.y)/.48f))};
+                Vector2 from=velocity_drag?velocity_from:velocity_now;
+                notes_velocity(project.notes[pattern][piano_channel],velocity_drag?velocity_before:NULL,
+                    from.x,point.x,from.y,point.y,3/cw);
+                velocity_now=point;
+                if(!IsMouseButtonDown(button)) velocity_drag=-1;
+            }
         }
         if(route_drag>=0) {
             project.route[route_drag]=(int)fmaxf(0,fminf(project.insert_count,route_start+(int)((route_y-mouse.y)/3)));

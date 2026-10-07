@@ -412,5 +412,47 @@ int main(void) {
         for(int n=0;n<512;n++) { CHECK(isfinite(demo_pcm[n]) && fabsf(demo_pcm[n])<=1); peak=fmaxf(peak,fabsf(demo_pcm[n])); }
     }
     CHECK(peak>.05f); for(int c=0;c<CHANNELS;c++) free(demo[c].data);
+    /* Resize selected notes from a fixed snapshot, without changing pitches,
+       starts, or unselected notes; the shortest note bounds a group shrink. */
+    project_new(&p); p.notes[0][0][0]=(Note){60,100,0,2};
+    p.notes[0][0][1]=(Note){64,90,4,4}; p.notes[0][0][2]=(Note){67,80,8,3};
+    Note resize_before[NOTES]; memcpy(resize_before,p.notes[0][0],sizeof resize_before);
+    uint8_t resized[NOTES]={1,1};
+    CHECK(notes_resize(&p,0,0,resize_before,resized,3,1)==11);
+    CHECK(p.notes[0][0][0].length==5 && p.notes[0][0][1].length==7 && p.notes[0][0][2].length==3);
+    CHECK(p.notes[0][0][1].start==4 && p.notes[0][0][1].pitch==64);
+    notes_resize(&p,0,0,resize_before,resized,-20,1);
+    CHECK(p.notes[0][0][0].length==1 && p.notes[0][0][1].length==3);
+    notes_resize(&p,0,0,resize_before,resized,0,1);
+    CHECK(!memcmp(resize_before,p.notes[0][0],sizeof resize_before));
+    resize_before[0].length=0;
+    notes_resize(&p,0,0,resize_before,resized,0,.01f); CHECK(p.notes[0][0][0].length==0);
+    notes_resize(&p,0,0,resize_before,resized,.5f,.01f);
+    CHECK(p.notes[0][0][0].length==1.5f && p.notes[0][0][1].length==4.5f);
+    /* Hit testing follows drawing order. An erase-stroke snapshot continues
+       to hit the deleted top note, protecting the note underneath until a new
+       click takes a fresh snapshot. */
+    Note overlap[NOTES]={{60,100,0,4},{60,100,1,2},{64,100,1,2}};
+    Note stroke[NOTES]; memcpy(stroke,overlap,sizeof stroke);
+    CHECK(note_hit(overlap,1.5f,60)==1 && note_hit(overlap,.5f,60)==0);
+    overlap[note_hit(stroke,1.5f,60)].velocity=0;
+    CHECK(note_hit(stroke,1.5f,60)==1 && overlap[0].velocity==100);
+    CHECK(note_hit(overlap,1.5f,60)==0 && note_hit(overlap,1.5f,64)==2);
+    CHECK(note_hit(overlap,4,60)==-1);
+    /* Velocity paint follows crossed note starts, including chord members;
+       line previews restore notes that fall outside the revised ramp. */
+    Note velocities[NOTES]={{60,80,0,2},{64,80,2,2},{67,90,2,2},{69,70,4,2},{72,65,8,2}};
+    Note velocity_before[NOTES]; memcpy(velocity_before,velocities,sizeof velocities);
+    notes_velocity(velocities,NULL,0,4,20,100,0);
+    CHECK(velocities[0].velocity==20 && velocities[1].velocity==60 && velocities[2].velocity==60 && velocities[3].velocity==100 && velocities[4].velocity==65);
+    notes_velocity(velocities,velocity_before,0,4,20,100,0);
+    notes_velocity(velocities,velocity_before,0,2,20,100,0);
+    CHECK(velocities[1].velocity==100 && velocities[2].velocity==100 && velocities[3].velocity==70);
+    notes_velocity(velocities,velocity_before,4,0,100,20,0);
+    CHECK(velocities[0].velocity==20 && velocities[1].velocity==60 && velocities[3].velocity==100);
+    notes_velocity(velocities,NULL,2.05f,2.05f,0,200,.1f);
+    CHECK(velocities[1].velocity==127 && velocities[2].velocity==127);
+    notes_velocity(velocities,NULL,0,0,0,-10,0); CHECK(velocities[0].velocity==1);
+    CHECK(velocities[1].start==2 && velocities[1].pitch==64 && velocities[1].length==2);
     puts("Project versions 1-12, master pitch, clip lengths, extended patterns, chords and gates, routing, render consistency, mute and WAV duration passed."); return 0;
 }

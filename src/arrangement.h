@@ -11,7 +11,7 @@ typedef struct {
     uint8_t selected[LANES][CLIPS],before[LANES][CLIPS],selection_before[LANES][CLIPS];
     int additive;
     float zoom,view_start,range;
-    float lengths[LANES][CLIPS],starts[LANES][CLIPS],offsets[LANES][CLIPS];
+    float lengths[LANES][CLIPS],starts[LANES][CLIPS],offsets[LANES][CLIPS],caps[LANES][CLIPS];
     uint8_t moved[LANES][CLIPS];
 } Arrangement;
 int arrangement_place(Project *p,int lane,float bar,int source,float steps);

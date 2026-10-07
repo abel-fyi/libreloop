@@ -7,6 +7,15 @@
 #include <string.h>
 #define CHECK(x) do { if(!(x)) { fprintf(stderr,"Failed line %d: %s\n",__LINE__,#x); return 1; } } while(0)
 static Project project,loaded;
+static double wet_energy(float hz) {
+    Chorus c; chorus_reset(&c); double energy=0;
+    for(int i=0;i<RATE*2;i++) {
+        float x=.2f*sinf(6.28318530718f*hz*i/RATE),out[2]={x,x};
+        chorus_process(&c,(ChorusSettings){.513f,0},1,out);
+        if(i>=RATE) energy+=out[0]*out[0];
+    }
+    return energy/RATE;
+}
 int main(void) {
     Chorus a,b; chorus_reset(&a); chorus_reset(&b);
     ChorusSettings settings=chorus_default(); CHECK(chorus_valid(settings));
@@ -22,6 +31,25 @@ int main(void) {
         maximum_jump=fmaxf(maximum_jump,fabsf(stereo[0]-previous)); previous=stereo[0];
     }
     CHECK(stereo_difference>.01f && maximum_jump<.08f);
+    /* The wet path softens treble but preserves body. Zero depth must not
+       introduce stereo movement; a mono fold-down retains usable level. */
+    CHECK(wet_energy(100)>.019 && wet_energy(12000)<wet_energy(100)*.25);
+    chorus_reset(&b); double mono_energy=0,side_energy=0,dry_energy=0;
+    for(int i=0;i<RATE*3;i++) {
+        float x=.15f*sinf(i*.057595865f)+.05f*sinf(i*.1727876f),out[2]={x,x};
+        chorus_process(&b,chorus_default(),.5f,out);
+        if(i>=RATE) {
+            double mid=(out[0]+out[1])*.5,side=(out[0]-out[1])*.5;
+            mono_energy+=mid*mid; side_energy+=side*side; dry_energy+=x*x;
+        }
+    }
+    CHECK(mono_energy>dry_energy*.15 && side_energy>dry_energy*.01);
+    chorus_reset(&b);
+    for(int i=0;i<4096;i++) {
+        float x=.2f*sinf(i*.07f),out[2]={x,-x};
+        chorus_process(&b,(ChorusSettings){.513f,0},.5f,out);
+        CHECK(out[0]==-out[1]); /* Existing stereo content is not collapsed. */
+    }
     for(int i=0;i<RATE;i++) { float stereo[2]={.1f,-.1f}; chorus_process(&a,settings,0,stereo); if(i==RATE-1) CHECK(fabsf(stereo[0]-.1f)<.00001f && fabsf(stereo[1]+.1f)<.00001f); }
     chorus_reset(&a); CHECK(!a.ready && a.cursor==0 && a.delay[480][0]==0);
     project_new(&project); project.effect_type[0][0]=EFFECT_CHORUS; project.chorus[0][0]=settings; project.effect_mix[0][0]=.5f;

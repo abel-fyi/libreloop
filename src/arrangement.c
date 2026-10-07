@@ -84,7 +84,17 @@ void arrangement_press(Arrangement *a,Project *p,float x,float y,int right,int e
                 memcpy(a->offsets,p->clip_offsets,sizeof a->offsets);
                 memcpy(a->lengths,p->clip_steps,sizeof a->lengths);
             }
-            memset(a->selected,0,sizeof a->selected); a->selected[l][hit]=1; return;
+            if(a->gesture==STRETCH_CLIP || !a->selected[l][hit]) {
+                memset(a->selected,0,sizeof a->selected); a->selected[l][hit]=1;
+            }
+            if(a->gesture==SIZE_CLIP) {
+                memcpy(a->before,p->clips,sizeof a->before);
+                memcpy(a->starts,p->clip_starts,sizeof a->starts);
+                memcpy(a->offsets,p->clip_offsets,sizeof a->offsets);
+                memcpy(a->caps,p->clip_steps,sizeof a->caps);
+                for(int i=0;i<LANES;i++) for(int j=0;j<CLIPS;j++) a->lengths[i][j]=clip_length(p,i,j);
+            }
+            return;
         }
     }
     if(a->tool==SELECT && hit<0) { memset(a->selected,0,sizeof a->selected); a->gesture=BOX_SELECT; return; }
@@ -121,33 +131,53 @@ void arrangement_drag(Arrangement *a,Project *p,float x,float y) {
         }
         p->clip_starts[lane][b]=a->edge<0?fmaxf(0,a->size_start+(a->size_length-a->size_length*ratio)/STEPS):a->size_start;
     } else if(a->gesture==SIZE_CLIP) {
-        int lane=a->lane,b=a->bar; float start=a->size_start,q=quantum(a),offset=a->size_offset;
-        if(fabsf(x-a->x)<.00001f) {
-            p->clip_starts[lane][b]=start; p->clip_steps[lane][b]=a->size_cap;
-            p->clip_offsets[lane][b]=AUDIO_SOURCE(a->source_pattern)?offset*15/audio_source_bpm(p,a->source_pattern-PATTERNS)*channel_speed(p,a->source_pattern-PATTERNS):offset;
-            a->source_offset=p->clip_offsets[lane][b]; a->source_steps=AUDIO_SOURCE(a->source_pattern)?a->size_length*15/audio_source_bpm(p,a->source_pattern-PATTERNS):a->size_length;
-            return;
+        float q=quantum(a),delta=a->edge<0?snap_round((x-a->x)*STEPS,a->snap):
+            snap_round((x-a->size_start)*STEPS,a->snap)-a->size_length;
+        int unchanged=fabsf(x-a->x)<.00001f;
+        float low=-INFINITY,high=INFINITY;
+        for(int i=0;i<LANES;i++) for(int j=0;j<CLIPS;j++) if(a->selected[i][j] && a->before[i][j]) {
+            int source=a->before[i][j]-1;
+            float offset=AUDIO_SOURCE(source)?a->offsets[i][j]*audio_source_bpm(p,source-PATTERNS)/15/channel_speed(p,source-PATTERNS):a->offsets[i][j];
+            float length=a->lengths[i][j],minimum=fminf(q,length);
+            if(a->edge<0) {
+                low=fmaxf(low,-a->starts[i][j]*STEPS);
+                if(source<AUTOMATION_SOURCE) low=fmaxf(low,-offset);
+                high=fminf(high,length-minimum);
+            } else {
+                low=fmaxf(low,minimum-length);
+                if(source<PATTERNS) high=fminf(high,fmaxf(q,clip_source_steps(p,source)-offset)-length);
+            }
         }
-        float n=fmaxf(q,snap_round((x-start)*STEPS,a->snap));
-        if(a->edge<0) {
-            float delta=snap_round((x-a->x)*STEPS,a->snap);
-            delta=fmaxf(-start*STEPS,fminf(a->size_length-fminf(q,a->size_length),delta));
-            if(a->source_pattern>=AUTOMATION_SOURCE && delta<-offset) {
-                int index=a->source_pattern-AUTOMATION_SOURCE; float shift=-offset-delta;
-                Automation *curve=&p->automations[index];
+        delta=unchanged?0:fmaxf(low,fminf(high,delta));
+        if(a->edge<0 && delta<0) {
+            for(int i=0;i<LANES;i++) for(int j=0;j<CLIPS;j++) if(a->selected[i][j] && a->before[i][j]>AUTOMATION_SOURCE) {
+                int source=a->before[i][j]-1;
+                float shift=-a->offsets[i][j]-delta;
+                if(shift<=0) continue;
+                Automation *curve=&p->automations[source-AUTOMATION_SOURCE];
                 for(int n=0;n<curve->count;n++) curve->points[n].step+=shift;
                 curve->steps+=shift;
-                for(int l=0;l<LANES;l++) for(int slot=0;slot<CLIPS;slot++) if(p->clips[l][slot]==a->source_pattern+1) p->clip_offsets[l][slot]+=shift;
-                offset+=shift; a->size_offset+=shift;
+                for(int lane=0;lane<LANES;lane++) for(int slot=0;slot<CLIPS;slot++) if(p->clips[lane][slot]==source+1) {
+                    p->clip_offsets[lane][slot]+=shift; a->offsets[lane][slot]+=shift;
+                }
             }
-            delta=fmaxf(-offset,delta);
-            p->clip_starts[lane][b]=start+delta/STEPS; offset+=delta; n=a->size_length-delta;
-            p->clip_offsets[lane][b]=AUDIO_SOURCE(a->source_pattern)?offset*15/audio_source_bpm(p,a->source_pattern-PATTERNS)*channel_speed(p,a->source_pattern-PATTERNS):offset;
-        } else if(a->source_pattern<PATTERNS) n=fminf(fmaxf(q,clip_source_steps(p,a->source_pattern)-offset),n);
-        float available=fmaxf(0,clip_source_steps(p,a->source_pattern)-offset);
-        p->clip_steps[lane][b]=AUDIO_SOURCE(a->source_pattern)?(fabsf(n-available)<.0001f?0:n*15/audio_source_bpm(p,a->source_pattern-PATTERNS)):n;
-        a->source_offset=p->clip_offsets[lane][b];
-        a->source_steps=AUDIO_SOURCE(a->source_pattern)?n*15/audio_source_bpm(p,a->source_pattern-PATTERNS):n;
+        }
+        for(int i=0;i<LANES;i++) for(int j=0;j<CLIPS;j++) if(a->selected[i][j] && a->before[i][j]) {
+            int source=a->before[i][j]-1;
+            float conversion=AUDIO_SOURCE(source)?15/audio_source_bpm(p,source-PATTERNS)*channel_speed(p,source-PATTERNS):1;
+            float offset=a->offsets[i][j]/conversion,length=a->lengths[i][j]+(a->edge<0?-delta:delta);
+            p->clip_starts[i][j]=a->starts[i][j]+(a->edge<0?delta/STEPS:0);
+            p->clip_offsets[i][j]=a->offsets[i][j]+(a->edge<0?delta*conversion:0);
+            if(unchanged) p->clip_steps[i][j]=a->caps[i][j];
+            else {
+                if(a->edge<0) offset+=delta;
+                float available=fmaxf(0,clip_source_steps(p,source)-offset);
+                p->clip_steps[i][j]=AUDIO_SOURCE(source)?(fabsf(length-available)<.0001f?0:length*15/audio_source_bpm(p,source-PATTERNS)):length;
+            }
+        }
+        a->source_offset=p->clip_offsets[a->lane][a->bar];
+        float length=clip_length(p,a->lane,a->bar);
+        a->source_steps=AUDIO_SOURCE(a->source_pattern)?length*15/audio_source_bpm(p,a->source_pattern-PATTERNS):length;
     } else if(a->gesture==MOVE_CLIPS) {
         float dx=a->snap>0?snapped(a,x)-snapped(a,a->x):x-a->x; int dy=l-a->lane;
         float first=INFINITY; int top=LANES,bottom=-1;

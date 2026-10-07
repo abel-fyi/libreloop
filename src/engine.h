@@ -121,9 +121,13 @@ int insert_connect(Project *p,int source,int destination);
 int solo_any(const uint8_t *states,int count);
 void solo_toggle(uint8_t *states,int count,int selected);
 Note *note_at(Project *p,int pattern,int channel,float start,int pitch);
+int note_hit(const Note notes[NOTES],float step,int pitch); /* Last drawn note wins. */
+/* before != NULL makes a replaceable straight-line ramp; NULL paints a segment. */
+void notes_velocity(Note notes[NOTES],const Note before[NOTES],float from,float to,float from_value,float to_value,float radius);
 Note *note_add(Project *p,int pattern,int channel,float start,int pitch,float length);
 int note_move(Project *p,int pattern,int channel,Note *note,float start,int pitch,float limit);
 int notes_move(Project *p,int pattern,int channel,const Note before[NOTES],const uint8_t selected[NOTES],float dx,int dy,float limit);
+float notes_resize(Project *p,int pattern,int channel,const Note before[NOTES],const uint8_t selected[NOTES],float delta,float minimum);
 float channel_speed(const Project *p,int channel);
 float clip_source_steps(const Project *p,int source);
 float clip_offset_steps(const Project *p,int lane,int clip);

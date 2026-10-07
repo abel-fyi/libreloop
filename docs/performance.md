@@ -246,3 +246,21 @@ and 1.047 ms for the filled renderer. This measures that rendering fixture, not
 whole-app CPU usage or end-to-end input latency. Subpixel image checks verify
 fractional vertical movement; waveform tests cover pan and zoom-level continuity,
 cache/fallback agreement, stereo bounds and exclusion of trimmed-away peaks.
+
+## Six-operator FM and analog engine (Apple Silicon, 2026-10-07)
+
+Quick offline runs at 48 kHz stereo and 64-frame blocks measured approximately
+2.7% of one core for eight DX7 EP voices, 6.9% for 32, and 32.6% for 128.
+Analog pad voices, including their stereo chorus, measured 4.1% for eight and
+14.2% for 32. A separate run with native DX7 pitch/amp motion measured 5.9% for
+32 voices. The corresponding 32-voice p99 block times were 0.107 ms (DX7 EP)
+and 0.257 ms (analog) against a 1.333 ms block duration. These are short isolated
+engine runs, not hardware-dropout guarantees; results vary with patch envelopes,
+polyphony, input buffering and other machine load. The FM motion benchmark now
+sets native modulation depths/sensitivities rather than unused Custom FM fields.
+
+DX7 table initialization happens outside playback. Rendering settings pass by
+pointer rather than copying the full six-operator patch per sample. Audio/UI
+publication contains compact voice views rather than complete per-voice chorus
+buffers. Source code remains C; the independent C++ reference build is a private
+verification fixture, not an application dependency.

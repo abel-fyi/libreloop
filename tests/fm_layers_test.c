@@ -11,18 +11,18 @@ static int legacy_project(const char *source,const char *destination) {
     FILE *f=fopen(source,"r"); if(!f) return 0;
     char line[4096]; int count=0;
     while(fgets(line,sizeof line,f)) count++;
-    int extra=count-(INSERTS+1)*EFFECT_SLOTS*EQ_BANDS-CHANNELS;
+    int extra=count-(INSERTS+1)*EFFECT_SLOTS*EQ_BANDS-2*CHANNELS;
     rewind(f); FILE *out=fopen(destination,"w"); if(!out) { fclose(f); return 0; }
     int index=0;
     while(fgets(line,sizeof line,f)) {
         if(index==0) fputs("HOMEBEAT 37\n",out);
-        else if(index<extra || index>=extra+CHANNELS) fputs(line,out);
+        else if(index<extra || index>=extra+2*CHANNELS) fputs(line,out);
         index++;
     }
     fclose(f); return !fclose(out);
 }
 int main(void) {
-    FMSettings bright=fm_default(); CHECK(fm_valid(bright) && bright.attack_depth>0 && bright.mod_decay>bright.attack_decay);
+    FMSettings bright=fm_epiano(); CHECK(fm_valid(bright) && bright.attack_depth>0 && bright.mod_decay>bright.attack_decay);
     FMVoice strong,soft; FMSettings body=bright; body.attack_depth=0;
     fm_note_on(&strong,220,bright); fm_note_on(&soft,220,body);
     double high_strong=0,high_soft=0,tail_difference=0; float previous_strong=0,previous_soft=0;
@@ -49,14 +49,14 @@ int main(void) {
         for(int i=0;i<4000;i++) CHECK(isfinite(fm_sample(&strong,bright,16)));
     }
     CHECK(fm_lfo_value(.25f,0)>.99f && fm_lfo_value(.5f,1)==1 && fm_lfo_value(.25f,2)==-.5f && fm_lfo_value(.75f,3)==-1);
-    bright=fm_default(); bright.mod_release=.01f; bright.release=1;
+    bright=fm_epiano(); bright.mod_release=.01f; bright.release=1;
     fm_note_on(&strong,220,bright); for(int i=0;i<1000;i++) fm_sample(&strong,bright,1);
     fm_note_off(&strong,bright); for(int i=0;i<1000;i++) fm_sample(&strong,bright,1);
     CHECK(!strong.mod_envelope && strong.envelope>0);
-    project_new(&project); project.instrument[0]=INSTRUMENT_FM; project.fm[0]=fm_default();
+    project_new(&project); project.instrument[0]=INSTRUMENT_FM; project.fm[0]=fm_epiano();
     project.fm[0].carrier_ratio=2.5f; project.fm[0].body_pitch=-12; project.fm[0].attack_detune=23;
     project.fm[0].routing=1; project.fm[0].lfo_shape=2;
-    for(unsigned id=PARAM_FM_RATIO;id<=PARAM_FM_LAST;id++) {
+    for(unsigned id=PARAM_FM_RATIO;id<=PARAM_FM_BODY_PITCH;id++) {
         ParameterTarget target; const float *pointer=fm_parameter_pointer(&project.fm[0],id);
         CHECK(pointer && parameter_descriptor(id) && parameter_from_pointer(&project,pointer,&target) && target.parameter==id);
         float value,low,high; CHECK(parameter_info(&project,target,&value,&low,&high));
@@ -80,6 +80,20 @@ int main(void) {
     Sample samples[CHANNELS]={0}; float x[1024],y[1024];
     render(&automated,&project,samples,x,512); render(&manual,&loaded,samples,y,512);
     for(int i=0;i<1024;i++) CHECK(fabsf(x[i]-y[i])<.00001f);
+    /* Discrete FM targets must round both active and held curve values. */
+    for(int control=0;control<2;control++) {
+        project_new(&project); project.instrument[0]=INSTRUMENT_FM; project.fm[0]=fm_epiano();
+        project.fm[0].vibrato=100; project.fm[0].tremolo=.5f; project.fm[0].lfo_fade=0;
+        unsigned id=control?PARAM_FM_LFO_SHAPE:PARAM_FM_ROUTING;
+        int curve=automation_create(&project,(ParameterTarget){id,0,0},"Discrete",.01f); CHECK(curve>=0);
+        project.automations[curve].points[0].value=project.automations[curve].points[1].value=control?.5f:.25f;
+        project.clips[0][0]=AUTOMATION_SOURCE+curve+1; project.clips[1][0]=1; project.notes[0][0][0]=(Note){60,127,0,16};
+        loaded=project; loaded.automation_count=0; loaded.clips[0][0]=0;
+        *(float *)fm_parameter_pointer(&loaded.fm[0],id)=control?2:0;
+        player_reset(&automated); player_reset(&manual); automated.song=manual.song=1;
+        render(&automated,&project,samples,x,512); render(&manual,&loaded,samples,y,512);
+        for(int i=0;i<1024;i++) CHECK(fabsf(x[i]-y[i])<.00001f);
+    }
     remove("fm-layers.hbt"); remove("fm-legacy.hbt"); remove("fm-layers.llpreset"); remove("fm-old.llpreset");
     puts("Bright independent attack/body, tuning, release, LFO shapes, routing, legacy files and new automation passed."); return 0;
 }

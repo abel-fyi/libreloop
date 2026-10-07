@@ -490,8 +490,12 @@ on the right. Click **+ Chorus** to add it. Occupied slots have a dot beside the
 number. Slots process in numeric order, before the selected track's fader.
 
 **Rate** controls modulation speed (.05–5 Hz), **Depth** controls delay variation
-(0–8 ms), and **Mix** blends dry and delayed sound. New instances start at .8 Hz,
-3 ms depth and 50% mix. **Bypass** smoothly returns to dry; **x** removes the effect.
+(0–8 ms), and **Mix** blends dry and delayed sound. New instances start at .513 Hz,
+1.85 ms depth and 50% mix for a slow, wide vintage sound. Try .863 Hz at the
+same depth for a faster shimmer. Opposed stereo modulation and a filtered wet
+path give warmth without added hiss; this is inspired by vintage BBD choruses,
+rather than an exact circuit emulation. Existing chorus settings remain saved,
+but use the new sound. **Bypass** smoothly returns to dry; **x** removes the effect.
 Right-click any of the three knobs to enter a value, reset, or create automation.
 Settings are included in undo, project saves, recording and WAV export. Old
 projects load without effects; newly saved projects use format version 37.
@@ -643,3 +647,61 @@ picker), choose **Replace instrument…**, then choose the channel and instrumen
 Patterns containing several channels list their instruments individually. Right-drag
 on clip bodies continues to erase clips. Audio clips require a Sampler and cannot be
 switched to FM Synth; use their sample replacement action instead.
+
+### Six-operator FM and analog engines
+
+FM Synth now starts with **DX7 E.PIANO 1**. Its engine menu selects **Six-op FM**,
+**Analog**, or **Custom FM** (the earlier three-operator engine). **Factory** opens
+nine sounds: the original DX7 E.PIANO 1, BASS 1, MARIMBA and TUB BELLS patches,
+plus MK80-inspired EP, Juno-inspired Pad, Juno-inspired Bass, Chime EP and
+Better Chime. The inspired sounds are not exact Roland emulations. Better Chime
+uses a tine modulator anchored near 5.5 kHz at middle C, with 25% key tracking,
+reduced attack velocity
+sensitivity and no attack rate scaling. Its carrier and body follow the played
+note fully; the tine layer shifts three semitones per keyboard octave. Load/Save supports
+all engines. Old projects and presets retain their original Custom FM engine.
+
+Six-op FM provides six independently tuned sine operators and all 32 DX7 routing
+algorithms. Select Op 1–6 for output, coarse/fine tuning, detune, velocity response,
+rate scaling and frequency tuning mode. **Ratio** specifies a frequency ratio;
+**Hz at C4** specifies the frequency at middle C. Each operator has **Tracking**:
+0% keeps its frequency fixed, 50% moves half an octave per keyboard octave, and
+100% follows the keyboard normally. Middle C (C4) is the tuning anchor. Switching
+tuning modes starts at 100% for Ratio or 0% for Hz; adjust Tracking afterward.
+Tracking supports exact values, reset, automation, and project/preset saves.
+Older DX presets keep their original full tracking or fixed frequencies. **Envelope** shows four rates and four levels;
+higher rates are faster. Drag a graph point to change its rate and target level.
+**Keyboard** exposes breakpoint, left/right scaling and modulation sensitivity.
+**Global** contains algorithm, feedback, transpose, oscillator sync, LFO and pitch
+envelope controls. The factory BASS 1 patch intentionally transposes down an octave.
+Knobs share Reset, exact entry and automation. Engine selection is structural and
+is not an automation target; changing engines retires existing voices, with the
+new engine used by subsequent notes. Oscillator sync controls phase reuse.
+
+Analog provides detuned oscillators with saw, pulse, triangle or sine shapes,
+sub oscillator, noise, pulse width/PWM, a resonant 24 dB/octave filter and stereo
+chorus. The Amplitude and Filter tabs have independent envelopes. Motion controls
+vibrato, tremolo and the LFO used by PWM. Continuous analog controls slew to avoid
+hard parameter jumps. Saw and pulse oscillators use PolyBLEP correction; a fixed
+low-frequency DC blocker prevents pulse-width offsets consuming output headroom.
+
+Six-op FM is a C adaptation of Dexed's MSFA Modern engine. Factory voice renders
+match that reference, rather than claiming a bit-exact emulation of the original
+DX7's converters or Dexed's separate Mark I engine. Per-note native LFOs, normal
+LibreLoop mixer gain and project timing are retained. Patch data and DSP notices
+are listed in [third-party notices](third-party.md).
+
+Dragging a selected note’s right edge resizes every selected note by the same
+amount. Dragging a selected Playlist clip’s left or right resize edge adjusts the
+whole selection, preserving different lengths and relative spacing. The group
+stops when any member reaches its minimum size or a pattern/source boundary.
+
+Piano Roll right-click erases the topmost note at the pointer. Holding or dragging
+the eraser does not repeatedly delete notes hidden underneath that note; release
+and click again to erase the next overlapping note.
+
+In the Piano Roll velocity lane, left-drag paints velocities across note starts;
+fast strokes interpolate between cursor positions. Right-drag previews a straight
+velocity ramp from the press position to the cursor. Notes outside the current
+ramp retain their original values. Notes starting together share the edited value.
+Each stroke is one undo action.

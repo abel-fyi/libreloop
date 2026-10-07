@@ -21,7 +21,7 @@ def main():
     scenarios = ['idle_no_rack', 'idle_rack', 'idle_monitor', 'demo_song',
                  'sampler_32', 'sampler_128', 'song_100', 'sampler_32_stretch',
                  'sampler_32_chorus', 'sampler_32_eq', 'fm_8', 'fm_32',
-                 'fm_128', 'fm_legacy_32', 'fm_32_motion']
+                 'fm_128', 'fm_legacy_32', 'fm_32_motion', 'fm_analog_8', 'fm_analog_32']
     cases = [(scenario, 512) for scenario in scenarios]
     cases += [(scenario, 64) for scenario in ['idle_monitor', 'sampler_32', 'fm_8',
                                             'fm_32', 'fm_128', 'sampler_32_stretch', 'sampler_32_eq']]

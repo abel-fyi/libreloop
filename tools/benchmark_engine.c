@@ -28,7 +28,7 @@ int main(int argc,char **argv) {
     if(argc<2) { fprintf(stderr,"Usage: benchmark_engine SCENARIO [audio_seconds=10] [block_frames=512]\n"); return 1; }
     const char *name=argv[1]; double duration=argc>2?atof(argv[2]):10; unsigned block=argc>3?atoi(argv[3]):512;
     if(!isfinite(duration) || duration<=0 || duration>25 || block<32 || block>4096) return 1;
-    const char *scenarios[]={"idle_no_rack","idle_rack","idle_monitor","demo_song","sampler_32","sampler_128","song_100","sampler_32_stretch","sampler_32_chorus","sampler_32_eq","fm_8","fm_32","fm_128","fm_legacy_32","fm_32_motion"};
+    const char *scenarios[]={"idle_no_rack","idle_rack","idle_monitor","demo_song","sampler_32","sampler_128","song_100","sampler_32_stretch","sampler_32_chorus","sampler_32_eq","fm_8","fm_32","fm_128","fm_legacy_32","fm_32_motion","fm_analog_8","fm_analog_32"};
     int known=0;
     for(unsigned i=0;i<sizeof scenarios/sizeof *scenarios;i++) if(!strcmp(name,scenarios[i])) known=1;
     if(!known) { fprintf(stderr,"Unknown scenario\n"); return 1; }
@@ -51,8 +51,11 @@ int main(int argc,char **argv) {
         project.channel_count=32;
         for(int c=0;c<32;c++) { project.volume[c]=.02f; project.route[c]=0; }
         if(!strncmp(name,"fm",2)) {
-            FMSettings s=strstr(name,"legacy")?fm_legacy():fm_default();
-            if(strstr(name,"motion")) { s.vibrato=20; s.tremolo=.3f; }
+            FMSettings s=strstr(name,"legacy")?fm_legacy():strstr(name,"analog")?fm_factory(5):fm_default();
+            if(strstr(name,"motion")) {
+                s.dx7.value[139]=50; s.dx7.value[140]=50; s.dx7.value[143]=4;
+                for(int op=0;op<6;op++) s.dx7.value[op*21+14]=2;
+            }
             for(int c=0;c<32;c++) { project.instrument[c]=INSTRUMENT_FM; project.fm[c]=s; }
             for(int v=0;v<voices;v++) {
                 player.voices[v]=(Voice){.channel=v%32,.instrument=INSTRUMENT_FM,.remaining=-1,.gain=.1f,.lane=-1};
