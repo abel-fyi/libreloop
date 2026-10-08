@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "engine.h"
+#include <math.h>
 static const ParameterDescriptor descriptors[]={
     {PARAM_EQ_FIRST+0,"EQ 1 frequency",20,20000,60,PARAMETER_LOGARITHMIC},
     {PARAM_EQ_FIRST+1,"EQ 1 gain",-18,18,0,PARAMETER_CONTINUOUS},
@@ -133,6 +134,19 @@ int parameter_info(const Project *p,ParameterTarget t,float *v,float *lo,float *
     else if(t.parameter==PARAM_MASTER_MUTE) *v=!!p->master_mute;
     else return 0;
     return 1;
+}
+int parameter_write(Project *p,ParameterTarget t,float normalized) {
+    float v,lo,hi;if(!isfinite(normalized) || !parameter_info(p,t,&v,&lo,&hi))return 0;
+    normalized=fmaxf(0,fminf(1,normalized));
+    float *ptr=(float *)parameter_pointer(p,t,&lo,&hi);
+    if(ptr) {
+        float value=lo+normalized*(hi-lo);const ParameterDescriptor *d=parameter_descriptor(t.parameter);
+        if(d && (d->kind==PARAMETER_INTEGER || d->kind==PARAMETER_TOGGLE))value=roundf(value);
+        *ptr=value;
+    } else {
+        unsigned char *state=t.parameter==PARAM_CHANNEL_MUTE?&p->mute[t.owner]:t.parameter==PARAM_INSERT_MUTE?&p->insert_mute[t.owner]:&p->master_mute;
+        *state=(*state&~1u)|(normalized>=.5f);
+    }return 1;
 }
 int parameter_from_pointer(const Project *p,const void *ptr,ParameterTarget *t) {
     for(unsigned c=0;c<(unsigned)p->channel_count;c++) if(p->instrument[c]==INSTRUMENT_FM && p->fm[c].engine==1) {

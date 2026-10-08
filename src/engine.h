@@ -22,6 +22,8 @@ uint32_t next_source_color(const uint32_t *colors,int count);
 #define LANES 100
 #define BARS 16 /* initial Playlist view, not a timeline limit */
 #define CLIPS 64
+#define MIDI_BINDINGS 32
+typedef struct { unsigned channel,controller; ParameterTarget target; } MidiBinding;
 #define AUTOMATIONS 32
 #define AUTOMATION_POINTS 64
 #define AUTOMATION_SOURCE (PATTERNS+CHANNELS)
@@ -73,6 +75,8 @@ typedef struct {
     char insert_names[INSERTS][PATTERN_NAME];
     int automation_count;
     Automation automations[AUTOMATIONS];
+    int midi_binding_count;
+    MidiBinding midi_bindings[MIDI_BINDINGS];
     float swing; /* 0..1; delays offbeat sixteenths up to half a step */
 } Project;
 /* Sequencing/mixing state wraps device-owned DSP state. */
@@ -99,6 +103,7 @@ float timeline_thumb(float width,float span,float range);
 typedef struct { float lines,labels,band_alpha; } TimelineGrid;
 TimelineGrid timeline_grid_layout(float pixels_per_step);
 int parameter_info(const Project *p,ParameterTarget target,float *value,float *low,float *high);
+int parameter_write(Project *p,ParameterTarget target,float normalized);
 int parameter_from_pointer(const Project *p,const void *pointer,ParameterTarget *target);
 float automation_value(const Automation *a,float step);
 /* Song-position lookup for future built-in processors; 0 means no automation has started. */

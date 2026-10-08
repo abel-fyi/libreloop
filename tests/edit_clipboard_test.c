@@ -12,7 +12,9 @@ int main(void) {
     CHECK(clipboard_paste_notes(&c,&p,0,0,8,selected)==2);
     CHECK(p.notes[0][0][2].start==8 && p.notes[0][0][2].length==3 && p.notes[0][0][2].velocity==70);
     CHECK(p.notes[0][0][3].start==10 && p.notes[0][0][3].pitch==64 && selected[2] && selected[3] && !selected[0]);
-    before=p; CHECK(clipboard_paste_notes(&c,&p,0,0,8,selected)==-3 && !memcmp(&before,&p,sizeof p));
+    CHECK(clipboard_paste_notes(&c,&p,0,0,8,selected)==2);
+    CHECK(p.notes[0][0][4].start==8 && p.notes[0][0][4].pitch==60 && selected[4]);
+    CHECK(p.notes[0][0][2].velocity==70 && !selected[2]);
     CHECK(clipboard_paste_notes(&c,&p,0,0,40,selected)==2 && p.pattern_steps[0]>=43);
     for(int i=0;i<NOTES;i++) p.notes[0][0][i].velocity=100;
     before=p; CHECK(clipboard_paste_notes(&c,&p,0,0,80,selected)==-2 && !memcmp(&before,&p,sizeof p));

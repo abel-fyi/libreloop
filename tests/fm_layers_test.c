@@ -11,12 +11,12 @@ static int legacy_project(const char *source,const char *destination) {
     FILE *f=fopen(source,"r"); if(!f) return 0;
     char line[4096]; int count=0;
     while(fgets(line,sizeof line,f)) count++;
-    int extra=count-(INSERTS+1)*EFFECT_SLOTS*EQ_BANDS-2*CHANNELS;
+    int extra=count-(INSERTS+1)*EFFECT_SLOTS*EQ_BANDS-2*CHANNELS-1;
     rewind(f); FILE *out=fopen(destination,"w"); if(!out) { fclose(f); return 0; }
     int index=0;
     while(fgets(line,sizeof line,f)) {
         if(index==0) fputs("HOMEBEAT 37\n",out);
-        else if(index<extra || index>=extra+2*CHANNELS) fputs(line,out);
+        else if(index<extra || index>=extra+2*CHANNELS+1) fputs(line,out);
         index++;
     }
     fclose(f); return !fclose(out);

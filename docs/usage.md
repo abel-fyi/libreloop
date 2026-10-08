@@ -705,3 +705,43 @@ fast strokes interpolate between cursor positions. Right-drag previews a straigh
 velocity ramp from the press position to the cursor. Notes outside the current
 ramp retain their original values. Notes starting together share the edited value.
 Each stroke is one undo action.
+
+With the Piano Roll focused, Shift+Left/Right moves selected notes by one
+sixteenth-note step; Shift+Up/Down moves them by one semitone. Hold an arrow
+to repeat. These work with any Piano Roll tool and preserve the selection, note
+lengths, velocities and spacing. Moving right can extend the pattern. Boundaries
+block the whole move; each nudge supports undo/redo.
+
+Notes may share both pitch and start time when moved or pasted into a stack;
+they retain separate lengths, velocities and playback voices. The brush skips
+occupied starts to avoid accumulating notes while held. Piano Roll notes show
+selection highlights; playing or auditioning highlights the horizontal pitch row
+and piano key instead of changing the note fill.
+
+### MIDI keyboards and recording
+
+Open **View → MIDI / Recording** (or right-click Record) to select a USB,
+Bluetooth or virtual MIDI input provided by the OS. Refresh lists newly connected
+inputs; the selected input reconnects when it becomes available. Input choice and
+recording toggles are remembered on this machine. Select an instrument in the
+Channel Rack, Piano Roll or instrument editor to play it. Note velocity, sustain
+pedal and pitch wheel are supported. Live input supports 32 simultaneous MIDI
+voices in addition to computer-keyboard audition.
+
+The three buttons beside Record independently enable **Audio** (wave), **Notes**
+(piano), and **Automation** (curve). Audio records red-armed mixer tracks as before.
+Notes creates a new pattern and a Playlist clip at the recording origin; notes
+and their lengths appear while playing. Automation records learned MIDI CCs,
+pitch bend and mouse-dragged automatable controls into separate clips. Stop or
+Record finishes the take. MIDI takes use the selected instrument and a fixed
+recording tempo; their lanes are temporarily muted to prevent monitoring twice.
+Recording runs past the existing song end instead of looping.
+
+Right-click an automatable control → **MIDI Learn**, then move an absolute MIDI
+CC knob or fader. **Clear MIDI link** removes its assignments. Links are stored
+with the project and update when channels are removed. Escape cancels learning.
+Changing the input or disconnecting releases held notes. Recorded notes and
+curves can be edited afterward and recording is undoable. A project has eight
+patterns and 128 notes per channel/pattern; recording stops and keeps the take
+if that capacity is reached. Long controller curves are compacted within the
+existing 64-point automation limit. No external plugin hosting is involved.

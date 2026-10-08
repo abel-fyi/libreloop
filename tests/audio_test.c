@@ -223,6 +223,9 @@ int main(void) {
     /* FM uses the real keyboard/note mailbox, without needing sample PCM. */
     ready=0; project_new(&fixture); fixture.instrument[0]=INSTRUMENT_FM; fixture.fm[0]=fm_legacy(); fixture.fm[0].release=.01f;
     audio_stop(); audio_update(&fixture,0,0,0,1,1,0,0,0);
+    audio_key_velocity(64,0,69,40); callback(NULL,out,NULL,64);
+    CHECK(live.voices[64].gain==40/127.f && live.voices[64].fm.velocity==40/127.f);
+    audio_key_velocity(64,0,69,0);callback(NULL,out,NULL,64);
     audio_key(0,0,69,1); callback(NULL,out,NULL,64);
     CHECK(live.voices[0].instrument==INSTRUMENT_FM && fm_active(&live.voices[0].fm));
     CHECK(audio_key_position(0,0)>=0 && out[20]!=0);
@@ -240,6 +243,13 @@ int main(void) {
     audio_update(&fixture,1,1,0,1,1,0,0,0); callback(NULL,out,NULL,64);
     audio_pattern_activity(0,activity); CHECK(activity[0][0] && player.voices[0].note_id==1);
     audio_pattern_activity(1,activity); CHECK(!activity[0][0]);
+    uint64_t before_pattern_change=player.frame;
+    audio_update(&fixture,1,1,1,0,1,0,0,0);callback(NULL,out,NULL,64);
+    CHECK(player.frame==before_pattern_change+64); /* Selecting a MIDI take cannot restart Song. */
+    audio_record_mode(1);player.frame=96000-32;callback(NULL,out,NULL,64);
+    CHECK(player.frame>96000); /* MIDI recording runs beyond the song's end. */
+    audio_record_mode(0);
+
     fixture.lane_mute[0]=1; audio_update(&fixture,1,1,0,0,1,0,0,0); callback(NULL,out,NULL,64);
     audio_pattern_activity(0,activity); CHECK(!activity[0][0]);
     fixture.lane_mute[0]=0; audio_update(&fixture,1,0,0,1,1,0,0,0); callback(NULL,out,NULL,64);

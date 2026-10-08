@@ -136,6 +136,14 @@ int channel_delete(Project *p,int c) {
             else if(t->owner>(unsigned)c) t->owner--;
         }
     }
+    for(int i=p->midi_binding_count-1;i>=0;i--) {
+        ParameterTarget *t=&p->midi_bindings[i].target;
+        if(t->parameter<=PARAM_CHANNEL_PITCH || t->parameter==PARAM_CHANNEL_MUTE || t->parameter==PARAM_PITCH_RANGE ||
+           (t->parameter>=PARAM_FM_RATIO && t->parameter<=PARAM_FM_LAST) || (t->parameter>=PARAM_DX7_FIRST && t->parameter<=PARAM_DX7_LAST)) {
+            if(t->owner==(unsigned)c) {memmove(&p->midi_bindings[i],&p->midi_bindings[i+1],(--p->midi_binding_count-i)*sizeof p->midi_bindings[0]);memset(&p->midi_bindings[p->midi_binding_count],0,sizeof p->midi_bindings[0]);}
+            else if(t->owner>(unsigned)c)t->owner--;
+        }
+    }
     int last=--p->channel_count; p->instrument[last]=INSTRUMENT_SAMPLER; p->fm[last]=fm_default(); p->channel_colors[last]=0; p->channel_pitch[last]=0; p->pitch_range[last]=2; p->channel_audio[last]=0; p->audio_seconds[last]=0; p->sampler[last]=(Sampler){.time=1,.length=1}; p->volume[last]=1; p->pan[last]=0; p->mute[last]=p->route[last]=0;
     memset(p->paths[last],0,sizeof p->paths[last]); memset(p->channel_names[last],0,PATTERN_NAME); snprintf(p->channel_names[last],PATTERN_NAME,"Channel %d",last+1);
     for(int pat=0;pat<PATTERNS;pat++) memset(p->notes[pat][last],0,sizeof p->notes[pat][last]);
@@ -202,9 +210,8 @@ void notes_velocity(Note notes[NOTES],const Note before[NOTES],float from,float 
 }
 Note *note_add(Project *p,int pat,int channel,float start,int pitch,float length) {
     if(pat<0 || pat>=PATTERNS || channel<0 || channel>=CHANNELS || !isfinite(start) || !isfinite(length) || start<0 || start>=p->pattern_steps[pat] || pitch<0 || pitch>127 || length<0 || length>p->pattern_steps[pat]-start) return NULL;
-    Note *n=note_at(p,pat,channel,start,pitch); if(n) return n;
     for(int i=0;i<NOTES;i++) if(!p->notes[pat][channel][i].velocity) {
-        n=&p->notes[pat][channel][i]; *n=(Note){pitch,100,start,length}; return n;
+        Note *n=&p->notes[pat][channel][i]; *n=(Note){pitch,100,start,length}; return n;
     }
     return NULL;
 }
@@ -212,7 +219,6 @@ int note_move(Project *p,int pat,int channel,Note *note,float start,int pitch,fl
     if(pat<0 || pat>=PATTERNS || channel<0 || channel>=p->channel_count || !note || !note->velocity || limit>p->pattern_steps[pat]) return 0;
     float length=note->length?note->length:1;
     if(!isfinite(start) || !isfinite(limit) || start<0 || start+length>limit || pitch<0 || pitch>127) return 0;
-    Note *other=note_at(p,pat,channel,start,pitch); if(other && other!=note) return 0;
     note->start=start; note->pitch=pitch; return 1;
 }
 int notes_move(Project *p,int pat,int channel,const Note before[NOTES],const uint8_t selected[NOTES],float dx,int dy,float limit) {
@@ -220,10 +226,6 @@ int notes_move(Project *p,int pat,int channel,const Note before[NOTES],const uin
     for(int i=0;i<NOTES;i++) if(selected[i]) {
         Note n=before[i]; float start=n.start+dx; int pitch=n.pitch+dy;
         if(!n.velocity || start<0 || start+(n.length?n.length:1)>limit || pitch<0 || pitch>127) return 0;
-        for(int j=0;j<NOTES;j++) if(!selected[j]) {
-            Note other=p->notes[pat][channel][j];
-            if(other.velocity && other.pitch==pitch && fabsf(other.start-start)<.00001f) return 0;
-        }
     }
     for(int i=0;i<NOTES;i++) if(selected[i]) { p->notes[pat][channel][i]=before[i]; p->notes[pat][channel][i].start+=dx; p->notes[pat][channel][i].pitch+=dy; }
     return 1;

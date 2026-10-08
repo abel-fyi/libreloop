@@ -39,3 +39,6 @@ ROM1A sounds: E.PIANO 1, BASS 1, MARIMBA and TUB BELLS. The source bank is
 These are parameter values, with no sampled audio or ROM firmware. MK80 and Juno
 preset names describe LibreLoop's own inspired variations; no Roland samples,
 firmware or ZENOLOGY content are included.
+
+Native MIDI links Apple CoreMIDI on macOS and the system ALSA userspace library
+(LGPL-2.1-or-later) on Linux; neither implementation is vendored.

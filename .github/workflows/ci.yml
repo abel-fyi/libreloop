@@ -23,7 +23,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake pkg-config libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev xvfb libxtst6
+          sudo apt-get install -y cmake pkg-config libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev libasound2-dev xvfb libxtst6
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
       - name: Build

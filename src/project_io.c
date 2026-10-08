@@ -13,7 +13,8 @@ static int read_line(FILE *f,char *out,size_t capacity) {
     *newline=0; memset(out,0,capacity); memcpy(out,line,strlen(line)+1); return 1;
 }
 int project_save(const char *path,const Project *p) {
-    if(!automation_valid(p)) return 0;
+    if(!automation_valid(p) || p->midi_binding_count<0 || p->midi_binding_count>MIDI_BINDINGS) return 0;
+    for(int i=0;i<p->midi_binding_count;i++){MidiBinding b=p->midi_bindings[i];if(b.channel>15 || b.controller>119 || !parameter_descriptor(b.target.parameter) || b.target.owner>INSERTS || b.target.slot>=EFFECT_SLOTS)return 0;}
     for(int c=0;c<CHANNELS;c++) if(p->instrument[c]>INSTRUMENT_FM || !fm_valid(p->fm[c]) || (p->instrument[c]==INSTRUMENT_FM && p->channel_audio[c])) return 0;
     for(int bus=0;bus<=INSERTS;bus++) for(int slot=0;slot<EFFECT_SLOTS;slot++)
         if(p->effect_type[bus][slot]>EFFECT_EQ || !chorus_valid(p->chorus[bus][slot]) || !equalizer_valid(p->eq[bus][slot])) return 0;
@@ -45,7 +46,7 @@ int project_save(const char *path,const Project *p) {
     AtomicFile output; if(!atomic_file_open(&output,path)) return 0;
     FILE *f=output.file;
     for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) if(!isfinite(p->clip_offsets[l][b]) || p->clip_offsets[l][b]<0 || p->clip_offsets[l][b]>1e15f) { atomic_file_abort(&output); return 0; }
-    fprintf(f,"HOMEBEAT 40\n%.9g %.9g %d\n",p->bpm,p->master,p->channel_count);
+    fprintf(f,"HOMEBEAT 41\n%.9g %.9g %d\n",p->bpm,p->master,p->channel_count);
     for(int c=0;c<CHANNELS;c++) fprintf(f,"%.9g %.9g %u\n",p->volume[c],p->pan[c],p->mute[c]);
     for(int a=0;a<PATTERNS;a++) for(int c=0;c<CHANNELS;c++) for(int i=0;i<NOTES;i++) {
         Note n=p->notes[a][c][i]; fprintf(f,"%u %u %.9g %.9g\n",n.pitch,n.velocity,n.start,n.length);
@@ -100,6 +101,8 @@ int project_save(const char *path,const Project *p) {
         for(int i=0;i<DX7_PARAMETERS;i++) fprintf(f,"%.9g ",p->fm[c].dx7.value[i]);
         fputc('\n',f);
     }
+    fprintf(f,"%d\n",p->midi_binding_count);
+    for(int i=0;i<p->midi_binding_count;i++){MidiBinding b=p->midi_bindings[i];fprintf(f,"%u %u %u %u %u\n",b.channel,b.controller,b.target.parameter,b.target.owner,b.target.slot);}
     for(int bus=0;bus<=INSERTS;bus++) for(int slot=0;slot<EFFECT_SLOTS;slot++) for(int b=0;b<EQ_BANDS;b++) {
         EQBand v=p->eq[bus][slot].bands[b]; fprintf(f,"%.9g %.9g %.9g %u\n",v.frequency,v.gain,v.q,v.shape);
     }
@@ -113,7 +116,7 @@ int project_load(const char *path,Project *p) {
     for(int i=0;i<INSERTS;i++) q.insert_volume[i]=1;
     for(int c=0;c<4;c++) q.route[c]=c+1;
     for(int c=0;c<CHANNELS;c++) q.fm[c]=fm_legacy();
-    int ok=fscanf(f,"%31s %d",magic,&version)==2 && !strcmp(magic,"HOMEBEAT") && version>=1 && version<=40;
+    int ok=fscanf(f,"%31s %d",magic,&version)==2 && !strcmp(magic,"HOMEBEAT") && version>=1 && version<=41;
     ok=ok && fscanf(f,"%f %f",&q.bpm,&q.master)==2 && isfinite(q.bpm) && q.bpm>=30 && q.bpm<=300 && isfinite(q.master) && q.master>=0 && q.master<=(version>=18?MIXER_GAIN_MAX:1);
     if(version>=12) ok=ok && fscanf(f,"%d",&q.channel_count)==1 && q.channel_count>=0 && q.channel_count<=CHANNELS;
     int channels=version>=12?CHANNELS:4,inserts=version>=12?INSERTS:16,clips=version>=14?CLIPS:BARS;
@@ -243,6 +246,13 @@ int project_load(const char *path,Project *p) {
         for(int i=0;ok && i<(version>=40?DX7_PARAMETERS:DX7_NATIVE_PARAMETERS);i++) ok=fscanf(f,"%f",&q.fm[c].dx7.value[i])==1;
         if(version<40) dx7_legacy_tracking(&q.fm[c].dx7);
         ok=ok && fm_valid(q.fm[c]);
+    }
+    if(version>=41) {
+        ok=ok && fscanf(f,"%d",&q.midi_binding_count)==1 && q.midi_binding_count>=0 && q.midi_binding_count<=MIDI_BINDINGS;
+        for(int i=0;ok && i<q.midi_binding_count;i++) {
+            MidiBinding *b=&q.midi_bindings[i];
+            ok=fscanf(f,"%u %u %u %u %u",&b->channel,&b->controller,&b->target.parameter,&b->target.owner,&b->target.slot)==5 && b->channel<16 && b->controller<120 && parameter_descriptor(b->target.parameter) && b->target.owner<=INSERTS && b->target.slot<EFFECT_SLOTS;
+        }
     }
     if(version>=35) for(int bus=0;ok && bus<=INSERTS;bus++) for(int slot=0;ok && slot<EFFECT_SLOTS;slot++) {
         if(version==35) q.eq[bus][slot]=equalizer_legacy();

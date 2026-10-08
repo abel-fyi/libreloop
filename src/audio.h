@@ -12,6 +12,7 @@ void audio_preview(Sample sample);
 int audio_stop(void); /* Stops all playback; returns whether anything was playing. */
 double audio_preview_position(Sample sample);
 void audio_note(int channel,Note note);
+void audio_key_velocity(int slot,int channel,int pitch,int velocity);
 void audio_key(int slot,int channel,int pitch,int down);
 double audio_key_position(int slot,int channel);
 uint64_t audio_position(void);
@@ -28,6 +29,7 @@ int audio_devices(int capture,char names[][128],int capacity);
 /* One post-fader stereo take per bus. Start/end run on the UI thread. */
 int audio_record_start(const Project *p,const int buses[],int count,float start_step,float output_volume,char error[256]);
 void audio_record_end(void);
+void audio_record_mode(int enabled); /* Free-running transport for MIDI takes. */
 unsigned audio_record_read(int take,float *stereo,unsigned frames);
 int audio_record_failed(void);
 void audio_metronome(int enabled);

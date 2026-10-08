@@ -15,6 +15,8 @@
 #include "project_document.h"
 #include "text_fonts.h"
 #include "recording.h"
+#include "midi_input.h"
+#include "atomic_file.h"
 #include "preset.h"
 #include "spectrum.h"
 #define GLFW_INCLUDE_NONE
@@ -89,6 +91,20 @@ static Project project;
 static History edit_history;
 static Sample samples[CHANNELS],originals[CHANNELS];
 static RecordingSession recording_ui;
+static MidiTake midi_take;
+enum { RECORD_AUDIO=1,RECORD_NOTES=2,RECORD_AUTOMATION=4 };
+static unsigned record_mask=RECORD_AUDIO;
+static int midi_record_target;
+static int recording_active(void) {return recording_ui.active || midi_take.active;}
+static MidiDevice midi_devices[64];static int midi_device_count,midi_connected,midi_scroll,midi_learning;
+static char midi_selected[128],midi_selected_name[128],midi_settings_path[PATH_MAX];static double midi_refresh_time;
+static ParameterTarget midi_learn_target;
+typedef struct {int used,pressed,mchannel,pitch,target,velocity;} MidiHeld;
+static MidiHeld midi_keys[32];static unsigned char midi_sustain[16];
+static void midi_panic(void);static void midi_initialize(void);static void midi_poll(void);
+static void midi_refresh(void);static void midi_select(int index);static void midi_save_settings(void);
+static int midi_target(void);static void recording_start_audio(void);
+
 static void recording_finish(void);
 static void recording_poll(void);
 static void recording_start(void);
@@ -217,7 +233,7 @@ static int rack_channel_at(int row) { int rows[CHANNELS],count=rack_channels(row
 static int rack_scroll,context_kind,context_target,context_opened,instrument_replace_scroll;
 static Vector2 context_position;
 static int pattern_popup,popup_opened,rename_pattern,rename_select_all,popup_drag;
-static Vector2 popup_position[13],popup_offset;
+static Vector2 popup_position[14],popup_offset;
 static char rename_text[PATTERN_NAME],folder_text[PATH_MAX],number_text[64];
 static float *number_target,number_low,number_high,number_default;
 static const char *number_name;
@@ -793,7 +809,7 @@ static void text_input(char *text,size_t capacity) {
 static const char *device_caption(const char *name) { return !*name?"None":!strcmp(name,"@default")?"Default device":name; }
 static void device_button(int io,int x,int y,int width) {
     const char *selected=project.audio_io[mixer_selected][io];
-    if(button_color(fit_text(TextFormat("%s: %s",io?"Out":"In",device_caption(selected)),width-30,13),x,y,width,22,0,ui_theme.browser) && !recording_ui.active) {
+    if(button_color(fit_text(TextFormat("%s: %s",io?"Out":"In",device_caption(selected)),width-30,13),x,y,width,22,0,ui_theme.browser) && !recording_active()) {
         device_target=mixer_selected; device_io=io; device_scroll=0;
         device_count=audio_devices(!io,device_names,64);
         open_popup(8);
@@ -868,9 +884,10 @@ static void draw_popup(void) {
         return;
     }
     if(pattern_popup==7) {
-        int x=60,y=34,w=304,h=176;
+        int x=60,y=34,w=304,h=212;
         if(IsKeyPressed(KEY_ESCAPE) || (!popup_opened && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !hover(x,y,w,h))) { pattern_popup=0; return; }
         ui_frame((Rectangle){x,y,w,h});
+        if(button("MIDI / Recording",x+6,y+180,w-12,25,0) && !popup_opened){midi_refresh();open_popup(13);return;}
         label("Appearance",x+10,y+9,12,muted);
         for(int light=0;light<2;light++) {
             if(button(light?"Light":"Dark",x+6,y+30+light*28,w-12,25,ui_theme.light==light) && !popup_opened) {
@@ -896,9 +913,9 @@ static void draw_popup(void) {
         if(button("Cancel",x+252,y+100,100,28,0) || IsKeyPressed(KEY_ESCAPE)) { document.pending_action=0; pattern_popup=0; }
         return;
     }
-    int picker=pattern_popup==11,folder=pattern_popup==3,help=pattern_popup==4,number=pattern_popup==5,w=picker?700:pattern_popup==6?320:help?660:number?360:folder?620:260,h=picker?(file_confirm?180:500):help?645:116;
+    int picker=pattern_popup==11,folder=pattern_popup==3,help=pattern_popup==4,number=pattern_popup==5,w=pattern_popup==13?460:picker?700:pattern_popup==6?320:help?660:number?360:folder?620:260,h=pattern_popup==13?390:picker?(file_confirm?180:500):help?645:116;
     float scale=ui_scale();
-    if(help || picker) h=fminf(h,GetScreenHeight()/scale-56);
+    if(help || picker || pattern_popup==13) h=fminf(h,GetScreenHeight()/scale-56);
     Vector2 *position=&popup_position[pattern_popup];
     if(position->x<0 || position->y<0) *position=(Vector2){(GetScreenWidth()/scale-w)/2,(GetScreenHeight()/scale-h)/2};
     if(popup_drag) {
@@ -917,6 +934,23 @@ static void draw_popup(void) {
     if(!popup_drag && !popup_opened && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !hover(x,y,w,h)) { if(pattern_popup==11) document.pending_action=0; pattern_popup=0; return; }
     input_enabled=!popup_drag;
     if(picker) { draw_file_picker(x,y,w,h,scale); EndScissorMode(); return; }
+    if(pattern_popup==13) {
+        label("MIDI / Recording",x+8,y+3,13,ink);
+        int enabled=input_enabled;if(recording_active())input_enabled=0;
+        const char *modes[]={"Audio","Notes","Automation"};
+        for(int i=0;i<3;i++)if(button(modes[i],x+12+i*145,y+30,140,28,record_mask&(1u<<i))){record_mask^=1u<<i;midi_save_settings();}
+        int target=midi_target();label(fit_text(TextFormat("Keyboard plays: %s",target>=0 && target<project.channel_count?project.channel_names[target]:"Select an instrument"),w-24,12),x+12,y+68,12,ink);
+        label("Select a channel in the Rack or Piano Roll to play it.",x+12,y+88,11,muted);
+        if(button("Refresh inputs",x+12,y+112,140,24,0))midi_refresh();
+        if(button("Clear MIDI links",x+160,y+112,140,24,0)){project.midi_binding_count=0;memset(project.midi_bindings,0,sizeof project.midi_bindings);midi_learning=0;}
+        label(midi_connected?"Input connected":"Select an input (USB or virtual MIDI)",x+12,y+145,11,midi_connected?accent:muted);
+        int visible=fmaxf(1,(h-180)/24);if(hover(x+12,y+168,w-24,h-180))midi_scroll=fmaxf(0,fminf(fmaxf(0,midi_device_count+1-visible),midi_scroll-GetMouseWheelMove()));
+        for(int row=0;row<visible && row+midi_scroll<=midi_device_count;row++) {
+            int i=row+midi_scroll-1;const char *name=i<0?"None":midi_devices[i].name;
+            if(button(fit_text(name,w-40,12),x+12,y+168+row*24,w-24,22,i<0?!midi_selected[0]:!strcmp(midi_selected,midi_devices[i].id)))midi_select(i);
+        }
+        input_enabled=enabled;return;
+    }
     if(pattern_popup==6) {
         label("Add instrument",x+8,y+3,13,ink);
         if(button("Sampler",x+12,y+30,w-24,30,0)) { add_instrument(INSTRUMENT_SAMPLER); pattern_popup=0; }
@@ -925,7 +959,7 @@ static void draw_popup(void) {
     }
     if(help) {
         label("Help - Keybindings",x+8,y+3,13,ink);
-        int maximum=645-h;
+        int maximum=767-h;
         if(hover(x,y+TITLE,w,h-TITLE)) help_scroll-=GetMouseWheelMove()*36;
         help_scroll=fmaxf(0,fminf(maximum,help_scroll));
         BeginScissorMode(x*scale,(y+TITLE)*scale,w*scale,(h-TITLE-30)*scale);
@@ -961,6 +995,10 @@ static void draw_popup(void) {
         ly+=12; help_group(left,&ly,"Piano Roll velocity lane");
         help_binding(left,&ly,"Left-drag","Paint note velocities");
         help_binding(left,&ly,"Right-drag","Draw a straight velocity ramp");
+        ly+=12; help_group(left,&ly,"MIDI & recording");
+        help_binding(left,&ly,"Record type icons","Audio / Notes / Automation");
+        help_binding(left,&ly,"Right-click Record","Choose MIDI input / settings");
+        help_binding(left,&ly,"Control right-click","MIDI Learn: move a CC knob");
         help_group(right,&ry,"Editing & selection");
 #ifdef __APPLE__
         help_binding(right,&ry,"Cmd + drag","Temporarily box-select");
@@ -969,6 +1007,8 @@ static void draw_popup(void) {
 #endif
         help_binding(right,&ry,"Shift-click","Add / remove selection");
         help_binding(right,&ry,"Shift-drag empty","Add selection rectangle");
+        help_binding(right,&ry,"Shift + Left/Right","Move notes one step");
+        help_binding(right,&ry,"Shift + Up/Down","Move notes one semitone");
 #ifdef __APPLE__
         help_binding(right,&ry,"Cmd + C / X","Copy / cut selection");
         help_binding(right,&ry,"Cmd + V","Paste at start marker");
@@ -1352,7 +1392,7 @@ static void delete_channel(int c) {
     audio_channels(&project,samples); sample_free(old); sample_free(raw); reset=1;
 }
 static void install_project(Project next,Sample fresh[CHANNELS],Sample processed[CHANNELS],const char *filename) {
-    recording_finish();
+    recording_finish();midi_panic();midi_learning=0;
     sample_epoch++; audio_stop(); fm_graph_drag=-1;
     sample_free(audition); free(audition_wave.tree); audition_wave=(Waveform){0}; audition=(Sample){0}; audition_path[0]=0; browser_progress=-1;
     memset(keyboard_notes,0,sizeof keyboard_notes); piano_note_length=2; if(edit_clipboard.kind==COPY_CLIPS) edit_clipboard.kind=COPY_EMPTY;
@@ -1614,7 +1654,7 @@ static int history_checkpoint(void) {
     return 1;
 }
 static void undo_redo(int direction) {
-    if(recording_ui.active || captured()) { snprintf(status,sizeof status,"Finish the current edit or recording before undo/redo."); return; }
+    if(recording_active() || captured()) { snprintf(status,sizeof status,"Finish the current edit or recording before undo/redo."); return; }
     if(!history_checkpoint()) return;
     uint8_t keep[CHANNELS]={0}; uint64_t current_stamps[CHANNELS]; history_stamps(current_stamps);
     Project next; Sample retained[CHANNELS],fresh[CHANNELS]={0},processed[CHANNELS]={0};
@@ -2484,6 +2524,7 @@ static void playlist(float width,float height,float scale) {
 }
 /* Edit actions target the focused editor; text dialogs retain their own clipboard. */
 static void edit_selection(int action) {
+    if(midi_take.active){snprintf(status,sizeof status,"Finish the MIDI take before editing notes or clips");return;}
     int id=windows.focused;
     if((id!=1 && id!=2) || !windows.editors[id].visible || browser_focus || captured()) { snprintf(status,sizeof status,"Focus the Piano Roll or Arrangement to edit its selection"); return; }
     if(action==3) {
@@ -2506,22 +2547,35 @@ static void edit_selection(int action) {
     if(result>0) { if(id==2) { piano_channels[pattern][piano_channel]=1; if(arrangement.source_pattern==pattern) arrangement.source_steps=project.pattern_steps[pattern]; } snprintf(status,sizeof status,"Pasted %d %s at the start marker",result,id==2?"notes":"clips"); }
     else snprintf(status,sizeof status,"%s",result==-1?"Clip sources changed; copy the selection again":result==-2?"No room for the entire selection":result==-3?"Paste position is occupied; move the start marker to empty space":result==-4?"Selection does not fit at this destination":"Copy a selection from this editor first");
 }
-static void piano_octave(int direction) {
-    if(windows.focused!=2 || !windows.editors[2].visible || piano_tool!=PENCIL || captured() || browser_focus) return;
-    uint8_t *selected=note_selected[pattern][piano_channel]; int count=0,delta=direction*12,low=127,high=0;
+static void piano_shift(float dx,int dy,const char *action) {
+    if(windows.focused!=2 || !windows.editors[2].visible || captured() || browser_focus || midi_take.active) return;
+    uint8_t *selected=note_selected[pattern][piano_channel]; int count=0,low=127,high=0;
+    float end=edit_steps();
     for(int i=0;i<NOTES;i++) if(selected[i] && project.notes[pattern][piano_channel][i].velocity) {
-        int pitch=project.notes[pattern][piano_channel][i].pitch+delta; count++;
+        Note n=project.notes[pattern][piano_channel][i]; int pitch=n.pitch+dy; count++;
         low=fminf(low,pitch); high=fmaxf(high,pitch);
-        if(pitch<0 || pitch>127) { snprintf(status,sizeof status,"Octave shift stopped at the pitch limit"); return; }
+        if(pitch<0 || pitch>127 || n.start+dx<0) { snprintf(status,sizeof status,"Move stopped at the note or timeline limit"); return; }
+        end=fmaxf(end,n.start+dx+(n.length?n.length:1));
     }
-    if(!count) { snprintf(status,sizeof status,"Select notes to shift an octave"); return; }
+    if(!count) { snprintf(status,sizeof status,"Select notes to move"); return; }
     if(!history_checkpoint()) return;
     Note before[NOTES]; memcpy(before,project.notes[pattern][piano_channel],sizeof before);
-    if(!notes_move(&project,pattern,piano_channel,before,selected,0,delta,edit_steps())) { snprintf(status,sizeof status,"Octave shift blocked by another note"); return; }
-    if(high>piano_top) piano_top=high;
-    else if(low<piano_top-piano_min_top()) piano_top=low+piano_min_top();
-    piano_top=fmaxf(piano_min_top(),fminf(127,piano_top));
-    snprintf(status,sizeof status,"Shifted %d notes %s one octave",count,direction>0?"up":"down");
+    float previous=project.pattern_steps[pattern];
+    project.pattern_steps[pattern]=end>previous?ceilf(end/STEPS)*STEPS:previous;
+    if(!notes_move(&project,pattern,piano_channel,before,selected,dx,dy,project.pattern_steps[pattern])) {
+        project.pattern_steps[pattern]=previous;
+        snprintf(status,sizeof status,"Move stopped at the note or timeline limit"); return;
+    }
+    if(arrangement.source_pattern==pattern) arrangement.source_steps=project.pattern_steps[pattern];
+    if(dy) {
+        if(high>piano_top) piano_top=high;
+        else if(low<piano_top-piano_min_top()) piano_top=low+piano_min_top();
+        piano_top=fmaxf(piano_min_top(),fminf(127,piano_top));
+    }
+    snprintf(status,sizeof status,"Moved %d notes %s",count,action);
+}
+static void piano_octave(int direction) {
+    if(piano_tool==PENCIL) piano_shift(0,direction*12,direction>0?"up an octave":"down an octave");
 }
 static int piano_inactive(float step) { float end=edit_steps(); return step>=end && step<ceilf(end/STEPS)*STEPS; }
 static void piano_extend(float end) { pattern_extend(end); }
@@ -2549,8 +2603,8 @@ static void piano_gesture_update(float step,float pitch,float q) {
                 float start=piano_from.x+floorf((at-piano_from.x)/spacing)*spacing;
                 piano_extend(start+piano_note_length);
                 int exists=note_at(&project,pattern,channel,start,key)!=NULL;
-                Note *n=note_add(&project,pattern,channel,start,key,piano_note_length);
-                if(n && !exists) { audio_note(channel,*n); piano_channels[pattern][channel]=1; }
+                Note *n=exists?NULL:note_add(&project,pattern,channel,start,key,piano_note_length);
+                if(n) { audio_note(channel,*n); piano_channels[pattern][channel]=1; }
             }
         }
     }
@@ -2654,6 +2708,10 @@ static void piano(float width,float height) {
         int pc=(piano_top-row)%12,black=pc==1 || pc==3 || pc==6 || pc==8 || pc==10;
         float y=gy+row*rh;
         DrawRectangleRec((Rectangle){gx,y,gridw,rh},ui_theme.piano_row[black]);
+        int pitch=piano_top-row;
+        if(pitch>=0 && pitch<=127 && (keyboard_notes[channel][pitch] || playing_keys[channel][pitch] ||
+           (piano_key==pitch && piano_key_channel==channel)))
+            DrawRectangleRec((Rectangle){gx,y,gridw,rh},Fade(accent,.15f));
         DrawLineEx((Vector2){gx,y},(Vector2){gx+gridw,y},1,Fade(ui_theme.grid_minor,.45f));
         if(partial>end) { float left=fmaxf(gx,gx+(end-view)*cw),right=fminf(gx+gridw,gx+(partial-view)*cw); if(right>left) DrawRectangleRec((Rectangle){left,y,right-left,rh-1},ui_theme.disabled); }
         if(pc==0) DrawLineEx((Vector2){gx,y+rh},(Vector2){gx+gridw,y+rh},1,ui_theme.grid_major);
@@ -2669,7 +2727,7 @@ static void piano(float width,float height) {
         if(right<=left) continue;
         float inset=fminf(1,rh*.15f),note_height=rh-2*inset;
         if(note_selected[pattern][channel][i]) DrawRectangleLinesEx((Rectangle){left,y,right-left,rh},fminf(1,rh*.25f),ink);
-        DrawRectangleRec((Rectangle){left+1,y+inset,fmaxf(1,right-left-2),note_height},n==note_drag || keyboard_notes[channel][n->pitch] || playing_notes[channel][i]?ui_theme.note_drag:ui_theme.note);
+        DrawRectangleRec((Rectangle){left+1,y+inset,fmaxf(1,right-left-2),note_height},n==note_drag || note_selected[pattern][channel][i]?ui_theme.note_drag:ui_theme.note);
         DrawRectangleLinesEx((Rectangle){left+1,y+inset,fmaxf(1,right-left-2),note_height},fminf(1,rh*.25f),Fade(ui_theme.signal,.45f));
         int edge=grid_over && !shortcut_down() && hover(x+w-7,y,7,rh);
         if(x+w>=gx && x+w<=gx+gridw) DrawRectangleRec((Rectangle){x+w-5,y+inset,3,note_height},edge || (n==note_drag && !moving_note)?ink:Fade(bg,.35f));
@@ -2800,6 +2858,11 @@ static float meter_level[INSERTS+1][2],meter_hold[INSERTS+1][2];
 static double meter_until[INSERTS+1][2],meter_time;
 static uint8_t record_armed[INSERTS+1];
 static void recording_finish(void) {
+    if(midi_take.active) {
+        int failed=midi_take.failed;audio_record_mode(0);midi_take_finish(&midi_take,&project,midi_input_time());midi_panic();
+        pattern=fmaxf(0,fminf(pattern,project.pattern_count-1));
+        snprintf(status,sizeof status,failed?"MIDI recording stopped at the note or track limit; captured take kept":"MIDI take saved in the Playlist");
+    }
     if(!recording_ui.active) return;
     int ok=recording_finish_writers(&recording_ui,&project);
     for(int i=0;i<recording_ui.count;i++) {
@@ -2835,7 +2898,7 @@ static void recording_finish(void) {
 static void recording_poll(void) {
     if(recording_ui.active && (!recording_refresh(&recording_ui,&project) || audio_record_failed() || !playing)) recording_finish();
 }
-static void recording_start(void) {
+static void recording_start_audio(void) {
     if(recording_ui.active) { recording_finish(); return; }
     int buses[CHANNELS],count=0;
     for(int id=0;id<=project.insert_count;id++) if(record_armed[id]) {
@@ -2878,6 +2941,135 @@ failed:
     snprintf(status,sizeof status,"Cannot prepare recording: free Playlist tracks, memory or writable disk space required.");
 cleanup:
     recording_cancel(&recording_ui);
+}
+static int midi_target(void) { return midi_take.active?midi_take.channel:recording_ui.active?midi_record_target:windows.focused==2?piano_channel:windows.focused==4?instrument_channel:channel; }
+static void midi_panic(void) {
+    for(int i=0;i<32;i++)if(midi_keys[i].used) {audio_key_velocity(64+i,midi_keys[i].target,midi_keys[i].pitch,0);if(keyboard_notes[midi_keys[i].target][midi_keys[i].pitch])keyboard_notes[midi_keys[i].target][midi_keys[i].pitch]--;if(midi_take.active && (record_mask&RECORD_NOTES))midi_take_note(&midi_take,&project,midi_keys[i].mchannel,midi_keys[i].pitch,0,midi_input_time());midi_keys[i].used=0;}
+    memset(midi_sustain,0,sizeof midi_sustain);
+}
+static void midi_save_settings(void) {
+    AtomicFile out;if(!midi_settings_path[0] || !atomic_file_open(&out,midi_settings_path))return;
+    fprintf(out.file,"%u\n%s\n%s\n",record_mask,midi_selected,midi_selected_name);atomic_file_commit(&out);
+}
+static void midi_refresh(void) {
+    midi_device_count=midi_input_devices(midi_devices,64);int found=-1;
+    for(int i=0;i<midi_device_count;i++)if(!strcmp(midi_devices[i].id,midi_selected)) {
+#ifndef __APPLE__
+        if(midi_selected_name[0] && strcmp(midi_devices[i].name,midi_selected_name))continue;
+#endif
+        found=i;break;
+    }
+#ifndef __APPLE__
+    if(found<0 && midi_selected_name[0]) {
+        int matches=0;for(int i=0;i<midi_device_count;i++)if(!strcmp(midi_devices[i].name,midi_selected_name)){found=i;matches++;}
+        if(matches!=1)found=-1;
+    }
+#endif
+    if(midi_connected && (found<0 || strcmp(midi_selected,midi_devices[found].id))) {
+        midi_panic();midi_input_close();midi_connected=0;char error[256];midi_input_open("",error);
+        snprintf(status,sizeof status,"MIDI input disconnected; held notes released");
+    }
+    if(found>=0 && !midi_connected) {
+        snprintf(midi_selected,sizeof midi_selected,"%s",midi_devices[found].id);
+        char error[256];midi_connected=midi_input_open(midi_selected,error);
+        if(!midi_connected)snprintf(status,sizeof status,"%s",error);
+    }
+}
+static void midi_select(int index) {
+    if(recording_active())return;midi_panic();midi_input_close();midi_connected=0;
+    snprintf(midi_selected,sizeof midi_selected,"%s",index<0?"":midi_devices[index].id);
+    snprintf(midi_selected_name,sizeof midi_selected_name,"%s",index<0?"":midi_devices[index].name);
+    if(index>=0){char error[256];midi_connected=midi_input_open(midi_selected,error);if(midi_connected)record_mask|=RECORD_NOTES;else snprintf(status,sizeof status,"%s",error);}
+    if(index<0){char error[256];midi_input_open("",error);}
+    midi_save_settings();
+}
+static void midi_initialize(void) {
+    const char *slash=strrchr(browser.config,'/');if(slash)snprintf(midi_settings_path,sizeof midi_settings_path,"%.*s/midi.txt",(int)(slash-browser.config),browser.config);
+    FILE *f=midi_settings_path[0]?fopen(midi_settings_path,"r"):NULL;
+    if(f){unsigned mask;if(fscanf(f,"%u\n",&mask)==1){record_mask=mask&7;if(fgets(midi_selected,sizeof midi_selected,f))midi_selected[strcspn(midi_selected,"\r\n")]=0;if(fgets(midi_selected_name,sizeof midi_selected_name,f))midi_selected_name[strcspn(midi_selected_name,"\r\n")]=0;}fclose(f);}
+    midi_input_wake(glfwPostEmptyEvent);char error[256];midi_input_open("",error);midi_refresh();
+}
+static void midi_release_key(int slot,double time) {
+    if(!midi_keys[slot].used)return;
+    int target=midi_keys[slot].target,pitch=midi_keys[slot].pitch;
+    audio_key_velocity(64+slot,target,pitch,0);if(keyboard_notes[target][pitch])keyboard_notes[target][pitch]--;
+    if(midi_take.active && (record_mask&RECORD_NOTES))midi_take_note(&midi_take,&project,midi_keys[slot].mchannel,pitch,0,time);
+    midi_keys[slot].used=0;
+}
+static void midi_control(ParameterTarget target,float normalized,double time) {
+    float value,lo,hi;if(!parameter_info(&project,target,&value,&lo,&hi))return;
+    const ParameterDescriptor *d=parameter_descriptor(target.parameter);
+    if(target.parameter==PARAM_MASTER_VOLUME || target.parameter==PARAM_INSERT_VOLUME)normalized=fader_gain(normalized)/hi;
+    if(d && d->kind==PARAMETER_LOGARITHMIC && lo>0)normalized=(lo*powf(hi/lo,normalized)-lo)/(hi-lo);
+    if(target.parameter>=PARAM_DX7_FIRST && target.parameter<PARAM_DX7_FIRST+126 &&
+       (target.parameter-PARAM_DX7_FIRST)%21==18 && project.fm[target.owner].dx7.value[target.parameter-PARAM_DX7_FIRST-1])normalized=roundf(normalized*3)/31;
+    if(midi_take.active && (record_mask&RECORD_AUTOMATION))midi_take_control(&midi_take,&project,target,normalized,time);
+    parameter_write(&project,target,normalized);
+}
+static void midi_poll(void) {
+    double now=midi_input_time();
+    if(midi_input_changed() || (midi_selected[0] && now-midi_refresh_time>2)){midi_refresh_time=now;midi_refresh();}
+    if(midi_learning && IsKeyPressed(KEY_ESCAPE)){midi_learning=0;snprintf(status,sizeof status,"MIDI Learn cancelled");}
+    int input_error=midi_input_failed();
+    if(input_error){for(int i=0;i<32;i++)midi_release_key(i,now);midi_input_flush();
+        if(input_error==2){midi_input_close();midi_connected=0;char error[256];midi_input_open("",error);}
+        snprintf(status,sizeof status,"MIDI input lost events; held notes released");}
+    MidiEvent e;
+    while(midi_input_poll(&e)) {
+        int type=e.status&0xf0,mchannel=e.status&15;
+        if(type==0x90 || type==0x80) {
+            int slot=-1;for(int i=0;i<32;i++)if(midi_keys[i].used && midi_keys[i].mchannel==mchannel && midi_keys[i].pitch==e.data1){slot=i;break;}
+            if(type==0x80 || !e.data2) {if(slot>=0){midi_keys[slot].pressed=0;if(!midi_sustain[mchannel])midi_release_key(slot,e.time);}continue;}
+            if(slot>=0)midi_release_key(slot,e.time);
+            if(slot<0)for(int i=0;i<32;i++)if(!midi_keys[i].used){slot=i;break;}
+            if(slot<0){slot=0;midi_release_key(slot,e.time);}
+            int target=midi_target();if(target<0 || target>=project.channel_count)continue;
+            midi_keys[slot]=(MidiHeld){1,1,mchannel,e.data1,target,e.data2};
+            audio_key_velocity(64+slot,target,e.data1,e.data2);keyboard_notes[target][e.data1]++;
+            if(midi_take.active && (record_mask&RECORD_NOTES))midi_take_note(&midi_take,&project,mchannel,e.data1,e.data2,e.time);
+        } else if(type==0xb0) {
+            if(e.data1>=120){for(int i=0;i<32;i++)if(midi_keys[i].used && midi_keys[i].mchannel==mchannel)midi_release_key(i,e.time);midi_sustain[mchannel]=0;continue;}
+            if(e.data1==64){midi_sustain[mchannel]=e.data2>=64;if(!midi_sustain[mchannel])for(int i=0;i<32;i++)if(midi_keys[i].used && midi_keys[i].mchannel==mchannel && !midi_keys[i].pressed)midi_release_key(i,e.time);}
+            if(midi_learning){int ok=midi_bind(&project,mchannel,e.data1,midi_learn_target);midi_learning=0;snprintf(status,sizeof status,ok?"MIDI controller %d linked; mapping saved with project":"MIDI link could not be added",e.data1);}
+            for(int i=0;i<project.midi_binding_count;i++){MidiBinding b=project.midi_bindings[i];if(b.channel==(unsigned)mchannel && b.controller==e.data1)midi_control(b.target,e.data2/127.f,e.time);}
+        } else if(type==0xe0) {
+            int target=midi_target();int value=e.data1|(e.data2<<7);
+            float pitch=value>=8192?(value-8192)/8191.f:(value-8192)/8192.f;
+            midi_control((ParameterTarget){PARAM_CHANNEL_PITCH,target,0},(pitch+1)*.5f,e.time);
+        }
+    }
+    if(midi_take.active) {
+        project.bpm=midi_take.bpm;midi_take_update(&midi_take,&project,now);
+        if((record_mask&RECORD_AUTOMATION) && control_drag){ParameterTarget target;float value,lo,hi;
+            if(parameter_from_pointer(&project,control_drag,&target) && parameter_info(&project,target,&value,&lo,&hi))midi_take_control(&midi_take,&project,target,(value-lo)/(hi-lo),now);}
+        if(midi_take.failed || !playing)recording_finish();
+    }
+}
+static void recording_start(void) {
+    if(recording_active()){recording_finish();return;}
+    midi_poll();
+    if(!record_mask){snprintf(status,sizeof status,"Enable Audio, Notes or Automation recording");return;}
+    if((record_mask&RECORD_NOTES) && !midi_connected){snprintf(status,sizeof status,"Choose a MIDI input in View > MIDI / Recording");open_popup(13);return;}
+    int target=midi_target();midi_record_target=target;float origin=playing && song?audio_visual_position()/(RATE*15/project.bpm):playlist_start*STEPS;
+    if(!history_checkpoint())return;
+    if(record_mask&(RECORD_NOTES|RECORD_AUTOMATION)) {
+        if(!midi_take_begin(&midi_take,&project,target,!!(record_mask&RECORD_NOTES),origin,midi_input_time())){snprintf(status,sizeof status,"MIDI recording needs a free pattern and Playlist track");return;}
+    }
+    int armed=0;for(int i=0;i<=project.insert_count;i++)armed+=record_armed[i]!=0;
+    if((record_mask&RECORD_AUDIO) && armed){recording_start_audio();if(!recording_ui.active){if(midi_take.active)midi_take_finish(&midi_take,&project,midi_input_time());return;}}
+    if(!recording_ui.active && !midi_take.active){snprintf(status,sizeof status,"Arm a mixer track to record audio");return;}
+    if(midi_take.active){
+        audio_record_mode(1);double now=midi_input_time();
+        if(recording_ui.active)midi_take.time=now-fmax(0,audio_visual_position()/(RATE*15/project.bpm)-origin)*15/project.bpm;
+        playlist_start=origin/STEPS;
+        if(!playing || !song){playing=song=1;reset=1;}
+        else if(!recording_ui.active)reset=0;
+        if(!recording_ui.active){audio_update(&project,1,1,pattern,reset,output_volume,origin,0,0);reset=0;}
+        if(midi_take.pattern>=0){pattern=midi_take.pattern;piano_channel=target;piano_channels[pattern][target]=1;}
+        for(int i=0;i<32;i++)if(midi_keys[i].used && midi_keys[i].target==target && (record_mask&RECORD_NOTES))midi_take_note(&midi_take,&project,midi_keys[i].mchannel,midi_keys[i].pitch,midi_keys[i].velocity,midi_take.time);
+        memset(song_loop,0,sizeof song_loop);windows_focus(&windows,2);browser_focus=0;
+        snprintf(status,sizeof status,"Recording MIDI to %s; Stop finishes the take",project.channel_names[target]);
+    }
 }
 static int mixer_decay_active,effect_slot;
 static int eq_bus,eq_slot,eq_band;
@@ -3080,7 +3272,7 @@ static void mixer(float width,float height) {
         circle(x+12,height-59,5,record_armed[id]?ui_theme.meter_high:cell);
         if(arm_over) {
             snprintf(status,sizeof status,"%s record arm: %s | Top-bar Record captures this track's post-fader audio",mixer_name(id),record_armed[id]?"On":"Off");
-            if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !recording_ui.active) { record_armed[id]^=1; input_enabled=0; }
+            if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !recording_active()) { record_armed[id]^=1; input_enabled=0; }
         }
         if(id) {
 
@@ -3178,7 +3370,7 @@ static void draw_context(void) {
     if(!context_kind) return;
     float scale=ui_scale();
     int instrument_rows[CHANNELS],instrument_count=context_kind==17?pattern_instruments(context_target,instrument_rows):0;
-    int w=context_kind==14 || context_kind==16?160:(context_kind==5 || context_kind==8 || context_kind==12)?304:228,h=context_kind==21?8+25*FM_FACTORY_COUNT:context_kind==22?83:context_kind==23?108:context_kind==19?108:context_kind==20?58:context_kind==17?8+25*(int)fminf(8,instrument_count):context_kind==18?58:context_kind==4?108:context_kind==16?32:context_kind==15?58:context_kind==14?8+EQ_SHAPES*25:context_kind==13?58:context_kind==2?158:context_kind==7?133:(context_kind==5 || context_kind==8 || context_kind==12)?76:context_kind==3 && !context_target?32:82,x=fmaxf(0,fminf(GetScreenWidth()/scale-w,context_position.x)),y=fmaxf(0,fminf(GetScreenHeight()/scale-h,context_position.y));
+    int w=context_kind==14 || context_kind==16?160:(context_kind==5 || context_kind==8 || context_kind==12)?304:228,h=context_kind==9?133:context_kind==21?8+25*FM_FACTORY_COUNT:context_kind==22?83:context_kind==23?108:context_kind==19?108:context_kind==20?58:context_kind==17?8+25*(int)fminf(8,instrument_count):context_kind==18?58:context_kind==4?108:context_kind==16?32:context_kind==15?58:context_kind==14?8+EQ_SHAPES*25:context_kind==13?58:context_kind==2?158:context_kind==7?133:(context_kind==5 || context_kind==8 || context_kind==12)?76:context_kind==3 && !context_target?32:82,x=fmaxf(0,fminf(GetScreenWidth()/scale-w,context_position.x)),y=fmaxf(0,fminf(GetScreenHeight()/scale-h,context_position.y));
     input_enabled=1;
     if(IsKeyPressed(KEY_ESCAPE) || (!context_opened && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !hover(x,y,w,h))) { context_kind=0; return; }
     ui_frame((Rectangle){x,y,w,h});
@@ -3231,6 +3423,10 @@ static void draw_context(void) {
     } else if(kind==13) {
         for(int mode=0;mode<2;mode++) if(button(mode?"Stretch":"Resample",x+4,y+4+mode*25,w-8,24,project.sampler[target].stretch==mode)) { project.sampler[target].stretch=mode; context_kind=0; }
     } else if(kind==9 || kind==15) {
+        if(kind==9) {
+            if(button("MIDI Learn",x+4,y+79,w-8,24,0)){midi_learn_target=automation_target;midi_learning=1;context_kind=0;snprintf(status,sizeof status,"Move a MIDI CC knob or fader to link %s; Escape cancels",menu_name);}
+            if(button("Clear MIDI link",x+4,y+104,w-8,24,0)){midi_unbind(&project,automation_target);context_kind=0;}
+        }
         if(button("Reset",x+4,y+4,w-8,24,0)) { *menu_value=menu_initial; context_kind=0; }
         if(hover(x+4,y+4,w-8,24)) snprintf(status,sizeof status,"Reset %s to %.6g",menu_name,menu_initial);
         if(button("Enter value",x+4,y+29,w-8,24,0)) {
@@ -3711,6 +3907,7 @@ static void draw_editor(int id,float scale) {
         if(hover(r.w-72-SWING_RADIUS-1,TITLE/2-SWING_RADIUS-1,2*SWING_RADIUS+2,2*SWING_RADIUS+2) || control_drag==&project.swing) snprintf(status,sizeof status,"Swing: %.0f%% | delays alternate steps; drag or wheel; right-click to enter",project.swing*100);
     }
     input_enabled=input_enabled && mouse.y>=TITLE && !(mouse.x>r.w-12 && mouse.y>r.h-12);
+    if(midi_take.active && id<=2) input_enabled=0;
     if(id==0) rack(r.w,r.h); else if(id==1) playlist(r.w,r.h,scale); else if(id==2) piano(r.w,r.h); else if(id==3) mixer(r.w,r.h); else if(id==5) eq_editor(r.w,r.h); else if(project.instrument[instrument_channel]==INSTRUMENT_FM) fm_editor(r.w,r.h); else sampler(r.w,r.h);
     mouse=global;
     DrawLine(r.w-9,r.h-2,r.w-2,r.h-9,muted);
@@ -3792,7 +3989,7 @@ int main(int argc,char **argv) {
     resize_cursor=glfwCreateStandardCursor(GLFW_HRESIZE_CURSOR);
     track_cursor=glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
     hand_cursor=glfwCreateStandardCursor(GLFW_HAND_CURSOR);
-    browser_init(&browser,samples_path); theme_init(browser.config); file_chooser_locations(browser.config); if(smoke) new_project(1); int frames=0,initialized=0; double last_activity=GetTime();
+    browser_init(&browser,samples_path); midi_initialize(); theme_init(browser.config); file_chooser_locations(browser.config); if(smoke) new_project(1); int frames=0,initialized=0; double last_activity=GetTime();
     while(!document.quit) {
         if(WindowShouldClose()) {
             glfwSetWindowShouldClose(app_window,GLFW_FALSE);
@@ -3894,6 +4091,14 @@ int main(int argc,char **argv) {
             else if(IsKeyPressed(KEY_C)) edit_selection(1);
             else if(IsKeyPressed(KEY_V)) edit_selection(2);
             else if(IsKeyPressed(KEY_A)) edit_selection(3);
+        }
+        if(!modal && !captured() && !dragging && !browser_focus && !shortcut_down() &&
+           !IsKeyDown(KEY_LEFT_ALT) && !IsKeyDown(KEY_RIGHT_ALT) &&
+           (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT))) {
+            if(IsKeyPressed(KEY_LEFT) || IsKeyPressedRepeat(KEY_LEFT)) piano_shift(-1,0,"left one step");
+            else if(IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_RIGHT)) piano_shift(1,0,"right one step");
+            else if(IsKeyPressed(KEY_UP) || IsKeyPressedRepeat(KEY_UP)) piano_shift(0,1,"up one semitone");
+            else if(IsKeyPressed(KEY_DOWN) || IsKeyPressedRepeat(KEY_DOWN)) piano_shift(0,-1,"down one semitone");
         }
         if(!modal && IsKeyPressed(KEY_SPACE)) transport_toggle();
         if(rack_hdrag) {
@@ -4010,11 +4215,11 @@ int main(int argc,char **argv) {
         else { if(browser_resize) windows_update(&windows,desktop,mouse.x,mouse.y,0,0,GetTime()); windows.owner=-1; windows.grab=-1; }
         int focused=EDITORS-1;
         while(focused>0 && !windows.editors[windows.order[focused]].visible) focused--;
-        if(!modal && !dragging && !captured() && !browser_focus && windows.order[focused]==1 && windows.editors[1].visible && delete_pressed()) {
+        if(!modal && !dragging && !captured() && !browser_focus && !midi_take.active && windows.order[focused]==1 && windows.editors[1].visible && delete_pressed()) {
             for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) if(arrangement.selected[l][b]) { project.clips[l][b]=0; project.clip_steps[l][b]=0; }
             memset(arrangement.selected,0,sizeof arrangement.selected);
         }
-        if(!modal && !dragging && !captured() && !browser_focus && windows.order[focused]==2 && windows.editors[2].visible && delete_pressed()) {
+        if(!modal && !dragging && !captured() && !browser_focus && !midi_take.active && windows.order[focused]==2 && windows.editors[2].visible && delete_pressed()) {
             for(int i=0;i<NOTES;i++) if(note_selected[pattern][piano_channel][i]) project.notes[pattern][piano_channel][i].velocity=0;
             memset(note_selected[pattern][piano_channel],0,NOTES);
         }
@@ -4046,13 +4251,13 @@ int main(int argc,char **argv) {
         label(fit_text(TextFormat("%s%s",GetFileName(document.path),project_dirty()?" *":""),196,11),8,29,11,muted);
         const int gap=4,pitch_x=204+gap+KNOB_RADIUS,volume_x=pitch_x+KNOB_RADIUS*2+gap;
         const int mode_x=volume_x+KNOB_RADIUS+gap,play_x=mode_x+52+gap,stop_x=play_x+24+gap,record_x=stop_x+24+gap;
-        const int metro_x=record_x+24+gap,tempo_x=metro_x+22+gap,position_x=tempo_x+56+gap,editors_x=position_x+88+gap;
+        const int metro_x=record_x+24+3*22+gap,tempo_x=metro_x+22+gap,position_x=tempo_x+56+gap,editors_x=position_x+88+gap;
         const int follow_x=editors_x+4*(22+gap),keys_x=follow_x+22+gap,audio_x=keys_x+22+gap;
         knob_style(pitch_x,19,&project.master_pitch,-12,12,0,"Master pitch (semitones)",KNOB_CENTER);
         if(hover(pitch_x-11,8,22,22) || control_drag==&project.master_pitch) snprintf(status,sizeof status,"Master pitch: %+.2f semitones (sample speed; right-click to enter)",project.master_pitch);
         knob_style(volume_x,19,&output_volume,0,VOLUME_KNOB_MAX,1,"LibreLoop output volume",KNOB_VOLUME);
         if(hover(volume_x-11,8,22,22) || control_drag==&output_volume) snprintf(status,sizeof status,"LibreLoop output volume: listening level; Master and WAV export unchanged");
-        if(button("",mode_x,8,52,22,0) && !recording_ui.active) { song=!song; reset=1; }
+        if(button("",mode_x,8,52,22,0) && !recording_active()) { song=!song; reset=1; }
         DrawRectangle(mode_x,8,52,11,song?cell:ui_theme.patt);
         DrawRectangle(mode_x,19,52,11,song?accent:cell);
         label("PATT",mode_x+(52-text_width("PATT",10))/2,8,10,song?muted:ui_theme.selected_text);
@@ -4063,14 +4268,23 @@ int main(int argc,char **argv) {
         if(hover(play_x,8,24,22)) snprintf(status,sizeof status,"Play from ruler / stop all audio, including previews (Space)");
         if(button("[]",stop_x,8,24,22,0)) transport_stop();
         if(hover(stop_x,8,24,22)) snprintf(status,sizeof status,"Stop all audio; press again while stopped to return the start marker to the beginning");
-        if(button("",record_x,8,24,22,recording_ui.active)) recording_start();
+        if(button("",record_x,8,24,22,recording_active())) recording_start();
         circle(record_x+12,19,7,ui_theme.meter_high);
-        if(hover(record_x,8,24,22)) snprintf(status,sizeof status,recording_ui.active?"Recording: click to finish the audio clips":"Record armed mixer tracks into the Playlist");
+        if(hover(record_x,8,24,22) && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)){midi_refresh();open_popup(13);}
+        const int record_icons[]={ICON_WAVE,ICON_PIANO,ICON_AUTOMATION};
+        const char *record_names[]={"Audio from armed mixer tracks","MIDI notes into a new pattern","MIDI / mouse control automation"};
+        int record_input=input_enabled;if(recording_active())input_enabled=0;
+        for(int i=0;i<3;i++){int xx=record_x+24+i*22;
+            if(button("",xx,8,22,22,record_mask&(1u<<i))){record_mask^=1u<<i;midi_save_settings();}
+            icon(record_icons[i],xx+11,19,17,record_mask&(1u<<i)?ui_theme.selected_text:muted);
+            if(hover(xx,8,22,22))snprintf(status,sizeof status,"Record %s: %s",record_names[i],record_mask&(1u<<i)?"enabled":"disabled");
+        }input_enabled=record_input;
+        if(hover(record_x,8,24,22)) snprintf(status,sizeof status,recording_active()?"Recording: click to finish the takes":"Record enabled types; right-click for MIDI inputs and recording settings");
         if(button("",metro_x,8,22,22,metronome)) { metronome=!metronome; audio_metronome(metronome); }
         icon(ICON_METRO,metro_x+11,19,20,metronome?ui_theme.selected_text:ink);
         if(hover(metro_x,8,22,22)) snprintf(status,sizeof status,"Metronome: %s | beat clicks during playback; first beat accented; excluded from WAV export",metronome?"On":"Off");
-        if(drag_button(TextFormat("%.2f",project.bpm),tempo_x,8,56,22,control_drag==&project.bpm) && !recording_ui.active) capture_control(&project.bpm,30,300,0);
-        if(hover(tempo_x,8,56,22) && !recording_ui.active) {
+        if(drag_button(TextFormat("%.2f",project.bpm),tempo_x,8,56,22,control_drag==&project.bpm) && !recording_active()) capture_control(&project.bpm,30,300,0);
+        if(hover(tempo_x,8,56,22) && !recording_active()) {
             project.bpm=fmaxf(30,fminf(300,project.bpm+GetMouseWheelMove()));
             snprintf(status,sizeof status,"Tempo: drag up/down; right-click for Reset or Enter value");
             if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) control_menu(&project.bpm,30,300,120,"Tempo (BPM)");
@@ -4086,7 +4300,7 @@ int main(int argc,char **argv) {
         if(button("",keys_x,8,22,22,typing_keys)) typing_keys=!typing_keys;
         icon(ICON_KEYS,keys_x+11,19,20,typing_keys?ui_theme.selected_text:ink);
         if(hover(keys_x,8,22,22)) snprintf(status,sizeof status,"Typing piano: Z row C3, Q row C4; S/D/G/H/J and 2/3/5/6/7 sharps; disabled in Browser/text fields");
-        recording_poll();
+        recording_poll();midi_poll();
         visual_step=playing && !reset?audio_visual_position()/(RATE*60.0/project.bpm/4):playback_start(); automation_display_update();
         int browser_hover=!browser_hidden && mouse.x<sidebar && mouse.y>=42 && mouse.y<height-22;
         typing_piano(modal || dragging || browser_hover);
@@ -4174,11 +4388,11 @@ int main(int argc,char **argv) {
         draw_picker_drag();
         draw_popup(); draw_context(); EndMode2D();
 
-        if(!captured() && !recording_ui.active) history_checkpoint();
+        if(!captured() && !recording_active()) history_checkpoint();
         if(pattern_popup!=11 && file_picker.entries) file_chooser_close(&file_picker);
         sampler_queue();
-        if(recording_ui.active) { project.bpm=recording_ui.bpm; song=playing=1; reset=0; }
-        flush_cursor(); audio_update(&project,playing,song,pattern,reset,output_volume,playback_start(),recording_ui.active?0:playback_loop()[0],recording_ui.active?0:playback_loop()[1]);
+        if(recording_active()) { project.bpm=recording_ui.active?recording_ui.bpm:midi_take.bpm; song=playing=1; reset=0; }
+        flush_cursor(); audio_update(&project,playing,song,pattern,reset,output_volume,playback_start(),recording_active()?0:playback_loop()[0],recording_active()?0:playback_loop()[1]);
         int animate=audio_active() || mixer_decay_active || spectrum_active || (windows.editors[0].visible && channel_decay_active) || browser_progress>=0 || (windows.editors[3].visible && (audio_active() || mixer_decay_active)) || playing || captured() || windows.grab>=0 || popup_drag || sample_drag[0] ||
             (windows.editors[4].visible && audio_key_position(127,instrument_channel)>=0);
         if(!smoke && !animate && GetTime()-last_activity>.15) EnableEventWaiting(); else DisableEventWaiting();
@@ -4192,7 +4406,7 @@ int main(int argc,char **argv) {
             if(stage==3) windows_focus(&windows,3);
         }
     }
-    recording_finish(); history_clear(&edit_history); file_chooser_close(&file_picker);
+    recording_finish();midi_panic();midi_input_wake(NULL);midi_input_close(); history_clear(&edit_history); file_chooser_close(&file_picker);
     if(sampler_job.busy) { pthread_join(sampler_job.thread,NULL); sample_free(sampler_job.input); sample_free(sampler_job.result); }
     for(int pat=0;pat<PATTERNS;pat++) if(previews[pat].image.id) UnloadRenderTexture(previews[pat].image);
     #ifdef __APPLE__

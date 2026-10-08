@@ -3,7 +3,7 @@
 ## Build on Linux
 
 Use a C11 compiler, CMake 3.20 or newer, a build tool such as Make or Ninja,
-pthreads, and X11/OpenGL development libraries. CMake fetches raylib 5.5 with
+pthreads, ALSA development headers, and X11/OpenGL development libraries. CMake fetches raylib 5.5 with
 an SHA-256-verified archive; GLFW and miniaudio come from that archive. No system
 raylib installation, raygui, or plugin framework is required.
 
@@ -11,7 +11,7 @@ On Debian/Ubuntu, the desktop build dependencies can be installed with:
 
 ```sh
 sudo apt-get install build-essential cmake pkg-config libx11-dev libxrandr-dev \
-  libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev
+  libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev libasound2-dev
 ```
 
 See the [raylib Linux build instructions](https://github.com/raysan5/raylib/wiki/Working-on-GNU-Linux)
@@ -194,3 +194,7 @@ their memory figures do not represent importing 32 distinct long recordings.
 for differential checks. Hashing is excluded from ordinary timing runs. Native
 GUI benchmarks require a separate measurement because they include graphics,
 analyzers, the audio callback and device threads.
+
+MIDI uses the system CoreMIDI framework on macOS and ALSA sequencer on Linux.
+The ALSA sequencer must be available to the running user for Linux MIDI input.
+Core-only tests do not require MIDI hardware or ALSA headers.

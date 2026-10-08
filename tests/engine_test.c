@@ -207,7 +207,8 @@ int main(void) {
     CHECK(fabsf(whole[100]-.4f)<.00001f); CHECK(fabsf(whole[14000]-.2f)<.00001f);
     render(&a,&p,held,result,1); CHECK(result[0]==0 && result[1]==0); free(sustain);
     CHECK(note_move(&p,0,0,c,2,67,16)); CHECK(c->start==2 && c->pitch==67 && c->length==1 && c->velocity==127);
-    CHECK(!note_move(&p,0,0,e,2,67,16)); CHECK(e->start==0 && e->pitch==64);
+    CHECK(note_move(&p,0,0,e,2,67,16)); CHECK(e->start==2 && e->pitch==67);
+    e->start=0; e->pitch=64;
     CHECK(!note_move(&p,0,0,c,16,60,16) && !note_move(&p,0,0,c,7,60,7));
     Note group_before[NOTES]; memcpy(group_before,p.notes[0][0],sizeof group_before); uint8_t selected[NOTES]={0};
     selected[c-p.notes[0][0]]=selected[e-p.notes[0][0]]=1;
@@ -217,7 +218,8 @@ int main(void) {
     CHECK(!notes_move(&p,0,0,group_before,selected,15,2,16) && c->start==2.5f && e->start==.5f);
     CHECK(!notes_move(&p,0,0,group_before,selected,.5f,70,16) && c->pitch==69);
     Note *occupied=note_add(&p,0,0,3,69,1); CHECK(occupied);
-    CHECK(!notes_move(&p,0,0,group_before,selected,1,2,16) && c->start==2.5f && e->start==.5f);
+    CHECK(notes_move(&p,0,0,group_before,selected,1,2,16) && c->start==3 && e->start==1);
+    CHECK(occupied->start==c->start && occupied->pitch==c->pitch);
 
     /* Later bars trigger once, blank extended space stays silent, and clip lengths
        control song/export boundaries independently of shared source length. */
@@ -454,5 +456,18 @@ int main(void) {
     CHECK(velocities[1].velocity==127 && velocities[2].velocity==127);
     notes_velocity(velocities,NULL,0,0,0,-10,0); CHECK(velocities[0].velocity==1);
     CHECK(velocities[1].start==2 && velocities[1].pitch==64 && velocities[1].length==2);
+    project_new(&p);
+    Note *stack_bottom=note_add(&p,0,0,2,60,4),*stack_top=note_add(&p,0,0,2,60,2);
+    CHECK(stack_bottom && stack_top && stack_bottom!=stack_top);
+    CHECK(note_hit(p.notes[0][0],2.5f,60)==stack_top-p.notes[0][0]);
+    CHECK(project_save("stacked-notes.hbt",&p) && project_load("stacked-notes.hbt",&q));
+    CHECK(q.notes[0][0][0].velocity && q.notes[0][0][1].velocity && q.notes[0][0][0].start==q.notes[0][0][1].start);
+    remove("stacked-notes.hbt");
+    float stack_pcm[64]; for(int i=0;i<64;i++) stack_pcm[i]=.1f;
+    Sample stack_samples[CHANNELS]={{.data=stack_pcm,.frames=64}};
+    Player stacked_player; player_reset(&stacked_player); stacked_player.frame=12000;
+    float stack_out[16]; render(&stacked_player,&p,stack_samples,stack_out,8);
+    CHECK(fabsf(stack_out[2]-.2f*100/127)<.00001f); /* Both notes produce a voice. */
+
     puts("Project versions 1-12, master pitch, clip lengths, extended patterns, chords and gates, routing, render consistency, mute and WAV duration passed."); return 0;
 }

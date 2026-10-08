@@ -58,6 +58,8 @@ static int preview_channel=-1;
 static Player player,live;
 static EffectRack *effects;
 static int playing, ready;
+static atomic_int midi_recording;
+void audio_record_mode(int enabled) {atomic_store(&midi_recording,!!enabled);}
 static float output_volume=1;
 static atomic_uint_fast64_t position;
 static _Atomic float meter_peak[INSERTS+1][2];
@@ -149,7 +151,7 @@ static void callback(ma_device *d, void *out, const void *in, ma_uint32 frames) 
     }
     callback_taps=0;
     callback_bus=atomic_load_explicit(&analyzer_bus,memory_order_relaxed);
-    MixerIO taps=recording.active?recording.io:(MixerIO){0}; taps.output=record_output; taps.monitor_only=!recording.active;
+    MixerIO taps=recording.active?recording.io:(MixerIO){0}; taps.output=record_output; taps.monitor_only=!(recording.active || atomic_load(&midi_recording));
     float peaks[INSERTS+1][2]={{0}};
     if(playing) {
         visual_frame=llround(player.frame*(player.clock_bpm?player.clock_bpm/project.bpm:1));
@@ -159,7 +161,7 @@ static void callback(ma_device *d, void *out, const void *in, ma_uint32 frames) 
         visual_start=(player.loop_end?player.loop_start:player.song?0:player.start_step)*step_frames;
         float end=player.loop_end?player.loop_end:player.song?song_steps(&project):project.pattern_steps[player.pattern];
         if(visual_start>=end*step_frames) visual_start=0;
-        visual_end=recording.active?INFINITY:end*step_frames;
+        visual_end=(recording.active || atomic_load(&midi_recording))?INFINITY:end*step_frames;
     }
     else render_mixer_io(&live,NULL,&project,samples,out,frames,0,peaks,&taps);
     for(int l=0;l<LANES;l++) {
@@ -257,9 +259,9 @@ static void consume_commands(void) {
         AudioCommand *c=&pending.commands[pending.read++%AUDIO_COMMANDS];
         switch(c->kind) {
         case UPDATE:
-            if(c->reset || playing!=c->run || player.song!=c->song || player.pattern!=c->pattern) effects_reset(effects);
+            if(c->reset || playing!=c->run || player.song!=c->song || (!c->song && player.pattern!=c->pattern)) effects_reset(effects);
             playing=c->run; output_volume=c->output;
-            if(c->reset || !playing || player.song!=c->song || player.pattern!=c->pattern) {
+            if(c->reset || !playing || player.song!=c->song || (!c->song && player.pattern!=c->pattern)) {
                 click_position=1200; player_reset(&player); player.effects=effects; player_seek(&player,&project,c->start);
                 atomic_store(&position,player.frame); visual_frame=player.frame; visual_frames=0;
             }
@@ -315,10 +317,10 @@ static void consume_commands(void) {
                 uint32_t phase[6]; Voice *old=&live.voices[c->slot];
                 int retain=old->instrument==INSTRUMENT_FM && old->channel==c->channel && old->fm.engine==1 && project.fm[c->channel].engine==1 && !project.fm[c->channel].dx7.value[136];
                 if(retain) memcpy(phase,old->fm.dx7.phase,sizeof phase);
-                live.voices[c->slot]=(Voice){.channel=c->channel,.sampler={.speed=pow(2,(c->pitch-60)/12.0)},.remaining=-1,.gain=100/127.f,.lane=-1};
+                live.voices[c->slot]=(Voice){.channel=c->channel,.sampler={.speed=pow(2,(c->pitch-60)/12.0)},.remaining=-1,.gain=c->note.velocity/127.f,.lane=-1};
                 if(project.instrument[c->channel]==INSTRUMENT_FM) {
                     live.voices[c->slot].instrument=INSTRUMENT_FM;
-                    fm_note_on_velocity(&live.voices[c->slot].fm,440*pow(2,(c->pitch-69)/12.0),project.fm[c->channel],100/127.f);
+                    fm_note_on_velocity(&live.voices[c->slot].fm,440*pow(2,(c->pitch-69)/12.0),project.fm[c->channel],c->note.velocity/127.f);
                     if(retain) memcpy(live.voices[c->slot].fm.dx7.phase,phase,sizeof phase);
                 }
             } else if(live.voices[c->slot].gain) {
@@ -495,10 +497,11 @@ void audio_preview(Sample s) {
 void audio_note(int c,Note n) {
     pthread_mutex_lock(&mutex); submit((AudioCommand){.kind=NOTE,.channel=c,.note=n}); pthread_mutex_unlock(&mutex);
 }
-void audio_key(int slot,int channel,int pitch,int down) {
+void audio_key(int slot,int channel,int pitch,int down) { audio_key_velocity(slot,channel,pitch,down?100:0); }
+void audio_key_velocity(int slot,int channel,int pitch,int velocity) {
     if(slot<0 || slot>=128 || pitch<0 || pitch>127) return;
     pthread_mutex_lock(&mutex);
-    submit((AudioCommand){.kind=KEY,.slot=slot,.channel=channel,.pitch=pitch,.down=down});
+    submit((AudioCommand){.kind=KEY,.slot=slot,.channel=channel,.pitch=pitch,.down=velocity>0,.note={.velocity=velocity>0?(velocity>127?127:velocity):0}});
     pthread_mutex_unlock(&mutex);
 }
 int audio_stop(void) {

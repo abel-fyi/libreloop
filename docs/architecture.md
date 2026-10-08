@@ -398,3 +398,26 @@ Ratio tuning interpolates native note pitch toward its middle-C pitch; Hz tuning
 adds the scaled keyboard interval to its anchor frequency. At 100% ratio and 0%
 Hz, original DX tuning is preserved exactly. Tracking updates at the existing
 64-frame DSP boundary without resetting oscillator phase or allocating memory.
+
+## Native MIDI input and recording
+
+`midi_input.c` adapts CoreMIDI on macOS and the ALSA sequencer on Linux to a
+bounded SPSC event queue. Native callbacks/ALSA polling only enqueue MIDI events
+and wake GLFW; they never edit projects or touch DSP. A dedicated Linux thread
+polls input and port announcements. Port discovery uses a separate ALSA client.
+Queue overflow or disconnect releases held notes rather than leaving stuck voices.
+`midi.c` contains MIDI 1 running-status parsing, controller bindings and the
+UI-owned take builder, tested without hardware or platform dependencies.
+
+The UI drains events, routes notes into reserved live slots 64–95 with actual
+velocity, handles sustain and applies controller values through `parameter_write`.
+The callback retains sole ownership of voices. Recording uses monotonic input
+receipt timestamps with the take's fixed BPM; it is not sample-accurate MIDI
+scheduling. Captured pattern/automation lanes are muted until recording finishes.
+The audio transport's MIDI-recording flag disables song wrap without starting
+capture devices. Song-mode pattern selection does not restart the sequencer.
+
+Project version 41 stores up to 32 channel/CC parameter bindings before EQ data;
+older projects initialize them empty. Machine-specific input and recording choices
+live beside the browser settings in `midi.txt`. Take creation and controller curve
+compaction occur on the UI thread, with no allocations in the audio callback.

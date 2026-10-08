@@ -29,7 +29,6 @@ int clipboard_paste_notes(const EditClipboard *c,Project *p,int pat,int ch,float
     for(int i=0;i<c->count;i++) {
         const Note *n=&c->notes[i]; float at=start+n->start;
         if(!isfinite(at) || at>1e12f) return -4;
-        if(note_at(p,pat,ch,at,n->pitch)) return -3;
         float finish=at+(n->length?n->length:1); if(!isfinite(finish) || finish<=at) return -4;
         end=fmaxf(end,finish);
     }
