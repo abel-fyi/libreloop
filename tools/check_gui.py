@@ -105,6 +105,11 @@ def main():
                 xt.XTestFakeMotionEvent(display, 0, px, py, 0); x.XFlush(display); time.sleep(.08)
                 xt.XTestFakeButtonEvent(display, button, 1, 0); x.XFlush(display); time.sleep(.08)
                 xt.XTestFakeButtonEvent(display, button, 0, 0); x.XFlush(display); time.sleep(.2)
+            def key(name):
+                code=x.XKeysymToKeycode(display,x.XStringToKeysym(name.encode()))
+                assert code
+                xt.XTestFakeKeyEvent(display,code,1,0); x.XFlush(display); time.sleep(.08)
+                xt.XTestFakeKeyEvent(display,code,0,0); x.XFlush(display); time.sleep(.25)
             def close_request(window):
                 event = Event(); event.message = Message(33, 0, 1, display, window,
                     x.XInternAtom(display, b'WM_PROTOCOLS', 0), 32,
@@ -135,26 +140,49 @@ def main():
                             attributes = Attributes(); assert x.XGetWindowAttributes(display,window,C.byref(attributes))
                             assert (attributes.width,attributes.height)==(width,height)
                             scale=max(1,min(width/1200,height/675))
-                            click(round(attributes.x+186*scale),round(attributes.y+19*scale))
-                            sample=x.XGetImage(display,window,round(174*scale),round(59*scale),1,1,C.c_ulong(-1),2)
+                            click(round(attributes.x+84*scale),round(attributes.y+19*scale))
+                            sample=x.XGetImage(display,window,round(66*scale),round(59*scale),1,1,C.c_ulong(-1),2)
                             assert sample
                             pixel=x.XGetPixel(sample,0,0)&0xffffff; x.XDestroyImage(sample)
                             assert pixel==0x303030, f'EDIT menu/input misaligned at {width}x{height}: {pixel:06x}'
                             escape=x.XKeysymToKeycode(display,x.XStringToKeysym(b'Escape'))
                             xt.XTestFakeKeyEvent(display,escape,1,0); x.XFlush(display); time.sleep(.08)
                             xt.XTestFakeKeyEvent(display,escape,0,0); x.XFlush(display); time.sleep(.15)
+                            # The last toolbar toggle must remain visible and clickable at narrow widths.
+                            logical_width=width/scale
+                            monitor_width=min(108,max(0,int(logical_width-564-308)))
+                            keys_x=564+monitor_width+4+40+12+88+12+4*24+24
+                            def toggle_pixel():
+                                sample=x.XGetImage(display,window,round((keys_x+3)*scale),round(11*scale),1,1,C.c_ulong(-1),2)
+                                assert sample
+                                pixel=x.XGetPixel(sample,0,0)&0xffffff; x.XDestroyImage(sample)
+                                # Blue accent indicates enabled, including its brighter hover state.
+                                return (pixel&255)>((pixel>>16)&255)
+                            xt.XTestFakeMotionEvent(display,0,round(attributes.x+(keys_x+11)*scale),round(attributes.y+19*scale),0)
+                            x.XFlush(display); time.sleep(.15)
+                            before=toggle_pixel()
+                            click(round(attributes.x+(keys_x+11)*scale),round(attributes.y+19*scale))
+                            deadline=time.monotonic()+2
+                            while toggle_pixel()==before and time.monotonic()<deadline: time.sleep(.05)
+                            assert toggle_pixel()!=before, f'Typing piano toggle inaccessible at {width}x{height}'
+                            click(round(attributes.x+(keys_x+11)*scale),round(attributes.y+19*scale))
+                            deadline=time.monotonic()+2
+                            while toggle_pixel()!=before and time.monotonic()<deadline: time.sleep(.05)
+                            after=toggle_pixel()
+                            assert after==before, f'Typing piano toggle did not restore at {width}x{height}'
                         print('Actual resized EDIT menu/input checks passed',flush=True)
-                    click(516, 18, 4)  # Tempo follows the three recording-type buttons; saved BPM below verifies this hit.
+                    click(528, 18, 4)  # Saved BPM below verifies the regrouped tempo control hit.
                     close_request(window); assert app.poll() is None, 'Dirty close bypassed the prompt'
-                    click(702, 375); assert app.poll() is None, 'Cancel closed the app'
+                    key('Down'); key('Up'); key('Return')
+                    assert app.poll() is None, 'Keyboard Cancel closed the app'
                     close_request(window); assert app.poll() is None
                     if decision == 'discard':
-                        click(466, 375); assert app.poll() is None
+                        key('Up'); key('Up'); key('Return'); assert app.poll() is None
                         click(802, 562); assert app.poll() is None, 'Canceling the save chooser closed the app'
                         close_request(window); assert app.poll() is None
-                        click(584, 375)
+                        key('k'); key('Return')
                     else:
-                        click(466, 375); assert app.poll() is None, 'Save closed before choosing a file'
+                        key('j'); key('Return'); assert app.poll() is None, 'Save closed before choosing a file'
                         click(894, 562)
                     assert app.wait(timeout=10) == 0
                     app = None
@@ -163,7 +191,7 @@ def main():
                         assert project_file.is_file()
                         assert float(project_file.read_text().splitlines()[1].split()[0]) == 121, 'Pointer changed the wrong control'
             x.XCloseDisplay(display)
-        print('GUI checks passed: font scales, Unicode, populated smoke views, close/cancel/discard/save.')
+        print('GUI checks passed: font scales, Unicode, populated smoke views, keyboard Cancel/Save/Discard, close/save.')
     finally:
         if app and app.poll() is None: app.terminate(); app.wait(timeout=10)
         server.terminate(); server.wait(timeout=10)

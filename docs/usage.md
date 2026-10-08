@@ -364,9 +364,14 @@ The Playlist’s left pattern picker shows note previews; click to select a patt
 right-click for Rename, Color or Delete, and scroll the list when necessary. Right-click a Playlist
 track header to rename that track. The Mixer effects area provides Chorus slots with rate, depth, mix and bypass controls.
 
-The top bar groups FILE, VIEW and HELP on the left. HELP → Keybindings opens
+The top bar groups FILE, EDIT, VIEW and HELP on the left. HELP → Keybindings opens
 the shortcut list. The arrow past a vertical marker toggles Follow playhead;
 the keyboard icon toggles typing notes. Hover either icon for its description.
+
+Dropdown and context menus support Up/Down or k/j to move keyboard focus,
+Enter to select, and Escape to dismiss. Left/Right or h/l also move between
+choices, including Save/Discard/Cancel. The unsaved-changes prompt initially
+focuses Cancel. Text-entry dialogs retain their normal typing bindings.
 
 Mixer inserts show their saved names beneath their numbers. Right-click the name
 to rename it; right-click the number for the existing mixer actions. Longer names

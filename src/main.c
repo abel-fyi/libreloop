@@ -556,6 +556,31 @@ static void smooth_line(Vector2 start,Vector2 end,float width,Color color) {
     rlEnd(); rlSetTexture(0);
 }
 static int hover(float x,float y,float w,float h) { return input_enabled && CheckCollisionPointRec(mouse,(Rectangle){x,y,w,h}); }
+/* Keyboard focus is scoped to menu buttons, never to text-entry dialogs. */
+static struct { int id, selected, count, items, active, enter; } menu_keys;
+static int menu_key(int key) { return IsKeyPressed(key) || IsKeyPressedRepeat(key); }
+static void menu_keys_begin(int id,int opened,int default_item,int *scroll,int total) {
+    if(menu_keys.id!=id || opened) { menu_keys.id=id; menu_keys.selected=default_item; menu_keys.count=0; }
+    menu_keys.active=1; menu_keys.items=0; menu_keys.enter=0;
+    int next=menu_key(KEY_DOWN) || menu_key(KEY_J) || menu_key(KEY_RIGHT) || menu_key(KEY_L);
+    int previous=menu_key(KEY_UP) || menu_key(KEY_K) || menu_key(KEY_LEFT) || menu_key(KEY_H);
+    if(!opened && menu_keys.count>0) {
+        if(next!=previous) {
+            if(scroll && next && menu_keys.selected==menu_keys.count-1 && *scroll+menu_keys.count<total) ++*scroll;
+            else if(scroll && previous && menu_keys.selected==0 && *scroll>0) --*scroll;
+            else {
+                if(scroll && next && menu_keys.selected==menu_keys.count-1) *scroll=0;
+                if(scroll && previous && menu_keys.selected==0) *scroll=fmaxf(0,total-menu_keys.count);
+                menu_keys.selected=(menu_keys.selected+(next?1:menu_keys.count-1))%menu_keys.count;
+            }
+        }
+        menu_keys.enter=IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER);
+    }
+}
+static void menu_keys_end(void) {
+    menu_keys.count=menu_keys.items; menu_keys.active=0; menu_keys.enter=0;
+    if(menu_keys.count>0 && menu_keys.selected>=menu_keys.count) menu_keys.selected=menu_keys.count-1;
+}
 /* Small control symbols share one size and never depend on font glyphs. */
 static int symbol(const char *text,int x,int y,Color c) {
     int id;
@@ -570,6 +595,10 @@ static int symbol(const char *text,int x,int y,Color c) {
 }
 static int button_color(const char *text,int x,int y,int w,int h,int active,Color base) {
     int over=hover(x,y,w,h);
+    int menu_item=menu_keys.active && input_enabled && strcmp(text,"x")?menu_keys.items++:-1;
+    int focused=menu_item>=0 && menu_item==menu_keys.selected;
+    int activate=focused && menu_keys.enter;
+    if(activate) menu_keys.enter=0;
     if(over) SetMouseCursor(MOUSE_CURSOR_POINTING_HAND);
     if(over && *text) {
         const char *description=text;
@@ -597,15 +626,17 @@ static int button_color(const char *text,int x,int y,int w,int h,int active,Colo
         else if(!strcmp(text,"Cancel")) description="Cancel without changing the value";
         snprintf(status,sizeof status,"%s",description);
     }
-    ui_surface((Rectangle){x,y,w,h},active?(over?ui_theme.active_hover:accent):over?ui_theme.hover:base);
-    Color foreground=active?theme_foreground(over?ui_theme.active_hover:accent):ink;
+    int highlighted=over || focused;
+    ui_surface((Rectangle){x,y,w,h},active?(highlighted?ui_theme.active_hover:accent):highlighted?ui_theme.hover:base);
+    Color foreground=active?theme_foreground(highlighted?ui_theme.active_hover:accent):ink;
     if(w>52 || !symbol(text,x+w/2,y+h/2,foreground)) {
         int available=w-(w<=72?8:16);
         int size=text_button_size(text,available,h);
         const char *caption=fit_text(text,available,size);
         label(caption,x+((w<=72 || !strcmp(text,"+"))?(w-text_width(caption,size))/2:8),y+(h-size)/2,size,foreground);
     }
-    return over && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    if(menu_item>=0 && over && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) menu_keys.selected=menu_item;
+    return activate || (over && IsMouseButtonPressed(MOUSE_BUTTON_LEFT));
 }
 /* One light everywhere: mute with left-click, toggle solo group membership with right-click. */
 static int button(const char *text,int x,int y,int w,int h,int active) {
@@ -732,7 +763,7 @@ static void open_popup(int kind) {
     if(kind==2) rename_automation=-1;
     if(kind==4) help_scroll=0;
     pattern_popup=kind; popup_opened=1; popup_drag=0;
-    popup_position[kind]=kind==7?(Vector2){60,34}:(Vector2){-1,-1};
+    popup_position[kind]=kind==7?(Vector2){108,34}:(Vector2){-1,-1};
 }
 static int rename_track=-1,rename_mixer=-1,rename_channel=-1;
 static const char *mixer_name(int id) { return id?project.insert_names[id-1]:"Master"; }
@@ -828,12 +859,12 @@ static void help_group(int x,int *y,const char *title) {
 static void help_binding(int x,int *y,const char *keys,const char *action) {
     label(keys,x,*y,11,ink); label(action,x+126,*y,11,muted); *y+=23;
 }
-static void draw_popup(void) {
+static void draw_popup_content(void) {
     if(!pattern_popup) { popup_drag=0; return; }
     input_enabled=1;
     if(pattern_popup==10) {
         int count=windows.focused==2 && piano_tool==PENCIL?8:6;
-        int x=168,y=34,w=210,h=8+count*26;
+        int x=60,y=34,w=210,h=8+count*26;
         if(IsKeyPressed(KEY_ESCAPE) || (!popup_opened && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !hover(x,y,w,h))) { pattern_popup=0; return; }
         ui_frame((Rectangle){x,y,w,h});
         const char *names[]={"Undo","Redo","Cut","Copy","Paste","Select all","Octave up","Octave down"};
@@ -841,7 +872,7 @@ static void draw_popup(void) {
         return;
     }
     if(pattern_popup==1 || pattern_popup==9) {
-        int file=pattern_popup==1,x=file?8:116,y=34,w=210,h=file?190:34;
+        int file=pattern_popup==1,x=file?8:160,y=34,w=210,h=file?190:34;
         if(IsKeyPressed(KEY_ESCAPE) || (!popup_opened && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !hover(x,y,w,h))) { pattern_popup=0; return; }
         ui_frame((Rectangle){x,y,w,h});
         const char *items[]={"New","Demo","Save","Save As...","Open...","Export...","Collect samples and save..."};
@@ -876,7 +907,7 @@ static void draw_popup(void) {
         return;
     }
     if(pattern_popup==7) {
-        int x=60,y=34,w=304,h=212;
+        int x=108,y=34,w=304,h=212;
         if(IsKeyPressed(KEY_ESCAPE) || (!popup_opened && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !hover(x,y,w,h))) { pattern_popup=0; return; }
         ui_frame((Rectangle){x,y,w,h});
         if(button("MIDI / Recording",x+6,y+180,w-12,25,0) && !popup_opened){midi_refresh();open_popup(13);return;}
@@ -1065,6 +1096,15 @@ static void draw_popup(void) {
         pattern_popup=0;
     }
 }
+static void draw_popup(void) {
+    int kind=pattern_popup;
+    int navigation=kind==1 || kind==6 || kind==7 || kind==8 || kind==9 || kind==10 || kind==12;
+    if(navigation) menu_keys_begin(kind,popup_opened,kind==12?2:0,kind==8?&device_scroll:NULL,device_count+2);
+    draw_popup_content();
+    if(navigation) menu_keys_end();
+    if(!pattern_popup && !context_kind) menu_keys.id=0;
+}
+
 static int import_sample(const char *path,int c) {
     recording_finish();
     char full[PATH_MAX]; Sample s;
@@ -3357,7 +3397,7 @@ static void delete_pattern(int target) {
     memset(arrangement.selected,0,sizeof arrangement.selected);
     snprintf(status,sizeof status,"Deleted pattern and its Playlist clips%s",old_count==1?"; kept one blank pattern":"");
 }
-static void draw_context(void) {
+static void draw_context_content(void) {
     if(!context_kind) return;
     float scale=ui_scale();
     int instrument_rows[CHANNELS],instrument_count=context_kind==17?pattern_instruments(context_target,instrument_rows):0;
@@ -3477,6 +3517,15 @@ static void draw_context(void) {
         if(button("Solo insert",x+4,y+29,w-8,24,target && (project.insert_mute[target-1]&2))) { if(target) solo_toggle(project.insert_mute,project.insert_count,target-1); context_kind=0; }
         if(button("Reset mixer channel",x+4,y+54,w-8,24,0)) { if(target) insert_reset(&project,target); else project.master=1; context_kind=0; }
     }
+}
+static void draw_context(void) {
+    int kind=context_kind;
+    int navigation=kind && kind!=5 && kind!=8 && kind!=12;
+    int rows[CHANNELS],total=kind==17?pattern_instruments(context_target,rows):0;
+    if(navigation) menu_keys_begin(100+kind,context_opened,0,kind==17?&instrument_replace_scroll:NULL,total);
+    draw_context_content();
+    if(navigation) menu_keys_end();
+    if(!pattern_popup && !context_kind) menu_keys.id=0;
 }
 static void typing_piano(int blocked) {
     /* GLFW key tokens describe physical US positions, including Spanish - and +. */
@@ -4234,19 +4283,25 @@ int main(int argc,char **argv) {
         BeginDrawing(); ClearBackground(bg); BeginMode2D((Camera2D){.zoom=scale});
         input_enabled=!modal && !dragging && !captured() && windows.grab<0 && mouse.y<42;
         ui_surface((Rectangle){0,0,width,40},panel);
-        ui_surface((Rectangle){8,8,196,22},cell);
+        ui_surface((Rectangle){8,8,204,22},cell);
         if(button("FILE",8,8,52,22,pattern_popup==1)) open_popup(1);
-        if(hover(8,8,48,22)) snprintf(status,sizeof status,"File: New, Demo, Save, Open, Export or Collect samples");
-        if(button("VIEW",60,8,56,22,pattern_popup==7)) open_popup(7);
-        if(hover(60,8,52,22)) snprintf(status,sizeof status,"View: Dark / Light themes and accent color");
-        if(button("HELP",116,8,52,22,pattern_popup==9)) open_popup(9);
-        if(button("EDIT",168,8,36,22,pattern_popup==10)) open_popup(10);
-        if(hover(168,8,36,22)) snprintf(status,sizeof status,"Edit: Undo, Redo, Cut, Copy, Paste and Select all");
-        label(fit_text(TextFormat("%s%s",GetFileName(document.path),project_dirty()?" *":""),196,11),8,29,11,muted);
-        const int gap=4,pitch_x=204+gap+KNOB_RADIUS,volume_x=pitch_x+KNOB_RADIUS*2+gap;
+        if(hover(8,8,52,22)) snprintf(status,sizeof status,"File: New, Demo, Save, Open, Export or Collect samples");
+        if(button("EDIT",60,8,48,22,pattern_popup==10)) open_popup(10);
+        if(hover(60,8,48,22)) snprintf(status,sizeof status,"Edit: Undo, Redo, Cut, Copy, Paste and Select all");
+        if(button("VIEW",108,8,52,22,pattern_popup==7)) open_popup(7);
+        if(hover(108,8,52,22)) snprintf(status,sizeof status,"View: Dark / Light themes and accent color");
+        if(button("HELP",160,8,52,22,pattern_popup==9)) open_popup(9);
+        label(fit_text(TextFormat("%s%s",GetFileName(document.path),project_dirty()?" *":""),204,11),8,29,11,muted);
+        const int gap=4,pitch_x=212+gap+KNOB_RADIUS,volume_x=pitch_x+KNOB_RADIUS*2+gap;
         const int mode_x=volume_x+KNOB_RADIUS+gap,play_x=mode_x+52+gap,stop_x=play_x+24+gap,record_x=stop_x+24+gap;
-        const int metro_x=record_x+24+3*22+gap,tempo_x=metro_x+22+gap,position_x=tempo_x+56+gap,editors_x=position_x+88+gap;
-        const int follow_x=editors_x+4*(22+gap),keys_x=follow_x+22+gap,audio_x=keys_x+22+gap;
+        const int metro_x=record_x+24+3*22+gap,tempo_x=metro_x+22+gap;
+        /* Reserve position and shortcut widths before sizing the central output monitor. */
+        const int audio_x=tempo_x+56+12;
+        const int analyzer_width=(int)fminf(108,fmaxf(0,width-audio_x-308));
+        const int position_x=audio_x+analyzer_width+gap+40+12,editors_x=position_x+88+12;
+        const int follow_x=editors_x+4*24,keys_x=follow_x+24;
+        label("Pitch",pitch_x-text_width("Pitch",8)/2,30,8,muted);
+        label("Vol",volume_x-text_width("Vol",8)/2,30,8,muted);
         knob_style(pitch_x,19,&project.master_pitch,-12,12,0,"Master pitch (semitones)",KNOB_CENTER);
         if(hover(pitch_x-11,8,22,22) || control_drag==&project.master_pitch) snprintf(status,sizeof status,"Master pitch: %+.2f semitones (sample speed; right-click to enter)",project.master_pitch);
         knob_style(volume_x,19,&output_volume,0,VOLUME_KNOB_MAX,1,"LibreLoop output volume",KNOB_VOLUME);
@@ -4287,7 +4342,7 @@ int main(int argc,char **argv) {
         ui_surface((Rectangle){position_x,8,88,22},bg);
         label(TextFormat("%03llu:%02llu",(unsigned long long)(step/16+1),(unsigned long long)(step%16+1)),position_x+10,10,18,ui_theme.signal);
         if(hover(position_x,8,88,22)) snprintf(status,sizeof status,"Playback position: bar and sixteenth-note step");
-        for(int i=0;i<4;i++) { int id=i==1?2:i==2?1:i; editor_button(id,editors_x+i*(22+gap)); }
+        for(int i=0;i<4;i++) { int id=i==1?2:i==2?1:i; editor_button(id,editors_x+i*24); }
         if(button("",follow_x,8,22,22,follow_playhead)) { follow_playhead=!follow_playhead; if(!follow_playhead) { arrangement.view_start=fmaxf(0,arrangement.view_start); for(int p=0;p<PATTERNS;p++) piano_pan[p]=fmaxf(0,piano_pan[p]); } }
         icon(ICON_FOLLOW,follow_x+11,19,20,follow_playhead?ui_theme.selected_text:ink);
         if(hover(follow_x,8,22,22)) snprintf(status,sizeof status,"Follow playhead: center playback in the Playlist (Song) or Piano Roll (PAT)");
@@ -4298,17 +4353,16 @@ int main(int argc,char **argv) {
         visual_step=playing && !reset?audio_visual_position()/(RATE*60.0/project.bpm/4):playback_start(); automation_display_update();
         int browser_hover=!browser_hidden && mouse.x<sidebar && mouse.y>=42 && mouse.y<height-22;
         typing_piano(modal || dragging || browser_hover);
-        float analyzer_width=fminf(108,fmaxf(0,width-audio_x-72));
-        if(analyzer_width>=28) {
+        if(analyzer_width>0) {
             DrawRectangle(audio_x,8,analyzer_width,22,bg);
             spectrum_draw(&master_spectrum,(Rectangle){audio_x+2,9,analyzer_width-4,20},0);
-            int mx=audio_x+analyzer_width+gap; DrawRectangle(mx,8,60,22,bg);
+            int mx=audio_x+analyzer_width+gap; DrawRectangle(mx,8,40,22,bg);
             for(int side=0;side<2;side++) {
                 float level=fmaxf(0,fminf(1,(20*log10f(fmaxf(.001f,meter_level[0][side]))+60)/60));
-                DrawRectangle(mx+2,10+side*10,56*level,7,accent);
-                if(meter_hold[0][side]>=1) DrawRectangle(mx+56,10+side*10,2,7,ui_theme.meter_high);
+                DrawRectangle(mx+2,10+side*10,36*level,7,accent);
+                if(meter_hold[0][side]>=1) DrawRectangle(mx+36,10+side*10,2,7,ui_theme.meter_high);
             }
-            if(hover(audio_x,8,analyzer_width+gap+60,22)) snprintf(status,sizeof status,audio_ok?"Master frequency spectrum and stereo level · red indicates clipping":"Audio device unavailable");
+            if(hover(audio_x,8,analyzer_width+gap+40,22)) snprintf(status,sizeof status,audio_ok?"Master frequency spectrum and stereo level · red indicates clipping":"Audio device unavailable");
         }
         input_enabled=!modal && !pattern_popup && !context_kind && !dragging && !captured() && windows.grab<0 && mouse.x<sidebar+6 && mouse.y>=42;
         DrawRectangle(0,42,sidebar,height-66,ui_theme.browser);
