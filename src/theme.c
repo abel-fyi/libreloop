@@ -3,6 +3,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 Theme ui_theme;
 static char config[PATH_MAX];
@@ -26,6 +27,7 @@ static const Theme dark_theme={
         .rack={84,84,84,255}, .mixer={84,84,84,255}, .effects={84,84,84,255},
         .browser={38,38,38,255}, .note={190,190,190,255},
         .step_on={{190,190,190,255},{201,174,149,255}}, .waveform={206,206,206,255},
+        .fader={195,195,195,255}, .fader_mark={33,33,33,255},
         .knob={206,206,206,255}, .swing={206,206,206,255},
         .pan_left={204,164,110,255}, .pan_right={205,117,105,255},
         .stereo={143,174,192,255}, .mono={173,150,187,255},
@@ -39,10 +41,14 @@ static Theme palette(int light) {
             &theme.secondary,&theme.hover,&theme.border,&theme.title,&theme.title_focus,
             &theme.disabled,&theme.track,&theme.grid_major,&theme.grid_minor,
             &theme.piano_row[0],&theme.piano_row[1],&theme.rack,&theme.mixer,
-            &theme.effects,&theme.browser,&theme.note,&theme.waveform,&theme.swing};
+            &theme.effects,&theme.browser,&theme.note,&theme.waveform,&theme.swing,
+            &theme.fader,&theme.fader_mark};
         for(unsigned i=0;i<sizeof inverted/sizeof *inverted;i++) {
             Color *color=inverted[i]; color->r=255-color->r; color->g=255-color->g; color->b=255-color->b;
         }
+        Color *indicators[]={&theme.pan_left,&theme.pan_right,&theme.stereo,&theme.mono,
+            &theme.meter_low,&theme.meter_mid,&theme.meter_high};
+        for(unsigned i=0;i<sizeof indicators/sizeof *indicators;i++) *indicators[i]=ColorBrightness(*indicators[i],-.45f);
         /* Piano key identities and semantic hues survive a theme switch. */
         theme.piano_white=(Color){235,235,235,255}; theme.piano_black=(Color){64,64,64,255};
         theme.piano_c=(Color){207,207,207,255}; theme.step_alt=(Color){163,163,163,255};
@@ -60,7 +66,7 @@ static void apply_accent(void) {
     ui_theme.signal=ui_theme.light?ColorBrightness(color,-.45f):color;
     ui_theme.patt=color;
     ui_theme.note_drag=ColorBrightness(color,.15f);
-    ui_theme.selected_text=(color.r*.2126f+color.g*.7152f+color.b*.0722f)>140?(Color){20,25,28,255}:(Color){248,249,250,255};
+    ui_theme.selected_text=theme_foreground(color);
 }
 void theme_init(const char *browser_config) {
     ui_theme=palette(0); config[0]=0; accent_choice=0;
@@ -100,4 +106,16 @@ void ui_surface(Rectangle rect,Color color) { DrawRectangleRec(rect,color); }
 void ui_frame(Rectangle rect) {
     ui_surface(rect,ui_theme.surface);
     DrawRectangleLinesEx(rect,1,ui_theme.border);
+}
+
+Color theme_foreground(Color background) {
+    float channels[]={background.r/255.f,background.g/255.f,background.b/255.f};
+    for(int i=0;i<3;i++) channels[i]=channels[i]<=.04045f?channels[i]/12.92f:powf((channels[i]+.055f)/1.055f,2.4f);
+    float luminance=.2126f*channels[0]+.7152f*channels[1]+.0722f*channels[2];
+    return (luminance+.05f)/.05f >= 1.05f/(luminance+.05f)?BLACK:WHITE;
+}
+void ui_fader_handle(Rectangle rect,int selected) {
+    DrawRectangleRec(rect,selected?ui_theme.highlight:ui_theme.fader);
+    DrawLine(rect.x+2,rect.y+rect.height/2,rect.x+rect.width-2,rect.y+rect.height/2,
+        selected?ui_theme.selected_text:ui_theme.fader_mark);
 }

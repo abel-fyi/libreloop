@@ -329,7 +329,7 @@ static void fonts_update(float scale) {
     font_scale=scale; icons_init(scale); text_fonts_update(font_path,scale);
 }
 static int text_width(const char *text,int size) {
-    return (int)ceilf(MeasureTextEx(text_font(text,size),text,text_font(text,size).baseSize,0).x/font_scale);
+    return (int)ceilf(text_font_width(text,size));
 }
 static float raster_position(float value,float origin) {
     return text_pixel_position(value,origin,ui_scale(),font_scale);
@@ -347,17 +347,7 @@ static void backspace(char *text) {
     text[n]=0;
 }
 static const char *fit_text(const char *text,int width,int size) {
-    static char fitted[PATH_MAX]; if(text!=fitted) snprintf(fitted,sizeof fitted,"%s",text);
-    Font font=text_font(fitted,size); float line=0;
-    /* Match MeasureTextEx with zero spacing, visiting each UTF-8 glyph once. */
-    for(int i=0;fitted[i];) {
-        int bytes,codepoint=GetCodepointNext(fitted+i,&bytes),glyph=GetGlyphIndex(font,codepoint);
-        if(codepoint=='\n') line=0;
-        else line+=font.glyphs[glyph].advanceX>0?font.glyphs[glyph].advanceX:font.recs[glyph].width+font.glyphs[glyph].offsetX;
-        if(ceilf(line/font_scale)>width) { fitted[i]=0; break; }
-        i+=bytes;
-    }
-    return fitted;
+    static char fitted[PATH_MAX]; text_fit(fitted,sizeof fitted,text,width,size); return fitted;
 }
 /* One shared alpha mask smooths small circles without window-wide MSAA. */
 static Texture2D circle_texture;
@@ -608,10 +598,12 @@ static int button_color(const char *text,int x,int y,int w,int h,int active,Colo
         snprintf(status,sizeof status,"%s",description);
     }
     ui_surface((Rectangle){x,y,w,h},active?(over?ui_theme.active_hover:accent):over?ui_theme.hover:base);
-    if(w>52 || !symbol(text,x+w/2,y+h/2,active?ui_theme.selected_text:ink)) {
-        int size=15; if(w<=60 && text_width(text,size)>w-8) size=14;
-        const char *caption=fit_text(text,w-(w<=72?8:16),size);
-        label(caption,x+((w<=72 || !strcmp(text,"+"))?(w-text_width(caption,size))/2:8),y+(h-size)/2,size,active?ui_theme.selected_text:ink);
+    Color foreground=active?theme_foreground(over?ui_theme.active_hover:accent):ink;
+    if(w>52 || !symbol(text,x+w/2,y+h/2,foreground)) {
+        int available=w-(w<=72?8:16);
+        int size=text_button_size(text,available,h);
+        const char *caption=fit_text(text,available,size);
+        label(caption,x+((w<=72 || !strcmp(text,"+"))?(w-text_width(caption,size))/2:8),y+(h-size)/2,size,foreground);
     }
     return over && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
 }
@@ -3264,8 +3256,7 @@ static void mixer(float width,float height) {
         if(hover(x+23,fader_top-4,22,fader_bottom-fader_top+8) || control_drag==v) snprintf(status,sizeof status,"%s fader: %.1f dB | Mark = 0 dB; right-click for value / automation",mixer_name(id),gain_db(*v));
         DrawLine(x+25,fader_bottom-fader_position(1)*(fader_bottom-fader_top),x+44,fader_bottom-fader_position(1)*(fader_bottom-fader_top),muted);
         int fy=fader_bottom-fader_position(displayed_value(v,*v))*(fader_bottom-fader_top);
-        ui_surface((Rectangle){x+26,fy-9,14,18},mixer_selected==id?accent:ui_theme.piano_white);
-        DrawLine(x+28,fy,x+38,fy,bg);
+        ui_fader_handle((Rectangle){x+26,fy-9,14,18},mixer_selected==id);
         knob_style(x+33,height-59,id?&project.insert_width[id-1]:&project.master_width,0,2,1,"Stereo width (left wider, center unchanged, right mono)",KNOB_WIDTH);
         int arm_over=hover(x+4,height-67,16,16);
         circle(x+12,height-59,6,arm_over || record_armed[id]?ui_theme.meter_high:ui_theme.border);
@@ -3952,7 +3943,10 @@ static void navigate_editors(float scale) {
 
 int main(int argc,char **argv) {
     int smoke=0;
-    for(int i=1;i<argc;i++) if(!strcmp(argv[i],"--smoke")) smoke=1;
+    for(int i=1;i<argc;i++) {
+        if(!strcmp(argv[i],"--smoke")) smoke=1;
+        else if(!strcmp(argv[i],"--version")) { printf("LibreLoop %s\n",LIBRELOOP_VERSION); return 0; }
+    }
     resource_paths();
     if(smoke && (!DirectoryExists(samples_path) || !FileExists(font_path))) {
         fprintf(stderr,"Smoke check failed: bundled samples or font are missing.\n"); return 1;
@@ -3976,7 +3970,7 @@ int main(int argc,char **argv) {
     /* On Linux, raylib 5.5's high-DPI flag rescales mouse/scissors separately
        from our 2D cameras. Keep window coordinates consistent; rasterize fonts
        using actual framebuffer density rather than the monitor's DPI setting. */
-    SetConfigFlags(flags); InitWindow(1200,675,"LibreLoop - pattern workstation");
+    SetConfigFlags(flags); InitWindow(1200,675,"LibreLoop " LIBRELOOP_VERSION " - pattern workstation");
     circles_init(); arcs_init(); cables_init();
     SetWindowMinSize(900,506); SetTargetFPS(60); SetExitKey(KEY_NULL);
     int audio_ok=audio_start(&project,samples);

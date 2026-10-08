@@ -1,6 +1,6 @@
 # LibreLoop
 
-A small, self-contained Linux and macOS DAW written in C with raylib and miniaudio. Includes built-in instruments/effects, audio and MIDI recording. Work in progress.
+A small, self-contained Linux and macOS DAW written in C with raylib and miniaudio. Includes built-in instruments/effects, audio and MIDI recording. Currently `0.1.0-dev`; experimental and under active development.
 
 ![LibreLoop](docs/images/libreloop.png)
 
@@ -30,4 +30,4 @@ resources, desktop entry and notices.
 The macOS bundle includes its demo samples and font and can be moved out of
 the checkout. It is currently unsigned.
 
-[Build dependencies](docs/development.md) · [GPL-3.0](LICENSE) · [Third-party notices](docs/third-party.md)
+[Release preparation](docs/release.md) · [Build dependencies](docs/development.md) · [GPL-3.0](LICENSE) · [Third-party notices](docs/third-party.md)

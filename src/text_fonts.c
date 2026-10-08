@@ -57,3 +57,46 @@ float text_pixel_position(float value,float origin,float layout_scale,float rast
     float pixels=origin*raster_scale/layout_scale;
     return (roundf(value*raster_scale+pixels)-pixels)/raster_scale;
 }
+
+static float advance(Font font,int glyph) {
+    return font.glyphs[glyph].advanceX!=0?font.glyphs[glyph].advanceX:font.recs[glyph].width;
+}
+static float glyph_width(Font font,int glyph,float *position,float *left,float *right) {
+    *left=fminf(*left,*position+font.glyphs[glyph].offsetX);
+    *right=fmaxf(*right,*position+font.glyphs[glyph].offsetX+font.recs[glyph].width);
+    *position+=advance(font,glyph);
+    return fmaxf(*position,*right)-*left;
+}
+float text_font_width(const char *text,int size) {
+    Font font=text_font(text,size); float position=0,left=0,right=0,maximum=0;
+    for(int i=0;text && text[i];) {
+        int bytes,codepoint=GetCodepointNext(text+i,&bytes); if(bytes<1) bytes=1;
+        if(codepoint=='\n') position=left=right=0;
+        else maximum=fmaxf(maximum,glyph_width(font,GetGlyphIndex(font,codepoint),&position,&left,&right));
+        i+=bytes;
+    }
+    return density>0?maximum/density:maximum;
+}
+void text_fit(char *out,size_t capacity,const char *text,float width,int size) {
+    if(!capacity) return;
+    if(!text || width<=0) { out[0]=0; return; }
+    Font font=text_font(text,size); float position=0,left=0,right=0;
+    size_t used=0;
+    for(size_t i=0;text[i];) {
+        int bytes,codepoint=GetCodepointNext(text+i,&bytes); if(bytes<1) bytes=1;
+        if(used+(size_t)bytes>=capacity) break;
+        if(codepoint=='\n') position=left=right=0;
+        else {
+            float pixels=glyph_width(font,GetGlyphIndex(font,codepoint),&position,&left,&right);
+            if(ceilf(density>0?pixels/density:pixels)>width) break;
+        }
+        memmove(out+used,text+i,(size_t)bytes); used+=(size_t)bytes; i+=(size_t)bytes;
+    }
+    out[used]=0;
+}
+int text_button_size(const char *text,float width,float height) {
+    int preferred=(int)fmaxf(10,fminf(15,height-4));
+    for(int size=preferred;size>=10;size--) if(ceilf(text_font_width(text,size))<=width) return size;
+    /* Genuinely long data labels still truncate at a readable size. */
+    return preferred;
+}

@@ -82,7 +82,7 @@ cmake --build build --parallel
 
 ## Tests
 
-The desktop build has 32 headless CTest tests (28 in core-only builds). In addition
+The desktop build has 36 headless CTest tests (31 in core-only builds). In addition
 to engine, editing, audio and persistence checks, tests cover atomic write failures,
 relative/collected assets, document close decisions, background recording and mapped
 sample ownership through playback and undo.
@@ -129,10 +129,12 @@ python3 tools/check_gui.py --build build --dpi 144
 ```
 
 It requires Xvfb, libX11 and libXtst, creates a temporary configuration, and checks
-physical-pixel text rendering at 100/125/150/200%, dynamic UTF-8 glyphs, populated
+physical-pixel text rendering at 100/125/150/200%, complete compact captions
+across fractional scales, dynamic UTF-8 glyphs, populated
 smoke screenshots, and close/cancel/discard/save in the running app. It does not
 require `xvfb-run` or `xdotool`. CI repeats the actual app input checks with X11
-monitor DPI settings of 96, 120, 144 and 192. Linux keeps raylib's high-DPI window
+monitor DPI settings of 96, 120, 144 and 192, including actual window resize
+events from 900×506 through 1920×1080 and the 154–157% layout range. Linux keeps raylib's high-DPI window
 flag off to avoid its separate mouse/scissor scaling conflicting with the UI's
 2D cameras; font density still follows the actual framebuffer. For interactive changes, check stacking,
 resizing, capture during drags, hover help, and the affected playback behavior.
@@ -198,3 +200,9 @@ analyzers, the audio callback and device threads.
 MIDI uses the system CoreMIDI framework on macOS and ALSA sequencer on Linux.
 The ALSA sequencer must be available to the running user for Linux MIDI input.
 Core-only tests do not require MIDI hardware or ALSA headers.
+
+## Release preparation
+
+See [the v0.1 release guide](release.md) for version labels, CPack archives,
+physical-device acceptance and the current limits. The local build is marked
+`0.1.0-dev`; creating an archive does not publish a release.

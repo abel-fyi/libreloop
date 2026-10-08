@@ -745,3 +745,9 @@ curves can be edited afterward and recording is undoable. A project has eight
 patterns and 128 notes per channel/pattern; recording stops and keeps the take
 if that capacity is reached. Long controller curves are compacted within the
 existing 64-point automation limit. No external plugin hosting is involved.
+
+Light mode mirrors the neutral surfaces and control marks used by Dark mode.
+Mixer fader handles have independent fill/mark colors, so unselected marks remain
+visible in both themes. Pan, width and meter colors preserve their meaning with
+stronger contrast in Light mode; selected controls choose a contrasting foreground
+for the selected accent, including hover states.

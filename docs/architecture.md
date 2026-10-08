@@ -136,8 +136,8 @@ bindings when that device exists. The chorus establishes the effect contract bel
   metronome and listening gain mix before the final device clamp to -1..1.
   PCM16 export clamps at conversion. Overloaded mixes still need gain reduction;
   there is no automatic compressor or lookahead limiter.
-- Project files currently use `.hbt` and the `HOMEBEAT` version-39 header for
-  compatibility. Versions 1–38 remain readable. Renaming the app did not change
+- Project files currently use `.hbt` and the `HOMEBEAT` version-41 header for
+  compatibility. Versions 1–40 remain readable. Renaming the app did not change
   the project format. Sample references are relative to the project directory, with old absolute paths
   still readable. Collect samples and save writes original PCM into a unique companion
   directory, and subsequent saves retain those references. Missing audio opens
@@ -160,7 +160,7 @@ the view from 8 to all 128 MIDI pitches. Keyboard rendering, hit testing, note
 editing and scrolling share that row scale. Drum steps are one-shots; Piano Roll notes have duration gates with a
 short fade at note-off. Sampler processing can change pitch and duration; held notes stop at the
 processed sample's end. Mixer inserts can route to one other insert or Master, with built-in Chorus and Equalizer slots; no
-MIDI device I/O, external plugins, or FLP import. WAV export ends at
+external plugins or FLP import. Native MIDI input and recording use CoreMIDI on macOS and ALSA sequencer on Linux. WAV export ends at
 the arrangement boundary without an added tail; standard RIFF exports must
 fit below 4 GiB. This is a workflow prototype,
 not a production recording tool. Device changes, sleep/wake and sustained
@@ -421,3 +421,13 @@ Project version 41 stores up to 32 channel/CC parameter bindings before EQ data;
 older projects initialize them empty. Machine-specific input and recording choices
 live beside the browser settings in `midi.txt`. Take creation and controller curve
 compaction occur on the UI thread, with no allocations in the audio callback.
+
+Mixer faders use their own neutral fill and center-mark colors, independent of
+piano key identity. Light mode mirrors those neutral colors and darkens semantic
+pan/width/meter hues for visibility. Selected marks and active button text use the
+higher-contrast black/white foreground for their actual accent surface.
+
+Text measurement and truncation use the same glyph advances and visible bounds as
+rendering. Compact buttons choose a font size that fits the entire caption; only
+labels that cannot fit at any supported size truncate. This avoids losing action
+names when font atlas sizes round differently during fractional window resizing.

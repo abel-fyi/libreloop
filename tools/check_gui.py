@@ -20,7 +20,7 @@ def main():
     executable = Path(args.app).resolve() if args.app else build / 'libreloop'
     font = Path(__file__).resolve().parents[1] / 'assets/fonts/LiberationSans-Regular.ttf'
     read_fd, write_fd = os.pipe()
-    server = subprocess.Popen(['Xvfb', '-displayfd', str(write_fd), '-noreset', '-screen', '0', '1200x675x24'],
+    server = subprocess.Popen(['Xvfb', '-displayfd', str(write_fd), '-noreset', '-screen', '0', '2400x1600x24'],
                               pass_fds=(write_fd,), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     os.close(write_fd)
     app = None
@@ -43,6 +43,7 @@ def main():
         with tempfile.TemporaryDirectory(prefix='libreloop-gui-') as directory:
             env = dict(os.environ, DISPLAY=display_name, XDG_CONFIG_HOME=directory + '/config')
             subprocess.run([str(build / 'text_fonts_test'), str(font)], env=env, cwd=directory, check=True, timeout=30)
+            subprocess.run([str(build / 'theme_test'), '--render'], env=env, cwd=directory, check=True, timeout=30)
             with open(directory + '/smoke.log', 'w') as log:
                 subprocess.run([str(executable), '--smoke'], env=env, cwd=directory,
                                stdout=log, stderr=log, check=True, timeout=30)
@@ -67,6 +68,15 @@ def main():
                             ('your_event_mask', C.c_long), ('do_not_propagate_mask', C.c_long),
                             ('override_redirect', C.c_int), ('screen', C.c_void_p)]
             x.XGetWindowAttributes.argtypes = [C.c_void_p, C.c_ulong, C.POINTER(Attributes)]
+            x.XMoveWindow.argtypes = [C.c_void_p, C.c_ulong, C.c_int, C.c_int]
+            x.XStringToKeysym.argtypes = [C.c_char_p]; x.XStringToKeysym.restype = C.c_ulong
+            x.XKeysymToKeycode.argtypes = [C.c_void_p,C.c_ulong]; x.XKeysymToKeycode.restype = C.c_uint
+            xt.XTestFakeKeyEvent.argtypes = [C.c_void_p,C.c_uint,C.c_int,C.c_ulong]
+            x.XResizeWindow.argtypes = [C.c_void_p, C.c_ulong, C.c_uint, C.c_uint]
+            x.XGetImage.argtypes = [C.c_void_p, C.c_ulong, C.c_int, C.c_int, C.c_uint, C.c_uint, C.c_ulong, C.c_int]
+            x.XGetImage.restype = C.c_void_p
+            x.XGetPixel.argtypes = [C.c_void_p, C.c_int, C.c_int]; x.XGetPixel.restype = C.c_ulong
+            x.XDestroyImage.argtypes = [C.c_void_p]
             x.XSetInputFocus.argtypes = [C.c_void_p, C.c_ulong, C.c_int, C.c_ulong]
             xt.XTestFakeMotionEvent.argtypes = [C.c_void_p, C.c_int, C.c_int, C.c_int, C.c_ulong]
             xt.XTestFakeButtonEvent.argtypes = [C.c_void_p, C.c_uint, C.c_int, C.c_ulong]
@@ -88,7 +98,7 @@ def main():
                     name = C.c_void_p()
                     if x.XFetchName(display, children[index], C.byref(name)) and name.value:
                         title = C.string_at(name.value); x.XFree(name)
-                        if title.startswith(b'LibreLoop -'): found = children[index]
+                        if title.startswith(b'LibreLoop '): found = children[index]
                 if children: x.XFree(children)
                 return found
             def click(px, py, button=1):
@@ -113,8 +123,28 @@ def main():
                         assert app.poll() is None
                         time.sleep(.05)
                     assert window, 'App did not create a window'
+                    x.XMoveWindow(display,window,0,0); x.XFlush(display); time.sleep(.2)
                     x.XSetInputFocus(display, window, 1, 0); x.XFlush(display); time.sleep(.3)
-                    click(430, 18, 4)  # Change tempo, creating an unsaved edit.
+                    # Exercise real resize events, including scales where EDIT previously lost T.
+                    if decision == 'discard':
+                        dimensions = [(900,506),(1200,675),(1280,720),(1848,1040),
+                                      (1860,1047),(1872,1053),(1884,1060),(1920,1080),
+                                      (1370,770),(1200,675)]
+                        for width,height in dimensions:
+                            x.XResizeWindow(display,window,width,height); x.XFlush(display); time.sleep(.25)
+                            attributes = Attributes(); assert x.XGetWindowAttributes(display,window,C.byref(attributes))
+                            assert (attributes.width,attributes.height)==(width,height)
+                            scale=max(1,min(width/1200,height/675))
+                            click(round(attributes.x+186*scale),round(attributes.y+19*scale))
+                            sample=x.XGetImage(display,window,round(174*scale),round(59*scale),1,1,C.c_ulong(-1),2)
+                            assert sample
+                            pixel=x.XGetPixel(sample,0,0)&0xffffff; x.XDestroyImage(sample)
+                            assert pixel==0x303030, f'EDIT menu/input misaligned at {width}x{height}: {pixel:06x}'
+                            escape=x.XKeysymToKeycode(display,x.XStringToKeysym(b'Escape'))
+                            xt.XTestFakeKeyEvent(display,escape,1,0); x.XFlush(display); time.sleep(.08)
+                            xt.XTestFakeKeyEvent(display,escape,0,0); x.XFlush(display); time.sleep(.15)
+                        print('Actual resized EDIT menu/input checks passed',flush=True)
+                    click(516, 18, 4)  # Tempo follows the three recording-type buttons; saved BPM below verifies this hit.
                     close_request(window); assert app.poll() is None, 'Dirty close bypassed the prompt'
                     click(702, 375); assert app.poll() is None, 'Cancel closed the app'
                     close_request(window); assert app.poll() is None

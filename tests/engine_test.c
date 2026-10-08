@@ -44,7 +44,7 @@ static int legacy_save(const char *path,Project *p,int version) {
     return fclose(f)==0;
 }
 int main(void) {
-    /* Keep large project fixtures off the stack as device settings grow. */
+    /* Keep large project and player fixtures off the stack as device state grows. */
     CHECK(grid_interval(100)<grid_interval(2));
     static Project fine,roundtrip; project_default(&fine); memset(fine.notes,0,sizeof fine.notes);
     fine.volume[0]=fine.master=1; fine.route[0]=0;
@@ -58,7 +58,7 @@ int main(void) {
     CHECK(project_save("fractional.hbt",&fine) && project_load("fractional.hbt",&roundtrip));
     CHECK(project_equal(&fine,&roundtrip)); remove("fractional.hbt");
     float sustained[RATE]; for(int i=0;i<RATE;i++) sustained[i]=.25f;
-    Sample exact[CHANNELS]={{sustained,RATE}}; float timed[20000],split[20000]; Player clock; player_reset(&clock);
+    Sample exact[CHANNELS]={{sustained,RATE}}; float timed[20000],split[20000]; static Player clock; player_reset(&clock);
     render(&clock,&fine,exact,timed,10000);
     for(int i=0;i<3000*2;i++) CHECK(timed[i]==0);
     CHECK(timed[3000*2]>0 && timed[6100*2]==0 && timed[8000*2]>0);
@@ -150,7 +150,7 @@ int main(void) {
     routing.volume[0]=routing.volume[1]=.5f; routing.master=1;
     routing.route[0]=routing.route[1]=1; routing.insert_volume[0]=.5f; routing.insert_pan[0]=.5f;
     float one=.2f,two=.4f,result[2]; Sample fixture[CHANNELS]={{&one,1},{&two,1},{0},{0}};
-    Player rp; player_reset(&rp); render(&rp,&routing,fixture,result,1);
+    static Player rp; player_reset(&rp); render(&rp,&routing,fixture,result,1);
     CHECK(fabsf(result[0]-.075f)<.00001f && fabsf(result[1]-.15f)<.00001f);
     routing.route[0]=0; player_reset(&rp); render(&rp,&routing,fixture,result,1);
     CHECK(fabsf(result[0]-.15f)<.00001f && fabsf(result[1]-.2f)<.00001f);
@@ -189,7 +189,7 @@ int main(void) {
     /* Reject a saved feedback cycle without replacing the current project. */
     bus.insert_output[0]=2; bus.insert_output[1]=1; CHECK(project_save("bad-project.hbt",&bus)); CHECK(!project_load("bad-project.hbt",&q));
     CHECK(q.bpm==120.5f && q.clips[99][0]==1);
-    Player a,b; player_reset(&a); player_reset(&b); float whole[24000],chunks[24000];
+    static Player a,b; player_reset(&a); player_reset(&b); float whole[24000],chunks[24000];
     render(&a,&p,s,whole,12000); for(int i=0;i<12000;i+=100) render(&b,&p,s,chunks+i*2,100);
     CHECK(memcmp(whole,chunks,sizeof whole)==0);
     double power=0; for(int i=0;i<24000;i++) { CHECK(isfinite(whole[i]) && fabsf(whole[i])<=1); power+=whole[i]*whole[i]; } CHECK(power>1);
@@ -238,7 +238,7 @@ int main(void) {
     project_default(&p); p.volume[0]=p.master=1; p.route[0]=0;
     float constant[1024],live_out[32]; for(int i=0;i<1024;i++) constant[i]=1;
     Sample live_samples[CHANNELS]={0}; live_samples[0]=(Sample){constant,1024};
-    Player keys; player_reset(&keys);
+    static Player keys; player_reset(&keys);
     for(int i=0;i<32;i++) live_out[i]=.125f;
     render_live(&keys,&p,live_samples,live_out,16);
     for(int i=0;i<32;i++) CHECK(live_out[i]==.125f);
@@ -407,7 +407,7 @@ int main(void) {
     CHECK(project_save("new.hbt",&p) && project_load("new.hbt",&q) && project_equal(&p,&q)); remove("new.hbt");
     project_demo(&p); CHECK(p.pattern_count==2 && song_steps(&p)==128);
     CHECK(project_save("demo.hbt",&p) && project_load("demo.hbt",&q) && project_equal(&p,&q)); remove("demo.hbt");
-    Sample demo[CHANNELS]; samples_default(demo); Player demo_player; player_reset(&demo_player); demo_player.song=1;
+    Sample demo[CHANNELS]; samples_default(demo); static Player demo_player; player_reset(&demo_player); demo_player.song=1;
     float demo_pcm[512],peak=0;
     for(int block=0;block<4000;block++) {
         render(&demo_player,&p,demo,demo_pcm,256);
@@ -465,7 +465,7 @@ int main(void) {
     remove("stacked-notes.hbt");
     float stack_pcm[64]; for(int i=0;i<64;i++) stack_pcm[i]=.1f;
     Sample stack_samples[CHANNELS]={{.data=stack_pcm,.frames=64}};
-    Player stacked_player; player_reset(&stacked_player); stacked_player.frame=12000;
+    static Player stacked_player; player_reset(&stacked_player); stacked_player.frame=12000;
     float stack_out[16]; render(&stacked_player,&p,stack_samples,stack_out,8);
     CHECK(fabsf(stack_out[2]-.2f*100/127)<.00001f); /* Both notes produce a voice. */
 

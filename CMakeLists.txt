@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
-project(libreloop C)
+project(libreloop VERSION 0.1.0 LANGUAGES C)
+set(LIBRELOOP_VERSION_LABEL "${PROJECT_VERSION}-dev" CACHE STRING "Version displayed by the app and development packages")
 if(POLICY CMP0135)
   cmake_policy(SET CMP0135 NEW)
 endif()
@@ -111,6 +112,8 @@ if(BUILD_GUI)
     set_target_properties(libreloop PROPERTIES MACOSX_BUNDLE TRUE
       OUTPUT_NAME LibreLoop
       MACOSX_BUNDLE_BUNDLE_NAME LibreLoop
+      MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+      MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
       MACOSX_BUNDLE_GUI_IDENTIFIER org.libreloop.app
       MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Info.plist.in")
     set(bundle_samples
@@ -148,7 +151,7 @@ if(BUILD_GUI)
     install(FILES assets/fonts/LICENSE DESTINATION share/libreloop/licenses/fonts)
     install(FILES cmake/libreloop.desktop DESTINATION share/applications)
   endif()
-  target_compile_definitions(libreloop PRIVATE LIBRELOOP_SAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/samples"
+  target_compile_definitions(libreloop PRIVATE LIBRELOOP_VERSION="${LIBRELOOP_VERSION_LABEL}" LIBRELOOP_SAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/samples"
     LIBRELOOP_FONT="${CMAKE_CURRENT_SOURCE_DIR}/assets/fonts/LiberationSans-Regular.ttf")
   target_link_libraries(libreloop PRIVATE midi_input audio browser windows glfw)
   target_compile_options(libreloop PRIVATE -Wall -Wextra)
@@ -163,8 +166,24 @@ if(BUILD_GUI)
   endif()
   libreloop_test(browser browser)
   if(BUILD_TESTING)
+    add_executable(theme_test tests/theme_test.c src/theme.c)
+    target_include_directories(theme_test PRIVATE src)
+    target_link_libraries(theme_test PRIVATE raylib)
+    add_test(NAME theme COMMAND theme_test)
     add_executable(text_fonts_test tests/text_fonts_test.c src/text_fonts.c)
     target_include_directories(text_fonts_test PRIVATE src)
     target_link_libraries(text_fonts_test PRIVATE raylib)
   endif()
+endif()
+
+if(BUILD_GUI)
+  set(CPACK_PACKAGE_NAME libreloop)
+  set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+  set(CPACK_PACKAGE_FILE_NAME "libreloop-${LIBRELOOP_VERSION_LABEL}-${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
+  if(APPLE)
+    set(CPACK_GENERATOR ZIP)
+  else()
+    set(CPACK_GENERATOR TGZ)
+  endif()
+  include(CPack)
 endif()

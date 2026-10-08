@@ -35,5 +35,27 @@ int main(int argc,char **argv) {
         DrawTextEx(font,"first",(Vector2){0},font.baseSize,0,WHITE);
         font=text_font("Łódź",12); DrawTextEx(font,"Łódź",(Vector2){100,0},font.baseSize,0,WHITE); EndDrawing();
     }
+    /* Rounded atlas metrics must never erase a letter from compact controls. */
+    const char *captions[]={"FILE","VIEW","HELP","EDIT","Save","Load","Cancel","Reset","Bright EP"};
+    const int widths[]={44,48,44,28,56,56,64,64,82};
+    const float dpi[]={1,1.5f,2};
+    int checks=0;
+    for(unsigned d=0;d<sizeof dpi/sizeof *dpi;d++) for(int percent=100;percent<=200;percent++) {
+        float scale=percent/100.f; text_fonts_update(argv[1],scale*dpi[d]);
+        for(unsigned c=0;c<sizeof captions/sizeof *captions;c++) {
+            int size=text_button_size(captions[c],widths[c],22); char fitted[128];
+            CHECK(ceilf(text_font_width(captions[c],size))<=widths[c]);
+            text_fit(fitted,sizeof fitted,captions[c],widths[c],size);
+            CHECK(!strcmp(fitted,captions[c]));
+            text_fit(fitted,sizeof fitted,fitted,widths[c],size); CHECK(!strcmp(fitted,captions[c]));
+            checks++;
+        }
+        char fitted[128];
+        text_fit(fitted,sizeof fitted,"Ελληνικά Живой",ceilf(text_font_width("Ελληνικά Живой",12)),12);
+        CHECK(!strcmp(fitted,"Ελληνικά Живой"));
+        text_fit(fitted,4,"ééé",100,12); CHECK(!strcmp(fitted,"é"));
+        text_fit(fitted,sizeof fitted,"EDIT",0,12); CHECK(!fitted[0]);
+    }
+    printf("Complete compact captions across fractional layout/display scales: %d checks passed.\n",checks);
     text_fonts_close(); CloseWindow(); puts("Native glyph raster alignment at 100/125/150/200%, UTF-8 atlases and safe rebuilds passed."); return 0;
 }
