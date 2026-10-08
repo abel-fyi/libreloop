@@ -9,7 +9,7 @@ are a coherent mouse-driven workflow and minimal code and dependencies.
 | Path | Responsibility |
 | --- | --- |
 | `src/main.c` | raylib UI, gestures, transport, sampler worker orchestration |
-| `src/theme.c`, `theme.h` | light/dark palettes, flat rectangle drawing, appearance preference |
+| `src/theme.c`, `theme.h` | curated palette, flat rectangle drawing, contrast-aware foregrounds |
 | `src/engine.c`, `engine.h` | project model, note scheduling, rendering and routing |
 | `src/project_io.c`, `atomic_file.c` | backward-compatible project serialization and atomic project/WAV replacement |
 | `src/project_assets.c`, `project_document.c` | relative references, collected audio, missing samples and unsaved document state |
@@ -69,8 +69,9 @@ bindings when that device exists. The chorus establishes the effect contract bel
 
 ## Decisions
 
-- Dark and Light share the same control geometry and behavior. The View
-  menu selects the palette and saves it in the user's LibreLoop configuration.
+- The DAW uses one curated palette shared with the website: violet-black,
+  lavender, pink and lime. The View menu opens MIDI/recording settings; there
+  is no theme switcher or saved appearance preference.
   Surfaces use plain rectangles, without gradients or shadows. A shared small
   circle mask and a monochrome icon atlas smooth controls; the atlas is drawn
   at four times its display size, reduced with exact area coverage, and aligned
@@ -423,8 +424,8 @@ live beside the browser settings in `midi.txt`. Take creation and controller cur
 compaction occur on the UI thread, with no allocations in the audio callback.
 
 Mixer faders use their own neutral fill and center-mark colors, independent of
-piano key identity. Light mode mirrors those neutral colors and darkens semantic
-pan/width/meter hues for visibility. Selected marks and active button text use the
+piano key identity. Pan/width/meter hues retain distinct roles. Selected marks
+and active button text use the
 higher-contrast black/white foreground for their actual accent surface.
 
 Text measurement and truncation use the same glyph advances and visible bounds as

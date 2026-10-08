@@ -206,3 +206,15 @@ Core-only tests do not require MIDI hardware or ALSA headers.
 See [the v0.1 release guide](release.md) for version labels, CPack archives,
 physical-device acceptance and the current limits. The local build is marked
 `0.1.0-dev`; creating an archive does not publish a release.
+
+Palette changes can be measured without starting the DAW:
+
+```sh
+python3 tools/audit_palette.py --output docs/palette-measurements.md
+python3 tools/sync_website_palette.py ~/libreloop-website
+```
+
+The audit checks labels, selected states, composited directional rings, spectrum
+bars, clip artwork and perceptual separation. The reference report lists actual
+ratios and saturation. Inspect the smoke screenshots as well, since
+pixel size and layout still affect readability.

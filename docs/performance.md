@@ -187,7 +187,7 @@ idle event-wait behavior. Hidden meters do not keep the UI animating.
 ## Flat appearance
 
 Rounded/glossy surfaces and shadows have since been removed. The theme module
-now draws opaque rectangles, retains dark/light palettes,
+now draws opaque rectangles, uses the curated palette,
 and no longer creates or caches surface textures. The Aero measurements above
 describe the previous implementation; the flat appearance has not yet been
 benchmarked separately.

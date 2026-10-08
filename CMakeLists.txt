@@ -112,6 +112,7 @@ if(BUILD_GUI)
     set_target_properties(libreloop PROPERTIES MACOSX_BUNDLE TRUE
       OUTPUT_NAME LibreLoop
       MACOSX_BUNDLE_BUNDLE_NAME LibreLoop
+      MACOSX_BUNDLE_ICON_FILE libreloop.icns
       MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
       MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
       MACOSX_BUNDLE_GUI_IDENTIFIER org.libreloop.app
@@ -126,6 +127,10 @@ if(BUILD_GUI)
       get_filename_component(directory "${relative}" DIRECTORY)
       set_source_files_properties("${sample}" PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/${directory}")
     endforeach()
+    set(bundle_logo "${CMAKE_CURRENT_SOURCE_DIR}/assets/branding/logo.png")
+    set(bundle_icon "${CMAKE_CURRENT_SOURCE_DIR}/assets/branding/libreloop.icns")
+    set_source_files_properties("${bundle_logo}" PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/branding")
+    set_source_files_properties("${bundle_icon}" PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
     set(bundle_font "${CMAKE_CURRENT_SOURCE_DIR}/assets/fonts/LiberationSans-Regular.ttf")
     set_source_files_properties("${bundle_font}" PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/fonts")
     set(bundle_notices "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE"
@@ -139,12 +144,14 @@ if(BUILD_GUI)
     foreach(factory_preset IN LISTS factory_presets)
       set_source_files_properties("${factory_preset}" PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/presets")
     endforeach()
-    target_sources(libreloop PRIVATE ${factory_presets} ${bundle_samples} "${bundle_font}" ${bundle_notices} "${font_notice}")
+    target_sources(libreloop PRIVATE ${factory_presets} ${bundle_samples} "${bundle_logo}" "${bundle_icon}" "${bundle_font}" ${bundle_notices} "${font_notice}")
     install(TARGETS libreloop BUNDLE DESTINATION .)
   else()
     install(TARGETS libreloop RUNTIME DESTINATION bin)
     install(DIRECTORY assets/presets/ DESTINATION share/libreloop/presets FILES_MATCHING PATTERN "*.llpreset")
     install(DIRECTORY samples/ DESTINATION share/libreloop/samples FILES_MATCHING PATTERN "*.wav")
+    install(FILES assets/branding/logo.png DESTINATION share/libreloop/branding)
+    install(FILES assets/branding/logo.png DESTINATION share/icons/hicolor/256x256/apps RENAME libreloop.png)
     install(FILES assets/fonts/LiberationSans-Regular.ttf DESTINATION share/libreloop/fonts)
     install(FILES LICENSE docs/third-party.md DESTINATION share/libreloop/licenses)
     install(DIRECTORY docs/licenses/ DESTINATION share/libreloop/licenses FILES_MATCHING PATTERN "*.txt")
@@ -152,7 +159,8 @@ if(BUILD_GUI)
     install(FILES cmake/libreloop.desktop DESTINATION share/applications)
   endif()
   target_compile_definitions(libreloop PRIVATE LIBRELOOP_VERSION="${LIBRELOOP_VERSION_LABEL}" LIBRELOOP_SAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/samples"
-    LIBRELOOP_FONT="${CMAKE_CURRENT_SOURCE_DIR}/assets/fonts/LiberationSans-Regular.ttf")
+    LIBRELOOP_FONT="${CMAKE_CURRENT_SOURCE_DIR}/assets/fonts/LiberationSans-Regular.ttf"
+    LIBRELOOP_LOGO="${CMAKE_CURRENT_SOURCE_DIR}/assets/branding/logo.png")
   target_link_libraries(libreloop PRIVATE midi_input audio browser windows glfw)
   target_compile_options(libreloop PRIVATE -Wall -Wextra)
   libreloop_test(decoder audio)

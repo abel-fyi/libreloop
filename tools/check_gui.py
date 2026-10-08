@@ -9,6 +9,8 @@ import subprocess
 import tempfile
 import time
 
+from audit_palette import palettes
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -16,6 +18,10 @@ def main():
     parser.add_argument('--dpi', type=int, default=96, help='X11 monitor DPI (96, 120, 144 or 192)')
     parser.add_argument('--app', help='Check an installed or relocated executable')
     args = parser.parse_args()
+    dark = palettes()['dark']
+    packed = lambda rgb: (rgb[0]<<16) | (rgb[1]<<8) | rgb[2]
+    active_colors = {packed(dark[role]) for role in ('highlight','active_hover')}
+    menu_surface = packed(dark['surface'])
     build = Path(args.build).resolve()
     executable = Path(args.app).resolve() if args.app else build / 'libreloop'
     font = Path(__file__).resolve().parents[1] / 'assets/fonts/LiberationSans-Regular.ttf'
@@ -42,6 +48,9 @@ def main():
         resources.XCloseDisplay(connection)
         with tempfile.TemporaryDirectory(prefix='libreloop-gui-') as directory:
             env = dict(os.environ, DISPLAY=display_name, XDG_CONFIG_HOME=directory + '/config')
+            legacy_theme=Path(directory)/'config/libreloop/theme.txt'
+            legacy_theme.parent.mkdir(parents=True)
+            legacy_theme.write_text('1 ff0000\n')  # Removed Light/accent preferences cannot affect startup.
             subprocess.run([str(build / 'text_fonts_test'), str(font)], env=env, cwd=directory, check=True, timeout=30)
             subprocess.run([str(build / 'theme_test'), '--render'], env=env, cwd=directory, check=True, timeout=30)
             with open(directory + '/smoke.log', 'w') as log:
@@ -108,7 +117,7 @@ def main():
             def key(name):
                 code=x.XKeysymToKeycode(display,x.XStringToKeysym(name.encode()))
                 assert code
-                xt.XTestFakeKeyEvent(display,code,1,0); x.XFlush(display); time.sleep(.08)
+                xt.XTestFakeKeyEvent(display,code,1,0); x.XFlush(display); time.sleep(.3)
                 xt.XTestFakeKeyEvent(display,code,0,0); x.XFlush(display); time.sleep(.25)
             def close_request(window):
                 event = Event(); event.message = Message(33, 0, 1, display, window,
@@ -130,34 +139,54 @@ def main():
                     assert window, 'App did not create a window'
                     x.XMoveWindow(display,window,0,0); x.XFlush(display); time.sleep(.2)
                     x.XSetInputFocus(display, window, 1, 0); x.XFlush(display); time.sleep(.3)
+                    # Mouse and keyboard transfer one highlight between Edit menu choices.
+                    def menu_pixel(px,py):
+                        sample=x.XGetImage(display,window,px,py,1,1,C.c_ulong(-1),2)
+                        assert sample
+                        pixel=x.XGetPixel(sample,0,0)&0xffffff; x.XDestroyImage(sample)
+                        return pixel
+                    def wait_pixels(expected):
+                        deadline=time.monotonic()+3
+                        while time.monotonic()<deadline:
+                            if all(menu_pixel(px,py)==color for px,py,color in expected): return
+                            time.sleep(.05)
+                        raise AssertionError([(px,py,hex(menu_pixel(px,py)),hex(color)) for px,py,color in expected])
+                    menu_highlight=packed(dark['hover']); menu_base=packed(dark['control'])
+                    click(74,19); key('Down')
+                    wait_pixels([(59,44,menu_base),(59,70,menu_highlight)])
+                    xt.XTestFakeMotionEvent(display,0,74,47,0); x.XFlush(display); time.sleep(.3)
+                    wait_pixels([(59,44,menu_highlight),(59,70,menu_base)])
+                    key('Down')  # Stationary mouse must not steal keyboard focus back.
+                    wait_pixels([(59,44,menu_base),(59,70,menu_highlight)])
+                    key('Escape')
                     # Exercise real resize events, including scales where EDIT previously lost T.
                     if decision == 'discard':
                         dimensions = [(900,506),(1200,675),(1280,720),(1848,1040),
                                       (1860,1047),(1872,1053),(1884,1060),(1920,1080),
                                       (1370,770),(1200,675)]
                         for width,height in dimensions:
-                            x.XResizeWindow(display,window,width,height); x.XFlush(display); time.sleep(.25)
+                            x.XResizeWindow(display,window,width,height); x.XFlush(display); time.sleep(.7)
                             attributes = Attributes(); assert x.XGetWindowAttributes(display,window,C.byref(attributes))
                             assert (attributes.width,attributes.height)==(width,height)
                             scale=max(1,min(width/1200,height/675))
-                            click(round(attributes.x+84*scale),round(attributes.y+19*scale))
-                            sample=x.XGetImage(display,window,round(66*scale),round(59*scale),1,1,C.c_ulong(-1),2)
-                            assert sample
-                            pixel=x.XGetPixel(sample,0,0)&0xffffff; x.XDestroyImage(sample)
-                            assert pixel==0x303030, f'EDIT menu/input misaligned at {width}x{height}: {pixel:06x}'
+                            click(round(attributes.x+74*scale),round(attributes.y+19*scale))
+                            wait_pixels([(round(54*scale),round(59*scale),menu_surface)])
                             escape=x.XKeysymToKeycode(display,x.XStringToKeysym(b'Escape'))
                             xt.XTestFakeKeyEvent(display,escape,1,0); x.XFlush(display); time.sleep(.08)
                             xt.XTestFakeKeyEvent(display,escape,0,0); x.XFlush(display); time.sleep(.15)
                             # The last toolbar toggle must remain visible and clickable at narrow widths.
                             logical_width=width/scale
-                            monitor_width=min(108,max(0,int(logical_width-564-308)))
-                            keys_x=564+monitor_width+4+40+12+88+12+4*24+24
+                            monitor_width=min(108,max(0,int(logical_width-636-208)))
+                            keys_x=636+monitor_width+4+40+12+4*24+24
                             def toggle_pixel():
-                                sample=x.XGetImage(display,window,round((keys_x+3)*scale),round(11*scale),1,1,C.c_ulong(-1),2)
+                                # Compare resting fills; mouse hover is the same lavender as selection.
+                                xt.XTestFakeMotionEvent(display,0,round(attributes.x+40*scale),round(attributes.y+35*scale),0)
+                                x.XFlush(display); time.sleep(.15)
+                                sample=x.XGetImage(display,window,round((keys_x+3)*scale),round(9*scale),1,1,C.c_ulong(-1),2)
                                 assert sample
                                 pixel=x.XGetPixel(sample,0,0)&0xffffff; x.XDestroyImage(sample)
-                                # Blue accent indicates enabled, including its brighter hover state.
-                                return (pixel&255)>((pixel>>16)&255)
+                                # Sample the fill above the icon; selected and hover fills use the curated palette.
+                                return pixel in active_colors
                             xt.XTestFakeMotionEvent(display,0,round(attributes.x+(keys_x+11)*scale),round(attributes.y+19*scale),0)
                             x.XFlush(display); time.sleep(.15)
                             before=toggle_pixel()
@@ -171,7 +200,7 @@ def main():
                             after=toggle_pixel()
                             assert after==before, f'Typing piano toggle did not restore at {width}x{height}'
                         print('Actual resized EDIT menu/input checks passed',flush=True)
-                    click(528, 18, 4)  # Saved BPM below verifies the regrouped tempo control hit.
+                    click(496, 18, 4)  # Saved BPM below verifies the regrouped tempo control hit.
                     close_request(window); assert app.poll() is None, 'Dirty close bypassed the prompt'
                     key('Down'); key('Up'); key('Return')
                     assert app.poll() is None, 'Keyboard Cancel closed the app'
@@ -184,7 +213,10 @@ def main():
                     else:
                         key('j'); key('Return'); assert app.poll() is None, 'Save closed before choosing a file'
                         click(894, 562)
-                    assert app.wait(timeout=10) == 0
+                    try:
+                        assert app.wait(timeout=10) == 0
+                    except subprocess.TimeoutExpired as error:
+                        raise AssertionError(f'Keyboard {decision} flow did not finish') from error
                     app = None
                     if decision == 'save':
                         project_file = Path(directory) / 'project.hbt'

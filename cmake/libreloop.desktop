@@ -3,6 +3,6 @@ Type=Application
 Name=LibreLoop
 Comment=Pattern-based audio workstation
 Exec=libreloop
-Icon=audio-card
+Icon=libreloop
 Terminal=false
 Categories=AudioVideo;Audio;

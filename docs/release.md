@@ -41,7 +41,7 @@ macOS bundle metadata in sync when moving to a later release.
 - Record audio, finish takes, save/reopen and export. Test sustained playback while
   editing, plus audio-device changes and sleep/wake.
 - Extract the actual archives outside the checkout and verify resources and
-  preset loading. Check Light/Dark themes, display scaling and input alignment.
+  preset loading. Check palette contrast, display scaling and input alignment.
 - For a smooth public Mac download experience, complete signing/notarization and
   test the distributed archive. Unsigned development builds must be identified.
 

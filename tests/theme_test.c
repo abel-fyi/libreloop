@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "theme.h"
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <math.h>
 #define CHECK(x) do { if(!(x)) { fprintf(stderr,"Failed line %d: %s\n",__LINE__,#x); return 1; } } while(0)
 static float luminance(Color c) {
@@ -26,27 +24,37 @@ static int check_render(void) {
 int main(int argc,char **argv) {
     int render=argc>1 && !strcmp(argv[1],"--render");
     if(render) { SetTraceLogLevel(LOG_WARNING); SetConfigFlags(FLAG_WINDOW_HIDDEN); InitWindow(80,64,"Theme checks"); }
-    char directory[]="/tmp/libreloop-theme-XXXXXX",browser[1024],config[1024]; CHECK(mkdtemp(directory));
-    snprintf(browser,sizeof browser,"%s/folders.txt",directory); snprintf(config,sizeof config,"%s/theme.txt",directory);
-    theme_init(browser);
-    for(int mode=0;mode<2;mode++) {
-        CHECK(theme_select(mode));
-        CHECK(contrast(ui_theme.fader_mark,ui_theme.fader)>=4.5f);
-        CHECK(contrast(ui_theme.text,ui_theme.control)>=4.5f && contrast(ui_theme.secondary,ui_theme.control)>=4.5f);
-        Color indicators[]={ui_theme.pan_left,ui_theme.pan_right,ui_theme.stereo,ui_theme.mono};
-        for(unsigned i=0;i<sizeof indicators/sizeof *indicators;i++) CHECK(contrast(indicators[i],ui_theme.control)>=3);
-        Color meters[]={ui_theme.meter_low,ui_theme.meter_mid,ui_theme.meter_high};
-        for(unsigned i=0;i<sizeof meters/sizeof *meters;i++) CHECK(contrast(meters[i],ui_theme.background)>=3);
-        const unsigned accents[]={0x516389,0xe02020,0xf0cc28,0x20c060,0xb280c0};
-        for(unsigned i=0;i<sizeof accents/sizeof *accents;i++) {
-            CHECK(theme_accent(accents[i])); CHECK(contrast(ui_theme.selected_text,ui_theme.highlight)>=4.5f);
-            CHECK(contrast(theme_foreground(ui_theme.active_hover),ui_theme.active_hover)>=4.5f);
-            if(render) CHECK(check_render());
-        }
-        Theme saved=ui_theme; theme_init(browser);
-        CHECK(ui_theme.light==mode && same(ui_theme.fader,saved.fader) && same(ui_theme.highlight,saved.highlight));
+    theme_init();
+    CHECK(same(ui_theme.background,(Color){9,7,15,255}));
+    CHECK(contrast(ui_theme.selected_text,ui_theme.highlight)>=4.5f);
+    CHECK(contrast(theme_foreground(ui_theme.active_hover),ui_theme.active_hover)>=4.5f);
+    Color surfaces[]={ui_theme.surface,ui_theme.browser,ui_theme.title,ui_theme.title_focus};
+    for(unsigned i=0;i<sizeof surfaces/sizeof *surfaces;i++) {
+        CHECK(contrast(ui_theme.text,surfaces[i])>=4.5f);
+        CHECK(contrast(ui_theme.secondary,surfaces[i])>=4.5f);
     }
+    CHECK(contrast(ui_theme.note,ui_theme.piano_row[0])>=3);
+    CHECK(contrast(ui_theme.note,ui_theme.piano_row[1])>=3);
+    CHECK(contrast(ui_theme.waveform,ui_theme.background)>=3);
+    CHECK(contrast(theme_foreground(ui_theme.hover),ui_theme.hover)>=4.5f);
+    CHECK(same(ui_theme.highlight,(Color){179,154,221,255}));
+    CHECK(same(ui_theme.hover,ui_theme.highlight));
+    CHECK(contrast(ui_theme.border,ui_theme.control)>=3);
+    CHECK(contrast(ui_theme.knob_track,ui_theme.control)>=3);
+    float delta=fabsf(ColorToHSV(ui_theme.pan_left).x-ColorToHSV(ui_theme.pan_right).x);
+    CHECK(fminf(delta,360-delta)>=90);
+    Color hints[]={ui_theme.pan_left,ui_theme.pan_right,ui_theme.stereo,ui_theme.mono};
+    for(unsigned i=0;i<sizeof hints/sizeof *hints;i++) {
+        Color hint=ColorAlphaBlend(ui_theme.knob_track,Fade(hints[i],.35f),WHITE);
+        CHECK(contrast(hint,ui_theme.control)>=3 && contrast(hint,ui_theme.surface)>=3);
+    }
+    if(render) CHECK(check_render());
+    CHECK(contrast(ui_theme.fader_mark,ui_theme.fader)>=4.5f);
+    CHECK(contrast(ui_theme.text,ui_theme.control)>=4.5f && contrast(ui_theme.secondary,ui_theme.control)>=4.5f);
+    Color indicators[]={ui_theme.pan_left,ui_theme.pan_right,ui_theme.stereo,ui_theme.mono};
+    for(unsigned i=0;i<sizeof indicators/sizeof *indicators;i++) CHECK(contrast(indicators[i],ui_theme.control)>=3);
+    Color meters[]={ui_theme.meter_low,ui_theme.meter_mid,ui_theme.meter_high};
+    for(unsigned i=0;i<sizeof meters/sizeof *meters;i++) CHECK(contrast(meters[i],ui_theme.background)>=3);
     if(render) CloseWindow();
-    CHECK(!remove(config) && !rmdir(directory));
-    puts("Light/dark fader marks, thin indicators, accent contrast and saved appearance passed."); return 0;
+    puts("Fader marks, directional indicators and palette contrast passed."); return 0;
 }

@@ -1,10 +1,9 @@
 # Using LibreLoop
 
-**VIEW → Dark / Light** changes the appearance. Both themes use neutral gray surfaces with a soft blue accent (`#516389`) by default. All window
-surfaces are opaque.
-**VIEW → Accent color** offers the shared rainbow palette for selection and active
-control accents. Theme and accent are remembered between launches. Preferences are stored in
-`$XDG_CONFIG_HOME/libreloop/theme.txt` (or `~/.config/libreloop/theme.txt`).
+LibreLoop uses one curated appearance: the website's violet-black background,
+soft source colors, and the logo spiral's `#b39add` lavender highlight. **VIEW →
+MIDI / Recording** opens input and recording settings. Appearance preferences
+from older versions are no longer read.
 
 Zooming reveals finer grid subdivisions; zooming out groups ruler numbers into
 2, 4, 8 and larger bar intervals. Four-bar shading stays aligned while panning
@@ -145,7 +144,7 @@ Mixer Master fader and does not affect WAV export.
   restores the cropped beginning without changing the shared sample or pattern.
   Drag the divider beneath a track to change that track’s height (32–320 pixels).
   The Rack title filter offers **All**, **Audio** and **Unsorted**. Rack sample
-  drops belong to Unsorted; Audio channel colors blend maroon to green with duration.
+  drops belong to Unsorted; Automatic Audio colors sweep from pink through violet/cyan toward lime as duration grows.
 - Drop a WAV, FLAC or MP3 onto an existing Playlist audio clip or a visible Rack
   row to replace its sample. Existing notes, clip positions, crops, mixer routing
   and sampler settings stay in place; all clips sharing that sample update.
@@ -193,7 +192,7 @@ Mixer Master fader and does not affect WAV export.
   or Automation. The picker highlights during the drag, then switches to Audio
   and reveals the new item. Drag pattern or audio items onto the grid to place
   clips; a green preview shows the drop position. Audio clips list the imported Audio channels. New patterns and Audio channels
-  choose an unused palette color in their own list, cycling once all eight colors
+  choose an unused palette color in their own list, cycling once all 24 colors
   are used. Replacing a sample preserves its channel color. Right-click for Rename, Color or
   Delete; changes apply to the Rack channel and every Playlist copy. Deleting
   removes the channel and its clips, while leaving the source file on disk. Automation lists saved parameter curves with the same source actions.
@@ -370,8 +369,9 @@ the keyboard icon toggles typing notes. Hover either icon for its description.
 
 Dropdown and context menus support Up/Down or k/j to move keyboard focus,
 Enter to select, and Escape to dismiss. Left/Right or h/l also move between
-choices, including Save/Discard/Cancel. The unsaved-changes prompt initially
-focuses Cancel. Text-entry dialogs retain their normal typing bindings.
+choices, including Save/Discard/Cancel. Menus have one shared mouse/keyboard highlight; moving the mouse transfers
+focus to its row, and keyboard navigation moves that same focus. The unsaved-changes
+prompt initially focuses Cancel. Text-entry dialogs retain their normal typing bindings.
 
 Mixer inserts show their saved names beneath their numbers. Right-click the name
 to rename it; right-click the number for the existing mixer actions. Longer names
@@ -469,13 +469,14 @@ waveforms and automation curves use a contrasting foreground based on the clip
 color, including the source list and drag previews.
 
 The shared color picker has twelve evenly spaced rainbow hues in two rows:
-light fills with dark artwork, then matching dark fills with light artwork.
-Each row shares perceptual lightness and chroma. Pattern, audio, automation and
-accent color pickers all use this palette; saved project colors are retained.
+brighter fills, then matching deeper fills. Titles, previews and selection borders
+choose black or white for contrast. Each stored row shares OKLCH lightness; chroma is kept soft so selection highlights stand out. Pattern, channel, audio and
+automation color pickers use this palette. Source colors are displayed at up to
+25% saturation so the stronger selection accent stands out; stored project RGB
+values are retained.
 
-Light mode derives its surfaces, text, rulers and grid from the inverted dark
-brightness hierarchy. Clip colors, the chosen accent, piano key identities and
-semantic colors (such as recording red) retain their meaning in both themes.
+Source colors, piano key identities and semantic colors (such as recording red)
+retain consistent meanings throughout the interface.
 
 Tempo, pitch range and Mixer routing number controls show the vertical resize
 cursor while hovering or dragging, like Mixer faders. Knobs retain the regular
@@ -751,8 +752,13 @@ patterns and 128 notes per channel/pattern; recording stops and keeps the take
 if that capacity is reached. Long controller curves are compacted within the
 existing 64-point automation limit. No external plugin hosting is involved.
 
-Light mode mirrors the neutral surfaces and control marks used by Dark mode.
-Mixer fader handles have independent fill/mark colors, so unselected marks remain
-visible in both themes. Pan, width and meter colors preserve their meaning with
-stronger contrast in Light mode; selected controls choose a contrasting foreground
-for the selected accent, including hover states.
+Mixer faders have independent fill/mark colors, keeping unselected marks visible.
+Selected controls choose a contrasting foreground for their accent surface,
+including hover states.
+
+Pan and stereo-width knobs show lime on the left and pink on the right, even at
+center. Their stronger value arcs show the actual setting. Knob pointers are white with
+a thin violet rim so their position remains clear. Lime channel lamps mean enabled, amber means solo, and hollow lamps mean muted.
+Amber meters signal higher levels and coral red marks clipping. The measured palette contrast and
+saturation are documented in [palette-measurements.md](palette-measurements.md);
+run `python3 tools/audit_palette.py` to check future color changes.

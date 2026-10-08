@@ -7,6 +7,7 @@
 <key>CFBundleName</key><string>LibreLoop</string>
 <key>CFBundleShortVersionString</key><string>${MACOSX_BUNDLE_SHORT_VERSION_STRING}</string>
 <key>CFBundleVersion</key><string>${MACOSX_BUNDLE_BUNDLE_VERSION}</string>
+<key>CFBundleIconFile</key><string>${MACOSX_BUNDLE_ICON_FILE}</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>NSHighResolutionCapable</key><true/>
 <key>NSMicrophoneUsageDescription</key><string>LibreLoop records audio from your selected mixer inputs into the Playlist.</string>

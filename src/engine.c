@@ -5,11 +5,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-// Twelve evenly spaced rainbow hues, in matched light and dark rows.
-// Each row shares OKLCH lightness and chroma to keep visual weight balanced.
+// Twelve vivid rainbow hues, paired at OKLCH lightness 0.68 and 0.57.
+// Chroma 0.11 keeps source colors soft so selected controls stand out.
+// Regenerate with: python3 tools/audit_palette.py --generate-clips
 const uint32_t pattern_palette[COLOR_COUNT]={
-    0xd49e99,0xcfa487,0xc1ab7f,0xacb384,0x95b995,0x82bcac,0x7cbac2,0x86b5d2,0x9aaed8,0xb0a6d3,0xc4a0c5,0xd09db0,
-    0x855450,0x80593f,0x746036,0x62683b,0x4b6d4c,0x366f61,0x2f6e75,0x3c6983,0x516389,0x665c85,0x765678,0x815465
+    0xa388d2,0xbf7fb9,0xcf7a95,0xd37d6f,0xca874e,0xb3953f,0x90a250,0x63ab74,0x32ae9b,0x25aabe,0x51a1d5,0x7e94dc,
+    0x8267ae,0x9b5e96,0xab5a75,0xaf5c50,0xa6662b,0x917415,0x6f812d,0x418954,0x008b7a,0x008797,0x2c7fb1,0x5e73b8,
 };
 uint32_t next_source_color(const uint32_t *colors,int count) {
     for(int color=0;color<COLOR_COUNT;color++) {
