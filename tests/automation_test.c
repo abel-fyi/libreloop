@@ -21,11 +21,11 @@ int main(void) {
     CHECK(arrangement_place(&p,1,0,AUTOMATION_SOURCE,16)>=0);
     CHECK(clip_length(&p,1,0)==16 && clip_source_steps(&p,AUTOMATION_SOURCE)==16);
     p.bpm=60; CHECK(clip_length(&p,1,0)==16); p.bpm=120;
-    CHECK(project_save("automation.hbt",&p) && project_load("automation.hbt",&q)); CHECK(project_equal(&p,&q));
-    curve->points[1].step=-1; CHECK(!project_save("bad-automation.hbt",&p)); curve->points[1].step=8;
+    CHECK(project_save("automation.llp",&p) && project_load("automation.llp",&q)); CHECK(project_equal(&p,&q));
+    curve->points[1].step=-1; CHECK(!project_save("bad-automation.llp",&p)); curve->points[1].step=8;
     /* Known targets keep normalized values; unresolved future plugin targets persist. */
     p.automations[0].target=(ParameterTarget){PARAM_PLUGIN+4,7,2};
-    CHECK(project_save("automation.hbt",&p) && project_load("automation.hbt",&q)); CHECK(project_equal(&p,&q));
+    CHECK(project_save("automation.llp",&p) && project_load("automation.llp",&q)); CHECK(project_equal(&p,&q));
     p.automations[0].target=target;
     Sample samples[CHANNELS]={0}; samples[0].frames=RATE*2; samples[0].data=malloc(samples[0].frames*sizeof(float)); CHECK(samples[0].data);
     for(unsigned i=0;i<samples[0].frames;i++) samples[0].data[i]=.2f;
@@ -105,7 +105,7 @@ int main(void) {
     CHECK(automation_value(&q.automations[0],16)==.4f);
     moved=automation_move_point(&q,0,0,-8,.6f);
     CHECK(moved==0 && q.automations[0].points[0].step==0 && q.clip_offsets[1][copy]==24);
-    CHECK(automation_valid(&q) && project_save("automation.hbt",&q) && project_load("automation.hbt",&p) && project_equal(&q,&p));
+    CHECK(automation_valid(&q) && project_save("automation.llp",&q) && project_load("automation.llp",&p) && project_equal(&q,&p));
     /* Nodes stop at neighbors. Equal times are a vertical, right-continuous jump. */
     project_new(&q); CHECK(automation_create(&q,(ParameterTarget){PARAM_MASTER_VOLUME,0,0},"Vertical",16)==0);
     q.automations[0].points[0].value=0; q.automations[0].points[1].value=1;
@@ -113,7 +113,7 @@ int main(void) {
     CHECK(automation_move_point(&q,0,2,-100,1)==2 && q.automations[0].points[2].step==4);
     CHECK(automation_value(&q.automations[0],3.999f)==0 && automation_value(&q.automations[0],4)==1);
     CHECK(automation_move_point(&q,0,1,100,.25f)==1 && q.automations[0].points[1].step==4);
-    CHECK(automation_valid(&q) && project_save("automation.hbt",&q) && project_load("automation.hbt",&p) && project_equal(&q,&p));
+    CHECK(automation_valid(&q) && project_save("automation.llp",&q) && project_load("automation.llp",&p) && project_equal(&q,&p));
     CHECK(automation_move_point(&q,0,2,12,.8f)==2 && q.automations[0].points[2].step==12);
     CHECK(q.automations[0].points[1].value==.25f && q.automations[0].count==3);
     /* Completed clips hold every parameter, ordered by completion time, not lane. */
@@ -134,6 +134,6 @@ int main(void) {
     q.automations[2].points[0].value=q.automations[2].points[1].value=1;
     CHECK(arrangement_place(&q,2,.25f,AUTOMATION_SOURCE+2,4)>=0);
     player_seek(&player,&q,14); render(&player,&q,samples,output,1); CHECK(output[0]==0);
-    free(samples[0].data); remove("automation.hbt"); remove("bad-automation.hbt");
+    free(samples[0].data); remove("automation.llp"); remove("bad-automation.llp");
     return 0;
 }

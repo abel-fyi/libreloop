@@ -28,6 +28,19 @@ static int project_equal(const Project *a,const Project *b) {
     FIELD(effect_mix); FIELD(effect_bypass);
     for(int l=0;l<LANES;l++) STRING(track_names[l]);
     for(int i=0;i<INSERTS;i++) STRING(insert_names[i]);
+    FIELD(instrument); FIELD(fm); FIELD(effect_type); FIELD(effect_bypass);
+    for(int bus=0;bus<=INSERTS;bus++) for(int slot=0;slot<EFFECT_SLOTS;slot++) {
+        FIELD(chorus[bus][slot].rate); FIELD(chorus[bus][slot].depth);
+        for(int band=0;band<EQ_BANDS;band++) {
+            FIELD(eq[bus][slot].bands[band].frequency); FIELD(eq[bus][slot].bands[band].gain);
+            FIELD(eq[bus][slot].bands[band].q); FIELD(eq[bus][slot].bands[band].shape);
+        }
+    }
+    FIELD(midi_binding_count);
+    for(int i=0;i<a->midi_binding_count;i++) {
+        FIELD(midi_bindings[i].channel); FIELD(midi_bindings[i].controller);
+        FIELD(midi_bindings[i].target.parameter); FIELD(midi_bindings[i].target.owner); FIELD(midi_bindings[i].target.slot);
+    }
     FIELD(swing); FIELD(automation_count);
     for(int i=0;i<a->automation_count;i++) {
         FIELD(automations[i].target.parameter); FIELD(automations[i].target.owner); FIELD(automations[i].target.slot);

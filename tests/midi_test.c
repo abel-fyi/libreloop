@@ -18,7 +18,7 @@ int main(void){
  CHECK(midi_take_control(&take,&p,target,.25f,10.5));CHECK(midi_take_control(&take,&p,target,.75f,10.75));
  midi_take_finish(&take,&p,11);CHECK(!take.active && !p.lane_mute[0] && p.notes[1][0][1].length==6);
  CHECK(p.automation_count==1 && p.automations[0].count==4 && automation_valid(&p));
- CHECK(project_save("midi.hbt",&p) && project_load("midi.hbt",&q));CHECK(q.midi_binding_count==1 && q.midi_bindings[0].controller==10 && q.notes[1][0][0].velocity==110);remove("midi.hbt");
+ CHECK(project_save("midi.llp",&p) && project_load("midi.llp",&q));CHECK(q.midi_binding_count==1 && q.midi_bindings[0].controller==10 && q.notes[1][0][0].velocity==110);remove("midi.llp");
  midi_unbind(&p,target);CHECK(p.midi_binding_count==0);
  project_new(&p);q=p;CHECK(midi_take_begin(&take,&p,0,1,0,10));midi_take_finish(&take,&p,10.1);CHECK(p.pattern_count==1 && !p.clips[0][0] && !memcmp(&p,&q,sizeof p));
  project_new(&p);CHECK(midi_take_begin(&take,&p,0,0,0,10));

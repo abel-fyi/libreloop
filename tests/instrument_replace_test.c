@@ -23,9 +23,9 @@ int main(void) {
     CHECK(!memcmp(project.clip_steps,before.clip_steps,sizeof project.clip_steps) && !memcmp(project.clip_offsets,before.clip_offsets,sizeof project.clip_offsets));
     CHECK(project.route[0]==1 && project.volume[0]==.7f && project.pan[0]==-.2f && !strcmp(project.paths[0],before.paths[0]));
     CHECK(!strcmp(project.channel_names[0],"Lead") && project.sampler[0].flags==SAMPLE_REVERSE);
-    CHECK(project_save("instrument-replace.hbt",&project) && project_load("instrument-replace.hbt",&loaded));
+    CHECK(project_save("instrument-replace.llp",&project) && project_load("instrument-replace.llp",&loaded));
     CHECK(loaded.instrument[0]==INSTRUMENT_FM && loaded.notes[0][0][0].velocity==100 && loaded.route[0]==1);
-    remove("instrument-replace.hbt");
+    remove("instrument-replace.llp");
     CHECK(history_capture(&history,&project,sources,stamps));
     CHECK(history_peek(&history,-1,&loaded,retained) && loaded.instrument[0]==INSTRUMENT_SAMPLER && retained[0].data[1]==.2f);
     history_clear(&history);

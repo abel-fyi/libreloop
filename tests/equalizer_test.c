@@ -59,26 +59,6 @@ int main(void) {
     FILE *f=fopen(path,"w"); CHECK(f); fputs("LIBRELOOP_PRESET 1 4\n100 3 .707\n500 6 1\n2500 -2 1\n10000 4 .707\n.75\n",f); fclose(f);
     CHECK(preset_load(path,&read) && read.eq.bands[3].shape==EQ_HIGH_SHELF && read.eq.bands[3].gain==4);
     for(int i=4;i<EQ_BANDS;i++) CHECK(read.eq.bands[i].shape==EQ_OFF);
-    /* Rewrite the EQ tail as an old version-35 four-band file. */
-    for(int bus=0;bus<=INSERTS;bus++) for(int slot=0;slot<EFFECT_SLOTS;slot++) p.eq[bus][slot]=equalizer_legacy();
-    p.eq[1][0].bands[3].gain=4; CHECK(project_save(path,&p));
-    f=fopen(path,"r"); FILE *old=tmpfile(); CHECK(f && old); char line[2048]; int lines=0;
-    while(fgets(line,sizeof line,f)) lines++;
-    rewind(f); int tail=(INSERTS+1)*EFFECT_SLOTS*EQ_BANDS;
-    for(int i=0;i<lines;i++) {
-        CHECK(fgets(line,sizeof line,f));
-        if(!i) fputs("HOMEBEAT 35\n",old);
-        else if(i<lines-tail-CHANNELS*3-1) fputs(line,old);
-        else if(i<lines-tail) continue;
-        else if((i-lines+tail)%EQ_BANDS<4) {
-            float frequency,gain,q; CHECK(sscanf(line,"%f %f %f",&frequency,&gain,&q)==3);
-            fprintf(old,"%.9g %.9g %.9g\n",frequency,gain,q);
-        }
-    }
-    fclose(f); rewind(old); f=fopen(path,"w"); CHECK(f);
-    while(fgets(line,sizeof line,old)) fputs(line,f); fclose(f); fclose(old);
-    CHECK(project_load(path,&loaded) && loaded.eq[1][0].bands[3].gain==4 && loaded.eq[1][0].bands[3].shape==EQ_HIGH_SHELF);
-    for(int i=4;i<EQ_BANDS;i++) CHECK(loaded.eq[1][0].bands[i].shape==EQ_OFF);
     static float source[48000],output[48000*2];
     for(int n=0;n<48000;n++) source[n]=.1f*sinf(6.2831853f*1000*n/48000);
     Sample samples[CHANNELS]={{source,48000,1}};

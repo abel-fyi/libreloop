@@ -31,8 +31,8 @@ int main(void) {
     int copy=arrangement_hit(&p,1,5.2f); CHECK(copy>=0 && p.clip_offsets[1][copy]==2 && clip_length(&p,1,copy)==16);
     a.tool=PENCIL; arrangement_press(&a,&p,2.5f,.4f,0,0,0,0); arrangement_drag(&a,&p,3.5f,2.4f); arrangement_release(&a);
     int moved=arrangement_hit(&p,2,3.2f); CHECK(moved>=0 && p.clip_offsets[2][moved]==2 && clip_length(&p,2,moved)==16);
-    CHECK(project_save("trimmed-clips.hbt",&p) && project_load("trimmed-clips.hbt",&loaded));
-    CHECK(project_equal(&p,&loaded)); remove("trimmed-clips.hbt");
+    CHECK(project_save("trimmed-clips.llp",&p) && project_load("trimmed-clips.llp",&loaded));
+    CHECK(project_equal(&p,&loaded)); remove("trimmed-clips.llp");
     Arrangement quick={.source_pattern=-1,.snap=1};
     arrangement_press(&quick,&loaded,3.4f,2.4f,0,0,0,0);
     arrangement_drag(&quick,&loaded,2.4f,2.4f); /* last valid intermediate position */
@@ -45,7 +45,7 @@ int main(void) {
     arrangement_press(&a,&p,8,4.4f,0,0,0,0); arrangement_release(&a);
     int extended=arrangement_hit(&p,4,8.2f);
     CHECK(extended>=0 && clip_length(&p,4,extended)==32 && p.clip_offsets[4][extended]==2);
-    p.clip_offsets[2][moved]=NAN; CHECK(!project_save("invalid-trim.hbt",&p));
+    p.clip_offsets[2][moved]=NAN; CHECK(!project_save("invalid-trim.llp",&p));
     /* Pattern previews/playback use the retained source offset too. */
     project_default(&p); memset(p.notes,0,sizeof p.notes); p.pattern_steps[0]=64; p.volume[0]=p.master=1; p.route[0]=0;
     Note *note=note_add(&p,0,0,20,60,1); CHECK(note); note->velocity=127; slot=arrangement_place(&p,0,1,0,32);

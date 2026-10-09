@@ -13,6 +13,7 @@
 #include "file_chooser.h"
 #include "project_assets.h"
 #include "project_document.h"
+#include "project_format.h"
 #include "text_fonts.h"
 #include "recording.h"
 #include "midi_input.h"
@@ -302,7 +303,7 @@ static void sampler_queue(void) {
     }
 }
 static char status[256]="Use the toolbar to open editors; drag their title bars to arrange them";
-static ProjectDocument document={.path="project.hbt"};
+static ProjectDocument document={.path="project" PROJECT_FILE_SUFFIX};
 static int help_scroll,relink_channel=-1;
 static int project_dirty(void) { return project_document_dirty(&document,&project); }
 static float ui_scale(void) { return fmaxf(1,fminf(GetScreenWidth()/1200.f,GetScreenHeight()/675.f)); }
@@ -687,7 +688,7 @@ static int picker_button(int y,Color color,int selected) {
     int over=hover(4,y,112,50);
     if(over) SetMouseCursor(MOUSE_CURSOR_POINTING_HAND);
     ui_surface((Rectangle){4,y,112,50},color);
-    if(over || selected) DrawRectangleLinesEx((Rectangle){4,y,112,50},2,clip_foreground(color));
+    if(over || selected) DrawRectangleLinesEx((Rectangle){4,y,112,50},2,WHITE);
     return over && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
 }
 static float automation_shown[AUTOMATIONS];
@@ -1474,7 +1475,7 @@ static void new_project(int demo) {
             snprintf(status,sizeof status,"Project unchanged: could not prepare samples."); return;
         }
     }
-    pattern=channel=0; song=demo; install_project(next,fresh,processed,demo?"demo.hbt":"project.hbt"); document.saved_on_disk=0;
+    pattern=channel=0; song=demo; install_project(next,fresh,processed,demo?"demo" PROJECT_FILE_SUFFIX:"project" PROJECT_FILE_SUFFIX); document.saved_on_disk=0;
     snprintf(status,sizeof status,demo?"Demo loaded: press Play to hear the eight-bar groove.":"New project: load a sample to get started.");
 }
 static int load_project(const char *path) {
@@ -1584,7 +1585,7 @@ static void project_file_action(int action) {
     char initial[PATH_MAX];
     int length=current[0]=='/'?snprintf(initial,sizeof initial,"%s",current):snprintf(initial,sizeof initial,"%s/%s",GetWorkingDirectory(),current);
     if(length>=(int)sizeof initial) { snprintf(status,sizeof status,"File path is too long."); return; }
-    if(!file_chooser_begin_recent(&file_picker,initial,action==7?"wav;flac;mp3":action==5?"wav":"hbt",action!=4 && action!=7,action==4?FILE_OPEN:action==5?FILE_EXPORT:action==7?FILE_SAMPLE:FILE_SAVE)) { snprintf(status,sizeof status,"%s",file_picker.error); return; }
+    if(!file_chooser_begin_recent(&file_picker,initial,action==7?"wav;flac;mp3":action==5?"wav":PROJECT_FILE_EXTENSION,action!=4 && action!=7,action==4?FILE_OPEN:action==5?FILE_EXPORT:action==7?FILE_SAMPLE:FILE_SAVE)) { snprintf(status,sizeof status,"%s",file_picker.error); return; }
     file_action=action; file_field=action==4 || action==7?0:2; file_confirm=0;
     file_picker_sync(); rename_select_all=file_field==2; open_popup(11);
 }
@@ -1674,7 +1675,7 @@ static void draw_file_picker(int x,int y,int w,int h,float scale) {
         } else file_picker_submit();
         enter=0;
     }
-    label(file_action==8 || file_action==9?"Device presets (*.llpreset)":file_action==7?"Audio samples (*.wav, *.flac, *.mp3)":file_action==5?"WAV audio (*.wav)":"LibreLoop projects (*.hbt)",x+12,y+h-102,11,muted);
+    label(file_action==8 || file_action==9?"Device presets (*.llpreset)":file_action==7?"Audio samples (*.wav, *.flac, *.mp3)":file_action==5?"WAV audio (*.wav)":"LibreLoop projects (*" PROJECT_FILE_SUFFIX ")",x+12,y+h-102,11,muted);
     label("Filename",x+12,y+h-76,12,muted);
     Rectangle name_box={x+82,y+h-82,w-94,26};
     DrawRectangleRec(name_box,bg); DrawRectangleLinesEx(name_box,1,file_field==2?accent:cell);
@@ -2100,7 +2101,7 @@ static void draw_picker_drag(void) {
     else if(source>=AUTOMATION_SOURCE) automation_curve(source-AUTOMATION_SOURCE,x+4,y,104/steps,50,x+4,x+108,0);
     else picker_notes(source,x,y);
     label(fit_text(source_name(source),100,12),x+4,y+4,12,clip_foreground(color));
-    DrawRectangleLinesEx((Rectangle){x,y,112,50},2,clip_foreground(color));
+    DrawRectangleLinesEx((Rectangle){x,y,112,50},2,WHITE);
 }
 static void draw_browser_drag(void) {
     if(!sample_drag[0] || !sample_moved) return;
@@ -2316,7 +2317,7 @@ static void playlist(float width,float height,float scale) {
                 picker_offset=(Vector2){mouse.x-4,mouse.y-y};
                 picker_double_click(PATTERNS+p);
             }
-            if(arrangement.source_pattern==PATTERNS+p) DrawRectangleLinesEx((Rectangle){4,y,112,50},2,clip_foreground(audio_color(p)));
+            if(arrangement.source_pattern==PATTERNS+p) DrawRectangleLinesEx((Rectangle){4,y,112,50},2,WHITE);
             label(fit_text(project.channel_names[p],100,12),8,y+4,12,clip_foreground(audio_color(p)));
             audio_waveform(p,8,y+20,8,112,104/fmaxf(.001f,audio_view_steps(p)),28);
             if(hover(4,y,112,50)) {
@@ -2332,7 +2333,7 @@ static void playlist(float width,float height,float scale) {
             picker_offset=(Vector2){mouse.x-4,mouse.y-y};
             picker_double_click(p);
         }
-        if(pattern==p) DrawRectangleLinesEx((Rectangle){4,y,112,50},2,clip_foreground(pattern_color(p)));
+        if(pattern==p) DrawRectangleLinesEx((Rectangle){4,y,112,50},2,WHITE);
         label(fit_text(project.pattern_names[p],100,12),8,y+4,12,clip_foreground(pattern_color(p)));
         picker_notes(p,4,y);
         if(hover(4,y,112,50)) {
@@ -2397,7 +2398,7 @@ static void playlist(float width,float height,float scale) {
             else clip_preview(pat,origin,y,left,right,barw/STEPS,clip_length(&project,l,b)+offset,rowh);
             if(clip_scissor) BeginScissorMode((rect.x+gx)*scale,(rect.y+gy)*scale,gridw*scale,track_area*scale);
             int selected=arrangement.gesture==MOVE_CLIPS?arrangement.moved[l][b]:arrangement.selected[l][b];
-            DrawRectangleLinesEx(bounds,selected?2:1,clip_foreground(source_color(pat)));
+            DrawRectangleLinesEx(bounds,selected?2:1,selected?WHITE:clip_foreground(source_color(pat)));
         }
         BeginScissorMode(rect.x*scale,rect.y*scale,rect.w*scale,rect.h*scale);
     }
@@ -4307,7 +4308,7 @@ int main(int argc,char **argv) {
             FilePathList dropped=LoadDroppedFiles();
             for(unsigned i=0;i<dropped.count;i++) {
                 const char *path=dropped.paths[i];
-                if(IsFileExtension(path,".hbt")) request_load_project(path);
+                if(IsFileExtension(path,PROJECT_FILE_SUFFIX)) request_load_project(path);
                 else drop_sample(path);
             }
             UnloadDroppedFiles(dropped);
@@ -4434,11 +4435,11 @@ int main(int argc,char **argv) {
                 }
                 const char *name=GetFileName(path); if(!*name) name=path;
                 label(fit_text(node->depth==0 && !strcmp(path,browser.samples)?"LibreLoop samples":name,fmaxf(0,sidebar-indent-24),13),indent+14,y+4,13,color);
-                if(hover(8,y,sidebar-16,21)) snprintf(status,sizeof status,"%.80s: %s | j/k: select; h/l: fold",path,node->dir?"click to expand/collapse":IsFileExtension(path,".hbt")?"click to open project":"click to preview; drag to Rack or Playlist");
+                if(hover(8,y,sidebar-16,21)) snprintf(status,sizeof status,"%.80s: %s | j/k: select; h/l: fold",path,node->dir?"click to expand/collapse":IsFileExtension(path,PROJECT_FILE_SUFFIX)?"click to open project":"click to preview; drag to Rack or Playlist");
                 if(clicked) {
                     browser_select(&browser,entry);
                     if(node->dir) { if(!browser_toggle(&browser,entry)) snprintf(status,sizeof status,"Folder unavailable: %.180s",path); break; }
-                    if(IsFileExtension(path,".hbt")) request_load_project(path);
+                    if(IsFileExtension(path,PROJECT_FILE_SUFFIX)) request_load_project(path);
                     else {
                         audition_entry(entry); snprintf(sample_drag,sizeof sample_drag,"%s",path);
                         sample_origin=mouse; sample_moved=0;

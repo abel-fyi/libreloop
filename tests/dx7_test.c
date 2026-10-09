@@ -67,9 +67,9 @@ int main(void) {
     CHECK(automation_create(&project,target,"Output",16)>=0);
     CHECK(parameter_from_pointer(&project,&project.fm[0].dx7.value[DX7_NATIVE_PARAMETERS+4],&target));
     CHECK(parameter_descriptor(target.parameter)->kind==PARAMETER_CONTINUOUS);
-    CHECK(project_save("dx7.hbt",&project) && project_load("dx7.hbt",&loaded)); CHECK(!memcmp(&project.fm[0],&loaded.fm[0],sizeof(FMSettings)));
+    CHECK(project_save("dx7.llp",&project) && project_load("dx7.llp",&loaded)); CHECK(!memcmp(&project.fm[0],&loaded.fm[0],sizeof(FMSettings)));
     DevicePreset preset={.kind=PRESET_FM,.fm=project.fm[0]},read;
     CHECK(preset_save("dx7.llpreset",&preset) && preset_load("dx7.llpreset",&read) && !memcmp(&read.fm,&preset.fm,sizeof(FMSettings)));
     CHECK(channel_replace_instrument(&project,0,INSTRUMENT_SAMPLER) && project.automation_count==0);
-    remove("dx7.hbt"); remove("dx7.llpreset"); puts("DX7 reference PCM, tuning, live edits, release, algorithms, persistence and parameter bindings passed."); return 0;
+    remove("dx7.llp"); remove("dx7.llpreset"); puts("DX7 reference PCM, tuning, live edits, release, algorithms, persistence and parameter bindings passed."); return 0;
 }

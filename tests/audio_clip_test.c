@@ -19,10 +19,10 @@ int main(void) {
     p.audio_seconds[0]=.25f; CHECK(clip_length(&p,2,slot)==2);
     p.audio_seconds[0]=1.5f; CHECK(clip_length(&p,2,slot)==12);
     p.audio_seconds[0]=0; CHECK(clip_length(&p,2,slot)==0);
-    CHECK(project_save("zero-audio.hbt",&p) && project_load("zero-audio.hbt",&q)); remove("zero-audio.hbt");
+    CHECK(project_save("zero-audio.llp",&p) && project_load("zero-audio.llp",&q)); remove("zero-audio.llp");
     p.audio_seconds[0]=1200;
-    CHECK(project_save("long-audio.hbt",&p) && project_load("long-audio.hbt",&q) && q.audio_seconds[0]==1200);
-    remove("long-audio.hbt");
+    CHECK(project_save("long-audio.llp",&p) && project_load("long-audio.llp",&q) && q.audio_seconds[0]==1200);
+    remove("long-audio.llp");
     p.audio_seconds[0]=1;
     Player player; player_reset(&player); player.song=1;
     render(&player,&p,samples,out,RATE*3);
@@ -85,20 +85,13 @@ int main(void) {
     p.bpm=120; player_reset(&player); player.song=1; player.loop_start=25; player.loop_end=26;
     player.frame=26*6000; render(&player,&p,samples,out,1);
     CHECK(player.frame==25*6000+1 && fabsf(out[0]-pcm[6000])<.00001f);
-    CHECK(project_save("audio-clips.hbt",&p) && project_load("audio-clips.hbt",&q));
+    CHECK(project_save("audio-clips.llp",&p) && project_load("audio-clips.llp",&q));
     CHECK(project_equal(&p,&q));
     /* An explicit cap must survive a source shrinking to the same length, then growing. */
     q.audio_seconds[0]=.5f;
-    CHECK(project_save("cropped-audio.hbt",&q) && project_load("cropped-audio.hbt",&q));
-    q.audio_seconds[0]=1; CHECK(clip_length(&q,3,moved)==4); remove("cropped-audio.hbt");
-    /* Older imported clips gain the new source-following behavior. */
-    q=p; q.clip_steps[3][moved]=1; CHECK(project_save("old-audio.hbt",&q));
-    FILE *old=fopen("old-audio.hbt","r"),*legacy=fopen("legacy-audio.hbt","w"); CHECK(old && legacy);
-    char line[2048]; CHECK(fgets(line,sizeof line,old)); fputs("HOMEBEAT 23\n",legacy);
-    while(fgets(line,sizeof line,old)) fputs(line,legacy); fclose(old); fclose(legacy);
-    CHECK(project_load("legacy-audio.hbt",&q) && q.clip_steps[3][moved]==0);
-    q.audio_seconds[0]=2; CHECK(clip_length(&q,3,moved)==16);
-    remove("old-audio.hbt"); remove("legacy-audio.hbt"); q=p;
+    CHECK(project_save("cropped-audio.llp",&q) && project_load("cropped-audio.llp",&q));
+    q.audio_seconds[0]=1; CHECK(clip_length(&q,3,moved)==4); remove("cropped-audio.llp");
+    q=p;
     CHECK(export_wav("audio-clips.wav",&p,samples));
     FILE *f=fopen("audio-clips.wav","rb"); CHECK(f); CHECK(fseek(f,44+RATE*3*4,SEEK_SET)==0);
     unsigned char bytes[2]; CHECK(fread(bytes,1,2,f)==2); CHECK(bytes[0] || bytes[1]); fclose(f);
@@ -107,8 +100,8 @@ int main(void) {
     q.channel_audio[1]=1; q.audio_seconds[1]=2;
     int other=arrangement_place(&q,7,0,PATTERNS+1,16); CHECK(other>=0);
     CHECK(channel_delete(&q,0)); CHECK(!q.clips[3][moved] && q.clips[7][other]==PATTERNS+1 && q.audio_seconds[0]==2);
-    q.channel_audio[0]=0; CHECK(!project_save("invalid-audio.hbt",&q));
-    remove("audio-clips.hbt"); remove("audio-clips.wav");
+    q.channel_audio[0]=0; CHECK(!project_save("invalid-audio.llp",&q));
+    remove("audio-clips.llp"); remove("audio-clips.wav");
     puts("Audio clips: playback, seek, crop, move, brush, looping, mute, sequencing, persistence and export passed.");
     return 0;
 }

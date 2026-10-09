@@ -137,10 +137,12 @@ bindings when that device exists. The chorus establishes the effect contract bel
   metronome and listening gain mix before the final device clamp to -1..1.
   PCM16 export clamps at conversion. Overloaded mixes still need gain reduction;
   there is no automatic compressor or lookahead limiter.
-- Project files currently use `.hbt` and the `HOMEBEAT` version-41 header for
-  compatibility. Versions 1–40 remain readable. Renaming the app did not change
-  the project format. Sample references are relative to the project directory, with old absolute paths
-  still readable. Collect samples and save writes original PCM into a unique companion
+- Project files use `.llp` and the `LIBRELOOP_PROJECT 1` header. Named typed
+  fields can be reordered, and repeated values use compact runs. All stored device
+  settings are explicit, independent of future factory defaults. See
+  [the format specification](project-format.md). The old HBT format is no longer
+  supported. Sample references are relative to the project directory. Collect
+  samples and save writes original PCM into a unique companion
   directory, and subsequent saves retain those references. Missing audio opens
   with empty playback while preserving its path, clip duration and editing state; the UI
   marks missing channels and offers relinking.
@@ -313,9 +315,9 @@ update every 64 samples, while wet/bypass changes slew per sample. Shape changes
 filter states over 20 ms; Off bands skip filtering. Low/high cuts use a fixed
 12 dB/octave slope. Slot state
 shares storage with Chorus through a tagged union. The same mixer chain serves
-playback, recording and export. IDs 1201–1221 bind frequency/gain/Q automation. Version 36 and preset version 2
-store seven bands and their shapes. Version-35 projects and version-1 EQ presets
-retain their four original bands and stable automation IDs, with extra bands Off.
+playback, recording and export. IDs 1201–1221 bind frequency/gain/Q automation. LLP projects and preset version 2
+store seven bands and their shapes. Version-1 EQ presets retain their four
+original bands and stable automation IDs, with extra bands Off.
 Presets retain settings and mix only.
 
 Two bounded SPSC rings pass listening output and one selected post-fader bus to
@@ -418,8 +420,7 @@ scheduling. Captured pattern/automation lanes are muted until recording finishes
 The audio transport's MIDI-recording flag disables song wrap without starting
 capture devices. Song-mode pattern selection does not restart the sequencer.
 
-Project version 41 stores up to 32 channel/CC parameter bindings before EQ data;
-older projects initialize them empty. Machine-specific input and recording choices
+LLP projects store up to 32 channel/CC parameter bindings as named fields. Machine-specific input and recording choices
 live beside the browser settings in `midi.txt`. Take creation and controller curve
 compaction occur on the UI thread, with no allocations in the audio callback.
 

@@ -157,7 +157,7 @@ def main():
         failures.append(f'Adjacent clip colors insufficiently separated: {adjacent:.3f}')
     check('white knob pointer',contrast((255,255,255),(35,24,49)),4.5)
     lines += ['',f'White knob pointer against its violet rim: **{contrast((255,255,255),(35,24,49)):.2f}:1**.', '']
-    lines += ['## Clip palette', '', f'{len(clips)} displayed colors (saturation capped at 25%); minimum artwork contrast **{clip_contrast:.2f}:1**; '
+    lines += ['## Clip palette', '', f'{len(clips)} displayed colors (saturation capped at 25%); minimum title/preview contrast **{clip_contrast:.2f}:1**; '
               f'minimum adjacent-hue OKLab separation **{adjacent:.3f}**.', '']
     lines += ['## Result', '', '\n'.join(failures) if failures else 'All measured targets passed.', '']
     report = '\n'.join(lines)

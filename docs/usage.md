@@ -157,7 +157,7 @@ Mixer Master fader and does not affect WAV export.
   the processing frame limit is approximately 93 minutes per file.
 - Browser: an expandable folder tree with **LibreLoop samples** as its first
   root. **+ Add folder** adds another root, up to eight, saved between sessions.
-  Click a folder to expand/collapse it. Supported WAV/FLAC/MP3 and `.hbt` files
+  Click a folder to expand/collapse it. Supported WAV/FLAC/MP3 and `.llp` files
   appear beneath their folders; folders sort before files. Click samples to
   select and preview, or drag them onto Rack channels to load them.
   While hovering over the Browser (or after clicking it), **Up/Down** or **k/j** move through visible nodes and
@@ -182,8 +182,8 @@ Mixer Master fader and does not affect WAV export.
   keeps the current project. Closing the app uses the same Save / Discard / Cancel
   prompt, and exits only after a successful save or an explicit Discard.
   FILE → Demo loads the built-in eight-bar example and selects Song mode. Both stop
-  playback and clear previews; save your work first. New uses `project.hbt`; Demo uses
-  `demo.hbt`, rather than the previously opened project filename.
+  playback and clear previews; save your work first. New uses `project.llp`; Demo uses
+  `demo.llp`, rather than the previously opened project filename.
 - The three icons above the Playlist picker show Patterns (piano), Audio clips
   (waveform), or Automation. Click a source to place copies, or drag it onto the
   Playlist. Double-click a pattern to open the Channel Rack, or an audio item to
@@ -196,12 +196,12 @@ Mixer Master fader and does not affect WAV export.
   are used. Replacing a sample preserves its channel color. Right-click for Rename, Color or
   Delete; changes apply to the Rack channel and every Playlist copy. Deleting
   removes the channel and its clips, while leaving the source file on disk. Automation lists saved parameter curves with the same source actions.
-- FILE → Save opens a file picker for a new project, defaulting to `project.hbt`
-  (`demo.hbt` for Demo). Later saves update that chosen file. **Save As…** chooses
+- FILE → Save opens a file picker for a new project, defaulting to `project.llp`
+  (`demo.llp` for Demo). Later saves update that chosen file. **Save As…** chooses
   another name/location. **Cmd+S** (macOS) or **Ctrl+S** (Linux) saves;
   add Shift for Save As.
-- FILE → Open… chooses a `.hbt` project. **Cmd+O / Ctrl+O** also opens the picker.
-  Dropping a `.hbt` or opening it in the Browser still works; later saves use its filename.
+- FILE → Open… chooses a `.llp` project. **Cmd+O / Ctrl+O** also opens the picker.
+  Dropping a `.llp` or opening it in the Browser still works; later saves use its filename.
 - FILE → Export… chooses a WAV destination and exports the entire Playlist:
   48 kHz, stereo PCM16. The next export remembers that destination.
   The built-in chooser shows the full folder path, with Up/Home navigation,
@@ -469,8 +469,8 @@ waveforms and automation curves use a contrasting foreground based on the clip
 color, including the source list and drag previews.
 
 The shared color picker has twelve evenly spaced rainbow hues in two rows:
-brighter fills, then matching deeper fills. Titles, previews and selection borders
-choose black or white for contrast. Each stored row shares OKLCH lightness; chroma is kept soft so selection highlights stand out. Pattern, channel, audio and
+brighter fills, then matching deeper fills. Titles and previews choose black or white for contrast; selected sources and
+Arrangement clips use white outlines, matching note selections. Each stored row shares OKLCH lightness; chroma is kept soft so selection highlights stand out. Pattern, channel, audio and
 automation color pickers use this palette. Source colors are displayed at up to
 25% saturation so the stronger selection accent stands out; stored project RGB
 values are retained.

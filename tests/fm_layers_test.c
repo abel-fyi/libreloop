@@ -7,20 +7,6 @@
 #include <math.h>
 #define CHECK(x) do { if(!(x)) { fprintf(stderr,"Failed line %d: %s\n",__LINE__,#x); return 1; } } while(0)
 static Project project,loaded;
-static int legacy_project(const char *source,const char *destination) {
-    FILE *f=fopen(source,"r"); if(!f) return 0;
-    char line[4096]; int count=0;
-    while(fgets(line,sizeof line,f)) count++;
-    int extra=count-(INSERTS+1)*EFFECT_SLOTS*EQ_BANDS-2*CHANNELS-1;
-    rewind(f); FILE *out=fopen(destination,"w"); if(!out) { fclose(f); return 0; }
-    int index=0;
-    while(fgets(line,sizeof line,f)) {
-        if(index==0) fputs("HOMEBEAT 37\n",out);
-        else if(index<extra || index>=extra+2*CHANNELS+1) fputs(line,out);
-        index++;
-    }
-    fclose(f); return !fclose(out);
-}
 int main(void) {
     FMSettings bright=fm_epiano(); CHECK(fm_valid(bright) && bright.attack_depth>0 && bright.mod_decay>bright.attack_decay);
     FMVoice strong,soft; FMSettings body=bright; body.attack_depth=0;
@@ -61,11 +47,8 @@ int main(void) {
         CHECK(pointer && parameter_descriptor(id) && parameter_from_pointer(&project,pointer,&target) && target.parameter==id);
         float value,low,high; CHECK(parameter_info(&project,target,&value,&low,&high));
     }
-    CHECK(project_save("fm-layers.hbt",&project) && project_load("fm-layers.hbt",&loaded));
+    CHECK(project_save("fm-layers.llp",&project) && project_load("fm-layers.llp",&loaded));
     CHECK(!memcmp(&project.fm[0],&loaded.fm[0],sizeof(FMSettings)));
-    CHECK(legacy_project("fm-layers.hbt","fm-legacy.hbt") && project_load("fm-legacy.hbt",&loaded));
-    CHECK(loaded.fm[0].carrier_ratio==1 && loaded.fm[0].attack_depth==0 && loaded.fm[0].mod_attack==0 && loaded.fm[0].body_pitch==0 && loaded.fm[0].lfo_fade==0);
-    for(unsigned id=PARAM_FM_RATIO;id<=PARAM_FM_TREMOLO;id++) CHECK(*fm_parameter_pointer(&project.fm[0],id)==*fm_parameter_pointer(&loaded.fm[0],id));
     DevicePreset preset={.kind=PRESET_FM,.fm=project.fm[0]},restored;
     CHECK(preset_save("fm-layers.llpreset",&preset) && preset_load("fm-layers.llpreset",&restored));
     CHECK(!memcmp(&preset.fm,&restored.fm,sizeof(FMSettings)));
@@ -94,6 +77,6 @@ int main(void) {
         render(&automated,&project,samples,x,512); render(&manual,&loaded,samples,y,512);
         for(int i=0;i<1024;i++) CHECK(fabsf(x[i]-y[i])<.00001f);
     }
-    remove("fm-layers.hbt"); remove("fm-legacy.hbt"); remove("fm-layers.llpreset"); remove("fm-old.llpreset");
-    puts("Bright independent attack/body, tuning, release, LFO shapes, routing, legacy files and new automation passed."); return 0;
+    remove("fm-layers.llp"); remove("fm-layers.llpreset"); remove("fm-old.llpreset");
+    puts("Bright independent attack/body, tuning, release, LFO shapes, routing, legacy presets and new automation passed."); return 0;
 }

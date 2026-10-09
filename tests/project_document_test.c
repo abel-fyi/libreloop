@@ -6,7 +6,7 @@
 static Project project;
 static ProjectDocument document;
 int main(void) {
-    project_new(&project); project_document_saved(&document,&project,"song.hbt");
+    project_new(&project); project_document_saved(&document,&project,"song.llp");
     CHECK(!project_document_dirty(&document,&project));
     project.audio_seconds[0]=2; CHECK(!project_document_dirty(&document,&project));
     project.bpm=130; CHECK(project_document_request(&document,&project,REPLACE_QUIT));
@@ -17,6 +17,6 @@ int main(void) {
     project_document_saved(&document,&project,NULL);
     CHECK(document.pending_action==REPLACE_QUIT && !project_document_dirty(&document,&project));
     CHECK(!project_document_request(&document,&project,REPLACE_QUIT) && document.quit);
-    CHECK(document.saved_on_disk && !strcmp(document.path,"song.hbt"));
+    CHECK(document.saved_on_disk && !strcmp(document.path,"song.llp"));
     puts("Close requests require a decision for dirty projects and preserve pending actions until saved or canceled."); return 0;
 }

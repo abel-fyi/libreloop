@@ -1,18 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "engine.h"
 #include "atomic_file.h"
+#include "project_format.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stddef.h>
+#include <errno.h>
+#include <float.h>
+#include <ctype.h>
 
-static int read_line(FILE *f,char *out,size_t capacity) {
-    char line[1025];
-    if(capacity>1024 || !fgets(line,(int)capacity+1,f)) return 0;
-    char *newline=strchr(line,'\n'); if(!newline || strchr(line,'\r')) return 0;
-    *newline=0; memset(out,0,capacity); memcpy(out,line,strlen(line)+1); return 1;
-}
-int project_save(const char *path,const Project *p) {
+static int project_valid(const Project *p) {
+    if(!isfinite(p->bpm) || p->bpm<30 || p->bpm>300 || p->pattern_count<1 || p->pattern_count>PATTERNS) return 0;
+    if(!isfinite(p->master_pitch) || fabsf(p->master_pitch)>12) return 0;
     if(!automation_valid(p) || p->midi_binding_count<0 || p->midi_binding_count>MIDI_BINDINGS) return 0;
     for(int i=0;i<p->midi_binding_count;i++){MidiBinding b=p->midi_bindings[i];if(b.channel>15 || b.controller>119 || !parameter_descriptor(b.target.parameter) || b.target.owner>INSERTS || b.target.slot>=EFFECT_SLOTS)return 0;}
     for(int c=0;c<CHANNELS;c++) if(p->instrument[c]>INSTRUMENT_FM || !fm_valid(p->fm[c]) || (p->instrument[c]==INSTRUMENT_FM && p->channel_audio[c])) return 0;
@@ -43,240 +44,300 @@ int project_save(const char *path,const Project *p) {
     }
     for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) if(p->clips[l][b]>AUTOMATION_SOURCE && p->clips[l][b]>AUTOMATION_SOURCE+p->automation_count) return 0;
     for(int c=0;c<CHANNELS;c++) if(!isfinite(p->channel_pitch[c]) || fabsf(p->channel_pitch[c])>1 || !isfinite(p->pitch_range[c]) || p->pitch_range[c]<1 || p->pitch_range[c]>48 || p->pitch_range[c]!=roundf(p->pitch_range[c])) return 0;
-    AtomicFile output; if(!atomic_file_open(&output,path)) return 0;
-    FILE *f=output.file;
-    for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) if(!isfinite(p->clip_offsets[l][b]) || p->clip_offsets[l][b]<0 || p->clip_offsets[l][b]>1e15f) { atomic_file_abort(&output); return 0; }
-    fprintf(f,"HOMEBEAT 41\n%.9g %.9g %d\n",p->bpm,p->master,p->channel_count);
-    for(int c=0;c<CHANNELS;c++) fprintf(f,"%.9g %.9g %u\n",p->volume[c],p->pan[c],p->mute[c]);
-    for(int a=0;a<PATTERNS;a++) for(int c=0;c<CHANNELS;c++) for(int i=0;i<NOTES;i++) {
-        Note n=p->notes[a][c][i]; fprintf(f,"%u %u %.9g %.9g\n",n.pitch,n.velocity,n.start,n.length);
+    for(int c=0;c<CHANNELS;c++) if(!isfinite(p->pan[c]) || fabsf(p->pan[c])>1 || p->route[c]>p->insert_count) return 0;
+    for(int i=0;i<INSERTS;i++) if(!isfinite(p->insert_pan[i]) || fabsf(p->insert_pan[i])>1 || p->insert_mute[i]>3 || (p->insert_output[i]>p->insert_count && p->insert_output[i]!=255)) return 0;
+    for(int i=1;i<=p->insert_count;i++) {
+        uint8_t visited[INSERTS+1]={0}; int bus=i;
+        while(bus && bus!=255) { if(bus>p->insert_count || visited[bus]) return 0; visited[bus]=1; bus=p->insert_output[bus-1]; }
     }
-    for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) fprintf(f,"%u\n",p->clips[l][b]);
-    for(int c=0;c<CHANNELS;c++) fprintf(f,"%s\n",p->paths[c]);
-    for(int pat=0;pat<PATTERNS;pat++) fprintf(f,"%s\n",p->pattern_names[pat]);
-    fprintf(f,"%d\n",p->insert_count);
-    for(int c=0;c<CHANNELS;c++) fprintf(f,"%u\n",p->route[c]);
-    for(int i=0;i<INSERTS;i++) fprintf(f,"%.9g %.9g %u\n",p->insert_volume[i],p->insert_pan[i],p->insert_mute[i]);
-    for(int a=0;a<PATTERNS;a++) fprintf(f,"%.9g\n",p->pattern_steps[a]);
-    for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) fprintf(f,"%.9g\n",p->clip_steps[l][b]);
-    fprintf(f,"%.9g\n",p->master_pitch);
-    for(int i=0;i<INSERTS;i++) fprintf(f,"%u\n",p->insert_output[i]);
-    fprintf(f,"%d\n",p->pattern_count);
-    for(int c=0;c<CHANNELS;c++) fprintf(f,"%s\n",p->channel_names[c]);
-    for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) fprintf(f,"%.9g\n",p->clip_starts[l][b]);
-    for(int c=0;c<CHANNELS;c++) fprintf(f,"%.9g %.9g %.9g %.9g %u %u\n",p->sampler[c].pitch,p->sampler[c].time,p->sampler[c].start,p->sampler[c].length,p->sampler[c].flags,p->sampler[c].stretch);
-    for(int i=0;i<INSERTS;i++) fprintf(f,"%.9g\n",p->insert_width[i]);
-    fprintf(f,"%.9g %u\n",p->master_width,p->master_mute);
-    for(int l=0;l<LANES;l++) fprintf(f,"%u\n",p->lane_mute[l]);
-    fprintf(f,"%.9g\n",p->swing);
-    for(int id=0;id<=INSERTS;id++) for(int io=0;io<2;io++) fprintf(f,"%s\n",p->audio_io[id][io]);
-    for(int id=0;id<=INSERTS;id++) for(int slot=0;slot<10;slot++) fprintf(f,"%.9g %u\n",p->effect_mix[id][slot],p->effect_bypass[id][slot]);
-    for(int l=0;l<LANES;l++) fprintf(f,"%s\n",p->track_names[l]);
-    for(int i=0;i<INSERTS;i++) fprintf(f,"%s\n",p->insert_names[i]);
-    for(int i=0;i<PATTERNS;i++) fprintf(f,"%u\n",p->pattern_colors[i]);
-    for(int c=0;c<CHANNELS;c++) fprintf(f,"%u %.9g\n",p->channel_audio[c],p->audio_seconds[c]);
-    for(int c=0;c<CHANNELS;c++) fprintf(f,"%.9g %.9g\n",p->channel_pitch[c],p->pitch_range[c]);
-    for(int c=0;c<CHANNELS;c++) fprintf(f,"%.9g\n",p->sampler[c].trim);
-    for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) fprintf(f,"%.9g\n",p->clip_offsets[l][b]);
-    for(int c=0;c<CHANNELS;c++) fprintf(f,"%u\n",p->channel_colors[c]);
-    fprintf(f,"%d\n",p->automation_count);
-    for(int i=0;i<p->automation_count;i++) {
-        const Automation *a=&p->automations[i];
-        fprintf(f,"%u %u %u %.9g %d %u\n%s\n",a->target.parameter,a->target.owner,a->target.slot,a->steps,a->count,a->color,a->name);
-        for(int n=0;n<a->count;n++) fprintf(f,"%.9g %.9g\n",a->points[n].step,a->points[n].value);
+    for(int pat=0;pat<PATTERNS;pat++) {
+        if(!isfinite(p->pattern_steps[pat]) || p->pattern_steps[pat]<STEPS || p->pattern_steps[pat]>1e15f) return 0;
+        for(int c=0;c<CHANNELS;c++) for(int n=0;n<NOTES;n++) {
+            Note v=p->notes[pat][c][n];
+            if(v.pitch>127 || v.velocity>127 || !isfinite(v.start) || !isfinite(v.length) || v.start<0 || v.start>=1e15f || v.length<0 || v.length>1e15f-v.start) return 0;
+        }
     }
-    for(int c=0;c<CHANNELS;c++) fprintf(f,"%.9g\n",p->sampler[c].fit_bpm);
-    for(int bus=0;bus<=INSERTS;bus++) for(int slot=0;slot<EFFECT_SLOTS;slot++)
-        fprintf(f,"%u %.9g %.9g\n",p->effect_type[bus][slot],p->chorus[bus][slot].rate,p->chorus[bus][slot].depth);
-    for(int c=0;c<CHANNELS;c++) {
-        FMSettings v=p->fm[c]; fprintf(f,"%u %.9g %.9g %.9g %.9g %.9g %.9g\n",p->instrument[c],v.ratio,v.depth,v.attack,v.decay,v.sustain,v.release);
+    for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) {
+        unsigned source=p->clips[l][b];
+        if(source>SOURCES || (source && source<=PATTERNS && source>(unsigned)p->pattern_count)) return 0;
+        if(!isfinite(p->clip_starts[l][b]) || p->clip_starts[l][b]<0 || p->clip_starts[l][b]>=1e15f ||
+           !isfinite(p->clip_steps[l][b]) || p->clip_steps[l][b]<0 || p->clip_steps[l][b]>1e15f ||
+           !isfinite(p->clip_offsets[l][b]) || p->clip_offsets[l][b]<0 || p->clip_offsets[l][b]>1e15f) return 0;
     }
-    for(int c=0;c<CHANNELS;c++) { FMSettings v=p->fm[c]; fprintf(f,"%.9g %.9g %.9g %.9g %.9g %.9g\n",v.mod_decay,v.mod_sustain,v.velocity,v.lfo_rate,v.vibrato,v.tremolo); }
-    for(int c=0;c<CHANNELS;c++) {
-        for(unsigned id=PARAM_FM_CARRIER_RATIO;id<=PARAM_FM_BODY_PITCH;id++) fprintf(f,"%.9g ",*fm_parameter_pointer(&p->fm[c],id));
-        fputc('\n',f);
+    return 1;
+}
+
+_Static_assert(sizeof(float)==4 && sizeof(int)==4 && sizeof(unsigned)==4,
+               "LLP scalar mappings require 32-bit float/int/unsigned");
+typedef enum { F32,I32,U32,U8,STRING } FieldType;
+typedef struct { const char *name; FieldType type; size_t offset,count,inner,outer_stride,inner_stride,width; } Field;
+#define FLAT(m,t,k) {#m,k,offsetof(Project,m),sizeof(((Project *)0)->m)/sizeof(t),1,sizeof(t),0,sizeof(t)}
+#define SCALAR(m,t,k) {#m,k,offsetof(Project,m),1,1,sizeof(t),0,sizeof(t)}
+#define TEXT(m,n,w) {#m,STRING,offsetof(Project,m),n,1,w,0,w}
+#define MEMBER(m,t,f,k,n) {#m "." #f,k,offsetof(Project,m)+offsetof(t,f),n,1,sizeof(t),0,sizeof(((t *)0)->f)}
+#define SUB(m,t,s,u,f,k,n) {#m "." #s "." #f,k,offsetof(Project,m)+offsetof(t,s)+offsetof(u,f),n,1,sizeof(t),0,sizeof(((u *)0)->f)}
+/* Stable file schema; offsets/strides map logical values without saving padding. */
+static const Field fields[]={
+    SCALAR(bpm,float,F32),
+    SCALAR(master,float,F32),
+    SCALAR(master_pitch,float,F32),
+    SCALAR(master_width,float,F32),
+    SCALAR(swing,float,F32),
+    SCALAR(pattern_count,int,I32),
+    SCALAR(channel_count,int,I32),
+    SCALAR(insert_count,int,I32),
+    SCALAR(automation_count,int,I32),
+    SCALAR(midi_binding_count,int,I32),
+    SCALAR(master_mute,uint8_t,U8),
+    FLAT(volume,float,F32),
+    FLAT(pan,float,F32),
+    FLAT(channel_pitch,float,F32),
+    FLAT(pitch_range,float,F32),
+    FLAT(clip_steps,float,F32),
+    FLAT(clip_starts,float,F32),
+    FLAT(clip_offsets,float,F32),
+    FLAT(audio_seconds,float,F32),
+    FLAT(pattern_steps,float,F32),
+    FLAT(insert_volume,float,F32),
+    FLAT(insert_pan,float,F32),
+    FLAT(insert_width,float,F32),
+    FLAT(effect_mix,float,F32),
+    FLAT(mute,uint8_t,U8),
+    FLAT(clips,uint8_t,U8),
+    FLAT(channel_audio,uint8_t,U8),
+    FLAT(route,uint8_t,U8),
+    FLAT(insert_mute,uint8_t,U8),
+    FLAT(insert_output,uint8_t,U8),
+    FLAT(effect_type,uint8_t,U8),
+    FLAT(effect_bypass,uint8_t,U8),
+    FLAT(lane_mute,uint8_t,U8),
+    FLAT(instrument,uint8_t,U8),
+    FLAT(pattern_colors,uint32_t,U32),
+    FLAT(channel_colors,uint32_t,U32),
+    TEXT(paths,CHANNELS,1024),
+    TEXT(channel_names,CHANNELS,PATTERN_NAME),
+    TEXT(pattern_names,PATTERNS,PATTERN_NAME),
+    TEXT(audio_io,(INSERTS+1)*2,128),
+    TEXT(track_names,LANES,PATTERN_NAME),
+    TEXT(insert_names,INSERTS,PATTERN_NAME),
+    MEMBER(notes,Note,pitch,U8,PATTERNS*CHANNELS*NOTES),
+    MEMBER(notes,Note,velocity,U8,PATTERNS*CHANNELS*NOTES),
+    MEMBER(notes,Note,start,F32,PATTERNS*CHANNELS*NOTES),
+    MEMBER(notes,Note,length,F32,PATTERNS*CHANNELS*NOTES),
+    MEMBER(sampler,Sampler,pitch,F32,CHANNELS),
+    MEMBER(sampler,Sampler,time,F32,CHANNELS),
+    MEMBER(sampler,Sampler,start,F32,CHANNELS),
+    MEMBER(sampler,Sampler,length,F32,CHANNELS),
+    MEMBER(sampler,Sampler,trim,F32,CHANNELS),
+    MEMBER(sampler,Sampler,fit_bpm,F32,CHANNELS),
+    MEMBER(sampler,Sampler,flags,U8,CHANNELS),
+    MEMBER(sampler,Sampler,stretch,U8,CHANNELS),
+    MEMBER(fm,FMSettings,ratio,F32,CHANNELS),
+    MEMBER(fm,FMSettings,depth,F32,CHANNELS),
+    MEMBER(fm,FMSettings,attack,F32,CHANNELS),
+    MEMBER(fm,FMSettings,decay,F32,CHANNELS),
+    MEMBER(fm,FMSettings,sustain,F32,CHANNELS),
+    MEMBER(fm,FMSettings,release,F32,CHANNELS),
+    MEMBER(fm,FMSettings,mod_decay,F32,CHANNELS),
+    MEMBER(fm,FMSettings,mod_sustain,F32,CHANNELS),
+    MEMBER(fm,FMSettings,velocity,F32,CHANNELS),
+    MEMBER(fm,FMSettings,lfo_rate,F32,CHANNELS),
+    MEMBER(fm,FMSettings,vibrato,F32,CHANNELS),
+    MEMBER(fm,FMSettings,tremolo,F32,CHANNELS),
+    MEMBER(fm,FMSettings,carrier_ratio,F32,CHANNELS),
+    MEMBER(fm,FMSettings,carrier_detune,F32,CHANNELS),
+    MEMBER(fm,FMSettings,body_detune,F32,CHANNELS),
+    MEMBER(fm,FMSettings,mod_attack,F32,CHANNELS),
+    MEMBER(fm,FMSettings,mod_release,F32,CHANNELS),
+    MEMBER(fm,FMSettings,attack_ratio,F32,CHANNELS),
+    MEMBER(fm,FMSettings,attack_detune,F32,CHANNELS),
+    MEMBER(fm,FMSettings,attack_depth,F32,CHANNELS),
+    MEMBER(fm,FMSettings,attack_attack,F32,CHANNELS),
+    MEMBER(fm,FMSettings,attack_decay,F32,CHANNELS),
+    MEMBER(fm,FMSettings,attack_sustain,F32,CHANNELS),
+    MEMBER(fm,FMSettings,attack_release,F32,CHANNELS),
+    MEMBER(fm,FMSettings,routing,F32,CHANNELS),
+    MEMBER(fm,FMSettings,lfo_shape,F32,CHANNELS),
+    MEMBER(fm,FMSettings,lfo_fade,F32,CHANNELS),
+    MEMBER(fm,FMSettings,body_pitch,F32,CHANNELS),
+    MEMBER(fm,FMSettings,engine,F32,CHANNELS),
+    SUB(fm,FMSettings,analog,AnalogSettings,wave,F32,CHANNELS),
+    SUB(fm,FMSettings,analog,AnalogSettings,detune,F32,CHANNELS),
+    SUB(fm,FMSettings,analog,AnalogSettings,mix,F32,CHANNELS),
+    SUB(fm,FMSettings,analog,AnalogSettings,sub,F32,CHANNELS),
+    SUB(fm,FMSettings,analog,AnalogSettings,noise,F32,CHANNELS),
+    SUB(fm,FMSettings,analog,AnalogSettings,pulse,F32,CHANNELS),
+    SUB(fm,FMSettings,analog,AnalogSettings,pwm,F32,CHANNELS),
+    SUB(fm,FMSettings,analog,AnalogSettings,cutoff,F32,CHANNELS),
+    SUB(fm,FMSettings,analog,AnalogSettings,resonance,F32,CHANNELS),
+    SUB(fm,FMSettings,analog,AnalogSettings,filter_env,F32,CHANNELS),
+    SUB(fm,FMSettings,analog,AnalogSettings,chorus,F32,CHANNELS),
+    {"fm.dx7.value",F32,offsetof(Project,fm)+offsetof(FMSettings,dx7)+offsetof(DX7Settings,value),CHANNELS*DX7_PARAMETERS,DX7_PARAMETERS,sizeof(FMSettings),sizeof(float),sizeof(float)},
+    MEMBER(chorus,ChorusSettings,rate,F32,(INSERTS+1)*EFFECT_SLOTS),
+    MEMBER(chorus,ChorusSettings,depth,F32,(INSERTS+1)*EFFECT_SLOTS),
+    {"eq.bands.frequency",F32,offsetof(Project,eq)+offsetof(EQSettings,bands)+offsetof(EQBand,frequency),(INSERTS+1)*EFFECT_SLOTS*EQ_BANDS,EQ_BANDS,sizeof(EQSettings),sizeof(EQBand),sizeof(((EQBand *)0)->frequency)},
+    {"eq.bands.gain",F32,offsetof(Project,eq)+offsetof(EQSettings,bands)+offsetof(EQBand,gain),(INSERTS+1)*EFFECT_SLOTS*EQ_BANDS,EQ_BANDS,sizeof(EQSettings),sizeof(EQBand),sizeof(((EQBand *)0)->gain)},
+    {"eq.bands.q",F32,offsetof(Project,eq)+offsetof(EQSettings,bands)+offsetof(EQBand,q),(INSERTS+1)*EFFECT_SLOTS*EQ_BANDS,EQ_BANDS,sizeof(EQSettings),sizeof(EQBand),sizeof(((EQBand *)0)->q)},
+    {"eq.bands.shape",U32,offsetof(Project,eq)+offsetof(EQSettings,bands)+offsetof(EQBand,shape),(INSERTS+1)*EFFECT_SLOTS*EQ_BANDS,EQ_BANDS,sizeof(EQSettings),sizeof(EQBand),sizeof(((EQBand *)0)->shape)},
+    SUB(automations,Automation,target,ParameterTarget,parameter,U32,AUTOMATIONS),
+    SUB(automations,Automation,target,ParameterTarget,owner,U32,AUTOMATIONS),
+    SUB(automations,Automation,target,ParameterTarget,slot,U32,AUTOMATIONS),
+    MEMBER(automations,Automation,steps,F32,AUTOMATIONS),
+    MEMBER(automations,Automation,count,I32,AUTOMATIONS),
+    MEMBER(automations,Automation,color,U32,AUTOMATIONS),
+    {"automations.name",STRING,offsetof(Project,automations)+offsetof(Automation,name),AUTOMATIONS,1,sizeof(Automation),0,48},
+    {"automations.points.step",F32,offsetof(Project,automations)+offsetof(Automation,points)+offsetof(AutomationPoint,step),AUTOMATIONS*AUTOMATION_POINTS,AUTOMATION_POINTS,sizeof(Automation),sizeof(AutomationPoint),sizeof(float)},
+    {"automations.points.value",F32,offsetof(Project,automations)+offsetof(Automation,points)+offsetof(AutomationPoint,value),AUTOMATIONS*AUTOMATION_POINTS,AUTOMATION_POINTS,sizeof(Automation),sizeof(AutomationPoint),sizeof(float)},
+    MEMBER(midi_bindings,MidiBinding,channel,U32,MIDI_BINDINGS),
+    MEMBER(midi_bindings,MidiBinding,controller,U32,MIDI_BINDINGS),
+    SUB(midi_bindings,MidiBinding,target,ParameterTarget,parameter,U32,MIDI_BINDINGS),
+    SUB(midi_bindings,MidiBinding,target,ParameterTarget,owner,U32,MIDI_BINDINGS),
+    SUB(midi_bindings,MidiBinding,target,ParameterTarget,slot,U32,MIDI_BINDINGS),
+};
+#undef FLAT
+#undef SCALAR
+#undef TEXT
+#undef MEMBER
+#undef SUB
+#define FIELD_COUNT (sizeof fields/sizeof *fields)
+#define MAX_FIELDS (FIELD_COUNT+64)
+static const char *type_names[]={"f32","i32","u32","u8","str"};
+static unsigned char *address(Project *p,const Field *f,size_t i) {
+    return (unsigned char *)p+f->offset+(i/f->inner)*f->outer_stride+(i%f->inner)*f->inner_stride;
+}
+static int structure_valid(const Project *p) {
+    if(!p) return 0;
+    for(size_t f=0;f<FIELD_COUNT;f++)
+        for(size_t i=0;i<fields[f].count;i++) {
+            const char *s=(const char *)address((Project *)p,&fields[f],i);
+            if(fields[f].type==STRING && (!memchr(s,0,fields[f].width) || strchr(s,'\n') || strchr(s,'\r'))) return 0;
+            if(fields[f].type==F32) { float v; memcpy(&v,s,sizeof v); if(!isfinite(v)) return 0; }
+        }
+    return project_valid(p);
+}
+static int equal_value(const unsigned char *a,const unsigned char *b,const Field *f) {
+    return f->type==STRING?!strcmp((const char *)a,(const char *)b):!memcmp(a,b,f->width);
+}
+int project_save(const char *path,const Project *p) {
+    if(!structure_valid(p)) return 0;
+    AtomicFile out; if(!atomic_file_open(&out,path)) return 0;
+    FILE *file=out.file;
+    fprintf(file,PROJECT_FORMAT_MAGIC " %d\n",PROJECT_FORMAT_VERSION);
+    for(size_t n=0;n<FIELD_COUNT;n++) {
+        const Field *f=&fields[n]; fprintf(file,"%s %s %zu\n",f->name,type_names[f->type],f->count);
+        for(size_t i=0;i<f->count;) {
+            const unsigned char *value=address((Project *)p,f,i); size_t run=1;
+            while(i+run<f->count && equal_value(value,address((Project *)p,f,i+run),f)) run++;
+            fprintf(file,"%zu ",run);
+            if(f->type==STRING) {
+                size_t length=strlen((const char *)value);
+                fprintf(file,"%zu:",length); fwrite(value,1,length,file); fputc('\n',file);
+            } else if(f->type==F32) { float v; memcpy(&v,value,sizeof v); fprintf(file,"%.9g\n",v); }
+            else if(f->type==I32) { int v; memcpy(&v,value,sizeof v); fprintf(file,"%d\n",v); }
+            else if(f->type==U32) { unsigned v; memcpy(&v,value,sizeof v); fprintf(file,"%u\n",v); }
+            else fprintf(file,"%u\n",(unsigned)*value);
+            i+=run;
+        }
     }
-    for(int c=0;c<CHANNELS;c++) {
-        for(unsigned id=PARAM_FM_ENGINE;id<=PARAM_FM_LAST;id++) fprintf(f,"%.9g ",*fm_parameter_pointer(&p->fm[c],id));
-        for(int i=0;i<DX7_PARAMETERS;i++) fprintf(f,"%.9g ",p->fm[c].dx7.value[i]);
-        fputc('\n',f);
+    fputs("end\n",file);
+    return atomic_file_commit(&out);
+}
+static int line(FILE *f,char *out,size_t size) {
+    size_t used=0; int ch;
+    while((ch=fgetc(f))!=EOF && ch!='\n') {
+        if(!ch || used+1>=size) return 0;
+        out[used++]=(char)ch;
     }
-    fprintf(f,"%d\n",p->midi_binding_count);
-    for(int i=0;i<p->midi_binding_count;i++){MidiBinding b=p->midi_bindings[i];fprintf(f,"%u %u %u %u %u\n",b.channel,b.controller,b.target.parameter,b.target.owner,b.target.slot);}
-    for(int bus=0;bus<=INSERTS;bus++) for(int slot=0;slot<EFFECT_SLOTS;slot++) for(int b=0;b<EQ_BANDS;b++) {
-        EQBand v=p->eq[bus][slot].bands[b]; fprintf(f,"%.9g %.9g %.9g %u\n",v.frequency,v.gain,v.q,v.shape);
+    if(ch!='\n') return 0;
+    if(used && out[used-1]=='\r') used--;
+    out[used]=0; return 1;
+}
+static int blank(const char *s) { while(*s && isspace((unsigned char)*s)) s++; return !*s; }
+/* Parse bounded counts without scanf's undefined behavior on integer overflow. */
+static int count_token(const char *text,size_t *value,size_t limit) {
+    if(!isdigit((unsigned char)*text)) return 0;
+    char *end; errno=0; unsigned long long n=strtoull(text,&end,10);
+    if(errno || !blank(end) || n>limit) return 0;
+    *value=(size_t)n; return 1;
+}
+static int number_prefix(FILE *file,size_t *value,int delimiter,size_t limit) {
+    size_t n=0; int ch=fgetc(file),digits=0;
+    while(ch>='0' && ch<='9') {
+        unsigned d=ch-'0'; if(n>limit/10 || (n==limit/10 && d>limit%10)) return 0;
+        n=n*10+d; digits++; ch=fgetc(file);
     }
-    return atomic_file_commit(&output);
+    if(!digits || ch!=delimiter) return 0;
+    *value=n; return 1;
+}
+static int eol(FILE *f) { int ch=fgetc(f); return ch=='\n' || (ch=='\r' && fgetc(f)=='\n'); }
+static int read_values(FILE *file,Project *p,const Field *field,FieldType type,size_t count) {
+    size_t used=0;
+    while(used<count) {
+        size_t run; if(!number_prefix(file,&run,' ',count-used) || !run) return 0;
+        unsigned char value[1024]={0};
+        if(type==STRING) {
+            size_t length;
+            if(!number_prefix(file,&length,':',sizeof value-1) || (field && length>=field->width) ||
+               fread(value,1,length,file)!=length || !eol(file) || memchr(value,0,length) ||
+               memchr(value,'\n',length) || memchr(value,'\r',length)) return 0;
+        } else {
+            char text[128],*end; if(!line(file,text,sizeof text) || !text[0]) return 0;
+            errno=0;
+            if(type==F32) {
+                /* Parse directly to binary32: %.9g of FLT_MAX can be a little
+                   above its exact double value, while still rounding to it. */
+                float v=strtof(text,&end);
+                if(end==text || !blank(end) || !isfinite(v) || (errno && (errno!=ERANGE || v==0))) return 0;
+                memcpy(value,&v,sizeof v);
+            } else if(type==I32) {
+                long long v=strtoll(text,&end,10); if(end==text || errno || !blank(end) || v<INT32_MIN || v>INT32_MAX) return 0;
+                int i=(int)v; memcpy(value,&i,sizeof i);
+            } else {
+                if(text[0]=='-') return 0;
+                unsigned long long v=strtoull(text,&end,10);
+                if(end==text || errno || !blank(end) || v>(type==U8?UINT8_MAX:UINT32_MAX)) return 0;
+                if(type==U8) *value=(uint8_t)v; else { unsigned u=(unsigned)v; memcpy(value,&u,sizeof u); }
+            }
+        }
+        if(field) for(size_t i=0;i<run;i++) memcpy(address(p,field,used+i),value,field->width);
+        used+=run;
+    }
+    return 1;
 }
 int project_load(const char *path,Project *p) {
-    FILE *f=fopen(path,"r"); if(!f) return 0;
-    Project q; project_default(&q); memset(q.notes,0,sizeof q.notes); q.pattern_count=PATTERNS; char magic[32]; int version=0; unsigned x,y;
-    for(int pat=0;pat<PATTERNS;pat++) { q.pattern_steps[pat]=STEPS; snprintf(q.pattern_names[pat],PATTERN_NAME,"Pattern %d",pat+1); }
-    q.insert_count=4;
-    for(int i=0;i<INSERTS;i++) q.insert_volume[i]=1;
-    for(int c=0;c<4;c++) q.route[c]=c+1;
-    for(int c=0;c<CHANNELS;c++) q.fm[c]=fm_legacy();
-    int ok=fscanf(f,"%31s %d",magic,&version)==2 && !strcmp(magic,"HOMEBEAT") && version>=1 && version<=41;
-    ok=ok && fscanf(f,"%f %f",&q.bpm,&q.master)==2 && isfinite(q.bpm) && q.bpm>=30 && q.bpm<=300 && isfinite(q.master) && q.master>=0 && q.master<=(version>=18?MIXER_GAIN_MAX:1);
-    if(version>=12) ok=ok && fscanf(f,"%d",&q.channel_count)==1 && q.channel_count>=0 && q.channel_count<=CHANNELS;
-    int channels=version>=12?CHANNELS:4,inserts=version>=12?INSERTS:16,clips=version>=14?CLIPS:BARS;
-    for(int c=0;ok && c<channels;c++) {
-        ok=fscanf(f,"%f %f %u",&q.volume[c],&q.pan[c],&x)==3 && isfinite(q.volume[c]) && isfinite(q.pan[c]) && q.volume[c]>=0 && q.volume[c]<=(version>=28?VOLUME_KNOB_MAX:1) && fabsf(q.pan[c])<=1 && x<=(version>=16?3u:1u);
-        if(ok) q.mute[c]=x;
+    FILE *file=fopen(path,"rb"); if(!file) return 0;
+    if(fseek(file,0,SEEK_END) || ftell(file)<0 || ftell(file)>32*1024*1024 || fseek(file,0,SEEK_SET)) { fclose(file); return 0; }
+    char text[256],magic[64]; size_t version; int consumed=0;
+    int ok=p && line(file,text,sizeof text) && sscanf(text,"%63s %n",magic,&consumed)==1 &&
+        !strcmp(magic,PROJECT_FORMAT_MAGIC) && count_token(text+consumed,&version,PROJECT_FORMAT_VERSION) && version==PROJECT_FORMAT_VERSION;
+    Project *next=ok?calloc(1,sizeof *next):NULL;
+    char (*names)[64]=ok?calloc(MAX_FIELDS,sizeof *names):NULL;
+    if(ok && (!next || !names)) ok=0;
+    unsigned char seen[FIELD_COUNT]={0}; size_t records=0; int ended=0;
+    while(ok && line(file,text,sizeof text)) {
+        if(!strcmp(text,"end")) { ended=1; break; }
+        char name[64],kind[8]; size_t count; consumed=0;
+        ok=records<MAX_FIELDS && sscanf(text,"%63s %7s %n",name,kind,&consumed)==2 &&
+            count_token(text+consumed,&count,1048576) && count>0;
+        if(!ok) break;
+        for(size_t i=0;ok && i<records;i++) if(!strcmp(names[i],name)) ok=0;
+        if(!ok) break;
+        strcpy(names[records++],name);
+        int type=-1; for(int t=0;t<=STRING;t++) if(!strcmp(kind,type_names[t])) type=t;
+        const Field *field=NULL;
+        for(size_t i=0;i<FIELD_COUNT;i++) if(!strcmp(name,fields[i].name)) { field=&fields[i]; seen[i]=1; break; }
+        ok=type>=0 && (field?field->type==(FieldType)type && field->count==count:!strncmp(name,"x-",2));
+        if(ok) ok=read_values(file,next,field,(FieldType)type,count);
     }
-    for(int a=0;ok && a<PATTERNS;a++) for(int c=0;ok && c<channels;c++) for(int i=0;ok && i<(version>=4?NOTES:STEPS);i++) {
-        float start=i,length=0;
-        ok=fscanf(f,"%u %u",&x,&y)==2 && x<=127 && y<=127;
-        if(version>=4) { float limit=version>=14?1e15f:version==4?STEPS:BARS*STEPS; ok=ok && fscanf(f,"%f %f",&start,&length)==2 && isfinite(start) && isfinite(length) && start>=0 && length>=0 && start<limit && length<=limit-start; }
-        if(ok) q.notes[a][c][i]=(Note){x,y,start,length};
-    }
-    for(int l=0;ok && l<(version>=10?LANES:4);l++) for(int b=0;ok && b<clips;b++) { ok=fscanf(f,"%u",&x)==1 && x<=(unsigned)(version>=30?SOURCES:version>=23?PATTERNS+CHANNELS:PATTERNS); if(ok) q.clips[l][b]=x; }
-    int ch; do { ch=fgetc(f); } while(ch!=EOF && ch!='\n');
-    for(int c=0;ok && c<channels;c++) {
-        ok=read_line(f,q.paths[c],sizeof q.paths[c]);
-    }
-    if(version>=2) for(int pat=0;ok && pat<PATTERNS;pat++) {
-        ok=read_line(f,q.pattern_names[pat],PATTERN_NAME) && q.pattern_names[pat][0];
-    }
-    if(version>=3) {
-        ok=ok && fscanf(f,"%d",&q.insert_count)==1 && q.insert_count>=0 && q.insert_count<=INSERTS;
-        for(int c=0;ok && c<channels;c++) { ok=fscanf(f,"%u",&x)==1 && x<=(unsigned)q.insert_count; if(ok) q.route[c]=x; }
-        for(int i=0;ok && i<inserts;i++) {
-            ok=fscanf(f,"%f %f %u",&q.insert_volume[i],&q.insert_pan[i],&x)==3 && isfinite(q.insert_volume[i]) && q.insert_volume[i]>=0 && q.insert_volume[i]<=(version>=18?MIXER_GAIN_MAX:1) && isfinite(q.insert_pan[i]) && fabsf(q.insert_pan[i])<=1 && x<=(version>=11?3u:1u);
-            if(ok) q.insert_mute[i]=x;
-        }
-    }
-    if(version>=5) {
-        for(int a=0;ok && a<PATTERNS;a++) { ok=fscanf(f,"%f",&q.pattern_steps[a])==1 && isfinite(q.pattern_steps[a]) && q.pattern_steps[a]>=STEPS && q.pattern_steps[a]<=(version>=14?1e15f:BARS*STEPS); }
-        for(int l=0;ok && l<(version>=10?LANES:4);l++) for(int b=0;ok && b<clips;b++) { float length; ok=fscanf(f,"%f",&length)==1 && isfinite(length) && length>=0 && length<=(version>=14?1e15f:(version>=13?BARS:BARS-b)*STEPS); if(ok) q.clip_steps[l][b]=length; }
-    }
-    if(version>=6) ok=ok && fscanf(f,"%f",&q.master_pitch)==1 && isfinite(q.master_pitch) && fabsf(q.master_pitch)<=12;
-    if(version>=7) {
-        for(int i=0;ok && i<inserts;i++) { ok=fscanf(f,"%u",&x)==1 && (x<=(unsigned)q.insert_count || x==255); if(ok) q.insert_output[i]=x; }
-        for(int i=1;ok && i<=q.insert_count;i++) ok=insert_connect(&q,i,q.insert_output[i-1]);
-    }
-    if(version>=9) {
-        ok=ok && fscanf(f,"%d",&q.pattern_count)==1 && q.pattern_count>=1 && q.pattern_count<=PATTERNS;
-        for(int l=0;ok && l<LANES;l++) for(int b=0;ok && b<clips;b++) ok=q.clips[l][b]<=q.pattern_count || (version>=23 && q.clips[l][b]>PATTERNS);
-    }
-    if(version>=12) {
-        do { ch=fgetc(f); } while(ch!=EOF && ch!='\n');
-        for(int c=0;ok && c<CHANNELS;c++) ok=read_line(f,q.channel_names[c],PATTERN_NAME) && q.channel_names[c][0];
-    }
-    if(version>=13) for(int l=0;ok && l<LANES;l++) for(int b=0;ok && b<clips;b++) {
-        float start; ok=fscanf(f,"%f",&start)==1 && isfinite(start) && start>=0 && start<(version>=14?1e15f:BARS);
-        if(ok) { q.clip_starts[l][b]=start; if(version<14 && q.clips[l][b]) ok=start*STEPS+clip_length(&q,l,b)<=BARS*STEPS+.0001f; }
-    }
-    if(version>=15) for(int c=0;ok && c<CHANNELS;c++) {
-        Sampler *s=&q.sampler[c];
-        ok=fscanf(f,"%f %f %f %f %u %u",&s->pitch,&s->time,&s->start,&s->length,&x,&y)==6 && x<=7 && y<=1;
-        if(ok) { s->flags=x; s->stretch=y; ok=sampler_valid(*s); }
-    }
-    if(version>=16) {
-        for(int i=0;ok && i<INSERTS;i++) ok=fscanf(f,"%f",&q.insert_width[i])==1 && isfinite(q.insert_width[i]) && q.insert_width[i]>=0 && q.insert_width[i]<=2;
-        ok=ok && fscanf(f,"%f %u",&q.master_width,&x)==2 && isfinite(q.master_width) && q.master_width>=0 && q.master_width<=2 && x<=1;
-        if(ok) q.master_mute=x;
-        for(int l=0;ok && l<LANES;l++) { ok=fscanf(f,"%u",&x)==1 && x<=3; if(ok) q.lane_mute[l]=x; }
-    }
-    if(version>=17) ok=ok && fscanf(f,"%f",&q.swing)==1 && isfinite(q.swing) && q.swing>=0 && q.swing<=1;
-    if(version>=19) {
-        ok=ok && fgetc(f)=='\n';
-        for(int id=0;ok && id<=INSERTS;id++) for(int io=0;ok && io<2;io++) ok=read_line(f,q.audio_io[id][io],128);
-    }
-    if(version>=20) {
-        for(int id=0;ok && id<=INSERTS;id++) for(int slot=0;ok && slot<10;slot++) {
-            ok=fscanf(f,"%f %u",&q.effect_mix[id][slot],&x)==2 && isfinite(q.effect_mix[id][slot]) && q.effect_mix[id][slot]>=0 && q.effect_mix[id][slot]<=1 && x<=1;
-            if(ok) q.effect_bypass[id][slot]=x;
-        }
-        ok=ok && fgetc(f)=='\n';
-        for(int l=0;ok && l<LANES;l++) ok=read_line(f,q.track_names[l],PATTERN_NAME) && q.track_names[l][0];
-    }
-    if(version>=21) for(int i=0;ok && i<INSERTS;i++) ok=read_line(f,q.insert_names[i],PATTERN_NAME) && q.insert_names[i][0];
-    if(version>=22) for(int i=0;ok && i<PATTERNS;i++) { ok=fscanf(f,"%u",&x)==1 && x<=0xffffff; if(ok) q.pattern_colors[i]=x; }
-    if(version>=23) {
-        for(int c=0;ok && c<CHANNELS;c++) {
-            ok=fscanf(f,"%u %f",&x,&q.audio_seconds[c])==2 && x<=1 && isfinite(q.audio_seconds[c]) && q.audio_seconds[c]>=0 && q.audio_seconds[c]<=SAMPLE_MAX_FRAMES*4.0/RATE;
-            if(ok) q.channel_audio[c]=x;
-        }
-        for(int l=0;ok && l<LANES;l++) for(int b=0;ok && b<CLIPS;b++) if(q.clips[l][b]>PATTERNS && q.clips[l][b]<=AUTOMATION_SOURCE) {
-            int c=q.clips[l][b]-PATTERNS-1;
-            ok=c<q.channel_count && q.channel_audio[c];
-        }
-    }
-    if(version>=25) for(int c=0;ok && c<CHANNELS;c++) ok=fscanf(f,"%f %f",&q.channel_pitch[c],&q.pitch_range[c])==2 && isfinite(q.channel_pitch[c]) && fabsf(q.channel_pitch[c])<=1 && isfinite(q.pitch_range[c]) && q.pitch_range[c]>=1 && q.pitch_range[c]<=48 && q.pitch_range[c]==roundf(q.pitch_range[c]);
-    if(version>=26) for(int c=0;ok && c<CHANNELS;c++) ok=fscanf(f,"%f",&q.sampler[c].trim)==1 && isfinite(q.sampler[c].trim) && q.sampler[c].trim>=0 && q.sampler[c].trim<=1;
-    if(version>=27) for(int l=0;ok && l<LANES;l++) for(int b=0;ok && b<CLIPS;b++) ok=fscanf(f,"%f",&q.clip_offsets[l][b])==1 && isfinite(q.clip_offsets[l][b]) && q.clip_offsets[l][b]>=0 && q.clip_offsets[l][b]<=1e15f;
-    if(version>=29) for(int c=0;ok && c<CHANNELS;c++) { ok=fscanf(f,"%u",&x)==1 && x<=0xffffff; if(ok) q.channel_colors[c]=x; }
-    if(version>=30) {
-        ok=ok && fscanf(f,"%d",&q.automation_count)==1 && q.automation_count>=0 && q.automation_count<=AUTOMATIONS;
-        for(int i=0;ok && i<q.automation_count;i++) {
-            Automation *a=&q.automations[i];
-            ok=fscanf(f,"%u %u %u %f %d %u",&a->target.parameter,&a->target.owner,&a->target.slot,&a->steps,&a->count,&a->color)==6 && a->count>=1 && a->count<=AUTOMATION_POINTS;
-            ok=ok && fgetc(f)=='\n' && read_line(f,a->name,sizeof a->name);
-            for(int n=0;ok && n<a->count;n++) ok=fscanf(f,"%f %f",&a->points[n].step,&a->points[n].value)==2;
-        }
-        ok=ok && automation_valid(&q);
-        for(int l=0;ok && l<LANES;l++) for(int b=0;ok && b<CLIPS;b++) if(q.clips[l][b]>AUTOMATION_SOURCE) ok=q.clips[l][b]<=AUTOMATION_SOURCE+q.automation_count;
-    }
-    if(version>=31) for(int c=0;ok && c<CHANNELS;c++) {
-        Sampler *s=&q.sampler[c];
-        ok=fscanf(f,"%f",&s->fit_bpm)==1;
-        ok=ok && sampler_valid(*s);
-    }
-    if(version>=33) for(int bus=0;ok && bus<=INSERTS;bus++) for(int slot=0;ok && slot<EFFECT_SLOTS;slot++) {
-        ok=fscanf(f,"%u %f %f",&x,&q.chorus[bus][slot].rate,&q.chorus[bus][slot].depth)==3 && x<=(version>=35?EFFECT_EQ:EFFECT_CHORUS) && chorus_valid(q.chorus[bus][slot]);
-        if(ok) q.effect_type[bus][slot]=x;
-    }
-    if(version>=34) for(int c=0;ok && c<CHANNELS;c++) {
-        FMSettings *v=&q.fm[c];
-        ok=fscanf(f,"%u %f %f %f %f %f %f",&x,&v->ratio,&v->depth,&v->attack,&v->decay,&v->sustain,&v->release)==7 && x<=INSTRUMENT_FM && fm_valid(*v) && !(x==INSTRUMENT_FM && q.channel_audio[c]);
-        if(ok) q.instrument[c]=x;
-    }
-    if(version>=37) for(int c=0;ok && c<CHANNELS;c++) {
-        FMSettings *v=&q.fm[c];
-        ok=fscanf(f,"%f %f %f %f %f %f",&v->mod_decay,&v->mod_sustain,&v->velocity,&v->lfo_rate,&v->vibrato,&v->tremolo)==6 && fm_valid(*v);
-    }
-    if(version>=38) for(int c=0;ok && c<CHANNELS;c++) {
-        for(unsigned id=PARAM_FM_CARRIER_RATIO;ok && id<=PARAM_FM_BODY_PITCH;id++)
-            ok=fscanf(f,"%f",(float *)fm_parameter_pointer(&q.fm[c],id))==1;
-        ok=ok && fm_valid(q.fm[c]);
-    }
-    if(version>=39) for(int c=0;ok && c<CHANNELS;c++) {
-        for(unsigned id=PARAM_FM_ENGINE;ok && id<=PARAM_FM_LAST;id++) ok=fscanf(f,"%f",(float *)fm_parameter_pointer(&q.fm[c],id))==1;
-        for(int i=0;ok && i<(version>=40?DX7_PARAMETERS:DX7_NATIVE_PARAMETERS);i++) ok=fscanf(f,"%f",&q.fm[c].dx7.value[i])==1;
-        if(version<40) dx7_legacy_tracking(&q.fm[c].dx7);
-        ok=ok && fm_valid(q.fm[c]);
-    }
-    if(version>=41) {
-        ok=ok && fscanf(f,"%d",&q.midi_binding_count)==1 && q.midi_binding_count>=0 && q.midi_binding_count<=MIDI_BINDINGS;
-        for(int i=0;ok && i<q.midi_binding_count;i++) {
-            MidiBinding *b=&q.midi_bindings[i];
-            ok=fscanf(f,"%u %u %u %u %u",&b->channel,&b->controller,&b->target.parameter,&b->target.owner,&b->target.slot)==5 && b->channel<16 && b->controller<120 && parameter_descriptor(b->target.parameter) && b->target.owner<=INSERTS && b->target.slot<EFFECT_SLOTS;
-        }
-    }
-    if(version>=35) for(int bus=0;ok && bus<=INSERTS;bus++) for(int slot=0;ok && slot<EFFECT_SLOTS;slot++) {
-        if(version==35) q.eq[bus][slot]=equalizer_legacy();
-        for(int b=0;ok && b<(version==35?4:EQ_BANDS);b++) {
-            EQBand *v=&q.eq[bus][slot].bands[b]; ok=fscanf(f,"%f %f %f",&v->frequency,&v->gain,&v->q)==3;
-            if(ok && version>=36) ok=fscanf(f,"%u",&v->shape)==1;
-        }
-        ok=ok && equalizer_valid(q.eq[bus][slot]);
-    }
-    /* Version 31 stored BPM-fitted PCM lengths/offsets; restore reference seconds. */
-    if(version==31 && ok) for(int c=0;c<CHANNELS;c++) if(q.sampler[c].fit_bpm) {
-        float ratio=q.bpm/q.sampler[c].fit_bpm;
-        q.audio_seconds[c]*=ratio;
-        for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) if(q.clips[l][b]==PATTERNS+c+1) {
-            q.clip_steps[l][b]*=ratio; q.clip_offsets[l][b]*=ratio;
-        }
-    }
-    /* Version 23 imported full clips with a fixed cap; convert only that old layout. */
-    if(version==23 && ok) for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) if(q.clips[l][b]>PATTERNS && q.clips[l][b]<=AUTOMATION_SOURCE) {
-        int c=q.clips[l][b]-PATTERNS-1;
-        if(fabsf(q.clip_steps[l][b]-q.audio_seconds[c])<.00001f) q.clip_steps[l][b]=0;
-    }
-    fclose(f); if(ok) *p=q; return ok;
+    ok=ok && ended && !ferror(file);
+    for(size_t i=0;ok && i<FIELD_COUNT;i++) if(!seen[i]) ok=0;
+    for(int ch;ok && (ch=fgetc(file))!=EOF;) if(!isspace((unsigned char)ch)) ok=0;
+    ok=ok && !ferror(file) && structure_valid(next);
+    if(ok) *p=*next;
+    free(next); free(names); fclose(file); return ok;
 }
+
+
 static void le(FILE *f,uint32_t x,int n) { for(int i=0;i<n;i++) fputc((x>>(i*8))&255,f); }
 int export_wav(const char *path,const Project *pr,const Sample s[CHANNELS]) {
     double total=ceil(song_steps(pr)*RATE*60.0/pr->bpm/4);

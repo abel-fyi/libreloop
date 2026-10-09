@@ -53,8 +53,8 @@ int main(void) {
     for(int i=0;i<RATE;i++) { float stereo[2]={.1f,-.1f}; chorus_process(&a,settings,0,stereo); if(i==RATE-1) CHECK(fabsf(stereo[0]-.1f)<.00001f && fabsf(stereo[1]+.1f)<.00001f); }
     chorus_reset(&a); CHECK(!a.ready && a.cursor==0 && a.delay[480][0]==0);
     project_new(&project); project.effect_type[0][0]=EFFECT_CHORUS; project.chorus[0][0]=settings; project.effect_mix[0][0]=.5f;
-    CHECK(project_save("chorus.hbt",&project) && project_load("chorus.hbt",&loaded));
-    CHECK(loaded.effect_type[0][0]==EFFECT_CHORUS && loaded.chorus[0][0].rate==5 && loaded.chorus[0][0].depth==8 && loaded.effect_mix[0][0]==.5f); remove("chorus.hbt");
+    CHECK(project_save("chorus.llp",&project) && project_load("chorus.llp",&loaded));
+    CHECK(loaded.effect_type[0][0]==EFFECT_CHORUS && loaded.chorus[0][0].rate==5 && loaded.chorus[0][0].depth==8 && loaded.effect_mix[0][0]==.5f); remove("chorus.llp");
     ParameterTarget target; CHECK(parameter_from_pointer(&project,&project.chorus[0][0].rate,&target));
     CHECK(target.parameter==PARAM_CHORUS_RATE && target.owner==0 && target.slot==0);
     int index=automation_create(&project,(ParameterTarget){PARAM_EFFECT_MIX,0,0},"Chorus wet",16); CHECK(index>=0);
@@ -99,6 +99,6 @@ int main(void) {
     FILE *f=fopen("chorus.wav","rb"); CHECK(f && !fseek(f,44,SEEK_SET));
     for(int i=0;i<1024;i++) { int low=fgetc(f),high=fgetc(f); CHECK(low>=0 && high>=0); CHECK(abs((int16_t)(low|(high<<8))-(int16_t)(out[i]*32767))<=1); }
     fclose(f); remove("chorus.wav"); effects_free(rack); free(pcm);
-    project.chorus[0][0].depth=NAN; CHECK(!project_save("chorus-invalid.hbt",&project));
+    project.chorus[0][0].depth=NAN; CHECK(!project_save("chorus-invalid.llp",&project));
     puts("Chorus stereo, smoothing, instance isolation, bypass, automation, project state and export passed."); return 0;
 }

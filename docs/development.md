@@ -82,7 +82,7 @@ cmake --build build --parallel
 
 ## Tests
 
-The desktop build has 36 headless CTest tests (31 in core-only builds). In addition
+The desktop build has 37 headless CTest tests (32 in core-only builds). In addition
 to engine, editing, audio and persistence checks, tests cover atomic write failures,
 relative/collected assets, document close decisions, background recording and mapped
 sample ownership through playback and undo.

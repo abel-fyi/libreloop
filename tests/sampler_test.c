@@ -66,8 +66,8 @@ int main(void) {
     fitted.sampler[0].stretch=1;
     CHECK(sample_process(input,fitted.sampler[0],&out) && out.frames==n);
     CHECK(fabsf(frequency(out)-440)<10); free(out.data);
-    CHECK(project_save("fit-tempo.hbt",&fitted) && project_load("fit-tempo.hbt",&loaded_fit));
-    CHECK(sampler_equal(fitted.sampler[0],loaded_fit.sampler[0])); remove("fit-tempo.hbt");
+    CHECK(project_save("fit-tempo.llp",&fitted) && project_load("fit-tempo.llp",&loaded_fit));
+    CHECK(sampler_equal(fitted.sampler[0],loaded_fit.sampler[0])); remove("fit-tempo.llp");
     fitted.bpm=120;
     CHECK(fitted.clip_offsets[0][1]==.25f && fabsf(clip_length(&fitted,0,0)-full)<.0001f);
     fitted.sampler[0].fit_bpm=0;
@@ -75,6 +75,6 @@ int main(void) {
     CHECK(fabsf(clip_length(&fitted,0,0)-2*full)<.0001f);
     free(tone);
     Project project,loaded; project_default(&project); project.sampler[0]=(Sampler){.pitch=7,.time=2,.start=.1f,.length=.6f,.trim=.15f,.flags=7,.stretch=1,.fit_bpm=120};
-    CHECK(project_save("sampler.hbt",&project) && project_load("sampler.hbt",&loaded)); CHECK(project_equal(&project,&loaded)); remove("sampler.hbt");
+    CHECK(project_save("sampler.llp",&project) && project_load("sampler.llp",&loaded)); CHECK(project_equal(&project,&loaded)); remove("sampler.llp");
     puts("Sampler transforms, trims, silence, pitch/duration independence and persistence passed."); return 0;
 }

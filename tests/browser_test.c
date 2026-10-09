@@ -31,6 +31,15 @@ int main(void) {
     browser_close(&b); browser_init(&b,root);
     CHECK(b.count==1 && !strcmp(b.folders[0],child));
     CHECK(b.nodes[b.items-1].depth==0 && !b.nodes[b.items-1].open);
+    /* Native projects are visible; unsupported HBT files are filtered out. */
+    char projectfile[PATH_MAX],oldfile[PATH_MAX];
+    snprintf(projectfile,sizeof projectfile,"%s/session.llp",root); f=fopen(projectfile,"w"); CHECK(f); fclose(f);
+    snprintf(oldfile,sizeof oldfile,"%s/session.hbt",root); f=fopen(oldfile,"w"); CHECK(f); fclose(f);
+    CHECK(browser_add(&b,root));
+    if(b.nodes[0].open) CHECK(browser_toggle(&b,0));
+    CHECK(browser_toggle(&b,0)); int found=0;
+    for(int i=0;i<b.items;i++) { CHECK(strcmp(b.nodes[i].path,oldfile)); if(!strcmp(b.nodes[i].path,projectfile)) found++; }
+    CHECK(found==1); remove(projectfile); remove(oldfile);
     remove(b.config); char configdir[PATH_MAX]; snprintf(configdir,sizeof configdir,"%s/libreloop",config);
     browser_close(&b); remove(file); remove(ignored); remove(nested); rmdir(child); rmdir(configdir); rmdir(config); rmdir(root);
     puts("Tree expansion/collapse, parent navigation, folders-first sorting, root selection, duplicate roots and persistence passed."); return 0;

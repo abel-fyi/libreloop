@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "browser.h"
+#include "project_format.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,7 +31,7 @@ int browser_toggle(Browser *b,int entry) {
     BrowserNode *children=calloc(files.count?files.count:1,sizeof *children); int n=0,ok=children!=NULL;
     for(unsigned i=0;ok && i<files.count;i++) {
         int dir=DirectoryExists(files.paths[i]);
-        if(!dir && !IsFileExtension(files.paths[i],".wav;.flac;.mp3;.hbt")) continue;
+        if(!dir && !IsFileExtension(files.paths[i],".wav;.flac;.mp3;" PROJECT_FILE_SUFFIX)) continue;
         char *path=strdup(files.paths[i]); if(!path) { ok=0; break; }
         children[n++]=(BrowserNode){path,depth+1,dir,0};
     }

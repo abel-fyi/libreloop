@@ -38,7 +38,7 @@ White knob pointer against its violet rim: **16.85:1**.
 
 ## Clip palette
 
-24 displayed colors (saturation capped at 25%); minimum artwork contrast **5.14:1**; minimum adjacent-hue OKLab separation **0.030**.
+24 displayed colors (saturation capped at 25%); minimum title/preview contrast **5.14:1**; minimum adjacent-hue OKLab separation **0.030**.
 
 ## Result
 

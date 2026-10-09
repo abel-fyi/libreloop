@@ -3,8 +3,8 @@
 /local/
 
 # Runtime outputs written in the launch directory
-/*.hbt
-/*.hbt.tmp
+/*.llp
+/*.llp.tmp
 /song.wav
 /homebeat-*.png
 /libreloop-*.png

@@ -49,8 +49,8 @@ int main(void) {
     float energy=0; for(int i=0;i<1024;i++) energy+=fabsf(out[i]); CHECK(energy>1);
     for(int block=0;block<32;block++) render(&player,&project,samples,out,512);
     CHECK(!player.voices[0].gain && !player.voices[1].gain); /* Gate plus release, no stuck notes. */
-    CHECK(project_save("fm.hbt",&project) && project_load("fm.hbt",&loaded));
-    CHECK(loaded.instrument[0]==INSTRUMENT_FM && loaded.fm[0].depth==8 && loaded.fm[0].release==.01f && loaded.fm[0].mod_sustain==1 && loaded.fm[0].lfo_rate==5); remove("fm.hbt");
+    CHECK(project_save("fm.llp",&project) && project_load("fm.llp",&loaded));
+    CHECK(loaded.instrument[0]==INSTRUMENT_FM && loaded.fm[0].depth==8 && loaded.fm[0].release==.01f && loaded.fm[0].mod_sustain==1 && loaded.fm[0].lfo_rate==5); remove("fm.llp");
     ParameterTarget target; CHECK(parameter_from_pointer(&project,&project.fm[0].ratio,&target) && target.parameter==PARAM_FM_RATIO);
     CHECK(parameter_from_pointer(&project,&project.fm[0].vibrato,&target) && target.parameter==PARAM_FM_VIBRATO);
     int index=automation_create(&project,(ParameterTarget){PARAM_FM_SUSTAIN,0,0},"FM sustain",16); CHECK(index>=0);

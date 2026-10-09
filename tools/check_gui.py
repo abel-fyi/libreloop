@@ -20,7 +20,6 @@ def main():
     args = parser.parse_args()
     dark = palettes()['dark']
     packed = lambda rgb: (rgb[0]<<16) | (rgb[1]<<8) | rgb[2]
-    active_colors = {packed(dark[role]) for role in ('highlight','active_hover')}
     menu_surface = packed(dark['surface'])
     build = Path(args.build).resolve()
     executable = Path(args.app).resolve() if args.app else build / 'libreloop'
@@ -112,8 +111,8 @@ def main():
                 return found
             def click(px, py, button=1):
                 xt.XTestFakeMotionEvent(display, 0, px, py, 0); x.XFlush(display); time.sleep(.08)
-                xt.XTestFakeButtonEvent(display, button, 1, 0); x.XFlush(display); time.sleep(.08)
-                xt.XTestFakeButtonEvent(display, button, 0, 0); x.XFlush(display); time.sleep(.2)
+                xt.XTestFakeButtonEvent(display, button, 1, 0); x.XFlush(display); time.sleep(.3)
+                xt.XTestFakeButtonEvent(display, button, 0, 0); x.XFlush(display); time.sleep(.25)
             def key(name):
                 code=x.XKeysymToKeycode(display,x.XStringToKeysym(name.encode()))
                 assert code
@@ -146,13 +145,20 @@ def main():
                         pixel=x.XGetPixel(sample,0,0)&0xffffff; x.XDestroyImage(sample)
                         return pixel
                     def wait_pixels(expected):
-                        deadline=time.monotonic()+3
+                        deadline=time.monotonic()+5
                         while time.monotonic()<deadline:
                             if all(menu_pixel(px,py)==color for px,py,color in expected): return
                             time.sleep(.05)
                         raise AssertionError([(px,py,hex(menu_pixel(px,py)),hex(color)) for px,py,color in expected])
                     menu_highlight=packed(dark['hover']); menu_base=packed(dark['control'])
-                    click(74,19); key('Down')
+                    # Wait for a rendered hover before clicking a newly mapped window.
+                    for attempt in range(20):
+                        xt.XTestFakeMotionEvent(display,0,74+attempt%2,19,0); x.XFlush(display); time.sleep(.2)
+                        if menu_pixel(59,12)==menu_highlight: break
+                    wait_pixels([(59,12,menu_highlight)])
+                    click(74,19)
+                    wait_pixels([(59,44,menu_highlight)])
+                    key('Down')
                     wait_pixels([(59,44,menu_base),(59,70,menu_highlight)])
                     xt.XTestFakeMotionEvent(display,0,74,47,0); x.XFlush(display); time.sleep(.3)
                     wait_pixels([(59,44,menu_highlight),(59,70,menu_base)])
@@ -171,34 +177,27 @@ def main():
                             scale=max(1,min(width/1200,height/675))
                             click(round(attributes.x+74*scale),round(attributes.y+19*scale))
                             wait_pixels([(round(54*scale),round(59*scale),menu_surface)])
-                            escape=x.XKeysymToKeycode(display,x.XStringToKeysym(b'Escape'))
-                            xt.XTestFakeKeyEvent(display,escape,1,0); x.XFlush(display); time.sleep(.08)
-                            xt.XTestFakeKeyEvent(display,escape,0,0); x.XFlush(display); time.sleep(.15)
+                            key('Escape')
                             # The last toolbar toggle must remain visible and clickable at narrow widths.
                             logical_width=width/scale
                             monitor_width=min(108,max(0,int(logical_width-636-208)))
                             keys_x=636+monitor_width+4+40+12+4*24+24
-                            def toggle_pixel():
-                                # Compare resting fills; mouse hover is the same lavender as selection.
-                                xt.XTestFakeMotionEvent(display,0,round(attributes.x+40*scale),round(attributes.y+35*scale),0)
-                                x.XFlush(display); time.sleep(.15)
-                                sample=x.XGetImage(display,window,round((keys_x+3)*scale),round(9*scale),1,1,C.c_ulong(-1),2)
-                                assert sample
-                                pixel=x.XGetPixel(sample,0,0)&0xffffff; x.XDestroyImage(sample)
-                                # Sample the fill above the icon; selected and hover fills use the curated palette.
-                                return pixel in active_colors
-                            xt.XTestFakeMotionEvent(display,0,round(attributes.x+(keys_x+11)*scale),round(attributes.y+19*scale),0)
-                            x.XFlush(display); time.sleep(.15)
-                            before=toggle_pixel()
+                            point=(round((keys_x+3)*scale),round(9*scale))
+                            selected=packed(dark['highlight']); selected_hover=packed(dark['active_hover'])
+                            def move_to(px,py):
+                                xt.XTestFakeMotionEvent(display,0,round(attributes.x+px*scale),round(attributes.y+py*scale),0)
+                                x.XFlush(display)
+                            # Confirm each rendered state before the next input. A
+                            # stale hovered frame can otherwise look like selection.
+                            move_to(40,35); wait_pixels([(*point,selected)])
+                            move_to(keys_x+11,19); wait_pixels([(*point,selected_hover)])
                             click(round(attributes.x+(keys_x+11)*scale),round(attributes.y+19*scale))
-                            deadline=time.monotonic()+2
-                            while toggle_pixel()==before and time.monotonic()<deadline: time.sleep(.05)
-                            assert toggle_pixel()!=before, f'Typing piano toggle inaccessible at {width}x{height}'
+                            wait_pixels([(*point,selected)])
+                            move_to(40,35); wait_pixels([(*point,menu_base)])
+                            move_to(keys_x+11,19); wait_pixels([(*point,selected)])
                             click(round(attributes.x+(keys_x+11)*scale),round(attributes.y+19*scale))
-                            deadline=time.monotonic()+2
-                            while toggle_pixel()!=before and time.monotonic()<deadline: time.sleep(.05)
-                            after=toggle_pixel()
-                            assert after==before, f'Typing piano toggle did not restore at {width}x{height}'
+                            wait_pixels([(*point,selected_hover)])
+                            move_to(40,35); wait_pixels([(*point,selected)])
                         print('Actual resized EDIT menu/input checks passed',flush=True)
                     click(496, 18, 4)  # Saved BPM below verifies the regrouped tempo control hit.
                     close_request(window); assert app.poll() is None, 'Dirty close bypassed the prompt'
@@ -219,11 +218,45 @@ def main():
                         raise AssertionError(f'Keyboard {decision} flow did not finish') from error
                     app = None
                     if decision == 'save':
-                        project_file = Path(directory) / 'project.hbt'
+                        project_file = Path(directory) / 'project.llp'
                         assert project_file.is_file()
-                        assert float(project_file.read_text().splitlines()[1].split()[0]) == 121, 'Pointer changed the wrong control'
+                        assert project_file.read_text().startswith('LIBRELOOP_PROJECT 1\nbpm f32 1\n1 121\n'), 'Pointer changed the wrong control'
+            # Reopen the UI save and change its BPM from 121 to 122. The
+            # default new project starts at 120, so a failed load cannot pass.
+            saved_bytes=project_file.read_bytes()
+            with open(directory + '/reopen.log', 'w') as log:
+                app=subprocess.Popen([str(executable)], env=env, cwd=directory, stdout=log, stderr=log)
+                window=None
+                for _ in range(100):
+                    window=find_window()
+                    if window:
+                        attributes=Attributes()
+                        if x.XGetWindowAttributes(display,window,C.byref(attributes)) and attributes.map_state==2: break
+                        window=None
+                    assert app.poll() is None
+                    time.sleep(.05)
+                assert window, 'App did not create a reopen window'
+                x.XMoveWindow(display,window,0,0)
+                x.XSetInputFocus(display,window,1,0); x.XFlush(display); time.sleep(.3)
+                def shortcut(letter):
+                    code=x.XKeysymToKeycode(display,x.XStringToKeysym(b'Control_L'))
+                    xt.XTestFakeKeyEvent(display,code,1,0); x.XFlush(display); time.sleep(.1)
+                    key(letter)
+                    xt.XTestFakeKeyEvent(display,code,0,0); x.XFlush(display); time.sleep(.3)
+                shortcut('o'); click(500,517)
+                for char in 'project.llp': key('period' if char=='.' else char)
+                key('Return'); time.sleep(.5)
+                click(496,18,4); shortcut('s')
+                expected_bytes=saved_bytes.replace(b'\nbpm f32 1\n1 121\n',b'\nbpm f32 1\n1 122\n',1)
+                assert expected_bytes!=saved_bytes
+                deadline=time.monotonic()+5
+                while project_file.read_bytes()!=expected_bytes and time.monotonic()<deadline: time.sleep(.05)
+                assert project_file.read_bytes()==expected_bytes, 'LLP reopen/resave lost data or failed to restore the saved BPM'
+                close_request(window)
+                assert app.wait(timeout=10)==0, 'Reopened saved project unexpectedly became dirty'
+                app=None
             x.XCloseDisplay(display)
-        print('GUI checks passed: font scales, Unicode, populated smoke views, keyboard Cancel/Save/Discard, close/save.')
+        print('GUI checks passed: font scales, Unicode, populated smoke views, keyboard Cancel/Save/Discard, LLP save/open/resave.')
     finally:
         if app and app.poll() is None: app.terminate(); app.wait(timeout=10)
         server.terminate(); server.wait(timeout=10)

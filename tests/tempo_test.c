@@ -59,15 +59,10 @@ int main(void) {
     sampler_voice_sample(&voice,source,1,1,0,stereo); double position=voice.position;
     sampler_voice_sample(&voice,source,1,2,0,stereo);
     CHECK(voice.position-position>1 && voice.position-position<1.01);
-    /* Version 31 conversion restores the same grid and source trim. */
-    Project old=project,loaded;
-    old.bpm=240; old.audio_seconds[0]=2;
-    old.clips[1][0]=PATTERNS+1; old.clip_steps[1][0]=.375f; old.clip_offsets[1][0]=.25f;
-    CHECK(project_save("tempo-v31.hbt",&old));
-    FILE *file=fopen("tempo-v31.hbt","r+"); CHECK(file);
-    CHECK(fputs("HOMEBEAT 31",file)>=0 && !fclose(file));
-    CHECK(project_load("tempo-v31.hbt",&loaded)); remove("tempo-v31.hbt");
-    CHECK(loaded.audio_seconds[0]==4 && loaded.clip_steps[1][0]==.75f && loaded.clip_offsets[1][0]==.5f);
+    /* Reference seconds and clip geometry survive project persistence. */
+    static Project loaded;
+    project.clips[1][0]=PATTERNS+1;
+    CHECK(project_save("tempo.llp",&project) && project_load("tempo.llp",&loaded)); remove("tempo.llp");
     CHECK(clip_length(&loaded,0,0)==full && clip_length(&loaded,1,0)==cropped);
     /* Edits at a new BPM still use reference seconds when cutting/resizing. */
     Arrangement edit={.tool=CUT,.snap=1,.source_pattern=-1};
