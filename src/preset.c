@@ -6,9 +6,12 @@
 #include <string.h>
 #include <math.h>
 static int valid(const DevicePreset *p) {
-    if(p->kind==PRESET_SAMPLER) return sampler_valid(p->sampler) && strnlen(p->sample_path,sizeof p->sample_path)<sizeof p->sample_path && !strchr(p->sample_path,'\n') && !strchr(p->sample_path,'\r');
-    if(p->kind==PRESET_FM) return fm_valid(p->fm);
-    return ((p->kind==PRESET_CHORUS && chorus_valid(p->chorus)) || (p->kind==PRESET_EQ && equalizer_valid(p->eq))) && isfinite(p->mix) && p->mix>=0 && p->mix<=1;
+    const DeviceDescriptor *device=device_descriptor(p->kind);
+    if(!device) return 0;
+    const void *settings=p->kind==PRESET_SAMPLER?(const void *)&p->sampler:p->kind==PRESET_FM?(const void *)&p->fm:p->kind==PRESET_CHORUS?(const void *)&p->chorus:(const void *)&p->eq;
+    if(!device->valid(settings)) return 0;
+    if(p->kind==PRESET_SAMPLER) return strnlen(p->sample_path,sizeof p->sample_path)<sizeof p->sample_path && !strchr(p->sample_path,'\n') && !strchr(p->sample_path,'\r');
+    return p->kind==PRESET_FM || (isfinite(p->mix) && p->mix>=0 && p->mix<=1);
 }
 int preset_save(const char *path,const DevicePreset *p) {
     if(!valid(p)) return 0;

@@ -91,23 +91,21 @@ static const float *parameter_pointer(const Project *p,ParameterTarget t,float *
     *lo=info?info->low:0; *hi=info?info->high:1;
     if(t.parameter>=PARAM_EQ_FIRST && t.parameter<=PARAM_EQ_LAST) {
         if(t.owner>(unsigned)p->insert_count || t.slot>=EFFECT_SLOTS || p->effect_type[t.owner][t.slot]!=EFFECT_EQ) return NULL;
-        const EQBand *b=&p->eq[t.owner][t.slot].bands[(t.parameter-PARAM_EQ_FIRST)/3];
-        return (t.parameter-PARAM_EQ_FIRST)%3==0?&b->frequency:(t.parameter-PARAM_EQ_FIRST)%3==1?&b->gain:&b->q;
+        return device_parameter(effect_descriptor(EFFECT_EQ),&p->eq[t.owner][t.slot],t.parameter);
     }
     if(t.parameter>=PARAM_DX7_FIRST && t.parameter<=PARAM_DX7_LAST) {
         if(t.owner>=(unsigned)p->channel_count || t.slot || p->instrument[t.owner]!=INSTRUMENT_FM || p->fm[t.owner].engine!=1) return NULL;
-        return fm_parameter_pointer(&p->fm[t.owner],t.parameter);
+        return device_parameter(instrument_descriptor(p->instrument[t.owner]),&p->fm[t.owner],t.parameter);
     }
-    if(t.parameter>=PARAM_FM_RATIO && t.parameter<=PARAM_FM_LAST) {
+    if(t.parameter<PARAM_DX7_FIRST && device_has_parameter(instrument_descriptor(INSTRUMENT_FM),t.parameter)) {
         if(t.parameter==PARAM_FM_ENGINE) return NULL;
         if(t.owner>=(unsigned)p->channel_count || t.slot || p->instrument[t.owner]!=INSTRUMENT_FM) return NULL;
-        return fm_parameter_pointer(&p->fm[t.owner],t.parameter);
+        return device_parameter(instrument_descriptor(p->instrument[t.owner]),&p->fm[t.owner],t.parameter);
     }
 
     if(t.parameter>=PARAM_CHORUS_RATE && t.parameter<=PARAM_EFFECT_MIX) {
-        if(t.owner>(unsigned)p->insert_count || t.slot>=EFFECT_SLOTS || (p->effect_type[t.owner][t.slot]==EFFECT_EMPTY || (t.parameter!=PARAM_EFFECT_MIX && p->effect_type[t.owner][t.slot]!=EFFECT_CHORUS))) return NULL;
-        if(t.parameter==PARAM_CHORUS_RATE) return &p->chorus[t.owner][t.slot].rate;
-        if(t.parameter==PARAM_CHORUS_DEPTH) return &p->chorus[t.owner][t.slot].depth;
+        if(t.owner>(unsigned)p->insert_count || t.slot>=EFFECT_SLOTS || !device_has_parameter(effect_descriptor(p->effect_type[t.owner][t.slot]),t.parameter)) return NULL;
+        if(t.parameter!=PARAM_EFFECT_MIX) return device_parameter(effect_descriptor(p->effect_type[t.owner][t.slot]),&p->chorus[t.owner][t.slot],t.parameter);
         return &p->effect_mix[t.owner][t.slot];
     }
     switch(t.parameter) {

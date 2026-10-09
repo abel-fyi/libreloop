@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #ifndef EFFECTS_H
 #define EFFECTS_H
+#include "device.h"
 #include "chorus.h"
 #include "equalizer.h"
 #include <stdint.h>
 #define EFFECT_SLOTS 10
-enum { EFFECT_EMPTY, EFFECT_CHORUS, EFFECT_EQ };
+
 typedef struct EffectRack EffectRack;
 /* Prepare bounded delay storage outside the audio callback; rack owns it. */
 EffectRack *effects_create(unsigned buses);

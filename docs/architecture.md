@@ -8,10 +8,16 @@ are a coherent mouse-driven workflow and minimal code and dependencies.
 
 | Path | Responsibility |
 | --- | --- |
-| `src/main.c` | raylib UI, gestures, transport, sampler worker orchestration |
+| `src/main.c`, `ui_shell.c`, `ui_state.c`, `ui_internal.h` | desktop lifecycle, transport/window navigation and the single owned UI state |
+| `src/ui_widgets.c`, `ui_menus.c` | shared controls, menu navigation, dialogs and file picker |
+| `src/ui_rack.c`, `ui_playlist.c`, `ui_piano.c`, `ui_mixer.c` | independent editor drawing and gestures |
+| `src/ui_instruments.c`, `ui_waveform.c` | instrument editors and shared waveform views/caches |
+| `src/app_project.c`, `app_midi.c`, `app_recording.c` | project/sample services, MIDI and recording orchestration |
+| `src/device.c`, `device.h`, `instrument.c`, `instrument.h` | built-in defaults, validation, parameter resolution and the note/processing contract |
+| `src/playback_plan.c`, `playback_plan.h` | revisioned project snapshots and prepared clip geometry/mixer routing |
 | `src/theme.c`, `theme.h` | curated palette, flat rectangle drawing, contrast-aware foregrounds |
 | `src/engine.c`, `engine.h` | project model, note scheduling, rendering and routing |
-| `src/project_io.c`, `atomic_file.c` | backward-compatible project serialization and atomic project/WAV replacement |
+| `src/project_io.c`, `atomic_file.c` | named, versioned LLP serialization and atomic project/WAV replacement |
 | `src/project_assets.c`, `project_document.c` | relative references, collected audio, missing samples and unsaved document state |
 | `src/recording.c` | take preparation, writer lifecycle and live waveform updates |
 | `src/recording_writer.c`, `sample_storage.c` | background WAV writing and shared read-only mapped PCM |
@@ -53,7 +59,7 @@ without allocating or reading files. Processed PCM is a borrowed input during
 playback. Source ownership and reference counting live in `sample_storage.c`;
 `sample_process` is explicitly offline work performed on the UI's worker thread.
 The engine owns note timing, channel gain/pan, routing and activity reporting.
-Sampler views and worker orchestration stay in `main.c`.
+Sampler views live in `ui_instruments.c`/`ui_waveform.c`; worker orchestration lives in `app_project.c`.
 
 `parameter.h` describes existing controls with stable IDs, names, ranges, defaults
 and continuous/integer/toggle kinds. Project bindings in `parameter.c` resolve
@@ -66,6 +72,52 @@ explicit preparation/reset/cleanup and allocation-free processing. Instruments
 receive timed notes; effects process audio. Keep the processing API independent of
 project/UI types, prepare buffers outside the callback, and add parameter/state
 bindings when that device exists. The chorus establishes the effect contract below; there is no external plugin loader.
+
+## Desktop boundaries and playback publication
+
+`UiState`, defined in `ui_internal.h` and initialized in `ui_state.c`, owns the
+single desktop session: project/document state, editor interaction, graphics
+caches and application services. Modules access that explicit owner through
+`ui`; it is not a public library interface. The desktop runs on one UI thread.
+The sampler worker accesses only its dedicated job, whose completion is atomic.
+There are no included `.c` files: each editor/service is compiled independently.
+DSP, project persistence and headless tests never include the UI header.
+
+The UI publishes `ProjectSnapshot` revisions through the existing audio mailbox.
+An unchanged project is compared but not copied again. A changed snapshot pairs
+its project with a prepared `PlaybackPlan` containing clip lengths, song extent,
+mixer order and routing/solo audibility. Preparation runs on the UI side; the
+callback consumes a coherent pair at a buffer boundary with its existing
+nonblocking try-lock. Publication still uses a conservative whole-project
+comparison, so direct edits from any editor, MIDI or sampler completion cannot
+silently miss invalidation. Any project change rebuilds the plan.
+
+Players borrow their plan. `player_reset` clears the pointer; the audio backend
+reattaches its owned plan after command consumption. A different recording input
+mask or effect-rack context falls back to bounded preparation until the next
+publication. Direct callers can omit a plan and continue editing their project
+between render calls. WAV export prepares one plan for its immutable input.
+Small routing arrays remain local to each audio block; large clip geometry stays
+in the prepared plan. Device controls are read from the callback-owned project
+when no song automation is present; automation gets mutable buffer-local copies.
+
+## Adding a built-in device
+
+Keep DSP state and saved settings in its own module, without UI or Project
+access. Register stable IDs, defaults, settings validation and parameter resolution
+in `device.c`. Shared mixer/channel controls remain host-owned; wet/dry is not an
+EQ or chorus settings field. The instrument contract separates note start/release,
+stereo processing and active-state queries; its sample dispatch is inline rather
+than a virtual call per sample. Sampler gate fades remain sequencer-owned.
+Effects retain their instance-owned rack/reset/processing API.
+
+Adding a new device still requires explicit typed state/storage, parameter
+bindings, a preset/project schema update and an editor. There is no generic
+plugin loader or opaque serialized memory. Put the editor in its own UI module,
+and extend the small instrument/effect dispatch where its DSP belongs. Preserve
+existing device and parameter IDs; introduce a new LLP version with migration
+when required core fields change. Test defaults/validation, note and release
+behavior, automation, preset/project round trips and rendered audio equivalence.
 
 ## Decisions
 

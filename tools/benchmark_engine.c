@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 /* Offline engine measurements: one scenario/process keeps memory figures isolated. */
 #include "engine.h"
+#include "playback_plan.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,6 +10,7 @@
 #include <sys/resource.h>
 static Project project;
 static Player player;
+static PlaybackPlan plan;
 static Sample samples[CHANNELS];
 static volatile float checksum;
 static double seconds(clockid_t clock) { struct timespec t; clock_gettime(clock,&t); return t.tv_sec+t.tv_nsec/1e9; }
@@ -70,7 +72,10 @@ int main(int argc,char **argv) {
         if(strstr(name,"chorus")) { project.effect_type[0][0]=EFFECT_CHORUS; project.effect_mix[0][0]=.4f; }
         if(strstr(name,"eq")) { project.effect_type[0][0]=EFFECT_EQ; project.effect_mix[0][0]=1; project.eq[0][0].bands[2].gain=3; }
     }
-    MixerIO taps={.output=monitor,.monitor_only=1}; float *out=calloc(block*2,sizeof(float));
+    MixerIO taps={.output=monitor,.monitor_only=1};
+    playback_plan_prepare(&plan,&project,player.effects!=NULL,monitoring?&taps:NULL,1);
+    if(!getenv("LIBRELOOP_BENCH_UNCACHED")) player.plan=&plan;
+    float *out=calloc(block*2,sizeof(float));
     unsigned loops=(unsigned)ceil(duration*RATE/block); double *wall=malloc(loops*sizeof *wall); if(!out || !wall) return 2;
     float peaks[INSERTS+1][2];
     for(int i=0;i<128;i++) { memset(out,0,block*2*sizeof(float)); render_mixer_io(&player,NULL,&project,samples,out,block,sequence,peaks,monitoring?&taps:NULL); }

@@ -2,6 +2,7 @@
 #include "engine.h"
 #include "atomic_file.h"
 #include "project_format.h"
+#include "playback_plan.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,14 +17,14 @@ static int project_valid(const Project *p) {
     if(!isfinite(p->master_pitch) || fabsf(p->master_pitch)>12) return 0;
     if(!automation_valid(p) || p->midi_binding_count<0 || p->midi_binding_count>MIDI_BINDINGS) return 0;
     for(int i=0;i<p->midi_binding_count;i++){MidiBinding b=p->midi_bindings[i];if(b.channel>15 || b.controller>119 || !parameter_descriptor(b.target.parameter) || b.target.owner>INSERTS || b.target.slot>=EFFECT_SLOTS)return 0;}
-    for(int c=0;c<CHANNELS;c++) if(p->instrument[c]>INSTRUMENT_FM || !fm_valid(p->fm[c]) || (p->instrument[c]==INSTRUMENT_FM && p->channel_audio[c])) return 0;
+    for(int c=0;c<CHANNELS;c++) if(!instrument_descriptor(p->instrument[c]) || !device_descriptor(DEVICE_FM)->valid(&p->fm[c]) || (p->instrument[c]==INSTRUMENT_FM && p->channel_audio[c])) return 0;
     for(int bus=0;bus<=INSERTS;bus++) for(int slot=0;slot<EFFECT_SLOTS;slot++)
-        if(p->effect_type[bus][slot]>EFFECT_EQ || !chorus_valid(p->chorus[bus][slot]) || !equalizer_valid(p->eq[bus][slot])) return 0;
+        if((p->effect_type[bus][slot]!=EFFECT_EMPTY && !effect_descriptor(p->effect_type[bus][slot])) || !device_descriptor(DEVICE_CHORUS)->valid(&p->chorus[bus][slot]) || !device_descriptor(DEVICE_EQ)->valid(&p->eq[bus][slot])) return 0;
     if(p->channel_count<0 || p->channel_count>CHANNELS || p->insert_count<0 || p->insert_count>INSERTS) return 0;
     for(int c=0;c<CHANNELS;c++) if(!p->channel_names[c][0] || strchr(p->channel_names[c],'\n') || strchr(p->channel_names[c],'\r')) return 0;
     for(int c=0;c<CHANNELS;c++) if(strchr(p->paths[c],'\n') || strchr(p->paths[c],'\r')) return 0;
     for(int pat=0;pat<PATTERNS;pat++) if(!p->pattern_names[pat][0] || strchr(p->pattern_names[pat],'\n') || strchr(p->pattern_names[pat],'\r')) return 0;
-    for(int c=0;c<CHANNELS;c++) if(!sampler_valid(p->sampler[c])) return 0;
+    for(int c=0;c<CHANNELS;c++) if(!device_descriptor(DEVICE_SAMPLER)->valid(&p->sampler[c])) return 0;
     if(!isfinite(p->master_width) || p->master_width<0 || p->master_width>2 || p->master_mute>1) return 0;
     for(int i=0;i<INSERTS;i++) if(!isfinite(p->insert_width[i]) || p->insert_width[i]<0 || p->insert_width[i]>2) return 0;
     for(int c=0;c<CHANNELS;c++) if(p->mute[c]>3 || !isfinite(p->volume[c]) || p->volume[c]<0 || p->volume[c]>VOLUME_KNOB_MAX) return 0;
@@ -349,6 +350,7 @@ int export_wav(const char *path,const Project *pr,const Sample s[CHANNELS]) {
     Player player; player_reset(&player); player.song=1; float block[1024];
     player.effects=effects_create(INSERTS+1);
     if(!player.effects) { atomic_file_abort(&output); return 0; }
+    PlaybackPlan plan; playback_plan_prepare(&plan,pr,1,NULL,1); player.plan=&plan;
     for(uint32_t i=0;i<frames;) {
         unsigned n=frames-i>512?512:frames-i; render(&player,pr,s,block,n);
         for(unsigned j=0;j<n*2;j++) {

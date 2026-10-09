@@ -6,8 +6,7 @@
 #include <limits.h>
 #include "sampler.h"
 #include "effects.h"
-#include "fm_synth.h"
-enum { INSTRUMENT_SAMPLER, INSTRUMENT_FM };
+#include "instrument.h"
 #include "parameter.h"
 #define SAMPLE_EMPTY "@empty" /* stored in paths for an unloaded sampler */
 #define CHANNELS 32
@@ -79,8 +78,9 @@ typedef struct {
     MidiBinding midi_bindings[MIDI_BINDINGS];
     float swing; /* 0..1; delays offbeat sixteenths up to half a step */
 } Project;
+typedef struct PlaybackPlan PlaybackPlan;
 /* Sequencing/mixing state wraps device-owned DSP state. */
-typedef struct { int channel; union { SamplerVoice sampler; FMVoice fm; }; uint8_t instrument; double remaining; float gain; int lane,audio_clip,pattern,note_id; } Voice;
+typedef struct { int channel; union { InstrumentVoice device; SamplerVoice sampler; FMVoice fm; }; uint8_t instrument; double remaining; float gain; int lane,audio_clip,pattern,note_id; } Voice;
 typedef struct {
     EffectRack *effects; /* borrowed runtime rack; attach after player_reset */
     uint64_t frame;
@@ -92,6 +92,7 @@ typedef struct {
     Voice voices[128];
     uint8_t channel_active[CHANNELS],channel_trigger[CHANNELS];
     uint8_t lane_active[LANES],lane_trigger[LANES]; /* activity from the latest render block */
+    const PlaybackPlan *plan; /* optional prepared geometry/routing; reset clears it */
 } Player;
 /* Editing always follows the visible grid (ruler spacing at distant zooms). */
 float grid_interval(float pixels_per_step);

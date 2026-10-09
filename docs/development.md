@@ -82,7 +82,7 @@ cmake --build build --parallel
 
 ## Tests
 
-The desktop build has 37 headless CTest tests (32 in core-only builds). In addition
+The desktop build has 39 headless CTest tests (34 in core-only builds). In addition
 to engine, editing, audio and persistence checks, tests cover atomic write failures,
 relative/collected assets, document close decisions, background recording and mapped
 sample ownership through playback and undo.
@@ -218,3 +218,23 @@ The audit checks labels, selected states, composited directional rings, spectrum
 bars, clip artwork and perceptual separation. The reference report lists actual
 ratios and saturation. Inspect the smoke screenshots as well, since
 pixel size and layout still affect readability.
+
+### Comparing structural changes
+
+The desktop is split into editor, widget/dialog and application-service modules;
+`ui_internal.h` is their private state/interface boundary. Prefer a new editor
+module over growing the desktop driver. Built-in metadata and parameter getters
+belong in `device.c`; DSP belongs in its own independent module.
+
+The benchmark uses prepared playback, matching the desktop and WAV exporter.
+Set `LIBRELOOP_BENCH_UNCACHED=1` to exercise dynamic fallback rendering. A saved
+baseline can be compared in alternating order with:
+
+```sh
+cmake --build build --target benchmark_engine
+python3 tools/run_benchmarks.py --compare-before local/performance/structure/before-benchmark --seconds 10 --repeats 3 --output local/performance/structure/quiet-comparison.json
+```
+
+The baseline executable is a local ignored artifact, not part of a checkout.
+For reproducible CPU/RAM comparisons, close games and other heavy tasks first.
+Audio correctness hashes and pixel equivalence checks do not establish timing.

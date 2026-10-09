@@ -6,6 +6,7 @@
 #define MA_NO_ENGINE
 #include "miniaudio.h"
 #include "audio.h"
+#include "playback_plan.h"
 #include <pthread.h>
 #include <stdatomic.h>
 #include <string.h>
@@ -23,7 +24,7 @@ typedef struct {
     uint64_t serial;
 } AudioCommand;
 static struct {
-    Project project;
+    ProjectSnapshot snapshot;
     int dirty;
     AudioCommand commands[AUDIO_COMMANDS];
     unsigned read,write;
@@ -48,6 +49,7 @@ static void publish_view(void);
 static ma_device device;
 static pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
 static Project project;
+static PlaybackPlan playback;
 static Sample samples[CHANNELS];
 static Sample preview;
 static double preview_position,preview_speed=1,preview_frame,preview_time,preview_rate=1;
@@ -159,7 +161,7 @@ static void callback(ma_device *d, void *out, const void *in, ma_uint32 frames) 
         visual_time=monotonic_time(); visual_frames=frames;
         double step_frames=RATE*60.0/project.bpm/4;
         visual_start=(player.loop_end?player.loop_start:player.song?0:player.start_step)*step_frames;
-        float end=player.loop_end?player.loop_end:player.song?song_steps(&project):project.pattern_steps[player.pattern];
+        float end=player.loop_end?player.loop_end:player.song?playback.song_end:project.pattern_steps[player.pattern];
         if(visual_start>=end*step_frames) visual_start=0;
         visual_end=(recording.active || atomic_load(&midi_recording))?INFINITY:end*step_frames;
     }
@@ -245,15 +247,17 @@ static void publish_view(void) {
     view.visual_start=visual_start; view.visual_end=visual_end; view.playing=playing;
 }
 static void consume_commands(void) {
-    if(pending.dirty) {
-        const Project *next=&pending.project;
+    if(pending.dirty & SNAPSHOT_PROJECT) {
+        const Project *next=&pending.snapshot.project;
         if(memcmp(project.clips,next->clips,sizeof project.clips) ||
             memcmp(project.clip_starts,next->clip_starts,sizeof project.clip_starts) ||
             memcmp(project.clip_steps,next->clip_steps,sizeof project.clip_steps) ||
             memcmp(project.clip_offsets,next->clip_offsets,sizeof project.clip_offsets) ||
             memcmp(project.audio_seconds,next->audio_seconds,sizeof project.audio_seconds)) player.audio_resync=1;
-        project=*next; pending.dirty=0;
+        project=*next;
     }
+    if(pending.dirty & SNAPSHOT_PLAN) playback=pending.snapshot.plan;
+    pending.dirty=0;
     uint64_t serial=0;
     while(pending.read!=pending.write) {
         AudioCommand *c=&pending.commands[pending.read++%AUDIO_COMMANDS];
@@ -298,7 +302,7 @@ static void consume_commands(void) {
                     int retain=voice->instrument==INSTRUMENT_FM && voice->channel==c->channel && voice->fm.engine==1 && project.fm[c->channel].engine==1 && !project.fm[c->channel].dx7.value[136];
                     if(retain) memcpy(phase,voice->fm.dx7.phase,sizeof phase);
                     *voice=(Voice){.channel=c->channel,.instrument=INSTRUMENT_FM,.remaining=(c->note.length?c->note.length:1)*RATE*15/project.bpm,.gain=c->note.velocity/127.f,.lane=-1};
-                    fm_note_on_velocity(&voice->fm,440*pow(2,(c->note.pitch-69)/12.0),project.fm[c->channel],c->note.velocity/127.f);
+                    instrument_start(&voice->device,voice->instrument,(InstrumentSettings){&project.sampler[c->channel],&project.fm[c->channel]},(InstrumentNote){.frequency=440*pow(2,(c->note.pitch-69)/12.0),.velocity=c->note.velocity/127.f});
                     if(retain) memcpy(voice->fm.dx7.phase,phase,sizeof phase);
                     atomic_store(&channel_trigger[c->channel],1); break;
                 }
@@ -320,12 +324,12 @@ static void consume_commands(void) {
                 live.voices[c->slot]=(Voice){.channel=c->channel,.sampler={.speed=pow(2,(c->pitch-60)/12.0)},.remaining=-1,.gain=c->note.velocity/127.f,.lane=-1};
                 if(project.instrument[c->channel]==INSTRUMENT_FM) {
                     live.voices[c->slot].instrument=INSTRUMENT_FM;
-                    fm_note_on_velocity(&live.voices[c->slot].fm,440*pow(2,(c->pitch-69)/12.0),project.fm[c->channel],c->note.velocity/127.f);
+                    instrument_start(&live.voices[c->slot].device,INSTRUMENT_FM,(InstrumentSettings){&project.sampler[c->channel],&project.fm[c->channel]},(InstrumentNote){.frequency=440*pow(2,(c->pitch-69)/12.0),.velocity=c->note.velocity/127.f});
                     if(retain) memcpy(live.voices[c->slot].fm.dx7.phase,phase,sizeof phase);
                 }
             } else if(live.voices[c->slot].gain) {
                 Voice *voice=&live.voices[c->slot];
-                if(voice->instrument==INSTRUMENT_FM) fm_note_off(&voice->fm,project.fm[voice->channel]);
+                if(voice->instrument==INSTRUMENT_FM) instrument_release(&voice->device,voice->instrument,(InstrumentSettings){&project.sampler[voice->channel],&project.fm[voice->channel]});
                 else voice->remaining=RATE*.005;
             }
             break;
@@ -340,6 +344,7 @@ static void consume_commands(void) {
         }
         serial=c->serial;
     }
+    player.plan=live.plan=&playback;
     if(serial) {
         publish_view();
         /* Replacement callers may now release samples no voice can reference. */
@@ -382,9 +387,11 @@ int audio_start(const Project *p,const Sample s[CHANNELS]) {
         clicks[accent][i]=.25f*sinf(6.2831853f*(accent?1800:1200)*i/RATE)*expf(-i/180.f);
     memset(&pending,0,sizeof pending); memset(&view,0,sizeof view);
     atomic_store(&acknowledged,0); atomic_store(&position,0);
-    project=pending.project=*p; memcpy(samples,s,sizeof samples);
+    project=*p; memcpy(samples,s,sizeof samples);
     player_reset(&player); player_reset(&live);
     effects=effects_create(INSERTS+1); if(!effects) return 0;
+    project_snapshot_update(&pending.snapshot,p,1,NULL); playback=pending.snapshot.plan;
+    player.plan=live.plan=&playback;
     player.effects=live.effects=effects; playing=0; preview=(Sample){0}; preview_end=preview_remaining=0; preview_channel=-1;
     visual_frames=live_frames=0; output_volume=1; publish_view();
     ma_device_config config=ma_device_config_init(ma_device_type_playback);
@@ -447,8 +454,8 @@ int audio_record_start(const Project *p,const int buses[],int count,float start_
     recording.count=count; recording.io.input=record_input; recording.io.output=record_output;
     for(int i=0;i<recording.devices_count;i++) if(ma_device_start(&recording.devices[i])!=MA_SUCCESS) goto failed;
     /* Commit transport while playback is stopped, so its first frame is also recorded. */
-    audio_update(p,1,1,player.pattern,1,output,start_step,0,0);
     recording.active=1;
+    audio_update(p,1,1,player.pattern,1,output,start_step,0,0);
     if(ma_device_start(&device)==MA_SUCCESS) return 1;
     recording.active=0;
 failed:
@@ -472,7 +479,7 @@ int audio_record_failed(void) {
 }
 void audio_update(const Project *p,int run,int song,int pattern,int reset,float output,float start_step,float loop_start,float loop_end) {
     pthread_mutex_lock(&mutex);
-    pending.project=*p; pending.dirty=1;
+    pending.dirty|=project_snapshot_update(&pending.snapshot,p,effects!=NULL,recording.active?&recording.io:NULL);
     submit((AudioCommand){.kind=UPDATE,.run=run,.song=song,.pattern=pattern,.reset=reset,
         .output=output,.start=start_step,.loop_start=loop_start,.loop_end=loop_end});
     pthread_mutex_unlock(&mutex);
@@ -485,7 +492,7 @@ void audio_sample(int c,Sample s) {
 }
 void audio_channels(const Project *p,const Sample s[CHANNELS]) {
     AudioCommand command={.kind=CHANNEL_SAMPLES}; memcpy(command.channels,s,sizeof command.channels);
-    pthread_mutex_lock(&mutex); pending.project=*p; pending.dirty=1;
+    pthread_mutex_lock(&mutex); pending.dirty|=project_snapshot_update(&pending.snapshot,p,effects!=NULL,recording.active?&recording.io:NULL);
     uint64_t serial=submit(command);
     pthread_mutex_unlock(&mutex); wait_acknowledged(serial);
 }
@@ -527,7 +534,7 @@ double audio_key_position(int slot,int channel) {
         AudioCommand *c=&pending.commands[i%AUDIO_COMMANDS];
         if(c->kind==STOP || c->kind==SAMPLE || c->kind==CHANNEL_SAMPLES) v.gain=0;
         if(c->kind==KEY && c->slot==slot) {
-            if(c->down && c->channel>=0 && c->channel<pending.project.channel_count) {
+            if(c->down && c->channel>=0 && c->channel<pending.snapshot.project.channel_count) {
                 v=(VoiceView){.channel=c->channel,.gain=1}; queued=1;
             }
         }

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "engine.h"
+#include "playback_plan.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -63,10 +64,10 @@ float fader_gain(float position) {
 void project_default(Project *p) {
     memset(p, 0, sizeof *p); p->bpm=120; p->master=1; p->master_width=1; p->pattern_count=1; p->channel_count=4; snprintf(p->audio_io[0][1],128,"@default");
     for(int pat=0;pat<PATTERNS;pat++) { p->pattern_colors[pat]=pattern_palette[pat]; p->pattern_steps[pat]=STEPS; snprintf(p->pattern_names[pat],PATTERN_NAME,"Pattern %d",pat+1); }
-    for(int id=0;id<=INSERTS;id++) for(int slot=0;slot<10;slot++) { p->effect_mix[id][slot]=1; p->chorus[id][slot]=chorus_default(); p->eq[id][slot]=equalizer_default(); }
+    for(int id=0;id<=INSERTS;id++) for(int slot=0;slot<10;slot++) { p->effect_mix[id][slot]=1; device_descriptor(DEVICE_CHORUS)->defaults(&p->chorus[id][slot]); device_descriptor(DEVICE_EQ)->defaults(&p->eq[id][slot]); }
     for(int l=0;l<LANES;l++) snprintf(p->track_names[l],PATTERN_NAME,"Track %d",l+1);
     const char *names[]={"Kick","Snare","Hat","Tone"};
-    for(int c=0;c<CHANNELS;c++) { p->fm[c]=fm_default(); p->pitch_range[c]=2; p->volume[c]=1; p->sampler[c].time=p->sampler[c].length=1; if(c<4) snprintf(p->channel_names[c],PATTERN_NAME,"%s",names[c]); else snprintf(p->channel_names[c],PATTERN_NAME,"Channel %d",c+1); }
+    for(int c=0;c<CHANNELS;c++) { device_descriptor(DEVICE_FM)->defaults(&p->fm[c]); p->pitch_range[c]=2; p->volume[c]=1; p->sampler[c].time=p->sampler[c].length=1; if(c<4) snprintf(p->channel_names[c],PATTERN_NAME,"%s",names[c]); else snprintf(p->channel_names[c],PATTERN_NAME,"Channel %d",c+1); }
     for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) p->clip_starts[l][b]=b;
     for(int i=0;i<INSERTS;i++) snprintf(p->insert_names[i],PATTERN_NAME,"Insert %d",i+1);
     p->insert_count=INSERTS;
@@ -79,7 +80,7 @@ void project_default(Project *p) {
         if(pat && i==15) p->notes[pat][1][i]=(Note){60,75,i,0};
     }
 }
-/* Keep legacy defaults for old project formats; new sessions start empty. */
+/* Share factory settings with Demo; new sessions start empty. */
 void project_new(Project *p) {
     project_default(p); memset(p->notes,0,sizeof p->notes); p->channel_count=1;
     memset(p->route,0,sizeof p->route);
@@ -105,7 +106,7 @@ void project_demo(Project *p) {
     for(int b=0;b<8;b+=b<2?1:2) { p->clips[0][b]=b<2?1:2; p->clip_steps[0][b]=b<2?16:32; }
 }
 int channel_replace_instrument(Project *p,int c,int type) {
-    if(c<0 || c>=p->channel_count || (type!=INSTRUMENT_SAMPLER && type!=INSTRUMENT_FM) ||
+    if(c<0 || c>=p->channel_count || !instrument_descriptor(type) ||
        (type==INSTRUMENT_FM && p->channel_audio[c])) return 0;
     if(p->instrument[c]==type) return 1;
     if(type!=INSTRUMENT_FM) for(int a=p->automation_count-1;a>=0;a--) {
@@ -170,7 +171,7 @@ int insert_reset(Project *p,int id) {
     if(id<1 || id>p->insert_count) return 0;
     p->insert_volume[id-1]=p->insert_width[id-1]=1; p->insert_pan[id-1]=0; p->insert_mute[id-1]=0; p->insert_output[id-1]=0;
     memset(p->audio_io[id],0,sizeof p->audio_io[id]);
-    for(int slot=0;slot<EFFECT_SLOTS;slot++) { p->effect_type[id][slot]=EFFECT_EMPTY; p->effect_mix[id][slot]=1; p->chorus[id][slot]=chorus_default(); p->eq[id][slot]=equalizer_default(); p->effect_bypass[id][slot]=0; }
+    for(int slot=0;slot<EFFECT_SLOTS;slot++) { p->effect_type[id][slot]=EFFECT_EMPTY; p->effect_mix[id][slot]=1; device_descriptor(DEVICE_CHORUS)->defaults(&p->chorus[id][slot]); device_descriptor(DEVICE_EQ)->defaults(&p->eq[id][slot]); p->effect_bypass[id][slot]=0; }
     for(int a=p->automation_count-1;a>=0;a--) {
         ParameterTarget t=p->automations[a].target;
         if(t.owner==(unsigned)id && ((t.parameter>=PARAM_CHORUS_RATE && t.parameter<=PARAM_EFFECT_MIX) || (t.parameter>=PARAM_EQ_FIRST && t.parameter<=PARAM_EQ_LAST))) automation_delete(p,a);
@@ -322,8 +323,11 @@ static void trigger(Player *p,const Project *pr,int pat,int64_t tick,float remai
         if(pr->instrument[c]==INSTRUMENT_FM) {
             Voice *voice=&p->voices[v]; voice->instrument=INSTRUMENT_FM;
             voice->remaining=fmin(n.length?n.length-elapsed:1,remaining)*frames_per_step;
-            fm_note_on_velocity(&voice->fm,261.6255653005986*speed,fm_settings[c],n.velocity/127.f);
+            instrument_start(&voice->device,voice->instrument,(InstrumentSettings){&pr->sampler[c],&fm_settings[c]},(InstrumentNote){.frequency=261.6255653005986*speed,.velocity=n.velocity/127.f});
             if(retain_phase) memcpy(voice->fm.dx7.phase,phase,sizeof phase);
+        } else {
+            Voice *voice=&p->voices[v];
+            instrument_start(&voice->device,INSTRUMENT_SAMPLER,(InstrumentSettings){&pr->sampler[c],&fm_settings[c]},(InstrumentNote){.position=voice->sampler.position,.speed=speed,.velocity=n.velocity/127.f});
         }
     }
 }
@@ -350,51 +354,33 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
     if(!sequence && !count && !io && !p->effects) { p->frame+=frames; return; }
     int loop=isfinite(p->loop_start) && isfinite(p->loop_end) && p->loop_start>=0 && p->loop_end>p->loop_start;
     float begin=loop?p->loop_start:p->song?0:p->start_step;
-    float lengths[LANES][CLIPS],song_end=STEPS;
-    if(sequence && p->song) for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) if(pr->clips[l][b]) {
-        lengths[l][b]=clip_length(pr,l,b); song_end=fmaxf(song_end,pr->clip_starts[l][b]*STEPS+lengths[l][b]);
+    PlaybackPlan fallback;
+    const PlaybackPlan *plan=p->plan;
+    if(!playback_plan_compatible(plan,p->effects!=NULL,io,sequence && p->song)) {
+        playback_plan_prepare(&fallback,pr,p->effects!=NULL,io,sequence && p->song); plan=&fallback;
     }
-    float end=loop?p->loop_end:p->song?song_end:pr->pattern_steps[p->pattern];
+    const float (*lengths)[CLIPS]=plan->lengths;
+    /* Small routing arrays stay local to the sample loop; DSP/input callbacks
+       cannot alias them. Large clip geometry remains in the immutable plan. */
+    int order[INSERTS+1],buses_count=plan->buses_count;
+    uint8_t input_audible[INSERTS+1],effect_audible[INSERTS+1],channel_audible[CHANNELS];
+    memcpy(order,plan->order,buses_count*sizeof *order);
+    memcpy(input_audible,plan->input_audible,sizeof input_audible);
+    memcpy(effect_audible,plan->effect_audible,sizeof effect_audible);
+    memcpy(channel_audible,plan->channel_audible,sizeof channel_audible);
+    float end=loop?p->loop_end:p->song?plan->song_end:pr->pattern_steps[p->pattern];
     if(end<=begin) begin=0;
     double stepframes=RATE*60.0/pr->bpm/4/96,pitch_speed=pow(2,pr->master_pitch/12.0);
     uint64_t begin_frame=(uint64_t)llround(begin*stepframes*96),end_frame=(uint64_t)llround(end*stepframes*96);
     float gain_left[CHANNELS],gain_right[CHANNELS],speed[CHANNELS];
     uint8_t channel_mutes[CHANNELS]; memcpy(channel_mutes,pr->mute,sizeof channel_mutes);
-    int channel_solo=solo_any(pr->mute,pr->channel_count),insert_solo=solo_any(pr->insert_mute,pr->insert_count);
+    int channel_solo=solo_any(pr->mute,pr->channel_count);
     int lane_solo=solo_any(pr->lane_mute,LANES),lane_enabled[LANES];
     for(int l=0;l<LANES;l++) lane_enabled[l]=!(pr->lane_mute[l]&1) && (!lane_solo || (pr->lane_mute[l]&2));
-    /* Sort only connected buses once per block, so shared buses are processed once. */
-    int used[INSERTS+1]={1},pending[INSERTS+1]={0},order[INSERTS+1],buses_count=0;
-    uint8_t input_audible[INSERTS+1]; memset(input_audible,1,sizeof input_audible);
-    if(io) for(int bus=0;bus<=pr->insert_count;bus++) if(io->active[bus]) {
-        int id=bus,hops=0,audible=!insert_solo;
-        while(id && id!=255 && hops++<INSERTS) { used[id]=1; audible|=pr->insert_mute[id-1]&2; id=pr->insert_output[id-1]; }
-        input_audible[bus]=audible;
-    }
     for(int c=0;c<pr->channel_count;c++) {
         speed[c]=channel_speed(pr,c);
-        int id=pr->route[c],hops=0,audible=!insert_solo;
-        while(id && id!=255 && hops++<INSERTS) {
-            used[id]=1; audible|=pr->insert_mute[id-1]&2; id=pr->insert_output[id-1];
-        }
-        float gain=(pr->mute[c]&1) || (channel_solo && !(pr->mute[c]&2)) || !audible?0:pr->volume[c];
+        float gain=(pr->mute[c]&1) || (channel_solo && !(pr->mute[c]&2)) || !channel_audible[c]?0:pr->volume[c];
         gain_left[c]=gain*fminf(1,1-pr->pan[c]); gain_right[c]=gain*fminf(1,1+pr->pan[c]);
-    }
-    uint8_t effect_audible[INSERTS+1]; memset(effect_audible,1,sizeof effect_audible);
-    /* Keep configured chains advancing on silence, including their routed tails. */
-    for(int bus=0;p->effects && bus<=pr->insert_count;bus++) {
-        int active=0; for(int slot=0;slot<EFFECT_SLOTS;slot++) active|=pr->effect_type[bus][slot]!=EFFECT_EMPTY;
-        if(!active) continue;
-        int id=bus,hops=0,audible=!insert_solo || bus==0;
-        while(id && id!=255 && hops++<INSERTS) { used[id]=1; audible|=pr->insert_mute[id-1]&2; id=pr->insert_output[id-1]; }
-        effect_audible[bus]=audible;
-    }
-    for(int id=1;id<=pr->insert_count;id++) if(used[id] && pr->insert_output[id-1]!=255) pending[pr->insert_output[id-1]]++;
-    for(int id=0;id<=pr->insert_count;id++) if(used[id] && !pending[id]) order[buses_count++]=id;
-    for(int at=0;at<buses_count;at++) {
-        int id=order[at]; if(!id) continue;
-        int dest=pr->insert_output[id-1];
-        if(dest!=255 && !--pending[dest]) order[buses_count++]=dest;
     }
     float bus_left[INSERTS+1],bus_right[INSERTS+1],bus_width[INSERTS+1];
     bus_left[0]=bus_right[0]=pr->master_mute?0:pr->master; bus_width[0]=pr->master_width;
@@ -407,30 +393,43 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
     struct { int automation; float start,end,offset; } automation_clips[LANES*CLIPS];
     int automation_clips_count=0;
     float channel_controls[CHANNELS][5],insert_controls[INSERTS][4],master_controls[5]={pr->master,pr->master_width,pr->master_pitch,pr->master_mute,pr->swing};
-    ChorusSettings effect_controls[INSERTS+1][EFFECT_SLOTS];
-    EQSettings eq_controls[INSERTS+1][EFFECT_SLOTS]; memcpy(eq_controls,pr->eq,sizeof eq_controls);
-    FMSettings fm_controls[CHANNELS]; memcpy(fm_controls,pr->fm,sizeof fm_controls);
-    float effect_mixes[INSERTS+1][EFFECT_SLOTS];
-    memcpy(effect_controls,pr->chorus,sizeof effect_controls); memcpy(effect_mixes,pr->effect_mix,sizeof effect_mixes);
+    ChorusSettings effect_updates[INSERTS+1][EFFECT_SLOTS];
+    EQSettings eq_updates[INSERTS+1][EFFECT_SLOTS];
+    FMSettings fm_updates[CHANNELS];
+    float mix_updates[INSERTS+1][EFFECT_SLOTS];
+    const ChorusSettings (*effect_controls)[EFFECT_SLOTS]=pr->chorus;
+    const EQSettings (*eq_controls)[EFFECT_SLOTS]=pr->eq;
+    const FMSettings *fm_controls=pr->fm;
+    const float (*effect_mixes)[EFFECT_SLOTS]=pr->effect_mix;
     float *bindings[AUTOMATIONS]={0},baseline[AUTOMATIONS],low[AUTOMATIONS],high[AUTOMATIONS];
     uint8_t channel_changed[CHANNELS]={0},insert_changed[INSERTS]={0}; int master_changed=0,master_pitch_changed=0;
     uint8_t channel_pitch_changed[CHANNELS]={0};
     if(sequence && p->song && pr->automation_count) {
+        /* Automation writes buffer-local controls. Unautomated playback reads
+           the callback-owned immutable project directly, avoiding large copies. */
+        memcpy(effect_updates,pr->chorus,sizeof effect_updates);
+        memcpy(eq_updates,pr->eq,sizeof eq_updates);
+        memcpy(fm_updates,pr->fm,sizeof fm_updates);
+        memcpy(mix_updates,pr->effect_mix,sizeof mix_updates);
+        effect_controls=(const ChorusSettings (*)[EFFECT_SLOTS])effect_updates;
+        eq_controls=(const EQSettings (*)[EFFECT_SLOTS])eq_updates;
+        fm_controls=fm_updates;
+        effect_mixes=(const float (*)[EFFECT_SLOTS])mix_updates;
         for(int c=0;c<pr->channel_count;c++) { channel_controls[c][0]=pr->volume[c]; channel_controls[c][1]=pr->pan[c]; channel_controls[c][2]=pr->channel_pitch[c]; channel_controls[c][3]=!!(pr->mute[c]&1); channel_controls[c][4]=pr->pitch_range[c]; }
         for(int i=0;i<pr->insert_count;i++) { insert_controls[i][0]=pr->insert_volume[i]; insert_controls[i][1]=pr->insert_pan[i]; insert_controls[i][2]=pr->insert_width[i]; insert_controls[i][3]=!!(pr->insert_mute[i]&1); }
         for(int a=0;a<pr->automation_count;a++) {
             ParameterTarget t=pr->automations[a].target; unsigned id=t.parameter,c=t.owner;
             if(!parameter_info(pr,t,&baseline[a],&low[a],&high[a])) continue;
             if((id>=PARAM_FM_RATIO && id<=PARAM_FM_LAST) || (id>=PARAM_DX7_FIRST && id<=PARAM_DX7_LAST)) {
-                FMSettings *settings=&fm_controls[c];
+                FMSettings *settings=&fm_updates[c];
                 bindings[a]=(float *)fm_parameter_pointer(settings,id);
             }
             else if(id>=PARAM_EQ_FIRST && id<=PARAM_EQ_LAST) {
-                EQBand *b=&eq_controls[c][t.slot].bands[(id-PARAM_EQ_FIRST)/3];
+                EQBand *b=&eq_updates[c][t.slot].bands[(id-PARAM_EQ_FIRST)/3];
                 bindings[a]=(id-PARAM_EQ_FIRST)%3==0?&b->frequency:(id-PARAM_EQ_FIRST)%3==1?&b->gain:&b->q;
             }
             else if(id>=PARAM_CHORUS_RATE && id<=PARAM_EFFECT_MIX) {
-                bindings[a]=id==PARAM_CHORUS_RATE?&effect_controls[c][t.slot].rate:id==PARAM_CHORUS_DEPTH?&effect_controls[c][t.slot].depth:&effect_mixes[c][t.slot];
+                bindings[a]=id==PARAM_CHORUS_RATE?&effect_updates[c][t.slot].rate:id==PARAM_CHORUS_DEPTH?&effect_updates[c][t.slot].depth:&mix_updates[c][t.slot];
             }
             else if(id<=PARAM_CHANNEL_PITCH || id==PARAM_CHANNEL_MUTE || id==PARAM_PITCH_RANGE) { bindings[a]=&channel_controls[c][id==PARAM_CHANNEL_MUTE?3:id==PARAM_PITCH_RANGE?4:id-PARAM_CHANNEL_VOLUME]; channel_changed[c]=1; if(id==PARAM_CHANNEL_PITCH || id==PARAM_PITCH_RANGE) channel_pitch_changed[c]=1; }
             else if(id<=PARAM_INSERT_WIDTH || id==PARAM_INSERT_MUTE) { bindings[a]=&insert_controls[c][id==PARAM_INSERT_MUTE?3:id-PARAM_INSERT_VOLUME]; insert_changed[c]=1; }
@@ -441,7 +440,7 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
             if(a>=pr->automation_count || !bindings[a]) continue;
             int n=automation_clips_count++;
             automation_clips[n].automation=a; automation_clips[n].start=pr->clip_starts[l][b]*STEPS;
-            automation_clips[n].end=automation_clips[n].start+clip_length(pr,l,b); automation_clips[n].offset=pr->clip_offsets[l][b];
+            automation_clips[n].end=automation_clips[n].start+lengths[l][b]; automation_clips[n].offset=pr->clip_offsets[l][b];
         }
     }
     float buses[INSERTS+1][2];
@@ -469,8 +468,7 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
                 if(info && info->kind==PARAMETER_INTEGER) *bindings[a]=roundf(*bindings[a]);
             }
             for(int c=0;c<pr->channel_count;c++) if(channel_changed[c]) {
-                float gain=channel_controls[c][0],pan=channel_controls[c][1]; int audible=!insert_solo,id=pr->route[c],hops=0;
-                while(id && id!=255 && hops++<INSERTS) { audible|=pr->insert_mute[id-1]&2; id=pr->insert_output[id-1]; }
+                float gain=channel_controls[c][0],pan=channel_controls[c][1]; int audible=channel_audible[c];
                 channel_mutes[c]=(pr->mute[c]&~1)|(channel_controls[c][3]>=.5f);
                 if(channel_controls[c][3]>=.5f || (channel_solo && !(pr->mute[c]&2)) || !audible) gain=0;
                 gain_left[c]=gain*fminf(1,1-pan); gain_right[c]=gain*fminf(1,1+pan);
@@ -514,11 +512,11 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
             Voice *voice=active[v]; if(!voice->gain) continue;
             int c=voice->channel;
             if(c>=pr->channel_count || voice->instrument!=pr->instrument[c]) { voice->gain=0; continue; }
-            int synth=voice->instrument==INSTRUMENT_FM;
+            unsigned type=voice->instrument; int synth=type==INSTRUMENT_FM;
             if(!synth && voice->sampler.position>=s[c].frames) { voice->gain=0; continue; }
             float gain=voice->instrument==INSTRUMENT_FM && voice->fm.engine==1?1:voice->gain;
             if(synth) {
-                if(voice->remaining>=0 && --voice->remaining<=0) { fm_note_off(&voice->fm,fm_controls[c]); voice->remaining=-1; }
+                if(voice->remaining>=0 && --voice->remaining<=0) { instrument_release(&voice->device,voice->instrument,(InstrumentSettings){&pr->sampler[c],&fm_controls[c]}); voice->remaining=-1; }
             } else {
                 if(pr->sampler[c].fit_bpm) {
                     double rate=voice->sampler.tempo_rate?voice->sampler.tempo_rate:pr->bpm/pr->sampler[c].fit_bpm;
@@ -534,10 +532,12 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
             int id=pr->route[c];
             float stereo[2];
             double rate=pr->sampler[c].fit_bpm?pr->bpm/pr->sampler[c].fit_bpm:1;
+            /* Known types let the shared inline processor discard the other
+               device path and its unused source/settings reads. */
             if(synth) {
-                fm_sample_stereo(&voice->fm,&fm_controls[c],pitch_speed*speed[c],stereo);
-                if(!fm_active(&voice->fm)) voice->gain=0;
-            } else sampler_voice_sample(&voice->sampler,s[c],voice->sampler.speed*pitch_speed*speed[c],rate,pr->sampler[c].fit_bpm && pr->sampler[c].stretch,stereo);
+                instrument_process(&voice->device,INSTRUMENT_FM,(InstrumentSettings){&pr->sampler[c],&fm_controls[c]},s[c],pitch_speed,speed[c],rate,stereo);
+                if(!instrument_active(&voice->device,INSTRUMENT_FM,s[c])) voice->gain=0;
+            } else instrument_process(&voice->device,INSTRUMENT_SAMPLER,(InstrumentSettings){&pr->sampler[c],&fm_controls[c]},s[c],pitch_speed,speed[c],rate,stereo);
             for(unsigned side=0;side<2;side++) buses[id][side]+=stereo[side]*gain*(side?gain_right[c]:gain_left[c]);
         }
         for(int at=0;at<buses_count;at++) {
@@ -558,7 +558,7 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
     }
     for(int v=0;v<128;v++) {
         const Voice *voice=&p->voices[v]; int l=voice->lane,c=voice->channel;
-        if(voice->gain && l>=0 && l<LANES && c<pr->channel_count && (voice->instrument==INSTRUMENT_FM?fm_active(&voice->fm):voice->sampler.position<s[c].frames) && lane_enabled[l] && (gain_left[c]>0 || gain_right[c]>0)) p->lane_active[l]=1;
+        if(voice->gain && l>=0 && l<LANES && c<pr->channel_count && instrument_active(&voice->device,voice->instrument,s[c]) && lane_enabled[l] && (gain_left[c]>0 || gain_right[c]>0)) p->lane_active[l]=1;
     }
     for(int c=0;c<pr->channel_count;c++) if(pr->master_mute || !(gain_left[c]>0 || gain_right[c]>0) || (pr->instrument[c]!=INSTRUMENT_FM && !s[c].frames)) p->channel_trigger[c]=0;
     for(int l=0;l<LANES;l++) if(!lane_enabled[l] || pr->master_mute) p->lane_active[l]=p->lane_trigger[l]=0;

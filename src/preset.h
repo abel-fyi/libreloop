@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #ifndef PRESET_H
 #define PRESET_H
+#include "device.h"
 #include "sampler.h"
 #include "fm_synth.h"
 #include "chorus.h"
 #include "equalizer.h"
-enum { PRESET_SAMPLER=1, PRESET_FM, PRESET_CHORUS, PRESET_EQ };
+enum { PRESET_SAMPLER=DEVICE_SAMPLER, PRESET_FM=DEVICE_FM, PRESET_CHORUS=DEVICE_CHORUS, PRESET_EQ=DEVICE_EQ };
 typedef struct {
     int kind;
     Sampler sampler;

@@ -1,6 +1,82 @@
 # Performance checks
 
-## Current checks — 2026-10-06
+## Structural refactor checks — 2026-10-09
+
+The UI was split into independently compiled modules with one explicit state
+owner. Playback publication now skips unchanged project copies and prepares
+clip geometry/mixer routing for reuse. Unautomated device controls are read from
+the callback-owned project instead of copied every buffer. The built-in device
+contract centralizes defaults, validation and parameter getters without changing
+DSP algorithms, saved IDs or the LLP format.
+
+Correctness checks compare baseline, prepared and fallback rendering for all 17
+engine benchmark workloads at 64 and 512 frames: all 34 PCM hashes match. All four
+desktop smoke screenshots also match the baseline byte for byte. Dedicated tests
+exercise revision changes, live project edits, routing/solo, effect tails,
+automation, tempo and recording-context fallback, plus instrument DSP equivalence.
+
+### Quiet comparison
+
+Release build on the Intel Celeron N4020; gaming/compilation stopped. Ordinary
+desktop/browser services remained running. Offline audio uses 48 kHz stereo,
+128 warmup blocks and 10 seconds per run, with medians of three alternating
+baseline/current repeats. CPU is process CPU time divided by audio duration;
+100% consumes one core's realtime budget. Wall-clock p99 includes scheduling
+interruptions and is not a hardware dropout measurement.
+
+| Workload | Buffer frames | CPU before | CPU after | Change |
+| --- | ---: | ---: | ---: | ---: |
+| idle_monitor | 64 | 1.84% | 0.83% | -54.7% |
+| sampler_32 | 64 | 7.59% | 6.82% | -10.1% |
+| sampler_32_eq | 64 | 8.29% | 7.68% | -7.4% |
+| fm_8 | 64 | 5.28% | 4.33% | -18.1% |
+| fm_32 | 64 | 16.23% | 15.20% | -6.4% |
+| fm_128 | 64 | 67.32% | 65.90% | -2.1% |
+| fm_32 | 512 | 14.97% | 14.85% | -0.8% |
+| fm_128 | 512 | 65.54% | 65.08% | -0.7% |
+| sampler_32 | 512 | 6.47% | 6.56% | +1.4% |
+| sampler_128 | 512 | 24.38% | 25.12% | +3.0% |
+| demo_song | 512 | 4.00% | 4.16% | +4.1% |
+
+Small buffers benefit most from cached preparation and fewer control copies.
+Most 512-frame workloads vary by only a few percent; this is not a universal DSP
+speedup. The initial repeated DX7 slowdown was removed by specializing the
+known instrument types at the shared inline processing call. An alignment
+experiment did not establish a benefit and was discarded. DSP math and output
+remain unchanged.
+
+At 64 frames, 128-voice FM and tempo-stretch stress workloads still have p99
+blocks above their 1.33 ms deadline. These limits already existed in the baseline;
+CPU averages alone cannot establish reliable playback at that buffer size.
+
+### Native desktop CPU and memory
+
+Hidden native X11 windows use the Intel GPU and an isolated PulseAudio null sink.
+Three seconds of startup/warmup precede six seconds of CPU/RSS/PSS sampling;
+medians of three alternating repeats follow. CPU here is actual process use,
+with 100% equal to one core. Hidden windows exclude compositor presentation.
+The dense scene stores 100 tracks × 64 clips, forces redraw at 60 FPS, and draws
+only the normal visible viewport.
+
+| Scene | CPU before | CPU after | RSS before | RSS after | PSS after |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| empty_idle | 4.56% | 4.41% | 64.04 MiB | 64.14 MiB | 36.64 MiB |
+| demo_pattern | 41.17% | 37.97% | 66.67 MiB | 66.89 MiB | 39.39 MiB |
+| demo_song | 41.72% | 40.27% | 66.63 MiB | 66.98 MiB | 39.49 MiB |
+| dense_arrangement_redraw | 48.29% | 46.03% | 66.87 MiB | 67.26 MiB | 39.75 MiB |
+
+Memory differences stay below 0.4 MiB. Observed growth within each six-second
+sample is below 0.05 MiB; these short runs cannot prove absence of long-session
+leaks. Native scenes contain sampler voices, so the final FM call specialization
+does not change their exercised device path.
+
+Raw final engine runs are `local/performance/structure/quiet-final-comparison.json`;
+native runs are `quiet-native-comparison.json`; final sound checks are
+`final-pcm-equivalence.json`. Earlier runs made while gaming/compiling remain
+provisional and are not used here. See the development guide for the comparison
+command and uncached-render option.
+
+## Earlier checks — 2026-10-06
 
 Current Release code was measured on the Intel Celeron N4020 (two cores), Intel UHD Graphics 600 and Gentoo Linux. Measurements include the layered FM synth and recent editor changes. They are local workload measurements, not guarantees for other machines.
 
