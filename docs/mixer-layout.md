@@ -89,3 +89,29 @@ Software captures outside the repository: `../baseline-artifacts/pinned-fx/`
 (zero, one, three, six scrolled effects, plus compact sorted grid menu).
 Native device audio, trackpad feel, HiDPI display quality and CPU/GPU performance
 remain unverified. No performance improvement is claimed.
+
+## Separated cable paths
+
+The studio renderer now assigns lanes from the actual visible connections,
+replacing the four repeating Bezier depths. Connections sort deterministically
+by their horizontal bounds and identity. A lane is reused only when its spans
+are disjoint with a six-unit clearance. Overlapping spans receive separate
+lanes. Angled leads spread from shared sockets into distinct horizontal runs;
+shared endpoints and isolated crossings can still meet.
+
+Paths are thin signal-colored lines over dark outlines, drawn in two passes so
+outlines cannot erase neighboring signal cores. No texture or dependency was
+added. A routing strip uses up to 24 extra logical units within the existing
+Mixer height: socket/readout positions and the fader bottom move upward by
+that amount, with the existing fader value mapping applied to the resulting
+travel. The room reduces automatically on short windows. Hit testing uses the
+same derived socket position. FX shelf placement, dock size, project data and
+DSP are unchanged by this visual refinement.
+
+`mixer_cables_test` checks 1–100 outgoing/incoming connections, deterministic
+ordering under shuffled enumeration, disjoint lane reuse, shared-port fan-out,
+noncoincident horizontal runs, short routing strips and vertical bounds.
+All 146 tests passed; five focused Mixer tests also passed after the compact
+lane-spacing correction. Release build and strict signature checks passed.
+Normal/compact software captures: `../baseline-artifacts/cable-lanes/`.
+Native display quality, hands-on routing feel and performance remain unverified.

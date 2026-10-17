@@ -5,7 +5,7 @@
 enum { STUDIO_INSERTS=99, STUDIO_FX_SLOTS=9, MIXER_STRIDE=112 };
 typedef struct {
     float width,height,master_x,insert_x,viewport,maximum,offset;
-    float fx_top,fx_height,header,controls,fader_top,fader_bottom,route;
+    float fx_top,fx_height,header,controls,fader_top,fader_bottom,route,cable_space;
     int count,fx_rows;
 } MixerView;
 static inline MixerView mixer_view(float width,float height,int count,float offset,int fx_hidden) {
@@ -16,7 +16,8 @@ static inline MixerView mixer_view(float width,float height,int count,float offs
     v.fx_rows=fx_hidden?0:(int)fmaxf(0,fminf(3,floorf((height-224)/22)));
     v.fx_height=fx_hidden?0:(v.fx_rows+1)*22;v.header=v.fx_top+v.fx_height+4;
     v.controls=v.header+32;v.fader_top=v.header+48;
-    v.fader_bottom=fmaxf(v.fader_top+12,height-66);v.route=height-31;
+    v.cable_space=fminf(24,fmaxf(0,height-v.fx_height-206));
+    v.fader_bottom=fmaxf(v.fader_top+12,height-66-v.cable_space);v.route=height-31-v.cable_space;
     return v;
 }
 static inline MixerView mixer_view_rows(float width,float height,int count,float offset,int hidden,int rows) {
@@ -24,7 +25,8 @@ static inline MixerView mixer_view_rows(float width,float height,int count,float
     v.fx_rows=hidden?0:(int)fmaxf(0,fminf(3,rows));
     v.fx_height=hidden?0:(1+v.fx_rows)*22;
     v.header=v.fx_top+v.fx_height+4;v.controls=v.header+32;v.fader_top=v.header+48;
-    v.fader_bottom=fmaxf(v.fader_top+12,height-66);return v;
+    v.cable_space=fminf(24,fmaxf(0,height-v.fx_height-206));
+    v.fader_bottom=fmaxf(v.fader_top+12,height-66-v.cable_space);v.route=height-31-v.cable_space;return v;
 }
 static inline float mixer_fx_list_height(MixerView v,int count) {return fminf(v.fx_rows,count)*22;}
 static inline float mixer_fx_adder_top(MixerView v,int count) {return v.header-4-22-mixer_fx_list_height(v,count);}

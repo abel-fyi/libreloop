@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "ui_internal.h"
 #include "signal_palette.h"
+#include "mixer_cables.h"
 
 int mixer_input_at(DrawPoint point) {
     Rect r=desktop_editor_rect(3); if(!ui.windows.editors[3].visible) return -1;
@@ -598,8 +599,8 @@ static void studio_mixer_strip(MixerView v,int bus) {
     host_draw_line(25,mark,44,mark,muted);
     float fy=v.fader_bottom-fader_position(displayed_value(volume,*volume))*(v.fader_bottom-v.fader_top);
     ui_fader_handle(host_draw(),(DrawRect){22,fy-9,22,18},ui.mixer_selected==bus);
-    ui_text_well(host_draw(),(DrawRect){20,v.height-49,58,18},0);
-    label(host_text_format("%.1f",gain_db(*volume)),24,v.height-48,UI_TEXT_SIZE,ui_theme.signal);
+    ui_text_well(host_draw(),(DrawRect){20,v.height-49-v.cable_space,58,18},0);
+    label(host_text_format("%.1f",gain_db(*volume)),24,v.height-48-v.cable_space,UI_TEXT_SIZE,ui_theme.signal);
     int input=hover(7,v.route,12,12);
     host_draw_rectangle_lines(9,v.route+2,8,8,input?ui_theme.signal:muted);
     if(input){
@@ -646,18 +647,23 @@ static void mixer_studio(float width,float height) {
     ui.mouse=pointer;ui.text_origin=origin;ui.input_enabled=enabled;
     host_begin_mode2_d((HostCamera){.offset=origin,.zoom=scale});
     host_begin_scissor_mode(root.x*scale,root.y*scale,width*scale,height*scale);
-    int wire=0;
+    MixerCable wires[INSERTS+1];int wire_count=0;
     for(int source=1;source<=v.count;source++)if(mixer_port_visible(v,source,35)) {
         for(int dest=0;dest<=v.count;dest++)if((source==ui.mixer_selected || dest==ui.mixer_selected) && insert_has_send(&ui.project,source,dest) && mixer_port_visible(v,dest,13)) {
-            DrawPoint start={mixer_bus_x(v,source)+35,v.route+6},end={mixer_bus_x(v,dest)+13,v.route+6};
-            float lane=height-19-(wire++%4)*2;
-            DrawPoint points[]={start,{start.x,lane},{end.x,lane},end};
-            cable(points,host_fade(source==ui.mixer_selected?ui_theme.signal:ui_theme.meter_mid,.85f));
+            wires[wire_count++]=(MixerCable){.source=source,.destination=dest,.start=mixer_bus_x(v,source)+35,.end=mixer_bus_x(v,dest)+13};
         }
     }
+    int lanes=mixer_cable_lanes(wires,wire_count);
+    /* Draw outlines first so neighboring lanes cannot erase each other's core. */
+    for(int pass=0;pass<2;pass++)for(int i=0;i<wire_count;i++) {
+        float x[4],y[4];mixer_cable_path(wires[i],lanes,v.route+6,height-20,x,y);
+        DrawColor color=pass?host_fade(wires[i].source==ui.mixer_selected?ui_theme.signal:ui_theme.meter_mid,.95f):host_fade(bg,.9f);
+        for(int segment=0;segment<3;segment++)host_draw_line_ex((DrawPoint){x[segment],y[segment]},(DrawPoint){x[segment+1],y[segment+1]},pass?1.25f:3,color);
+    }
     if(ui.cable_drag>0 && mixer_port_visible(v,ui.cable_drag,35)) {
-        DrawPoint start={mixer_bus_x(v,ui.cable_drag)+35,v.route+6};
-        DrawPoint points[]={start,{start.x,height-19},{pointer.x,height-19},pointer};cable(points,accent);
+        float x[4],y[4];MixerCable preview={.start=mixer_bus_x(v,ui.cable_drag)+35,.end=pointer.x};
+        mixer_cable_path(preview,1,v.route+6,height-20,x,y);y[3]=pointer.y;
+        for(int segment=0;segment<3;segment++)host_draw_line_ex((DrawPoint){x[segment],y[segment]},(DrawPoint){x[segment+1],y[segment+1]},1.5f,accent);
     }
     DrawRect rail={v.insert_x,height-16,v.viewport,12},thumb={mixer_thumb_x(v),height-16,mixer_thumb_width(v),12};
     ui_scrollbar(host_draw(),rail,thumb,ui.mixer_pan || hover(rail.x,rail.y,rail.width,rail.height));
