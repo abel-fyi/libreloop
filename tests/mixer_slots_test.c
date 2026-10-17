@@ -80,5 +80,11 @@ int main(void) {
     int delay_automation=automation_create(&ui.project,(ParameterTarget){PARAM_DELAY_FEEDBACK,4,0},"Delay feedback",16);CHECK(delay_automation>=0);
     int before_remove=ui.project.automation_count;mixer_effect_remove(4,0);
     CHECK(!ui.windows.editors[delay_window].visible && !ui.project.effect_type[4][0] && ui.project.automation_count==before_remove-1);
+    mixer_effect_add(4,0,EFFECT_TUBE);int tube_window=mixer_effect_window(4,0);
+    CHECK(tube_window>=5 && tube_valid(ui.project.tube[4][0]) && ui.project.effect_mix[4][0]==1);
+    CHECK(ui.windows.editors[tube_window].minw==440 && ui.windows.editors[tube_window].minh==220);
+    int tube_automation=automation_create(&ui.project,(ParameterTarget){PARAM_TUBE_DRIVE,4,0},"Tube drive",16);CHECK(tube_automation>=0);
+    before_remove=ui.project.automation_count;mixer_effect_remove(4,0);
+    CHECK(!ui.windows.editors[tube_window].visible && !ui.project.effect_type[4][0] && ui.project.automation_count==before_remove-1);
     return 0;
 }

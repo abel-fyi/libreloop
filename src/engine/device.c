@@ -5,6 +5,7 @@
 #include "chorus.h"
 #include "equalizer.h"
 #include "delay.h"
+#include "tube.h"
 static void sampler_defaults(void *s) { *(Sampler *)s=(Sampler){.time=1,.length=1}; }
 static void fm_defaults(void *s) { *(FMSettings *)s=fm_default(); }
 static void chorus_defaults(void *s) { *(ChorusSettings *)s=chorus_default(); }
@@ -29,21 +30,25 @@ static const float *delay_parameter(const void *s,unsigned id) {
     const DelaySettings *d=s;
     switch(id) {case PARAM_DELAY_STEPS:return &d->steps;case PARAM_DELAY_INPUT_PAN:return &d->input_pan;case PARAM_DELAY_INPUT_GAIN:return &d->input_gain;case PARAM_DELAY_OFFSET:return &d->offset;case PARAM_DELAY_DRY:return &d->dry;case PARAM_DELAY_TIME:return &d->time_ms;case PARAM_DELAY_FEEDBACK:return &d->feedback;case PARAM_DELAY_CUTOFF:return &d->cutoff;case PARAM_DELAY_STEREO:return &d->stereo;case PARAM_DELAY_OUTPUT:return &d->output;default:return NULL;}
 }
+static void tube_defaults(void *s) {*(TubeSettings *)s=tube_default();}
+static int tube_check(const void *s) {return s && tube_valid(*(const TubeSettings *)s);}
+static const float *tube_parameter(const void *s,unsigned id) {const TubeSettings *t=s;return id==PARAM_TUBE_DRIVE?&t->drive:id==PARAM_TUBE_TONE?&t->tone:id==PARAM_TUBE_OUTPUT?&t->output:NULL;}
 static const DeviceDescriptor devices[]={
     {"Sampler",sizeof(Sampler),sampler_defaults,sampler_check,NULL,{{0,0},{0,0}}},
     {"FM Synth",sizeof(FMSettings),fm_defaults,fm_check,fm_parameter,{{PARAM_FM_RATIO,PARAM_FM_LAST},{PARAM_DX7_FIRST,PARAM_DX7_LAST}}},
     {"Chorus",sizeof(ChorusSettings),chorus_defaults,chorus_check,chorus_parameter,{{PARAM_CHORUS_RATE,PARAM_CHORUS_DEPTH},{PARAM_EFFECT_MIX,PARAM_EFFECT_MIX}}},
     {"Equalizer",sizeof(EQSettings),eq_defaults,eq_check,eq_parameter,{{PARAM_EQ_FIRST,PARAM_EQ_LAST},{PARAM_EFFECT_MIX,PARAM_EFFECT_MIX}}},
     {"Delay",sizeof(DelaySettings),delay_defaults,delay_check,delay_parameter,{{PARAM_DELAY_FIRST,PARAM_DELAY_LAST},{PARAM_EFFECT_MIX,PARAM_EFFECT_MIX}}},
+    {"Tube",sizeof(TubeSettings),tube_defaults,tube_check,tube_parameter,{{PARAM_TUBE_FIRST,PARAM_TUBE_LAST},{PARAM_EFFECT_MIX,PARAM_EFFECT_MIX}}},
 };
 const DeviceDescriptor *device_descriptor(unsigned kind) {
-    return kind>=DEVICE_SAMPLER && kind<=DEVICE_DELAY?&devices[kind-1]:NULL;
+    return kind>=DEVICE_SAMPLER && kind<=DEVICE_TUBE?&devices[kind-1]:NULL;
 }
 const DeviceDescriptor *instrument_descriptor(unsigned type) {
     return type==INSTRUMENT_SAMPLER?device_descriptor(DEVICE_SAMPLER):type==INSTRUMENT_FM?device_descriptor(DEVICE_FM):NULL;
 }
 const DeviceDescriptor *effect_descriptor(unsigned type) {
-    return type==EFFECT_CHORUS?device_descriptor(DEVICE_CHORUS):type==EFFECT_EQ?device_descriptor(DEVICE_EQ):type==EFFECT_DELAY?device_descriptor(DEVICE_DELAY):NULL;
+    return type==EFFECT_CHORUS?device_descriptor(DEVICE_CHORUS):type==EFFECT_EQ?device_descriptor(DEVICE_EQ):type==EFFECT_DELAY?device_descriptor(DEVICE_DELAY):type==EFFECT_TUBE?device_descriptor(DEVICE_TUBE):NULL;
 }
 int device_has_parameter(const DeviceDescriptor *device,unsigned id) {
     if(!device || !id) return 0;

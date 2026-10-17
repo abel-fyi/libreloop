@@ -53,6 +53,7 @@ static void smoke_showcase_prepare(void) {
 
 /* Development capture states use only existing instruments/effects. */
 static void smoke_scene_prepare(int scene) {
+    if(scene==16){ui.project.effect_type[1][0]=EFFECT_TUBE;ui.project.effect_mix[1][0]=1;ui.eq_bus=1;ui.eq_slot=0;return;}
     if(scene==15){ui.project.effect_type[1][0]=EFFECT_DELAY;ui.project.effect_mix[1][0]=1;ui.eq_bus=1;ui.eq_slot=0;return;}
     if(scene==14){channel_replace_instrument(&ui.project,0,INSTRUMENT_FM);ui.project.fm[0].engine=1;ui.fm_dx_operator=6;ui.fm_dx_page=1;return;}
     if(scene==12){smoke_showcase_prepare();return;}
@@ -115,7 +116,7 @@ int main(int argc,char **argv) {
     if(smoke_count<0 || smoke_count>4096)return 1;
     if(smoke_workspace<0 || smoke_workspace>9)return 1;
     if(smoke_grid_menu<0 || smoke_grid_menu>2 || smoke_grid>=GRID_CHOICES)return 1;
-    if(smoke_scene<0 || smoke_scene>15 || (smoke_scene && !smoke))return 1;
+    if(smoke_scene<0 || smoke_scene>16 || (smoke_scene && !smoke))return 1;
     if(smoke_width && (!smoke || smoke_width<900 || smoke_height<562 || smoke_width>3840 || smoke_height>2160))return 1;
     if(smoke_popup<0 || smoke_popup>13 || (smoke_popup && !smoke))return 1;
     if(profile_frames && (!smoke || profile_frames<100 || profile_frames>10000))return 1;
@@ -208,7 +209,7 @@ int main(int argc,char **argv) {
                 if(piano_visible_rows()<13)ui.piano_top=fmaxf(piano_min_top(),60+piano_visible_rows()*.5f);
             }
             if(smoke_scene && !ui.studio_style)windows_focus(&ui.windows,smoke_scene>=9 && smoke_scene<=11?3:4);
-            if(smoke_scene==11 || smoke_scene==15){if(ui.windows.workspace.enabled)mixer_effect_open(ui.eq_bus,ui.eq_slot,0);else windows_focus(&ui.windows,5);}
+            if(smoke_scene==11 || smoke_scene==15 || smoke_scene==16){if(ui.windows.workspace.enabled)mixer_effect_open(ui.eq_bus,ui.eq_slot,0);else windows_focus(&ui.windows,5);}
             if(profile_frames && !ui.studio_style){ui.windows.editors[0].visible=0;windows_focus(&ui.windows,2);windows_focus(&ui.windows,3);windows_focus(&ui.windows,4);}
             if(smoke_popup==11)project_file_action(4);
             else if(smoke_popup==2)begin_rename();

@@ -2,6 +2,9 @@
 #include "engine.h"
 #include <math.h>
 static const ParameterDescriptor descriptors[]={
+    {PARAM_TUBE_DRIVE,"Tube drive (dB)",0,36,12,PARAMETER_CONTINUOUS},
+    {PARAM_TUBE_TONE,"Tube tone (Hz)",1200,18000,6500,PARAMETER_LOGARITHMIC},
+    {PARAM_TUBE_OUTPUT,"Tube output (dB)",-24,12,-3,PARAMETER_CONTINUOUS},
     {PARAM_DELAY_STEPS,"Delay time (steps)",.125f,16,3,PARAMETER_LOGARITHMIC},
     {PARAM_DELAY_INPUT_PAN,"Delay input pan",-1,1,0,PARAMETER_CONTINUOUS},
     {PARAM_DELAY_INPUT_GAIN,"Delay input volume",0,2,.35f,PARAMETER_CONTINUOUS},
@@ -99,6 +102,10 @@ const ParameterDescriptor *parameter_descriptor(unsigned id) {
 static const float *parameter_pointer(const Project *p,ParameterTarget t,float *lo,float *hi) {
     const ParameterDescriptor *info=parameter_descriptor(t.parameter);
     *lo=info?info->low:0; *hi=info?info->high:1;
+    if(t.parameter>=PARAM_TUBE_FIRST && t.parameter<=PARAM_TUBE_LAST) {
+        if(t.owner>(unsigned)p->insert_count || t.slot>=EFFECT_SLOTS || p->effect_type[t.owner][t.slot]!=EFFECT_TUBE) return NULL;
+        return device_parameter(effect_descriptor(EFFECT_TUBE),&p->tube[t.owner][t.slot],t.parameter);
+    }
     if(t.parameter>=PARAM_DELAY_FIRST && t.parameter<=PARAM_DELAY_LAST) {
         if(t.owner>(unsigned)p->insert_count || t.slot>=EFFECT_SLOTS || p->effect_type[t.owner][t.slot]!=EFFECT_DELAY) return NULL;
         return device_parameter(effect_descriptor(EFFECT_DELAY),&p->delay[t.owner][t.slot],t.parameter);
@@ -186,6 +193,10 @@ int parameter_from_pointer(const Project *p,const void *ptr,ParameterTarget *t) 
         if(parameter_pointer(p,candidate,&lo,&hi)==ptr) { *t=candidate; return 1; }
     }
     for(unsigned id=PARAM_DELAY_FIRST;id<=PARAM_DELAY_LAST;id++) for(unsigned owner=0;owner<=(unsigned)p->insert_count;owner++) for(unsigned slot=0;slot<EFFECT_SLOTS;slot++) {
+        ParameterTarget candidate={id,owner,slot}; float lo,hi;
+        if(parameter_pointer(p,candidate,&lo,&hi)==ptr) { *t=candidate; return 1; }
+    }
+    for(unsigned id=PARAM_TUBE_FIRST;id<=PARAM_TUBE_LAST;id++) for(unsigned owner=0;owner<=(unsigned)p->insert_count;owner++) for(unsigned slot=0;slot<EFFECT_SLOTS;slot++) {
         ParameterTarget candidate={id,owner,slot}; float lo,hi;
         if(parameter_pointer(p,candidate,&lo,&hi)==ptr) { *t=candidate; return 1; }
     }

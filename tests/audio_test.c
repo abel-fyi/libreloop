@@ -310,6 +310,11 @@ int main(void) {
     for(int i=0;i<12;i++)test_callback(NULL,out,NULL,64);
     CHECK(out[92]==.2f && out[93]==.2f); /* 750-frame tempo-relative echo. */
     ready=0;ma_atomic_device_state_set(&device.state,ma_device_state_uninitialized);audio_stop();
+    fixture.effect_type[0][0]=EFFECT_TUBE;fixture.tube[0][0]=tube_default();fixture.effect_mix[0][0]=1;
+    audio_update(&fixture,1,1,0,1,1,0,0,0);Tube tube_expected;tube_reset(&tube_expected);
+    ready=1;ma_atomic_device_state_set(&device.state,ma_device_state_started);test_callback(NULL,out,NULL,64);
+    for(int i=0;i<64;i++){float frame[2]={i==0?.2f:0,i==0?.2f:0};tube_process(&tube_expected,fixture.tube[0][0],1,frame);CHECK(!memcmp(frame,&out[i*2],sizeof frame));}
+    ready=0;ma_atomic_device_state_set(&device.state,ma_device_state_uninitialized);audio_stop();
     effects_free(effects);effects=NULL;player.effects=live.effects=NULL;
     puts("Transparent output, capture, post-fader recording, ring bounds, mixing and ordered controls passed.");
     return 0;

@@ -71,6 +71,7 @@ typedef struct {
     ChorusSettings chorus[INSERTS+1][EFFECT_SLOTS];
     EQSettings eq[INSERTS+1][EFFECT_SLOTS];
     DelaySettings delay[INSERTS+1][EFFECT_SLOTS];
+    TubeSettings tube[INSERTS+1][EFFECT_SLOTS];
     float effect_mix[INSERTS+1][10]; /* wet/dry */
     uint8_t effect_bypass[INSERTS+1][10];
     char track_names[LANES][PATTERN_NAME];

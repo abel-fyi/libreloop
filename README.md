@@ -64,6 +64,8 @@ hardware and native trackpad/HiDPI acceptance remain incomplete. See
 ## Development
 
 - [Next work and priorities](docs/roadmap.md)
+- [Tube saturation](docs/tube.md)
+- [Delay](docs/delay.md)
 - [Behavior specification](docs/behavior-spec.md)
 - [Shared controls and velocity lane](docs/velocity-lane-and-controls.md)
 - [Visual decisions](docs/visual-notes.md)
