@@ -30,6 +30,7 @@
 #include "instrument_layout.h"
 #include "velocity_lane.h"
 #include "mixer_view.h"
+#include "effect_chain.h"
 #include "transport_readout.h"
 #include "piano.h"
 #include "atomic_file.h"
@@ -165,7 +166,8 @@ typedef struct {
     Browser browser;
     int route_drag,route_start,mixer_selected,mixer_scroll,mixer_pan,cable_drag;
     float mixer_offset,mixer_scroll_grab,mixer_fx_scroll[INSERTS+1];
-    int mixer_fx_hidden;
+    int mixer_fx_hidden,fx_press,fx_dragging,fx_bus,fx_slot,fx_drop,route_menu_scroll;
+    DrawPoint fx_press_point;
     float route_y;
     Sample audition;
     double browser_progress;
@@ -491,6 +493,7 @@ void desktop_piano_key_update(float x,float y,int cancel);
 void piano(float width,float height);
 int mixer_input_at(DrawPoint point);
 void desktop_mixer_scrollbar_update(void);
+void desktop_fx_drag_update(void);
 void mute_solo_buttons(float x,float y,uint8_t *states,int count,int selected,const char *name);
 void recording_finish(void);
 void recording_poll(void);

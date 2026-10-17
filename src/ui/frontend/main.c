@@ -74,11 +74,12 @@ static void smoke_scene_prepare(int scene) {
 
 int main(int argc,char **argv) {
     int smoke_playing=0,smoke_piano_maximized=0;
-    float smoke_velocity=0,smoke_mixer_offset=0,smoke_fx_scroll=0;int smoke_seconds=0,smoke_fx_hidden=0,smoke_inserts=0;
+    float smoke_velocity=0,smoke_mixer_offset=0,smoke_fx_scroll=0;int smoke_seconds=0,smoke_fx_hidden=0,smoke_inserts=0,smoke_routing=0;
     float smoke_rack_zoom=0;int smoke_grid_menu=0,smoke_grid=-1,smoke_workspace=0,smoke_fill=0,smoke_count=0;
     int smoke=0,visual_preview=0,legacy_ui=0,smoke_scene=0,smoke_width=0,smoke_height=0,smoke_popup=0,profile_frames=0,profile_motion=0;
     for(int i=1;i<argc;i++) {
         if(!strcmp(argv[i],"--smoke")) smoke=1;
+        else if(!strcmp(argv[i],"--smoke-routing"))smoke_routing=1;
         else if(!strcmp(argv[i],"--smoke-mixer-offset") && i+1<argc)smoke_mixer_offset=atof(argv[++i]);
         else if(!strcmp(argv[i],"--smoke-fx-scroll") && i+1<argc)smoke_fx_scroll=atof(argv[++i]);
         else if(!strcmp(argv[i],"--smoke-fx-hidden"))smoke_fx_hidden=1;
@@ -103,7 +104,7 @@ int main(int argc,char **argv) {
         else if(!strcmp(argv[i],"--legacy-ui"))legacy_ui=1;
         else if(!strcmp(argv[i],"--version")) { printf("LibreLoop %s\n",LIBRELOOP_VERSION); return 0; }
     }
-    if((smoke_mixer_offset || smoke_fx_scroll || smoke_fx_hidden || smoke_inserts) && !smoke)return 1;
+    if((smoke_mixer_offset || smoke_fx_scroll || smoke_fx_hidden || smoke_inserts || smoke_routing) && !smoke)return 1;
     if(!isfinite(smoke_mixer_offset) || !isfinite(smoke_fx_scroll) || smoke_inserts<0 || smoke_inserts>INSERTS)return 1;
     if((smoke_playing || smoke_piano_maximized) && !smoke)return 1;
     if((smoke_seconds || smoke_velocity || smoke_count || smoke_fill || smoke_workspace || smoke_rack_zoom || smoke_grid_menu || smoke_grid>=0) && !smoke)return 1;
@@ -240,7 +241,7 @@ int main(int argc,char **argv) {
         }
         ui.mouse=host_get_mouse_position(); ui.mouse.x/=scale; ui.mouse.y/=scale; ui.reset=0; ui.popup_opened=0; ui.context_opened=0;
         host_set_mouse_cursor(HOST_MOUSE_CURSOR_DEFAULT);
-        if(smoke && frames==0){ui.velocity_lane.height=smoke_velocity;ui.velocity_lane.collapsed=smoke_velocity<0;ui.position_seconds=smoke_seconds;ui.mixer_offset=smoke_mixer_offset;for(int bus=0;bus<=INSERTS;bus++)ui.mixer_fx_scroll[bus]=smoke_fx_scroll;ui.mixer_fx_hidden=smoke_fx_hidden;if(smoke_inserts)ui.project.insert_count=smoke_inserts;}
+        if(smoke && frames==0){ui.velocity_lane.height=smoke_velocity;ui.velocity_lane.collapsed=smoke_velocity<0;ui.position_seconds=smoke_seconds;ui.mixer_offset=smoke_mixer_offset;for(int bus=0;bus<=INSERTS;bus++)ui.mixer_fx_scroll[bus]=smoke_fx_scroll;ui.mixer_fx_hidden=smoke_fx_hidden;if(smoke_inserts)ui.project.insert_count=smoke_inserts;if(smoke_routing){insert_send_add(&ui.project,1,2);insert_send_add(&ui.project,1,3);insert_send_add(&ui.project,2,3);ui.mixer_selected=1;}}
         if(ui.studio_style)ui.piano_top=fmaxf(piano_min_top(),fminf(127,ui.piano_top));
         desktop_velocity_resize();
         navigate_editors(scale);
@@ -275,6 +276,7 @@ int main(int argc,char **argv) {
             host_set_mouse_cursor(HOST_MOUSE_CURSOR_RESIZE_NS);
             if(!host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT)) ui.track_resize=-1;
         }
+        if(ui.fx_press)desktop_fx_drag_update();
         if(ui.mixer_pan && ui.studio_style && ui.windows.workspace.enabled)desktop_mixer_scrollbar_update();
         else if(ui.mixer_pan) {
             Rect r=ui.windows.editors[3].rect; float area=r.w-MIXER_PANEL-MIXER_LEFT-8; int visible=fmaxf(1,area/mixer_strip_width()-1);
@@ -285,7 +287,7 @@ int main(int argc,char **argv) {
             if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)) ui.cable_drag=-1;
             else if(!host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT)) {
                 int destination=mixer_input_at(ui.mouse);
-                if(destination>=0) snprintf(ui.status,sizeof ui.status,insert_connect(&ui.project,ui.cable_drag,destination)?"Mixer cable connected.":"Connection blocked: it would create a feedback loop.");
+                if(destination>=0) snprintf(ui.status,sizeof ui.status,(ui.studio_style?insert_send_add(&ui.project,ui.cable_drag,destination):insert_connect(&ui.project,ui.cable_drag,destination))?"Mixer cable connected.":"Connection blocked: it would create a feedback loop.");
                 ui.cable_drag=-1;
             }
         }

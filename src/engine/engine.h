@@ -57,6 +57,7 @@ typedef struct {
     int insert_count;
     uint8_t route[CHANNELS],insert_mute[INSERTS]; /* route: 0 Master, 1..count insert; insert_mute bits: 1 mute, 2 solo */
     float insert_volume[INSERTS],insert_pan[INSERTS];
+    uint8_t insert_sends[INSERTS][INSERTS+1]; /* additional unity-gain destinations */
     uint8_t insert_output[INSERTS]; /* 0 = Master, 1..count = insert, 255 = disconnected */
     Sampler sampler[CHANNELS];
     uint8_t instrument[CHANNELS];
@@ -65,6 +66,7 @@ typedef struct {
     float insert_width[INSERTS],master_width; /* 0 mono, 1 unchanged, 2 wider */
     uint8_t master_mute,lane_mute[LANES]; /* lane bits: 1 mute, 2 solo */
     char audio_io[INSERTS+1][2][128]; /* input/output device choices; routing/recording reserved */
+    uint32_t effect_revision[INSERTS+1]; /* runtime invalidation on reordering; not serialized */
     uint8_t effect_type[INSERTS+1][EFFECT_SLOTS];
     ChorusSettings chorus[INSERTS+1][EFFECT_SLOTS];
     EQSettings eq[INSERTS+1][EFFECT_SLOTS];
@@ -124,6 +126,10 @@ int pattern_delete(Project *p,int pattern);
 int channel_replace_instrument(Project *project,int channel,int type);
 int channel_delete(Project *p,int channel);
 int insert_connect(Project *p,int source,int destination);
+int insert_send_add(Project *p,int source,int destination);
+int insert_send_remove(Project *p,int source,int destination);
+int insert_has_send(const Project *p,int source,int destination);
+int insert_routes_valid(const Project *p);
 int solo_any(const uint8_t *states,int count);
 void solo_toggle(uint8_t *states,int count,int selected);
 Note *note_at(Project *p,int pattern,int channel,float start,int pitch);

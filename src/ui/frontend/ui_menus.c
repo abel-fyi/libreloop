@@ -524,12 +524,30 @@ void draw_context_content(void) {
     if(ui.windows.workspace.enabled && (ui.context_kind==14 || ui.context_kind==16) && ui.effect_context_window>=5){ui.eq_bus=ui.effect_windows[ui.effect_context_window].bus;ui.eq_slot=ui.effect_windows[ui.effect_context_window].slot;}
     float scale=ui_scale();
     int instrument_rows[CHANNELS],instrument_count=ui.context_kind==17?pattern_instruments(ui.context_target,instrument_rows):0;
-    int w=ui.context_kind==14 || ui.context_kind==16?160:(ui.context_kind==5 || ui.context_kind==8 || ui.context_kind==12)?304:228,h=ui.context_kind==25?(ui.project.effect_type[ui.eq_bus][ui.context_target]?133:58):ui.context_kind==24?8+25*GRID_CHOICES:ui.context_kind==9?133:ui.context_kind==21?8+25*FM_FACTORY_COUNT:ui.context_kind==22?83:ui.context_kind==23?108:ui.context_kind==19?108:ui.context_kind==20?58:ui.context_kind==17?8+25*(int)fminf(8,instrument_count):ui.context_kind==18?58:ui.context_kind==4?108:ui.context_kind==16?32:ui.context_kind==15?58:ui.context_kind==14?8+EQ_SHAPES*25:ui.context_kind==13?58:ui.context_kind==2?183:ui.context_kind==7?133:(ui.context_kind==5 || ui.context_kind==8 || ui.context_kind==12)?76:ui.context_kind==3 && !ui.context_target?32:82,x=fmaxf(0,fminf(host_get_screen_width()/scale-w,ui.context_position.x)),y=fmaxf(0,fminf(host_get_screen_height()/scale-h,ui.context_position.y));
+    int route_rows[INSERTS+1],route_count=0;
+    if(ui.context_kind==26 || ui.context_kind==27) {
+        for(int id=ui.context_kind==26?0:1;id<=ui.project.insert_count;id++)
+            if(ui.context_kind==26?insert_has_send(&ui.project,ui.context_target,id):insert_has_send(&ui.project,id,ui.context_target))route_rows[route_count++]=id;
+    }
+    int w=ui.context_kind==14 || ui.context_kind==16?160:(ui.context_kind==5 || ui.context_kind==8 || ui.context_kind==12)?304:228,h=(ui.context_kind==26 || ui.context_kind==27)?8+25*(int)fminf(8,route_count+1):ui.context_kind==25?(ui.project.effect_type[ui.eq_bus][ui.context_target]?133:58):ui.context_kind==24?8+25*GRID_CHOICES:ui.context_kind==9?133:ui.context_kind==21?8+25*FM_FACTORY_COUNT:ui.context_kind==22?83:ui.context_kind==23?108:ui.context_kind==19?108:ui.context_kind==20?58:ui.context_kind==17?8+25*(int)fminf(8,instrument_count):ui.context_kind==18?58:ui.context_kind==4?108:ui.context_kind==16?32:ui.context_kind==15?58:ui.context_kind==14?8+EQ_SHAPES*25:ui.context_kind==13?58:ui.context_kind==2?183:ui.context_kind==7?133:(ui.context_kind==5 || ui.context_kind==8 || ui.context_kind==12)?76:ui.context_kind==3 && !ui.context_target?32:82,x=fmaxf(0,fminf(host_get_screen_width()/scale-w,ui.context_position.x)),y=fmaxf(0,fminf(host_get_screen_height()/scale-h,ui.context_position.y));
     ui.input_enabled=1;
     if(host_is_key_pressed(HOST_KEY_ESCAPE) || (!ui.context_opened && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT) && !hover(x,y,w,h))) { ui.context_kind=0; return; }
     ui_frame(host_draw(),(DrawRect){x,y,w,h});
     int target=ui.context_target,kind=ui.context_kind;
-    if(kind==25) {
+    if(kind==26 || kind==27) {
+        int visible=fminf(8,route_count+1);
+        if(hover(x,y,w,h))ui.route_menu_scroll=fmaxf(0,fminf(route_count+1-visible,ui.route_menu_scroll-host_get_mouse_wheel_move()));
+        for(int row=0;row<visible;row++) {
+            int index=row+ui.route_menu_scroll;
+            const char *name=index?host_text_format("Remove %s %s",kind==26?"to":"from",mixer_name(route_rows[index-1])):"Remove all cables";
+            if(button(name,x+4,y+4+row*25,w-8,24,0)) {
+                for(int i=0;i<route_count;i++)if(!index || i==index-1) {
+                    if(kind==26)insert_send_remove(&ui.project,target,route_rows[i]);else insert_send_remove(&ui.project,route_rows[i],target);
+                }
+                ui.context_kind=0;return;
+            }
+        }
+    } else if(kind==25) {
         int bus=ui.eq_bus,slot=target,type=ui.project.effect_type[bus][slot];
         if(!type){
             if(button("Add Chorus",x+4,y+4,w-8,24,0)){mixer_effect_add(bus,slot,EFFECT_CHORUS);ui.context_kind=0;}

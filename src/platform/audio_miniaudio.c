@@ -288,6 +288,7 @@ static void consume_commands(void) {
             memcmp(project.clip_steps,next->clip_steps,sizeof project.clip_steps) ||
             memcmp(project.clip_offsets,next->clip_offsets,sizeof project.clip_offsets) ||
             memcmp(project.audio_seconds,next->audio_seconds,sizeof project.audio_seconds)) player.audio_resync=1;
+        for(unsigned bus=0;bus<=INSERTS;bus++)if(project.effect_revision[bus]!=next->effect_revision[bus])effects_reset_bus(effects,bus);
         project=*next;
     }
     if(snapshot && (flags & SNAPSHOT_PLAN)) playback=snapshot->plan;

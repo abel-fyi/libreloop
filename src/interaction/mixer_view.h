@@ -13,12 +13,13 @@ static inline MixerView mixer_view(float width,float height,int count,float offs
     v.viewport=fmaxf(1,width-v.insert_x-4);
     v.maximum=fmaxf(0,count*MIXER_STRIDE-v.viewport);
     v.offset=fmaxf(0,fminf(v.maximum,offset));
-    v.fx_rows=fx_hidden?0:(int)fmaxf(1,fminf(3,floorf((height-202)/22)));
+    v.fx_rows=fx_hidden?0:(int)fmaxf(1,fminf(4,floorf((height-202)/22)));
     v.fx_height=v.fx_rows*22;v.header=v.fx_top+v.fx_height+4;
     v.controls=v.header+32;v.fader_top=v.header+48;
     v.fader_bottom=fmaxf(v.fader_top+12,height-66);v.route=height-31;
     return v;
 }
+static inline float mixer_fx_top(MixerView v,int slots) {return v.fx_top+fmaxf(0,v.fx_height-slots*22);}
 /* Motion is already normalized to logical units by navigation_motion(). */
 static inline float mixer_scroll_motion(MixerView v,float dx,float dy,int shift,float x,float y,float *fx_scroll) {
     if(x<0 || x>=v.width || y<v.fx_top || y>=v.height-18)return v.offset;

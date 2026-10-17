@@ -8,7 +8,7 @@ no new scroll animation or timer; incoming trackpad momentum is applied as
 received. The existing event-waiting policy is unchanged.
 
 FX slots sit above each strip. The FX button hides/restores the shelf. Depending
-on Mixer height, the shelf displays one to three 22-unit rows; wheel/vertical
+on Mixer height, the shelf displays one to four 22-unit rows; wheel/vertical
 trackpad motion over a strip’s shelf reveals its other rows. Each strip,
 including Master, keeps its own scroll offset; the global row arrows are gone.
 An unused strip shows one unlabeled blank slot. Adding an effect exposes one
@@ -95,3 +95,41 @@ FX shelf refinement: blank slots have no “Empty” label, and only existing
 effects plus a trailing add slot are drawn. Per-strip scroll offsets remain
 UI state, reset on project replacement, and do not alter the project format.
 Local review capture: `../baseline-artifacts/mixer-fx-growth/`.
+
+## Cable graph and FX order
+
+Outputs now support additional unity-gain destinations, and inputs sum multiple
+sources. Dragging a studio output to an input adds a cable without replacing
+its existing destinations. Duplicate connections are ignored. Self-connections
+and cycles through any branch are rejected. Right-click an input or output to
+remove individual connections or all its cables. Selecting a strip displays
+its visible incoming and outgoing connections; dragging adds a preview cable.
+
+The project stores extra destinations in the optional typed `x-insert-sends`
+field. It is omitted when there are no extra connections, leaving original
+single-output fixtures byte-identical. Missing extra destinations load as zero.
+The primary route remains available to the legacy renderer. Validation rejects
+cycles, duplicate primary/extra routes, nonboolean flags and invalid endpoints.
+The prepared playback plan holds compact destination lists and a topological
+order; sample rendering adds each processed bus to its destinations without
+allocating, locking or searching the routing matrix.
+
+The expanded shelf now reserves up to four rows (fewer at small Mixer heights
+to preserve usable faders). Short stacks are bottom-aligned against the strip
+header, with one trailing blank add slot. Click an effect to toggle its editor;
+drag it vertically past four logical units to reorder it within its chain.
+A line marks the target, wheel motion scrolls that chain during dragging, and
+Escape/right-click or dropping outside its shelf cancels. Processing follows
+the displayed top-to-bottom order. Parameters, bypass, wet/dry, automation,
+MIDI bindings and open editors follow the moved effect. Undo captures the
+completed operation. Reordering invalidates DSP history on that bus, restarting
+its effect tails; unrelated buses retain their state.
+
+`mixer_routing_test` checks actual cached/uncached rendering of fan-out and
+fan-in, exact unity sums, individual removal, persistence, reset and cycle
+rejection. `effect_chain_test` checks settings and binding remapping and inverse
+moves; `mixer_slots_test` also drives the actual frontend drag/release/cancel
+handler and checks open editor identities. The 144-test suite passed before
+the final frontend drag coverage; the focused Mixer/chain/routing tests passed
+with that coverage. Software capture: `../baseline-artifacts/mixer-cables/`.
+Native gesture feel, hardware audio and performance remain unverified.

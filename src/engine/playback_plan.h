@@ -8,6 +8,7 @@
 struct PlaybackPlan {
     float lengths[LANES][CLIPS],song_end;
     uint8_t io_active[INSERTS+1],input_audible[INSERTS+1],effect_audible[INSERTS+1],channel_audible[CHANNELS];
+    uint8_t sends[INSERTS][INSERTS+1],send_count[INSERTS];
     int order[INSERTS+1],buses_count,effects,geometry;
 };
 void playback_plan_prepare(PlaybackPlan *plan,const Project *p,int effects,const MixerIO *io,int geometry);

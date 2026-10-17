@@ -170,6 +170,7 @@ int pattern_delete(Project *p,int pattern) {
 int insert_reset(Project *p,int id) {
     if(id<1 || id>p->insert_count) return 0;
     p->insert_volume[id-1]=p->insert_width[id-1]=1; p->insert_pan[id-1]=0; p->insert_mute[id-1]=0; p->insert_output[id-1]=0;
+    memset(p->insert_sends[id-1],0,sizeof p->insert_sends[id-1]);
     memset(p->audio_io[id],0,sizeof p->audio_io[id]);
     for(int slot=0;slot<EFFECT_SLOTS;slot++) { p->effect_type[id][slot]=EFFECT_EMPTY; p->effect_mix[id][slot]=1; device_descriptor(DEVICE_CHORUS)->defaults(&p->chorus[id][slot]); device_descriptor(DEVICE_EQ)->defaults(&p->eq[id][slot]); p->effect_bypass[id][slot]=0; }
     for(int a=p->automation_count-1;a>=0;a--) {
@@ -178,14 +179,55 @@ int insert_reset(Project *p,int id) {
     }
     return 1;
 }
-int insert_connect(Project *p,int source,int destination) {
-    if(source<1 || source>p->insert_count || destination<0 || (destination>p->insert_count && destination!=255)) return 0;
-    int next=destination;
-    for(int hops=0;next && next!=255;hops++) {
-        if(next==source || next>p->insert_count || hops>=INSERTS) return 0;
-        next=p->insert_output[next-1];
+int insert_has_send(const Project *p,int source,int destination) {
+    return source>=1 && source<=p->insert_count && destination>=0 && destination<=p->insert_count &&
+        (p->insert_output[source-1]==destination || p->insert_sends[source-1][destination]);
+}
+static int insert_reaches(const Project *p,int start,int target) {
+    int queue[INSERTS+1],read=0,count=0;uint8_t seen[INSERTS+1]={0};
+    if(start==target)return 1;
+    if(!start)return 0;
+    queue[count++]=start;seen[start]=1;
+    while(read<count) {
+        int id=queue[read++];
+        for(int dest=0;dest<=p->insert_count;dest++)if(insert_has_send(p,id,dest)) {
+            if(dest==target)return 1;
+            if(dest && !seen[dest]){seen[dest]=1;queue[count++]=dest;}
+        }
     }
-    p->insert_output[source-1]=destination; return 1;
+    return 0;
+}
+int insert_send_add(Project *p,int source,int destination) {
+    if(source<1 || source>p->insert_count || destination<0 || destination>p->insert_count || insert_reaches(p,destination,source))return 0;
+    if(p->insert_output[source-1]!=destination)p->insert_sends[source-1][destination]=1;
+    return 1;
+}
+int insert_send_remove(Project *p,int source,int destination) {
+    if(!insert_has_send(p,source,destination))return 0;
+    if(p->insert_output[source-1]==destination)p->insert_output[source-1]=255;
+    p->insert_sends[source-1][destination]=0;return 1;
+}
+int insert_routes_valid(const Project *p) {
+    int pending[INSERTS+1]={0},queue[INSERTS+1],count=0;
+    if(p->insert_count<0 || p->insert_count>INSERTS)return 0;
+    for(int source=1;source<=INSERTS;source++) {
+        int primary=p->insert_output[source-1];
+        if(primary>p->insert_count && primary!=255)return 0;
+        for(int dest=0;dest<=INSERTS;dest++) {
+            if(p->insert_sends[source-1][dest]>1 || (p->insert_sends[source-1][dest] && (source>p->insert_count || dest>p->insert_count || dest==primary)))return 0;
+            if(source<=p->insert_count && dest<=p->insert_count && insert_has_send(p,source,dest))pending[dest]++;
+        }
+    }
+    for(int bus=0;bus<=p->insert_count;bus++)if(!pending[bus])queue[count++]=bus;
+    for(int at=0;at<count;at++)if(queue[at])for(int dest=0;dest<=p->insert_count;dest++)
+        if(insert_has_send(p,queue[at],dest) && !--pending[dest])queue[count++]=dest;
+    return count==p->insert_count+1;
+}
+int insert_connect(Project *p,int source,int destination) {
+    if(source<1 || source>p->insert_count || destination<0 || (destination>p->insert_count && destination!=255))return 0;
+    if(destination!=255 && insert_reaches(p,destination,source))return 0;
+    memset(p->insert_sends[source-1],0,sizeof p->insert_sends[source-1]);
+    p->insert_output[source-1]=destination;return 1;
 }
 Note *note_at(Project *p,int pat,int channel,float start,int pitch) {
     if(pat<0 || pat>=PATTERNS || channel<0 || channel>=CHANNELS) return NULL;
@@ -547,7 +589,9 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
             if(bus_width[id]!=1) { float mid=(l+r)*.5f,side=(l-r)*.5f*bus_width[id]; l=mid+side; r=mid-side; }
             if(io && io->output) io->output(io->context,id,l,r);
             if(id) {
-                int dest=pr->insert_output[id-1]; if(dest!=255) { buses[dest][0]+=l; buses[dest][1]+=r; }
+                for(int send=0;send<plan->send_count[id-1];send++) {
+                    int dest=plan->sends[id-1][send];buses[dest][0]+=l;buses[dest][1]+=r;
+                }
             } else {
                 if(sequence) { out[f*2]=l; out[f*2+1]=r; }
                 else { out[f*2]+=l; out[f*2+1]+=r; }

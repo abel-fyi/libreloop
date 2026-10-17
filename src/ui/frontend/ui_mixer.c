@@ -478,6 +478,29 @@ static void studio_fx_slots(int counts[INSERTS+1]) {
         if(t.owner<=INSERTS && t.slot<EFFECT_SLOTS && ((t.parameter>=PARAM_CHORUS_RATE && t.parameter<=PARAM_EFFECT_MIX) || (t.parameter>=PARAM_EQ_FIRST && t.parameter<=PARAM_EQ_LAST)))counts[t.owner]=fmaxf(counts[t.owner],t.slot==EFFECT_SLOTS-1?EFFECT_SLOTS:fminf(STUDIO_FX_SLOTS,t.slot+2));
     }
 }
+void desktop_fx_drag_update(void) {
+    Rect root=desktop_editor_rect(3);MixerView v=mixer_view(root.w,root.h,ui.project.insert_count,ui.mixer_offset,ui.mixer_fx_hidden);
+    DrawPoint point={ui.mouse.x-root.x,ui.mouse.y-root.y};
+    if(host_is_key_pressed(HOST_KEY_ESCAPE) || host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT) || ui.mixer_fx_hidden){ui.fx_press=ui.fx_dragging=0;return;}
+    if(fabsf(ui.mouse.x-ui.fx_press_point.x)>4 || fabsf(ui.mouse.y-ui.fx_press_point.y)>4)ui.fx_dragging=1;
+    int counts[INSERTS+1];studio_fx_slots(counts);int bus=ui.fx_bus,last=counts[bus]-1;
+    while(last>0 && !ui.project.effect_type[bus][last])last--;
+    if(ui.fx_dragging) {
+        NavigationMotion motion=navigation_motion(ui.navigation_input,0,0,ui_scale());
+        ui.mixer_fx_scroll[bus]=fmaxf(0,fminf(fmaxf(0,counts[bus]*22-v.fx_height),ui.mixer_fx_scroll[bus]+motion.y));
+    }
+    ui.fx_drop=-1;
+    if(mixer_fx_bus_at(v,point.x)==bus && point.y>=mixer_fx_top(v,counts[bus]) && point.y<v.fx_top+v.fx_height)
+        ui.fx_drop=fmaxf(0,fminf(last,floorf((point.y-mixer_fx_top(v,counts[bus])+ui.mixer_fx_scroll[bus])/22)));
+    if(!host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT)) {
+        if(ui.fx_dragging && ui.fx_drop>=0 && effect_chain_move(&ui.project,bus,ui.fx_slot,ui.fx_drop)) {
+            for(int id=5;id<WINDOW_CAPACITY;id++)if(ui.effect_windows[id].bus==bus)ui.effect_windows[id].slot=effect_slot_after_move(ui.effect_windows[id].slot,ui.fx_slot,ui.fx_drop);
+            if(ui.eq_bus==bus){ui.eq_slot=effect_slot_after_move(ui.eq_slot,ui.fx_slot,ui.fx_drop);ui.effect_slot=effect_slot_after_move(ui.effect_slot,ui.fx_slot,ui.fx_drop);}
+            snprintf(ui.status,sizeof ui.status,"Effect moved to slot %d; the chain runs top to bottom.",ui.fx_drop+1);
+        } else if(!ui.fx_dragging && ui.fx_drop==ui.fx_slot)mixer_effect_open(bus,ui.fx_slot,1);
+        ui.fx_press=ui.fx_dragging=0;
+    }
+}
 void desktop_mixer_scrollbar_update(void) {
     Rect r=desktop_editor_rect(3);MixerView v=mixer_view(r.w,r.h,ui.project.insert_count,ui.mixer_offset,ui.mixer_fx_hidden);
     ui.mixer_offset=mixer_scroll_from_thumb(v,ui.mouse.x-r.x,ui.mixer_scroll_grab);
@@ -507,12 +530,15 @@ static void studio_mixer_strip(MixerView v,int bus,int slots) {
         float left=bus?fmaxf(v.insert_x,x):x,right=bus?fminf(v.insert_x+v.viewport,x+108):x+108;
         host_begin_scissor_mode((root.x+left)*scale,(root.y+v.fx_top)*scale,(right-left)*scale,v.fx_height*scale);
         for(int slot=first;slot<slots && slot<first+v.fx_rows+1;slot++) {
-            float y=v.fx_top+slot*22-ui.mixer_fx_scroll[bus];
+            float y=mixer_fx_top(v,slots)+slot*22-ui.mixer_fx_scroll[bus];
             int type=ui.project.effect_type[bus][slot];
             const char *name=type?effect_descriptor(type)->name:"";
             if(type==EFFECT_EQ)name="EQ";
             if(button(fit_text(name,type?74:98,UI_TEXT_SIZE),2,y, type?82:104,21,mixer_effect_window(bus,slot)>=5)) {
-                if(type)mixer_effect_open(bus,slot,1);else effect_slot_menu(bus,slot);
+                if(type){
+                    ui.fx_press=1;ui.fx_dragging=0;ui.fx_bus=bus;ui.fx_slot=slot;ui.fx_drop=slot;
+                    ui.fx_press_point=(DrawPoint){ui.mouse.x+root.x+x,ui.mouse.y+root.y};
+                }else effect_slot_menu(bus,slot);
                 ui.input_enabled=0;
             }
             if(type && button(ui.project.effect_bypass[bus][slot]?"-":"o",86,y,18,21,!ui.project.effect_bypass[bus][slot]))ui.project.effect_bypass[bus][slot]^=1;
@@ -520,6 +546,10 @@ static void studio_mixer_strip(MixerView v,int bus,int slots) {
                 snprintf(ui.status,sizeof ui.status,"%s FX %d: %s | click to %s; right-click for slot options",mixer_name(bus),slot+1,name,type?"open / close":"add an effect");
                 if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT))effect_slot_menu(bus,slot);
             }
+        }
+        if(ui.fx_press && ui.fx_dragging && ui.fx_bus==bus && ui.fx_drop>=0) {
+            float y=mixer_fx_top(v,slots)+(ui.fx_drop+(ui.fx_drop>ui.fx_slot))*22-ui.mixer_fx_scroll[bus];
+            host_draw_rectangle_rec((DrawRect){2,y-1,102,2},accent);
         }
         if(slots*22>v.fx_height) {
             float thumb=v.fx_height*v.fx_height/(slots*22.f);
@@ -567,12 +597,16 @@ static void studio_mixer_strip(MixerView v,int bus,int slots) {
     label(host_text_format("%.1f",gain_db(*volume)),24,v.height-48,UI_TEXT_SIZE,ui_theme.signal);
     int input=hover(7,v.route,12,12);
     host_draw_rectangle_lines(9,v.route+2,8,8,input?ui_theme.signal:muted);
-    if(input)snprintf(ui.status,sizeof ui.status,"%s input: drop an insert output cable here",mixer_name(bus));
+    if(input){
+        snprintf(ui.status,sizeof ui.status,"%s input: drop outputs here; right-click to remove incoming cables",mixer_name(bus));
+        if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)){ui.route_menu_scroll=0;open_context(27,bus,(DrawPoint){ui.mouse.x+desktop_editor_rect(3).x,ui.mouse.y+desktop_editor_rect(3).y});}
+    }
     if(bus){
         int output=hover(29,v.route,12,12);
         circle(35,v.route+6,5,output || ui.cable_drag==bus?accent:muted);
-        circle(35,v.route+6,2,ui.project.insert_output[bus-1]==255?bg:accent);
-        if(output){snprintf(ui.status,sizeof ui.status,"Insert %d output: drag to an input; right-click to unplug",bus);if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT))insert_connect(&ui.project,bus,255);if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)){ui.cable_drag=bus;ui.mixer_selected=bus;ui.input_enabled=0;}}
+        int connected=0;for(int dest=0;dest<=v.count;dest++)connected|=insert_has_send(&ui.project,bus,dest);
+        circle(35,v.route+6,2,connected?accent:bg);
+        if(output){snprintf(ui.status,sizeof ui.status,"Insert %d output: drag to add a destination; right-click to remove cables",bus);if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)){ui.route_menu_scroll=0;open_context(26,bus,(DrawPoint){ui.mouse.x+desktop_editor_rect(3).x,ui.mouse.y+desktop_editor_rect(3).y});}if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)){ui.cable_drag=bus;ui.mixer_selected=bus;ui.input_enabled=0;}}
     }
 }
 static void mixer_studio(float width,float height) {
@@ -608,12 +642,18 @@ static void mixer_studio(float width,float height) {
     ui.mouse=pointer;ui.text_origin=origin;ui.input_enabled=enabled;
     host_begin_mode2_d((HostCamera){.offset=origin,.zoom=scale});
     host_begin_scissor_mode(root.x*scale,root.y*scale,width*scale,height*scale);
-    if(ui.mixer_selected>0 && mixer_port_visible(v,ui.mixer_selected,35)) {
-        int bus=ui.mixer_selected,dest=ui.project.insert_output[bus-1];
-        if(ui.cable_drag==bus || (dest!=255 && mixer_port_visible(v,dest,13))){
-            DrawPoint start={mixer_bus_x(v,bus)+35,v.route+6},end=ui.cable_drag==bus?pointer:(DrawPoint){mixer_bus_x(v,dest)+13,v.route+6};
-            DrawPoint points[]={start,{start.x,height-19},{end.x,height-19},end};cable(points,host_fade(ui_theme.signal,.8f));
+    int wire=0;
+    for(int source=1;source<=v.count;source++)if(mixer_port_visible(v,source,35)) {
+        for(int dest=0;dest<=v.count;dest++)if((source==ui.mixer_selected || dest==ui.mixer_selected) && insert_has_send(&ui.project,source,dest) && mixer_port_visible(v,dest,13)) {
+            DrawPoint start={mixer_bus_x(v,source)+35,v.route+6},end={mixer_bus_x(v,dest)+13,v.route+6};
+            float lane=height-19-(wire++%4)*2;
+            DrawPoint points[]={start,{start.x,lane},{end.x,lane},end};
+            cable(points,host_fade(source==ui.mixer_selected?ui_theme.signal:ui_theme.meter_mid,.85f));
         }
+    }
+    if(ui.cable_drag>0 && mixer_port_visible(v,ui.cable_drag,35)) {
+        DrawPoint start={mixer_bus_x(v,ui.cable_drag)+35,v.route+6};
+        DrawPoint points[]={start,{start.x,height-19},{pointer.x,height-19},pointer};cable(points,accent);
     }
     DrawRect rail={v.insert_x,height-16,v.viewport,12},thumb={mixer_thumb_x(v),height-16,mixer_thumb_width(v),12};
     ui_scrollbar(host_draw(),rail,thumb,ui.mixer_pan || hover(rail.x,rail.y,rail.width,rail.height));

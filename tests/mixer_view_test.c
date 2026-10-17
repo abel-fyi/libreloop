@@ -6,7 +6,7 @@
 #define NEAR(a,b) (fabsf((a)-(b))<.002f)
 int main(void) {
     MixerView v=mixer_view(1200,354,99,37*112+.5f,0);
-    CHECK(v.master_x==42 && v.insert_x==158 && v.fx_rows==3);
+    CHECK(v.master_x==42 && v.insert_x==158 && v.fx_rows==4);
     CHECK(NEAR(mixer_bus_x(v,38),157.5f));
     CHECK(mixer_bus_visible(v,38) && !mixer_bus_visible(v,37));
     CHECK(mixer_route_hit(v,170.5f,v.route+6)==38);
@@ -26,6 +26,8 @@ int main(void) {
     CHECK(NEAR(mixer_bus_x(v,38),start-1.0625f));
     CHECK(navigation_motion((NavigationInput){0,-1,0,0},1,0,1).x==48);
     CHECK(navigation_motion((NavigationInput){-.5f,0,0,1},0,0,2).x==.25f);
+    CHECK(mixer_fx_top(v,1)==v.fx_top+66 && mixer_fx_top(v,2)==v.fx_top+44);
+    CHECK(mixer_fx_top(v,5)==v.fx_top);
     float fx=0;
     CHECK(mixer_scroll_motion(v,.25f,1.5f,0,200,v.fx_top+10,&fx)==v.offset+.25f && fx==1.5f);
     CHECK(mixer_scroll_motion(v,48,0,1,200,v.fx_top+10,&fx)==v.offset+48 && fx==1.5f);
@@ -55,7 +57,7 @@ int main(void) {
     for(int width=652;width<=1920;width+=37)for(int height=220;height<=700;height+=17)for(int hidden=0;hidden<2;hidden++) {
         v=mixer_view(width,height,99,1e6f,hidden);
         CHECK(v.offset==v.maximum && (hidden?v.fx_rows==0:v.fx_rows>=1));
-        CHECK(v.fx_rows>=0 && v.fx_rows<=3);
+        CHECK(v.fx_rows>=0 && v.fx_rows<=4);
         CHECK(v.fader_top>=v.controls+14 && v.fader_bottom>=v.fader_top+12);
         CHECK(v.fader_bottom<=height-66 && v.route>=v.fader_bottom+30);
         CHECK(mixer_bus_visible(v,99));

@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "../src/ui/frontend/ui_internal.h"
 UiState ui;Theme ui_theme;
+static int held=1,cancel;
+float ui_scale(void){return 1;}
+int host_is_key_pressed(int key){return cancel && key==HOST_KEY_ESCAPE;}
+int host_is_mouse_button_pressed(int button){(void)button;return 0;}
+int host_is_mouse_button_down(int button){return button==HOST_MOUSE_BUTTON_LEFT && held;}
+
 #include "../src/ui/frontend/ui_mixer.c"
 #define CHECK(x) do{if(!(x)){fprintf(stderr,"%d: %s\n",__LINE__,#x);return 1;}}while(0)
 int main(void) {
@@ -58,5 +64,13 @@ int main(void) {
     windows_focus(&ui.windows,1);CHECK(ui.windows.focused==1 && ui.windows.order[WINDOW_CAPACITY-1]==a);
     mixer_effect_open(1,2,1);CHECK(!ui.windows.editors[b].visible && ui.windows.editors[a].visible && ui.windows.editors[c].visible);
     mixer_effect_open(1,2,1);CHECK(mixer_effect_window(1,2)>=5);
+    ui.studio_style=1;
+    Rect root=desktop_editor_rect(3);MixerView view=mixer_view(root.w,root.h,ui.project.insert_count,0,0);
+    ui.fx_press=1;ui.fx_slot=1;ui.fx_bus=1;ui.fx_press_point=(DrawPoint){root.x+view.insert_x+50,root.y+view.fx_top+33};
+    ui.mouse=(DrawPoint){ui.fx_press_point.x,root.y+view.fx_top+77};
+    desktop_fx_drag_update();CHECK(ui.fx_dragging && ui.fx_drop==3 && ui.project.effect_type[1][3]==EFFECT_EQ);
+    held=0;desktop_fx_drag_update();CHECK(!ui.fx_press && ui.project.effect_type[1][2]==EFFECT_EQ && ui.project.effect_type[1][3]==EFFECT_CHORUS);
+    CHECK(ui.effect_windows[a].slot==3 && ui.effect_windows[b].slot==1 && ui.effect_windows[c].slot==2);
+    ui.fx_press=1;ui.fx_dragging=1;cancel=1;desktop_fx_drag_update();CHECK(!ui.fx_press && ui.project.effect_type[1][2]==EFFECT_EQ);
     return 0;
 }

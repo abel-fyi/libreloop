@@ -49,10 +49,7 @@ static int project_valid(const Project *p) {
     for(int c=0;c<CHANNELS;c++) if(!isfinite(p->channel_pitch[c]) || fabsf(p->channel_pitch[c])>1 || !isfinite(p->pitch_range[c]) || p->pitch_range[c]<1 || p->pitch_range[c]>48 || p->pitch_range[c]!=roundf(p->pitch_range[c])) return 0;
     for(int c=0;c<CHANNELS;c++) if(!isfinite(p->pan[c]) || fabsf(p->pan[c])>1 || p->route[c]>p->insert_count) return 0;
     for(int i=0;i<INSERTS;i++) if(!isfinite(p->insert_pan[i]) || fabsf(p->insert_pan[i])>1 || p->insert_mute[i]>3 || (p->insert_output[i]>p->insert_count && p->insert_output[i]!=255)) return 0;
-    for(int i=1;i<=p->insert_count;i++) {
-        uint8_t visited[INSERTS+1]={0}; int bus=i;
-        while(bus && bus!=255) { if(bus>p->insert_count || visited[bus]) return 0; visited[bus]=1; bus=p->insert_output[bus-1]; }
-    }
+    if(!insert_routes_valid(p))return 0;
     for(int pat=0;pat<PATTERNS;pat++) {
         if(!isfinite(p->pattern_steps[pat]) || p->pattern_steps[pat]<STEPS || p->pattern_steps[pat]>1e15f) return 0;
         for(int c=0;c<CHANNELS;c++) for(int n=0;n<NOTES;n++) {
@@ -111,6 +108,7 @@ static const Field fields[]={
     FLAT(route,uint8_t,U8),
     FLAT(insert_mute,uint8_t,U8),
     FLAT(insert_output,uint8_t,U8),
+    {"x-insert-sends",U8,offsetof(Project,insert_sends),INSERTS*(INSERTS+1),1,1,0,1},
     FLAT(effect_type,uint8_t,U8),
     FLAT(effect_bypass,uint8_t,U8),
     FLAT(lane_mute,uint8_t,U8),
@@ -227,7 +225,12 @@ int project_save(const char *path,const Project *p) {
     FILE *file=out.file;
     fprintf(file,PROJECT_FORMAT_MAGIC " %d\n",PROJECT_FORMAT_VERSION);
     for(size_t n=0;n<FIELD_COUNT;n++) {
-        const Field *f=&fields[n]; fprintf(file,"%s %s %zu\n",f->name,type_names[f->type],f->count);
+        const Field *f=&fields[n];
+        if(!strcmp(f->name,"x-insert-sends")) {
+            int any=0;for(int source=0;source<INSERTS;source++)for(int dest=0;dest<=INSERTS;dest++)any|=p->insert_sends[source][dest];
+            if(!any)continue;
+        }
+        fprintf(file,"%s %s %zu\n",f->name,type_names[f->type],f->count);
         for(size_t i=0;i<f->count;) {
             const unsigned char *value=address((Project *)p,f,i); size_t run=1;
             while(i+run<f->count && equal_value(value,address((Project *)p,f,i+run),f)) run++;
@@ -333,7 +336,7 @@ int project_load(const char *path,Project *p) {
         if(ok) ok=read_values(file,next,field,(FieldType)type,count);
     }
     ok=ok && ended && !ferror(file);
-    for(size_t i=0;ok && i<FIELD_COUNT;i++) if(!seen[i]) ok=0;
+    for(size_t i=0;ok && i<FIELD_COUNT;i++) if(!seen[i] && strncmp(fields[i].name,"x-",2)) ok=0;
     for(int ch;ok && (ch=fgetc(file))!=EOF;) if(!isspace((unsigned char)ch)) ok=0;
     ok=ok && !ferror(file) && structure_valid(next);
     if(ok) *p=*next;

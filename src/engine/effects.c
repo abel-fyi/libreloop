@@ -10,6 +10,9 @@ EffectRack *effects_create(unsigned buses) {
 }
 void effects_free(EffectRack *rack) { free(rack); }
 void effects_reset(EffectRack *rack) { if(rack) rack->generation++; }
+void effects_reset_bus(EffectRack *rack,unsigned bus) {
+    if(rack && bus<rack->buses)for(int slot=0;slot<EFFECT_SLOTS;slot++)rack->slots[bus*EFFECT_SLOTS+slot].generation=0;
+}
 void effects_process_eq(EffectRack *rack,unsigned bus,const uint8_t types[EFFECT_SLOTS],const ChorusSettings settings[EFFECT_SLOTS],const EQSettings eq[EFFECT_SLOTS],const float mixes[EFFECT_SLOTS],const uint8_t bypass[EFFECT_SLOTS],float stereo[2]) {
     if(!rack || bus>=rack->buses) return;
     for(int i=0;i<EFFECT_SLOTS;i++) {
