@@ -313,15 +313,16 @@ void player_seek(Player *p,const Project *pr,float step) {
     memset(p->voices,0,sizeof p->voices);
 }
 float channel_speed(const Project *p,int channel) { return p->channel_pitch[channel]?powf(2,p->channel_pitch[channel]*p->pitch_range[channel]/12):1; }
+float audio_source_speed(const Project *p,int channel) {return p->sampler[channel].stretch?1:channel_speed(p,channel);}
 float clip_source_steps(const Project *p,int source) {
     if(source<0 || source>=SOURCES) return 0;
     if(source>=AUTOMATION_SOURCE) return source-AUTOMATION_SOURCE<p->automation_count?p->automations[source-AUTOMATION_SOURCE].steps:0;
-    return source<PATTERNS?p->pattern_steps[source]:p->audio_seconds[source-PATTERNS]*audio_source_bpm(p,source-PATTERNS)/15/channel_speed(p,source-PATTERNS);
+    return source<PATTERNS?p->pattern_steps[source]:p->audio_seconds[source-PATTERNS]*audio_source_bpm(p,source-PATTERNS)/15/audio_source_speed(p,source-PATTERNS);
 }
 float clip_offset_steps(const Project *p,int lane,int clip) {
     int source=p->clips[lane][clip]-1;
     float offset=p->clip_offsets[lane][clip];
-    return AUDIO_SOURCE(source)?offset*audio_source_bpm(p,source-PATTERNS)/15/channel_speed(p,source-PATTERNS):offset;
+    return AUDIO_SOURCE(source)?offset*audio_source_bpm(p,source-PATTERNS)/15/audio_source_speed(p,source-PATTERNS):offset;
 }
 float clip_length(const Project *p,int lane,int bar) {
     float length=p->clip_steps[lane][bar]; int source=p->clips[lane][bar]-1;
@@ -361,7 +362,7 @@ static void trigger(Player *p,const Project *pr,int pat,int64_t tick,float remai
         double speed=pow(2,((int)n.pitch-60)/12.0),frames_per_step=RATE*60.0/pr->bpm/4;
         uint32_t phase[6]; int retain_phase=p->voices[v].instrument==INSTRUMENT_FM && p->voices[v].channel==c && p->voices[v].fm.engine==1 && pr->instrument[c]==INSTRUMENT_FM && fm_settings[c].engine==1 && !fm_settings[c].dx7.value[136];
         if(retain_phase) memcpy(phase,p->voices[v].fm.dx7.phase,sizeof phase);
-        p->voices[v]=(Voice){.channel=c,.sampler={.position=elapsed*frames_per_step*speed*channel_speeds[c]*master_speed*(pr->sampler[c].fit_bpm?pr->bpm/pr->sampler[c].fit_bpm:1),.speed=speed},.remaining=n.length?fmin(n.length-elapsed,remaining)*frames_per_step:-1,.gain=n.velocity/127.f,.lane=lane,.pattern=pat,.note_id=i+1};
+        p->voices[v]=(Voice){.channel=c,.sampler={.position=elapsed*frames_per_step*(pr->sampler[c].stretch?1:speed*channel_speeds[c]*master_speed)*(pr->sampler[c].fit_bpm?pr->bpm/pr->sampler[c].fit_bpm:1),.speed=speed},.remaining=n.length?fmin(n.length-elapsed,remaining)*frames_per_step:-1,.gain=n.velocity/127.f,.lane=lane,.pattern=pat,.note_id=i+1};
         if(pr->instrument[c]==INSTRUMENT_FM) {
             Voice *voice=&p->voices[v]; voice->instrument=INSTRUMENT_FM;
             voice->remaining=fmin(n.length?n.length-elapsed:1,remaining)*frames_per_step;
@@ -560,9 +561,9 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
             if(synth) {
                 if(voice->remaining>=0 && --voice->remaining<=0) { instrument_release(&voice->device,voice->instrument,(InstrumentSettings){&pr->sampler[c],&fm_controls[c]}); voice->remaining=-1; }
             } else {
-                if(pr->sampler[c].fit_bpm) {
-                    double rate=voice->sampler.tempo_rate?voice->sampler.tempo_rate:pr->bpm/pr->sampler[c].fit_bpm;
-                    gain*=fmin(1,(s[c].frames-voice->sampler.position)/(rate*voice->sampler.speed*pitch_speed*speed[c]*RATE*.005));
+                if(pr->sampler[c].fit_bpm || pr->sampler[c].stretch) {
+                    double rate=voice->sampler.tempo_rate?voice->sampler.tempo_rate:(pr->sampler[c].fit_bpm?pr->bpm/pr->sampler[c].fit_bpm:1);
+                    gain*=fmin(1,(s[c].frames-voice->sampler.position)/(rate*(pr->sampler[c].stretch?1:voice->sampler.speed*pitch_speed*speed[c])*RATE*.005));
                 }
                 if(voice->remaining>=0) {
                     gain*=fminf(1,voice->remaining/(RATE*.005f));

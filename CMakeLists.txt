@@ -95,6 +95,7 @@ if(TARGET studio_navigation_test)
 endif()
 libreloop_test(studio_mixer interaction)
 libreloop_test(mixer_view interaction)
+libreloop_test(stretch_pitch interaction)
 libreloop_test(effect_chain interaction)
 libreloop_test(mixer_routing interaction)
 libreloop_test(studio_fm_graph interaction)
@@ -161,11 +162,13 @@ if(BUILD_TESTING)
 endif()
 if(BUILD_TESTING)
   find_package(Python3 COMPONENTS Interpreter REQUIRED)
+  # The strict Phase 0 comparator remains runnable without the contract flag.
   add_test(NAME original_audio_fixtures
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/compare_fixtures.py
       --build ${CMAKE_CURRENT_BINARY_DIR}
       --fixtures ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/original
-      --report ${CMAKE_CURRENT_BINARY_DIR}/fixture-results.json)
+      --report ${CMAKE_CURRENT_BINARY_DIR}/fixture-results.json
+      --stretch-duration-contract)
 endif()
 
 if(BUILD_TESTING AND APPLE)

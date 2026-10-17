@@ -60,5 +60,5 @@ void sampler_voice_sample(SamplerVoice *voice,Sample sample,double pitch,double 
         voice->grain_ready=0;
         for(unsigned side=0;side<2;side++) stereo[side]=read_sample(sample,voice->position,side);
     }
-    voice->position+=pitch*voice->tempo_rate;
+    voice->position+=(stretch?1:pitch)*voice->tempo_rate;
 }

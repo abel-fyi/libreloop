@@ -14,7 +14,7 @@ void instrument_release(InstrumentVoice *voice,unsigned type,InstrumentSettings 
    Sampler gate fades belong to the sequencer; synth releases belong to DSP. */
 static inline void instrument_process(InstrumentVoice *voice,unsigned type,InstrumentSettings settings,Sample source,double master_pitch,double channel_pitch,double tempo,float stereo[2]) {
     if(type==INSTRUMENT_FM) fm_sample_stereo(&voice->fm,settings.fm,master_pitch*channel_pitch,stereo);
-    else sampler_voice_sample(&voice->sampler,source,voice->sampler.speed*master_pitch*channel_pitch,tempo,settings.sampler->fit_bpm && settings.sampler->stretch,stereo);
+    else sampler_voice_sample(&voice->sampler,source,voice->sampler.speed*master_pitch*channel_pitch,tempo,settings.sampler->stretch,stereo);
 }
 static inline int instrument_active(const InstrumentVoice *voice,unsigned type,Sample source) {
     return type==INSTRUMENT_FM?fm_active(&voice->fm):voice->sampler.position<source.frames;

@@ -12,7 +12,7 @@ void audio_timeline_init(AudioTimeline *map,const Project *p,int channel) {
         ParameterTarget t=p->automations[a].target;
         if(t.parameter==PARAM_MASTER_PITCH || (t.owner==(unsigned)channel && (t.parameter==PARAM_CHANNEL_PITCH || t.parameter==PARAM_PITCH_RANGE))) relevant|=1u<<a;
     }
-    if(!relevant) return;
+    if(!relevant || p->sampler[channel].stretch) return;
     int solo=solo_any(p->lane_mute,LANES);
     for(int l=0;l<LANES;l++) if(!(p->lane_mute[l]&1) && (!solo || (p->lane_mute[l]&2))) for(int b=0;b<CLIPS;b++) {
         int a=p->clips[l][b]-AUTOMATION_SOURCE-1;
@@ -21,6 +21,7 @@ void audio_timeline_init(AudioTimeline *map,const Project *p,int channel) {
 }
 static double segment(const AudioTimeline *map,double position,double *speed,double *slope) {
     const Project *p=map->project; int c=map->channel;
+    if(p->sampler[c].stretch){*speed=1;*slope=0;return INFINITY;}
     double values[3]={p->channel_pitch[c],p->pitch_range[c],p->master_pitch},slopes[3]={0},next=INFINITY,held_end[3]={-INFINITY,-INFINITY,-INFINITY};
     int active[3]={0};
     for(unsigned n=0;n<map->count;n++) {

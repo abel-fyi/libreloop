@@ -59,7 +59,7 @@ WavePeak sampler_view_envelope(int c,double position,double width,unsigned frame
 
 float audio_view_steps(int c) {
     float seconds=sampler_live_preview(c)?sampler_view_frames(c)/(float)RATE:ui.project.audio_seconds[c];
-    return seconds*audio_source_bpm(&ui.project,c)/15/channel_speed(&ui.project,c);
+    return seconds*audio_source_bpm(&ui.project,c)/15/audio_source_speed(&ui.project,c);
 }
 
 float playlist_clip_length(int lane,int clip) {
@@ -130,7 +130,7 @@ void audio_waveform_at(int c,float x,float y,float left,float right,float pixels
     if(!sample.frames) return;
     if(!recording && !preview) wave=processed_waveform(c);
     AudioTimeline map; double start=0,offset=0;
-    float full=sample.frames/(float)RATE*audio_source_bpm(&ui.project,c)/15/channel_speed(&ui.project,c)*pixels_per_step;
+    float full=sample.frames/(float)RATE*audio_source_bpm(&ui.project,c)/15/audio_source_speed(&ui.project,c)*pixels_per_step;
     if(lane>=0) {
         audio_timeline_init(&map,&ui.project,c); start=ui.project.clip_starts[lane][clip]*STEPS; offset=ui.project.clip_offsets[lane][clip]*RATE;
         full=audio_timeline_duration(&map,start,fmax(0,sample.frames-offset)/RATE*audio_source_bpm(&ui.project,c)/15)*pixels_per_step;

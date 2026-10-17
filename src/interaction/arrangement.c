@@ -137,7 +137,7 @@ void arrangement_drag(Arrangement *a,Project *p,float x,float y) {
         float low=-INFINITY,high=INFINITY;
         for(int i=0;i<LANES;i++) for(int j=0;j<CLIPS;j++) if(a->selected[i][j] && a->before[i][j]) {
             int source=a->before[i][j]-1;
-            float offset=AUDIO_SOURCE(source)?a->offsets[i][j]*audio_source_bpm(p,source-PATTERNS)/15/channel_speed(p,source-PATTERNS):a->offsets[i][j];
+            float offset=AUDIO_SOURCE(source)?a->offsets[i][j]*audio_source_bpm(p,source-PATTERNS)/15/audio_source_speed(p,source-PATTERNS):a->offsets[i][j];
             float length=a->lengths[i][j],minimum=fminf(q,length);
             if(a->edge<0) {
                 low=fmaxf(low,-a->starts[i][j]*STEPS);
@@ -164,7 +164,7 @@ void arrangement_drag(Arrangement *a,Project *p,float x,float y) {
         }
         for(int i=0;i<LANES;i++) for(int j=0;j<CLIPS;j++) if(a->selected[i][j] && a->before[i][j]) {
             int source=a->before[i][j]-1;
-            float conversion=AUDIO_SOURCE(source)?15/audio_source_bpm(p,source-PATTERNS)*channel_speed(p,source-PATTERNS):1;
+            float conversion=AUDIO_SOURCE(source)?15/audio_source_bpm(p,source-PATTERNS)*audio_source_speed(p,source-PATTERNS):1;
             float offset=a->offsets[i][j]/conversion,length=a->lengths[i][j]+(a->edge<0?-delta:delta);
             p->clip_starts[i][j]=a->starts[i][j]+(a->edge<0?delta/STEPS:0);
             p->clip_offsets[i][j]=a->offsets[i][j]+(a->edge<0?delta*conversion:0);

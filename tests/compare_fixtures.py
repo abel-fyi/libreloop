@@ -11,6 +11,8 @@ from pathlib import Path
 import struct
 import subprocess
 import tempfile
+import io
+import wave
 
 
 def pcm_error(expected, actual):
@@ -35,6 +37,7 @@ def main():
     parser.add_argument('--fixtures', type=Path, required=True)
     parser.add_argument('--max-error', type=float, default=0.0)
     parser.add_argument('--report', type=Path)
+    parser.add_argument('--stretch-duration-contract', action='store_true', help='Use the approved duration-preserving Stretch contract for feature modes 3/4; frozen files remain untouched')
     args = parser.parse_args()
     if not math.isfinite(args.max_error) or args.max_error < 0:
         parser.error('max-error must be finite and nonnegative')
@@ -64,7 +67,25 @@ def main():
                 if hashlib.sha256(expected).hexdigest() != frozen_hash:
                     raise AssertionError(f'Frozen original fixture changed: {reference}')
                 actual = (Path(directory) / name).read_bytes()
-                if name.endswith('.f32'):
+                approved_stretch = args.stretch_duration_contract and group == 'feature' and command[0] in ('3', '4') and name in ('expected.f32', 'expected-export.wav')
+                if approved_stretch:
+                    # These two original scenes encode pitch-dependent Stretch
+                    # duration, explicitly replaced by the stretch_pitch test.
+                    # Still verify the immutable reference and all nonaudio files.
+                    if name.endswith('.f32'):
+                        maximum, rms, count = pcm_error(expected, actual)
+                        summary['maximum_error'] = max(summary['maximum_error'], maximum)
+                        summary['rms_error'] = max(summary['rms_error'], rms)
+                        summary['different_samples'] += count
+                    else:
+                        with wave.open(io.BytesIO(actual), 'rb') as rendered, wave.open(io.BytesIO(expected), 'rb') as original:
+                            assert rendered.getnchannels() == original.getnchannels() == 2
+                            assert rendered.getsampwidth() == original.getsampwidth() == 2
+                            assert rendered.getframerate() == original.getframerate()
+                            assert rendered.getnframes() > 0
+                    assert actual != expected, 'Approved Stretch behavior did not change the old audio'
+                    summary.setdefault('approved_changes', []).append(name)
+                elif name.endswith('.f32'):
                     maximum, rms, count = pcm_error(expected, actual)
                     summary['maximum_error'] = max(summary['maximum_error'], maximum)
                     summary['rms_error'] = max(summary['rms_error'], rms)
@@ -77,7 +98,7 @@ def main():
             results.append(summary)
     if args.report:
         args.report.write_text(json.dumps(results, indent=2) + '\n')
-    print(f'{len(results)} original fixture scenarios passed; max error={max(r["maximum_error"] for r in results)}; timing/export exact')
+    print(f'{len(results)} fixture scenarios checked; approved Stretch changes={sum(len(r.get("approved_changes", [])) for r in results)}; all other PCM/state/project/export comparisons exact within requested tolerance')
 
 
 if __name__ == '__main__':
