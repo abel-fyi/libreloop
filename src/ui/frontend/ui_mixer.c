@@ -277,9 +277,21 @@ static void delay_editor_compact(float width,float height,int bus,int slot) {
     for(int i=0;i<7;i++) {
         float x=centers[i]*width,radius=fminf(26,width/28);
         const ParameterDescriptor *info=parameter_descriptor(ids[i]);
-        if(i==4)for(int dot=0;dot<25;dot++) {
-            float angle=-PI*.5f+dot*(2*PI/25);
-            circle(x+cosf(angle)*(radius+7),99+sinf(angle)*(radius+7),1,muted);
+        if(i==4) {
+            unsigned count;const float *marks=control_step_marks(&count);
+            float shown=displayed_value(values[i],*values[i]),ring=radius+7;
+            for(unsigned dot=0;dot+1<count;dot++) {
+                float fraction=logf(marks[dot]/info->low)/logf(info->high/info->low);
+                float next=logf(marks[dot+1]/info->low)/logf(info->high/info->low);
+                float angle=-PI*.5f+fraction*2*PI;
+                int active=fabsf(shown-marks[dot])<marks[dot]*.00001f || (!dot && fabsf(shown-info->high)<info->high*.00001f);
+                /* Endpoints share the knob's existing full-turn position. */
+                if((next-fraction)*2*PI*ring>8) {
+                    float sub=-PI*.5f+(fraction+next)*PI;
+                    circle(x+cosf(sub)*ring,99+sinf(sub)*ring,.7f,muted);
+                }
+                circle(x+cosf(angle)*ring,99+sinf(angle)*ring,active?2.3f:1.7f,active?accent:muted);
+            }
         }
         knob_sized(x,99,values[i],info->low,info->high,info->initial,info->name,styles[i],radius);
         label(names[i],x-text_width(names[i],12)/2,136,12,ink);

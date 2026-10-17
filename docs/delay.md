@@ -96,7 +96,10 @@ block determinism through time/tempo/offset/mode changes, magnetic detents and
 escape/fine/wheel behavior. The core, integration, callback, mixer and magnetic
 knob tests are also checked with AddressSanitizer and UndefinedBehaviorSanitizer.
 
-The Time ring adds 25 procedural dots per paint and no bitmap assets. Its isolated
+The Time ring reads the interaction layer's actual detent table: larger dots mark
+snap positions, the current exact mark lights cyan, and smaller midpoint dots
+subdivide gaps with enough room. Minimum/maximum share the existing full-turn
+knob position. No bitmap assets were added. Its isolated
 per-frame cost and binary-size delta have not been measured; the earlier build
 artifacts were removed during the requested cleanup.
 

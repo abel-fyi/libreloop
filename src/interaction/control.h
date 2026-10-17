@@ -9,6 +9,7 @@ typedef struct {
 } ControlDrag;
 typedef struct {float *value,raw,shown;} ControlWheel;
 void control_capture(ControlDrag *state,Project *project,float *value,float low,float high,int fader);
+const float *control_step_marks(unsigned *count);
 float control_snap_steps(float raw);
 void control_drag_update_fine(ControlDrag *state,Project *project,float delta_y,float layout_scale,float global_y,int fine);
 void control_knob_wheel_fine(ControlWheel *state,Project *project,float *value,float low,float high,int style,float wheel,int fine);

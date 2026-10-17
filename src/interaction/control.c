@@ -8,10 +8,14 @@ void control_capture(ControlDrag *s,Project *p,float *value,float low,float high
     s->magnetic=descriptor && target.parameter==PARAM_DELAY_STEPS;
     s->raw=*value;s->value=value;s->low=descriptor?descriptor->low:low;s->high=descriptor?descriptor->high:high;s->fader=fader;s->reverse=0;
 }
+static const float step_marks[]={.125f,1.f/6,.25f,1.f/3,.5f,2.f/3,.75f,1,4.f/3,1.5f,2,8.f/3,3,4,16.f/3,6,8,32.f/3,12,16};
+const float *control_step_marks(unsigned *count) {
+    *count=sizeof step_marks/sizeof *step_marks;return step_marks;
+}
 float control_snap_steps(float raw) {
-    static const float marks[]={.125f,1.f/6,.25f,1.f/3,.5f,2.f/3,.75f,1,4.f/3,1.5f,2,8.f/3,3,4,16.f/3,6,8,32.f/3,12,16};
+    unsigned count;const float *marks=control_step_marks(&count);
     float best=raw,distance=.035f;
-    for(unsigned i=0;i<sizeof marks/sizeof *marks;i++) {
+    for(unsigned i=0;i<count;i++) {
         float d=fabsf(logf(raw/marks[i]));if(d<distance){distance=d;best=marks[i];}
     }
     return best;
