@@ -11,6 +11,14 @@
 static Project project;
 static Note before[NOTES];static uint8_t selected[NOTES],selection_before[NOTES];
 int main(void) {
+    assert(grid_choice_interval(GRID_EIGHTH_TRIPLET,20)==4.f/3);
+    assert(grid_choice_interval(GRID_SIXTEENTH_TRIPLET,20)==2.f/3);
+    assert(grid_choice_interval(GRID_32_TRIPLET,20)==1.f/3);
+    assert(grid_choice_interval(GRID_64_TRIPLET,20)==1.f/6);
+    assert(grid_choice_interval(GRID_HALF_TRIPLET,20)==16.f/3);
+    assert(grid_choice_interval(GRID_QUARTER_TRIPLET,20)==8.f/3);
+    assert(!strcmp(grid_choice_name(GRID_32_TRIPLET),"1/3 step"));
+    assert(!strcmp(grid_choice_name(GRID_EIGHTH_TRIPLET),"1/3 beat"));
     assert(grid_choice_layout(GRID_64,1e-8f).lines*1e-8f>=3);
     assert(grid_choice_interval(GRID_64,1e-8f)==.25f);
     for(int choice=0;choice<GRID_CHOICES;choice++)for(int zoom=0;zoom<3;zoom++) {
