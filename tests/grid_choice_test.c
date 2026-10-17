@@ -11,6 +11,8 @@
 static Project project;
 static Note before[NOTES];static uint8_t selected[NOTES],selection_before[NOTES];
 int main(void) {
+    int seen[GRID_CHOICES]={0};float previous=INFINITY;
+    for(int row=0;row<GRID_CHOICES;row++){int item=grid_menu_choice(row);assert(item>=0 && item<GRID_CHOICES && !seen[item]++);if(row>=2){float q=grid_choice_interval(item,20);assert(q<previous);previous=q;}}
     assert(grid_choice_interval(GRID_EIGHTH_TRIPLET,20)==4.f/3);
     assert(grid_choice_interval(GRID_SIXTEENTH_TRIPLET,20)==2.f/3);
     assert(grid_choice_interval(GRID_32_TRIPLET,20)==1.f/3);

@@ -18,3 +18,8 @@ tests passed after the final cached MIDI-learn target remapping fix. Release
 build and strict app signature verification passed. Software menu captures:
 `../baseline-artifacts/triplet-grids/`. Native device/trackpad/HiDPI behavior and
 performance remain unverified.
+
+Menu order refinement: Auto/None remain first; all fixed intervals now appear
+in strictly decreasing step duration, with thirds between their adjacent
+straight divisions. A menu-row-to-choice mapping preserves existing choice IDs.
+Tests assert unique coverage of every choice and strict numeric ordering.

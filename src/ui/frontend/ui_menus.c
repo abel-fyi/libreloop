@@ -561,7 +561,7 @@ void draw_context_content(void) {
         }
     } else if(kind==24) {
         int *choice=target==1?&ui.playlist_grid:&ui.piano_grid;
-        for(int i=0;i<GRID_CHOICES;i++)if(button(grid_choice_name(i),x+4,y+4+i*25,w-8,24,*choice==i)) {*choice=i;ui.context_kind=0;return;}
+        for(int row=0;row<GRID_CHOICES;row++){int item=grid_menu_choice(row);if(button(grid_choice_name(item),x+4,y+4+row*25,w-8,24,*choice==item)) {*choice=item;ui.context_kind=0;return;}}
     } else if(kind==21 || kind==22 || kind==23) {
         if(target<0 || target>=ui.project.channel_count || ui.project.instrument[target]!=INSTRUMENT_FM) { ui.context_kind=0; return; }
         const char *engines[]={"Custom FM","Six-operator FM","Analog"},*waves[]={"Saw","Pulse","Triangle","Sine"};
