@@ -71,6 +71,16 @@ int main(void) {
     double reduction=10*log10((naive/(plain_fundamental*plain_fundamental))/(aa/(aa_fundamental*aa_fundamental)+1e-30));
     printf("7 kHz / +24 dB drive: selected folded harmonics reduced %.2f dB relative to fundamental vs point-sampled model.\n",reduction);
     CHECK(reduction>=6);
+    settings=tube_default();settings.tone=TUBE_TONE_MAX;render_sine(settings,.1f,10000,0);
+    double filtered_top=magnitude(processed,10000);settings.tone=TUBE_TONE_OFF;CHECK(tube_valid(settings));render_sine(settings,.1f,10000,0);
+    CHECK(magnitude(processed,10000)>filtered_top*1.03);
+    tube_reset(&tube);settings=tube_default();float before=0,max_jump=0;
+    for(int i=0;i<48000;i++) {
+        if(i==4096)settings.tone=TUBE_TONE_OFF;
+        float frame[2]={.1f*sinf(i*.04f),0};tube_process(&tube,settings,1,frame);
+        CHECK(isfinite(frame[0]));max_jump=fmaxf(max_jump,fabsf(frame[0]-before));before=frame[0];
+    }
+    CHECK(max_jump<.05f && tube.tone_coefficient==1);
     tube_reset(&tube);settings=(TubeSettings){36,18000,12};
     for(int i=0;i<RATE;i++){float frame[2]={i<24000?8:-8,.0000001f};tube_process(&tube,settings,1,frame);CHECK(isfinite(frame[0]) && isfinite(frame[1]) && fabsf(frame[0])<12);}
     for(int i=0;i<RATE;i++){float frame[2]={.2f,-.1f};tube_process(&tube,settings,0,frame);if(i==RATE-1)CHECK(fabsf(frame[0]-.2f)<.000001f && fabsf(frame[1]+.1f)<.000001f);}

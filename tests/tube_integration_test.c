@@ -42,6 +42,9 @@ int main(void) {
     CHECK(effect_chain_move(&project,0,0,2) && project.effect_type[0][2]==EFFECT_TUBE && project.tube[0][2].drive==36);
     CHECK(project.automations[a].target.slot==2 && project.midi_bindings[0].target.slot==2);
     effects_reset_bus(rack,0);effects_free(rack);
+    project.tube[0][2].tone=TUBE_TONE_OFF;
+    CHECK(project_save("tube-none.llp",&project) && project_load("tube-none.llp",&loaded) && loaded.tube[0][2].tone==TUBE_TONE_OFF);remove("tube-none.llp");
+    preset.tube.tone=TUBE_TONE_OFF;CHECK(preset_save("tube-none.llpreset",&preset) && preset_load("tube-none.llpreset",&restored) && restored.tube.tone==TUBE_TONE_OFF);remove("tube-none.llpreset");
     project.tube[0][2].tone=NAN;CHECK(!project_save("invalid-tube.llp",&project));preset.tube.drive=INFINITY;CHECK(!preset_save("invalid-tube.llpreset",&preset));
     puts("Tube registry, project/preset persistence, parameter targets, realtime render/export, automation and reordering passed.");return 0;
 }

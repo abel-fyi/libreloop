@@ -5,7 +5,8 @@
 void control_capture(ControlDrag *s,Project *p,float *value,float low,float high,int fader) {
     ParameterTarget target;const ParameterDescriptor *descriptor=parameter_from_pointer(p,value,&target)?parameter_descriptor(target.parameter):NULL;
     s->integer=descriptor && descriptor->kind==PARAMETER_INTEGER;s->logarithmic=descriptor && descriptor->kind==PARAMETER_LOGARITHMIC;
-    s->magnetic=descriptor && target.parameter==PARAM_DELAY_STEPS;
+    /* Existing rhythm detents (1), or the Tube Tone endpoint detent (2). */
+    s->magnetic=descriptor?(target.parameter==PARAM_DELAY_STEPS?1:target.parameter==PARAM_TUBE_TONE?2:0):0;
     s->raw=*value;s->value=value;s->low=descriptor?descriptor->low:low;s->high=descriptor?descriptor->high:high;s->fader=fader;s->reverse=0;
 }
 static const float step_marks[]={.125f,1.f/6,.25f,1.f/3,.5f,2.f/3,.75f,1,4.f/3,1.5f,2,8.f/3,3,4,16.f/3,6,8,32.f/3,12,16};
@@ -24,7 +25,7 @@ void control_drag_update_fine(ControlDrag *s,Project *p,float delta,float scale,
     if(!s->value)return;
     if(s->magnetic) {
         s->raw=fmaxf(s->low,fminf(s->high,s->raw*powf(s->high/s->low,-delta/scale/(fine?1600:160))));
-        *s->value=fine?s->raw:control_snap_steps(s->raw);return;
+        *s->value=s->magnetic==2?(s->raw>TUBE_TONE_MAX?TUBE_TONE_OFF:s->raw):fine?s->raw:control_snap_steps(s->raw);return;
     }
     float value=s->fader?fader_gain(fmaxf(0,fminf(1,(s->bottom-y)/s->range))):*s->value-delta/scale*(s->reverse?-1:1)*(s->value==&p->bpm?.25f:(s->high-s->low)/160);
     if(s->logarithmic)value=*s->value*powf(s->high/s->low,-delta/scale/160);
@@ -43,9 +44,10 @@ void control_fixed_alias(float *value,int style,int over,int pressed,float wheel
 
 void control_drag_update(ControlDrag *s,Project *p,float delta,float scale,float y) {control_drag_update_fine(s,p,delta,scale,y,0);}
 void control_knob_wheel_fine(ControlWheel *state,Project *p,float *value,float low,float high,int style,float wheel,int fine) {
-    if(style!=CONTROL_MAGNETIC){state->value=NULL;control_knob_wheel(p,value,low,high,style,wheel);return;}
+    ParameterTarget target;int tone_off=style==CONTROL_LOGARITHMIC && parameter_from_pointer(p,value,&target) && target.parameter==PARAM_TUBE_TONE;
+    if(style!=CONTROL_MAGNETIC && !tone_off){state->value=NULL;control_knob_wheel(p,value,low,high,style,wheel);return;}
     if(!wheel)return;
     if(state->value!=value || state->shown!=*value){state->value=value;state->raw=*value;}
-    state->raw=fmaxf(low,fminf(high,state->raw*powf(high/low,wheel/(fine?800:80))));
-    *value=fine?state->raw:control_snap_steps(state->raw);state->shown=*value;
+    state->raw=fmaxf(low,fminf(high,state->raw*powf(high/low,wheel/((tone_off?20:80)*(fine?10:1)))));
+    *value=tone_off?(state->raw>TUBE_TONE_MAX?TUBE_TONE_OFF:state->raw):fine?state->raw:control_snap_steps(state->raw);state->shown=*value;
 }

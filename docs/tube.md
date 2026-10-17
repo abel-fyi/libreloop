@@ -7,7 +7,7 @@ in a 480×220 logical-unit floating editor (minimum 440×220):
 | Control | Range | Default |
 |---|---|---|
 | Drive | 0–36 dB | +12 dB |
-| Tone | 1200–18000 Hz, logarithmic | 6500 Hz |
+| Tone | 1200–20000 Hz, logarithmic, then None | 6500 Hz |
 | Mix | 0–100% | 100% |
 | Output | −24–+12 dB | −3 dB |
 
@@ -28,8 +28,14 @@ The engine runs at 48000 Hz. Each side has its own state and follows:
 3. An asymmetric soft-saturation stage biased by 0.2.
 4. A 12 kHz nominal one-pole interstage low-pass.
 5. A second soft-saturation stage, gain 1.15 and bias 0.08.
-6. The variable Tone low-pass and a 16 Hz nominal DC blocker.
+6. The variable Tone low-pass (or None to bypass it) and a 16 Hz nominal DC blocker.
 7. Drive compensation, Output gain and linear dry/wet mixing.
+
+Tone snaps to **None** when dragged or wheeled above 20000 Hz. The saved endpoint
+is 22000, a bypass sentinel rather than a cutoff frequency. Raw drag/wheel motion
+is accumulated so fine movements can leave the detent. Numerical values above
+20000 also select bypass, including automated values. The fixed input/interstage
+voicing filters and antiderivative processing remain active in None mode.
 
 The envelope follows the first stage's absolute output, with approximately
 20 ms attack and 150 ms release. Positive bias introduces even harmonics as well
@@ -68,8 +74,10 @@ without Tube retain their prior serialized representation.
 
 Controls slew over 20 ms. Gain and filter targets are recalculated every 32
 samples and interpolated every sample to avoid periodic coefficient jumps.
+Tone interpolation lands exactly on its cached target at each boundary, so
+None reaches a true unity filter coefficient rather than a nearly bypassed one.
 Bypass/removal fades the wet contribution toward zero with the same smoothing.
-The processor uses **160 bytes** per instance on macOS arm64, inside the rack's
+The processor uses **168 bytes** per instance on macOS arm64, inside the rack's
 existing fixed-size union. It never allocates, frees, locks, waits, logs, or
 accesses files in rendering. Reset clears only this bounded state. Stereo sides
 share settings but have independent filters, nonlinear histories and envelopes.
@@ -94,7 +102,8 @@ processor's result to its own 7 kHz fundamental. It is one reproducible test
 case, not a universal alias-reduction figure or a hardware measurement.
 
 Tests also check decreasing gain with increasing signal level, low DC offset,
-exact dry bypass, stereo isolation, silence/reset, finite high-drive output,
+exact dry bypass, Tone None persistence/detent/transition and increased high-end
+response, stereo isolation, silence/reset, finite high-drive output,
 smoothed parameter changes and exact 64/512-frame block determinism. Integration
 checks cover project/preset roundtrips, parameter ownership, automation,
 reordering, actual callback output, and agreement with offline WAV export.

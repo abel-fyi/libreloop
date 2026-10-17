@@ -2,13 +2,15 @@
 #ifndef LIBRELOOP_TUBE_H
 #define LIBRELOOP_TUBE_H
 /* Tube-inspired saturation, fixed 48 kHz, fixed storage and no render allocation. */
+#define TUBE_TONE_MAX 20000.f
+#define TUBE_TONE_OFF 22000.f
 typedef struct {float drive,tone,output;} TubeSettings; /* dB, Hz, dB */
 typedef struct {double x,integral;} TubeStage;
 typedef struct {
     TubeStage stage[2][2];
     float pre[2],inter[2],tone_state[2],dc_input[2],dc_output[2],envelope[2];
     float drive,tone,output,wet,gain,makeup,tone_coefficient;
-    float gain_step,makeup_step,tone_step;
+    float gain_step,makeup_step,tone_step,tone_target;
     unsigned tick;int ready;
 } Tube;
 TubeSettings tube_default(void);

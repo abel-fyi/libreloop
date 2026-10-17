@@ -325,8 +325,9 @@ void effect_editor(float width,float height) {
             knob_sized(x,95,values[i],info->low,info->high,i==2?1:info->initial,info->name,i==1?KNOB_LOGARITHMIC:KNOB_NORMAL,24);
             label(names[i],x-text_width(names[i],12)/2,132,12,ink);
             float shown=displayed_value(values[i],*values[i]);
-            const char *number=i==1?host_text_format("%.0f Hz",shown):i==2?host_text_format("%.0f%%",shown*100):host_text_format("%.1f dB",shown);
+            const char *number=i==1?(shown>TUBE_TONE_MAX?"None":host_text_format("%.0f Hz",shown)):i==2?host_text_format("%.0f%%",shown*100):host_text_format("%.1f dB",shown);
             label(number,x-text_width(number,12)/2,153,12,muted);
+            if(i==1 && (hover(x-25,70,50,50) || ui.control_drag==values[i]))snprintf(ui.status,sizeof ui.status,shown>TUBE_TONE_MAX?"Tube Tone: None | Tone low-pass bypassed":"Tube Tone: %.0f Hz | turn past 20000 Hz for None",shown);
         }
         float bottom=height-30;
         if(button("Bypass",8,bottom,92,24,ui.project.effect_bypass[bus][slot]))ui.project.effect_bypass[bus][slot]^=1;
