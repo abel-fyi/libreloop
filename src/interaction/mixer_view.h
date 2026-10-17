@@ -27,6 +27,14 @@ static inline float mixer_scroll_motion(MixerView v,float dx,float dy,int shift,
     return x>=v.insert_x?fmaxf(0,fminf(v.maximum,v.offset+dx)):v.offset;
 }
 static inline float mixer_bus_x(MixerView v,int bus) {return bus?v.insert_x+(bus-1)*MIXER_STRIDE-v.offset:v.master_x;}
+/* Gaps and clipped strip edges are not FX scroll targets. */
+static inline int mixer_fx_bus_at(MixerView v,float x) {
+    if(x>=v.master_x && x<v.master_x+108)return 0;
+    if(x<v.insert_x || x>=v.insert_x+v.viewport)return -1;
+    int bus=1+(int)floorf((x-v.insert_x+v.offset)/MIXER_STRIDE);
+    float local=x-mixer_bus_x(v,bus);
+    return bus>0 && bus<=v.count && local>=0 && local<108?bus:-1;
+}
 static inline int mixer_bus_visible(MixerView v,int bus) {
     float x=mixer_bus_x(v,bus);return !bus || (bus<=v.count && x+MIXER_STRIDE>v.insert_x && x<v.insert_x+v.viewport);
 }

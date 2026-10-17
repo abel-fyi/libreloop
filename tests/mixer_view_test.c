@@ -34,6 +34,17 @@ int main(void) {
     CHECK(mixer_scroll_motion(v,48,0,0,60,v.fader_top,&fx)==v.offset);
     CHECK(mixer_scroll_motion(v,0,2,0,60,v.fx_top+5,&fx)==v.offset && fx==3.5f);
     CHECK(mixer_scroll_motion(v,48,3,0,200,10,&fx)==v.offset && fx==3.5f);
+    float offsets[101]={0};
+    int target=mixer_fx_bus_at(v,mixer_bus_x(v,39)+50);
+    CHECK(target==39);
+    mixer_scroll_motion(v,0,7.25f,0,mixer_bus_x(v,39)+50,v.fx_top+5,&offsets[target]);
+    CHECK(offsets[39]==7.25f && offsets[38]==0 && offsets[0]==0);
+    target=mixer_fx_bus_at(v,v.master_x+50);CHECK(target==0);
+    mixer_scroll_motion(v,0,3,0,v.master_x+50,v.fx_top+5,&offsets[target]);
+    CHECK(offsets[0]==3 && offsets[39]==7.25f);
+    CHECK(mixer_fx_bus_at(v,mixer_bus_x(v,39)+110)==-1);
+    CHECK(mixer_fx_bus_at(v,v.insert_x-1)==-1);
+    CHECK(mixer_fx_bus_at(v,v.insert_x+v.viewport)==-1);
     float grab=7.25f;
     CHECK(NEAR(mixer_scroll_from_thumb(v,mixer_thumb_x(v)+grab,grab),v.offset));
     CHECK(mixer_scroll_from_thumb(v,-100,grab)==0);

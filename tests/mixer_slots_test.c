@@ -16,13 +16,20 @@ int main(void) {
 
     }
     ui.windows.editors[3].rect.w=saved_width;ui.project.insert_count=saved_count;ui.studio_style=0;
-    int counts[INSERTS+1];studio_fx_slots(counts);CHECK(counts[1]==9);
+    int counts[INSERTS+1];studio_fx_slots(counts);CHECK(counts[1]==1);
+    for(int slot=0;slot<STUDIO_FX_SLOTS;slot++) {
+        ui.project.effect_type[2][slot]=EFFECT_CHORUS;studio_fx_slots(counts);
+        CHECK(counts[2]==(slot<8?slot+2:9) && counts[1]==1);
+    }
+    ui.project.effect_type[2][3]=EFFECT_EMPTY;studio_fx_slots(counts);CHECK(counts[2]==9);
+    memset(ui.project.effect_type[2],0,sizeof ui.project.effect_type[2]);
+    studio_fx_slots(counts);CHECK(counts[2]==1);
     ui.project.midi_binding_count=1;ui.project.midi_bindings[0].target=(ParameterTarget){PARAM_CHANNEL_VOLUME,1,9};
-    studio_fx_slots(counts);CHECK(counts[1]==9);
+    studio_fx_slots(counts);CHECK(counts[1]==1);
     ui.project.midi_bindings[0].target=(ParameterTarget){PARAM_EQ_FIRST,100,9};
-    studio_fx_slots(counts);CHECK(counts[100]==10 && counts[1]==9);ui.project.midi_binding_count=0;
+    studio_fx_slots(counts);CHECK(counts[100]==10 && counts[1]==1);ui.project.midi_binding_count=0;
     mixer_effect_add(1,9,EFFECT_CHORUS);
-    studio_fx_slots(counts);CHECK(counts[1]==10 && counts[0]==9);
+    studio_fx_slots(counts);CHECK(counts[1]==10 && counts[0]==1);
     CHECK(ui.eq_bus==1 && ui.eq_slot==9 && ui.effect_slot==9 && ui.windows.workspace.inspector==4 && ui.windows.workspace.floating[5]);
     CHECK(ui.windows.editors[5].visible && !ui.windows.editors[4].visible);
     CHECK(ui.project.effect_type[1][9]==EFFECT_CHORUS && ui.project.effect_mix[1][9]==.5f);

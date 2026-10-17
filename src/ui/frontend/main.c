@@ -240,7 +240,7 @@ int main(int argc,char **argv) {
         }
         ui.mouse=host_get_mouse_position(); ui.mouse.x/=scale; ui.mouse.y/=scale; ui.reset=0; ui.popup_opened=0; ui.context_opened=0;
         host_set_mouse_cursor(HOST_MOUSE_CURSOR_DEFAULT);
-        if(smoke && frames==0){ui.velocity_lane.height=smoke_velocity;ui.velocity_lane.collapsed=smoke_velocity<0;ui.position_seconds=smoke_seconds;ui.mixer_offset=smoke_mixer_offset;ui.mixer_fx_scroll=smoke_fx_scroll;ui.mixer_fx_hidden=smoke_fx_hidden;if(smoke_inserts)ui.project.insert_count=smoke_inserts;}
+        if(smoke && frames==0){ui.velocity_lane.height=smoke_velocity;ui.velocity_lane.collapsed=smoke_velocity<0;ui.position_seconds=smoke_seconds;ui.mixer_offset=smoke_mixer_offset;for(int bus=0;bus<=INSERTS;bus++)ui.mixer_fx_scroll[bus]=smoke_fx_scroll;ui.mixer_fx_hidden=smoke_fx_hidden;if(smoke_inserts)ui.project.insert_count=smoke_inserts;}
         if(ui.studio_style)ui.piano_top=fmaxf(piano_min_top(),fminf(127,ui.piano_top));
         desktop_velocity_resize();
         navigate_editors(scale);

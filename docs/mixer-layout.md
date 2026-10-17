@@ -9,8 +9,11 @@ received. The existing event-waiting policy is unchanged.
 
 FX slots sit above each strip. The FX button hides/restores the shelf. Depending
 on Mixer height, the shelf displays one to three 22-unit rows; wheel/vertical
-trackpad motion over the shelf and its toolbar arrows reveal the other rows.
-All strips share the row offset. Nine slots are normally available. A used,
+trackpad motion over a strip’s shelf reveals its other rows. Each strip,
+including Master, keeps its own scroll offset; the global row arrows are gone.
+An unused strip shows one unlabeled blank slot. Adding an effect exposes one
+more blank slot after its last effect, up to the normal nine-slot limit. Gaps
+inside existing chains remain in place. A used,
 automated or MIDI-bound legacy tenth slot remains accessible on its bus.
 Existing effect editors still float, stack and toggle independently. The former
 selected-strip FX sidebar is absent from the studio Mixer.
@@ -37,7 +40,7 @@ Controls and text share that translation; clipped portions cannot receive input.
 - Shift+wheel scrolls horizontally; ordinary wheel uses the existing 48-unit
   navigation step. Vertical wheel over the faders or strip headers also scrolls
   inserts. Vertical motion over knobs does not pan the viewport.
-- Vertical motion over the FX shelf scrolls FX rows. Horizontal motion can pan
+- Vertical motion over an FX shelf scrolls only that strip’s FX rows. Horizontal motion can pan
   inserts at the same time. Scrolling over Master never pans inserts.
 - Dragging the horizontal scrollbar preserves the pointer's grab position in
   the thumb. Clicking the rail centers the thumb there. Offset clamps to the
@@ -73,7 +76,8 @@ reference fixtures are unchanged.
 `mixer_view_test` exercises precise fractional/momentum sequences, DPI scaling,
 scroll-region/modifier rules, fixed Master, partial-strip routing, thumb grab
 mapping, endpoint/reveal clamping, resize bounds and insert 100. FX tests cover
-legacy slot visibility from content, automation and MIDI bindings. The complete regression
+legacy slot visibility from content, automation and MIDI bindings, progressive
+slot growth, preserved gaps and independent strip scroll targeting. The complete regression
 suite also covers the original additive mute/solo and audio behavior.
 
 Software/dummy SDL captures were inspected at 1448x1086 and 900x562, including
@@ -86,3 +90,8 @@ hands-on validation; no performance improvement is claimed.
 Release build and strict bundle signature verification passed. All 142 tests
 passed; the four Mixer/workspace tests also passed after the final cable-port
 clipping check. Native display and device checks remain unverified.
+
+FX shelf refinement: blank slots have no “Empty” label, and only existing
+effects plus a trailing add slot are drawn. Per-strip scroll offsets remain
+UI state, reset on project replacement, and do not alter the project format.
+Local review capture: `../baseline-artifacts/mixer-fx-growth/`.

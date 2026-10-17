@@ -164,7 +164,7 @@ typedef struct {
     int device_count,device_target,device_io,device_scroll;
     Browser browser;
     int route_drag,route_start,mixer_selected,mixer_scroll,mixer_pan,cable_drag;
-    float mixer_offset,mixer_scroll_grab,mixer_fx_scroll;
+    float mixer_offset,mixer_scroll_grab,mixer_fx_scroll[INSERTS+1];
     int mixer_fx_hidden;
     float route_y;
     Sample audition;
