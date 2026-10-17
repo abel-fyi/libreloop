@@ -1,0 +1,11 @@
+first 0 0 16 0 0 0 1 2 3
+interpolation 0 10 16 0 0 0 1 2 3
+outside -1 10 16 0 0 0 1 2 3
+second-row 1 8 16 0 0 0 1 2 3
+erase 1 10 16 0 0 0 1 2 3
+audio-filter 1 2 16 1 0 1
+non-audio-filter 0 2 16 2 0 0 2 3
+melodic-note-block -1 2 16 0 2 0 1 2 3
+melodic-flag-block -1 2 16 0 3 0 1 2 3
+duration-extension 0 31 32 0 0 0 1 2 3
+right-boundary -1 31 32 0 0 0 1 2 3

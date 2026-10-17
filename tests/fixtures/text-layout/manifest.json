@@ -1,0 +1,12 @@
+{
+  "reference_commit": "5e860696fe6cb6cd4c170f6ebf5378039b3e4af6",
+  "raylib_archive_sha256": "aea98ecf5bc5c5e0b789a76de0083a21a70457050ea4cc2aec7566935f5e258e",
+  "font_sha256": "76d04c18ea243f426b7de1f3ad208e927008f961dc5945e5aad352d0dfde8ee8",
+  "files": {
+    "bitmap-atlas.bin": "baf1c9d91593cb18ecca441bcf012067a063e83f11b85b38db1dd3f01bd814d8",
+    "bitmap-metrics.txt": "5ff360c39bab8e97a8cde631ffac6b375743b7c6888c14585cccdf8f9fd11aac",
+    "layout.txt": "8827e5b5885da1d8ca4ff1fff1c076ef426e24513aa8c824f24870c287703e4b"
+  },
+  "repeat_exact": true,
+  "method": "Original default-font construction and DrawTextEx/DrawTextCodepoint with texture upload/quad emission captured instead of GL; actual linked MeasureTextEx/GetGlyphIndex/GetCodepointNext. 160 text cases across two fonts."
+}

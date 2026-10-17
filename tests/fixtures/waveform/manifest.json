@@ -1,0 +1,41 @@
+{
+  "reference_commit": "5e860696fe6cb6cd4c170f6ebf5378039b3e4af6",
+  "scenarios": [
+    {
+      "mode": 0,
+      "files": {
+        "quads.txt": "85f15fefb4464a3d39b2363f377bc2951cf214973b429d94d99cf475b224b69a"
+      },
+      "repeat_exact": true
+    },
+    {
+      "mode": 1,
+      "files": {
+        "quads.txt": "5fa45649617483fe4d274926201175afec7c03f3437e72dc913f3b67547a1a25"
+      },
+      "repeat_exact": true
+    },
+    {
+      "mode": 2,
+      "files": {
+        "quads.txt": "a6d3f5c028ef2e2a1bb8cd20ba35d5f96550a1ab2298f51ab400a3873b879562"
+      },
+      "repeat_exact": true
+    },
+    {
+      "mode": 3,
+      "files": {
+        "quads.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "repeat_exact": true
+    },
+    {
+      "mode": 4,
+      "files": {
+        "quads.txt": "0e26eb060c459deb09949cc1f382dfddcc1f51854367c833789554c17a196ea7"
+      },
+      "repeat_exact": true
+    }
+  ],
+  "method": "Actual original wave_source/wave_quad/draw_waveform with GL vertex calls intercepted. Original engine envelope/timeline; mono/stereo, layout/raster scales1/2/4/1.25, tempo fit/pitch automation, no-op bounds and preview callback geometry. Preview provider is deterministic harness, not real sampler-view service."
+}

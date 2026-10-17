@@ -1,0 +1,9 @@
+{
+  "reference_commit": "5e860696fe6cb6cd4c170f6ebf5378039b3e4af6",
+  "raylib_version": "5.5",
+  "capture": "Actual pinned filename/extension/TextFormat APIs; 24 path names, 13 extension lists, split-count boundary, null stem, format lengths and four-buffer lifetime; two identical runs",
+  "files": {
+    "paths.txt": "e259ed93dd60934bb9e312156a0ecc233a89e263646286e0bfe6d4e6f1492778",
+    "format.bin": "a164c58d2d64de1ad907fb184cf412f61281523597e90399a5fad0bdc798cac4"
+  }
+}

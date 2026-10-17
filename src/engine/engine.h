@@ -1,0 +1,167 @@
+// SPDX-License-Identifier: GPL-3.0-only
+#ifndef ENGINE_H
+#define ENGINE_H
+#include <stdint.h>
+#include <stddef.h>
+#include <limits.h>
+#include "sampler.h"
+#include "effects.h"
+#include "instrument.h"
+#include "parameter.h"
+#define SAMPLE_EMPTY "@empty" /* stored in paths for an unloaded sampler */
+#define CHANNELS 32
+#define PATTERNS 8
+#define PATTERN_NAME 48
+#define COLOR_HUES 12
+#define COLOR_COUNT (COLOR_HUES*2)
+extern const uint32_t pattern_palette[COLOR_COUNT];
+uint32_t next_source_color(const uint32_t *colors,int count);
+#define STEPS 16
+#define NOTES 128
+#define LANES 100
+#define BARS 16 /* initial Playlist view, not a timeline limit */
+#define CLIPS 64
+#define MIDI_BINDINGS 32
+typedef struct { unsigned channel,controller; ParameterTarget target; } MidiBinding;
+#define AUTOMATIONS 32
+#define AUTOMATION_POINTS 64
+#define AUTOMATION_SOURCE (PATTERNS+CHANNELS)
+#define SOURCES (AUTOMATION_SOURCE+AUTOMATIONS)
+#define AUDIO_SOURCE(s) ((s)>=PATTERNS && (s)<AUTOMATION_SOURCE)
+typedef struct { float step,value; } AutomationPoint;
+typedef struct { ParameterTarget target; float steps; int count; uint32_t color; char name[48]; AutomationPoint points[AUTOMATION_POINTS]; } Automation;
+#define INSERTS 100
+#define VOLUME_KNOB_MAX 1.25f
+#define MIXER_GAIN_MAX 2.f /* +6.02 dB; unity is 1 */
+float gain_db(float gain);
+float fader_position(float gain);
+float fader_gain(float position);
+typedef struct { uint8_t pitch, velocity; float start, length; } Note; /* length 0 = drum one-shot */
+typedef struct {
+    float bpm;
+    int pattern_count,channel_count;
+    float volume[CHANNELS], pan[CHANNELS], master;
+    float channel_pitch[CHANNELS],pitch_range[CHANNELS]; /* normalized -1..1, range 1..48 semitones */
+    uint8_t mute[CHANNELS]; /* bits: 1 mute, 2 solo */
+    Note notes[PATTERNS][CHANNELS][NOTES];
+    uint8_t clips[LANES][CLIPS]; /* 0 empty; pattern + 1, PATTERNS + Audio + 1, AUTOMATION_SOURCE + automation + 1 */
+    float clip_steps[LANES][CLIPS],clip_starts[LANES][CLIPS]; /* Audio lengths in seconds; patterns/automation in steps */
+    float clip_offsets[LANES][CLIPS]; /* source offset: seconds for Audio, steps for patterns/automation */
+    uint8_t channel_audio[CHANNELS];
+    float audio_seconds[CHANNELS]; /* processed sample duration */
+    float pattern_steps[PATTERNS];
+    char paths[CHANNELS][1024],channel_names[CHANNELS][PATTERN_NAME];
+    char pattern_names[PATTERNS][PATTERN_NAME];
+    uint32_t pattern_colors[PATTERNS]; /* RGB */
+    uint32_t channel_colors[CHANNELS]; /* RGB; 0 uses automatic duration color */
+    int insert_count;
+    uint8_t route[CHANNELS],insert_mute[INSERTS]; /* route: 0 Master, 1..count insert; insert_mute bits: 1 mute, 2 solo */
+    float insert_volume[INSERTS],insert_pan[INSERTS];
+    uint8_t insert_output[INSERTS]; /* 0 = Master, 1..count = insert, 255 = disconnected */
+    Sampler sampler[CHANNELS];
+    uint8_t instrument[CHANNELS];
+    FMSettings fm[CHANNELS];
+    float master_pitch; /* semitones; sample speed, independent of tempo */
+    float insert_width[INSERTS],master_width; /* 0 mono, 1 unchanged, 2 wider */
+    uint8_t master_mute,lane_mute[LANES]; /* lane bits: 1 mute, 2 solo */
+    char audio_io[INSERTS+1][2][128]; /* input/output device choices; routing/recording reserved */
+    uint8_t effect_type[INSERTS+1][EFFECT_SLOTS];
+    ChorusSettings chorus[INSERTS+1][EFFECT_SLOTS];
+    EQSettings eq[INSERTS+1][EFFECT_SLOTS];
+    float effect_mix[INSERTS+1][10]; /* wet/dry */
+    uint8_t effect_bypass[INSERTS+1][10];
+    char track_names[LANES][PATTERN_NAME];
+    char insert_names[INSERTS][PATTERN_NAME];
+    int automation_count;
+    Automation automations[AUTOMATIONS];
+    int midi_binding_count;
+    MidiBinding midi_bindings[MIDI_BINDINGS];
+    float swing; /* 0..1; delays offbeat sixteenths up to half a step */
+} Project;
+typedef struct PlaybackPlan PlaybackPlan;
+/* Sequencing/mixing state wraps device-owned DSP state. */
+typedef struct { int channel; union { InstrumentVoice device; SamplerVoice sampler; FMVoice fm; }; uint8_t instrument; double remaining; float gain; int lane,audio_clip,pattern,note_id; } Voice;
+typedef struct {
+    EffectRack *effects; /* borrowed runtime rack; attach after player_reset */
+    uint64_t frame;
+    float clock_bpm; /* preserve musical position when BPM changes */
+    int64_t last_step;
+    int song, pattern;
+    int audio_resync; /* reconcile edited Song Audio clips at the current frame */
+    float start_step,loop_start,loop_end; /* loop_end 0 disables the playback region */
+    Voice voices[128];
+    uint8_t channel_active[CHANNELS],channel_trigger[CHANNELS];
+    uint8_t lane_active[LANES],lane_trigger[LANES]; /* activity from the latest render block */
+    const PlaybackPlan *plan; /* optional prepared geometry/routing; reset clears it */
+} Player;
+/* Editing always follows the visible grid (ruler spacing at distant zooms). */
+float grid_interval(float pixels_per_step);
+float snap_floor(float value,float interval);
+float snap_round(float value,float interval);
+void timeline_zoom(float *span,float *start,float wheel,float anchor,float unit);
+float timeline_thumb(float width,float span,float range);
+/* Visual density is independent of the editing snap interval. Zero lines means bands only. */
+typedef struct { float lines,labels,band_alpha; } TimelineGrid;
+TimelineGrid timeline_grid_layout(float pixels_per_step);
+int parameter_info(const Project *p,ParameterTarget target,float *value,float *low,float *high);
+int parameter_write(Project *p,ParameterTarget target,float normalized);
+int parameter_from_pointer(const Project *p,const void *pointer,ParameterTarget *target);
+float automation_value(const Automation *a,float step);
+/* Song-position lookup for future built-in processors; 0 means no automation has started. */
+int automation_evaluate(const Project *p,ParameterTarget target,float step,float *normalized);
+int automation_point(Automation *a,float step,float value);
+int automation_move_point(Project *p,int index,int point,float step,float value);
+int automation_create(Project *p,ParameterTarget target,const char *name,float steps);
+int automation_delete(Project *p,int index);
+int automation_valid(const Project *p);
+float audio_source_bpm(const Project *p,int channel);
+void project_default(Project *p);
+void project_new(Project *p);
+void project_demo(Project *p);
+int insert_reset(Project *p,int id);
+int pattern_delete(Project *p,int pattern);
+/* Preserve notes, routing, sample data/settings and names; remove unsupported FM automation. */
+int channel_replace_instrument(Project *project,int channel,int type);
+int channel_delete(Project *p,int channel);
+int insert_connect(Project *p,int source,int destination);
+int solo_any(const uint8_t *states,int count);
+void solo_toggle(uint8_t *states,int count,int selected);
+Note *note_at(Project *p,int pattern,int channel,float start,int pitch);
+int note_hit(const Note notes[NOTES],float step,int pitch); /* Last drawn note wins. */
+/* before != NULL makes a replaceable straight-line ramp; NULL paints a segment. */
+void notes_velocity(Note notes[NOTES],const Note before[NOTES],float from,float to,float from_value,float to_value,float radius);
+Note *note_add(Project *p,int pattern,int channel,float start,int pitch,float length);
+int note_move(Project *p,int pattern,int channel,Note *note,float start,int pitch,float limit);
+int notes_move(Project *p,int pattern,int channel,const Note before[NOTES],const uint8_t selected[NOTES],float dx,int dy,float limit);
+float notes_resize(Project *p,int pattern,int channel,const Note before[NOTES],const uint8_t selected[NOTES],float delta,float minimum);
+float channel_speed(const Project *p,int channel);
+float clip_source_steps(const Project *p,int source);
+float clip_offset_steps(const Project *p,int lane,int clip);
+float clip_length(const Project *p,int lane,int bar);
+float song_steps(const Project *p);
+typedef struct { const Project *project; int channel; unsigned count; uint16_t clips[LANES*CLIPS]; } AudioTimeline;
+void audio_timeline_init(AudioTimeline *map,const Project *p,int channel);
+double audio_timeline_source(const AudioTimeline *map,double start,double end);
+double audio_timeline_duration(const AudioTimeline *map,double start,double source_steps);
+float audio_clip_steps(const Project *p,int lane,int clip);
+double audio_clip_position(const Project *p,int lane,int clip,double step);
+void samples_default(Sample s[CHANNELS]);
+void player_reset(Player *p);
+void player_seek(Player *p,const Project *project,float step);
+void render(Player *p, const Project *project, const Sample s[CHANNELS], float *out, unsigned frames);
+void render_live(Player *p,const Project *project,const Sample s[CHANNELS],float *out,unsigned frames);
+/* Mix sequenced/live voices through the same stereo buses; optional post-fader peaks. */
+void render_mixer(Player *p,Player *live,const Project *project,const Sample s[CHANNELS],float *out,unsigned frames,int sequence,float peaks[INSERTS+1][2]);
+/* Optional realtime input and post-fader taps; callbacks allocate nothing. */
+typedef struct {
+    uint8_t active[INSERTS+1];
+    void (*input)(void *context,float buses[INSERTS+1][2]);
+    void (*output)(void *context,int bus,float left,float right);
+    void *context;
+    int monitor_only; /* Analyzer taps preserve looping; recording taps suppress it. */
+} MixerIO;
+void render_mixer_io(Player *p,Player *live,const Project *project,const Sample s[CHANNELS],float *out,unsigned frames,int sequence,float peaks[INSERTS+1][2],const MixerIO *io);
+int project_save(const char *path, const Project *p);
+int project_load(const char *path, Project *p);
+int export_wav(const char *path, const Project *p, const Sample s[CHANNELS]);
+#endif

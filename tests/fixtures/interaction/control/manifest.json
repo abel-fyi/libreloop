@@ -1,0 +1,8 @@
+{
+  "reference_commit": "5e860696fe6cb6cd4c170f6ebf5378039b3e4af6",
+  "files": {
+    "controls.txt": "6dfb10b250f27bab2895a81ddb1696629a48e4557f3b32e33fc23fcf7a844ede"
+  },
+  "repeat_exact": true,
+  "method": "Actual original capture_control plus frozen main/knob arithmetic and parameter metadata; normal/BPM/integer/logarithmic/reversed/fader/legacy-DX alias cases with explicit motion/scale/wheel."
+}

@@ -1,0 +1,8 @@
+{
+  "reference_commit": "5e860696fe6cb6cd4c170f6ebf5378039b3e4af6",
+  "files": {
+    "ruler.txt": "7f9d3f514f0bff91225af23c6ee3b606c3ed6a9c111c444d70c0681eebc68676"
+  },
+  "repeat_exact": true,
+  "method": "Actual frozen ruler_press and original main marker state branch; explicit already-snapped steps, timestamps, pointer and buttons. Start/loops, nearest edge, double-click6px/.3s boundaries, pattern/song scope, cancel/release and original reversed-time quirk."
+}

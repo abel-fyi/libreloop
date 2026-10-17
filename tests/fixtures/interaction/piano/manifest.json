@@ -1,0 +1,55 @@
+{
+  "reference": "5e860696fe6cb6cd4c170f6ebf5378039b3e4af6",
+  "scenarios": [
+    {
+      "mode": 0,
+      "files": {
+        "expected.llp": "4a97a600f88f72c3ca5e0eb357a5ae0773ac5e08db11ae174b009af4b4a94314",
+        "selection.bin": "38723a2e5e8a17aa7950dc008209944e898f69a7bd10a23c839d341e935fd5ca",
+        "previews.txt": "eb9b7d17baf1fff555b54d3755bbcdd2552ae771a5926dba8bf4e4c5f406758c",
+        "state.txt": "6b99e8ca00a9c92dafd489b84ab526adbeea74cc3f15a0e9880426ea72d900cc"
+      },
+      "repeat_exact": true
+    },
+    {
+      "mode": 1,
+      "files": {
+        "expected.llp": "65e89560436e2f5ea9195426f53ea062f276b63e635978292950df748cc3f5bb",
+        "selection.bin": "38723a2e5e8a17aa7950dc008209944e898f69a7bd10a23c839d341e935fd5ca",
+        "previews.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "state.txt": "3ada1b4f7e6f0b5db599f56a76596e0fdf01f85d83b033500a3204cf96738d20"
+      },
+      "repeat_exact": true
+    },
+    {
+      "mode": 2,
+      "files": {
+        "expected.llp": "63ba4862aba811a7c24791842a80d84f9b1c0b446f0cd6ee50bc54a131c11f27",
+        "selection.bin": "a47537219bc074cb756e1e82b1073519b098afcb2e02fdc4a8bb49c043a12e72",
+        "previews.txt": "9c252e33fb10b49bcea3fa93dfdb271a755d501533dbb3c088ff631f589f1656",
+        "state.txt": "418d092906531c560fd0e70db7feb388e4c4babc850b72a2eca036df058d0fde"
+      },
+      "repeat_exact": true
+    },
+    {
+      "mode": 3,
+      "files": {
+        "expected.llp": "6e6fc0b68da2285a47ac8f8519e0075f3f22f3c703cf995642555e5114f361e3",
+        "selection.bin": "74405e30c41046a1543d86ede797bcb511244cbfddac8afd9b4772473f8fe968",
+        "previews.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "state.txt": "4915fdf64440282ea464fcc5107cbfbfa4352a5152417a8747f34d8b458c6edc"
+      },
+      "repeat_exact": true
+    },
+    {
+      "mode": 4,
+      "files": {
+        "expected.llp": "3fa229ce2f58c17c6b7e5f121ab37e67a85f49e71200c8b3d0d4a145e9bb207f",
+        "selection.bin": "07e790e3a013a7d1bafcb2c2465826a58a7afb5c188c317da8ec3c5872297f1d",
+        "previews.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "state.txt": "c193f966c96fbe6d440938fc8ca17444b753b8d1cea0c6ee369d7ce39456fdd4"
+      },
+      "repeat_exact": true
+    }
+  ]
+}

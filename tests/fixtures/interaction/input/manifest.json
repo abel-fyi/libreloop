@@ -1,0 +1,10 @@
+{
+  "reference_commit": "5e860696fe6cb6cd4c170f6ebf5378039b3e4af6",
+  "raylib_archive_sha256": "aea98ecf5bc5c5e0b789a76de0083a21a70457050ea4cc2aec7566935f5e258e",
+  "files": {
+    "input.txt": "d38c184764b1b09e63637d25358063070884675f4068cebcb18fda4afa65d44a",
+    "clicks.txt": "753abeeacea190a479b9ab45b553e19c341f83b4a6aa59397bfb2e03a90ae613"
+  },
+  "repeat_exact": true,
+  "method": "Pinned original rcore input getters, GLFW callbacks, polling reset copied unchanged into temporary headless CORE harness; unused close-window call stubbed.9 deterministic frames with 189 key-query cases and72 button-query cases. Actual ui_shell mouse callback/query and main.c deferred click consumption are also captured with5 rapid press/release pairs; prior input.txt bytes unchanged."
+}

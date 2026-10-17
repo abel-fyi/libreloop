@@ -1,0 +1,1 @@
+uint_fast64=1 uint=1 int=1 uchar=1 float=1

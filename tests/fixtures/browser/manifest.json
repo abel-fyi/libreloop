@@ -1,0 +1,31 @@
+{
+  "reference_commit": "5e860696fe6cb6cd4c170f6ebf5378039b3e4af6",
+  "files": {
+    "browser.txt": "32ac774ee46f24ddcdc17776fbe7b13610ae9093f07633b0cf7eae3549e7e8f1"
+  },
+  "input": {
+    "directories": [
+      "samples",
+      "samples/Sub\\samples",
+      "samples/Sub\\samples/Deep",
+      "samples/.hidden-dir"
+    ],
+    "files": [
+      "samples/UPPER.WAV",
+      "samples/.hidden.WAV",
+      "samples/song.mp3",
+      "samples/z.FLAC",
+      "samples/session.llp",
+      "samples/old.hbt",
+      "samples/README.txt",
+      "samples/Sub\\samples/note.wav",
+      "samples/Sub\\samples/Deep/deep.wav"
+    ],
+    "symlinks": {
+      "samples/broken.wav": "missing-target",
+      "samples/alias.flac": "z.FLAC"
+    }
+  },
+  "repeat_exact": true,
+  "method": "Linked original browser.c/raylib directory helpers, no window. Captured complete tree/selection/favorite state; only temporary root prefix normalized."
+}

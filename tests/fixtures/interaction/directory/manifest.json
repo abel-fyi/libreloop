@@ -1,0 +1,8 @@
+{
+  "reference_commit": "5e860696fe6cb6cd4c170f6ebf5378039b3e4af6",
+  "raylib_version": "5.5",
+  "capture": "Actual pinned raylib MakeDirectory; null/empty/existing/nested/backslash/blocked/trailing/colon/dot/repeated-separator/absolute cases; two identical runs; actual pinned DirectoryExists/FileExists with existing file/directory, unreadable directory and missing path",
+  "files": {
+    "directories.txt": "7b52c170ddfd039eb590a074f528c648da5e02c53782b4a1702ceca6675fa6d3"
+  }
+}

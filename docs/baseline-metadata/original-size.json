@@ -1,0 +1,405 @@
+{
+  "executable_bytes": 4317960,
+  "method": "live link-map symbol sizes by contributing object/section; BSS separated, not summed into file size; shared strings/alignment/import metadata not uniquely attributable",
+  "symbol_bytes": [
+    {
+      "group": "application_or_other",
+      "section": "__bss",
+      "bytes": 77493
+    },
+    {
+      "group": "application_or_other",
+      "section": "__cfstring",
+      "bytes": 64
+    },
+    {
+      "group": "application_or_other",
+      "section": "__common",
+      "bytes": 192
+    },
+    {
+      "group": "application_or_other",
+      "section": "__const",
+      "bytes": 16931
+    },
+    {
+      "group": "application_or_other",
+      "section": "__cstring",
+      "bytes": 23189
+    },
+    {
+      "group": "application_or_other",
+      "section": "__data",
+      "bytes": 2370492
+    },
+    {
+      "group": "application_or_other",
+      "section": "__got",
+      "bytes": 2736
+    },
+    {
+      "group": "application_or_other",
+      "section": "__objc_imageinfo",
+      "bytes": 8
+    },
+    {
+      "group": "application_or_other",
+      "section": "__objc_methlist",
+      "bytes": 1820
+    },
+    {
+      "group": "application_or_other",
+      "section": "__objc_methname",
+      "bytes": 3510
+    },
+    {
+      "group": "application_or_other",
+      "section": "__objc_selrefs",
+      "bytes": 2416
+    },
+    {
+      "group": "application_or_other",
+      "section": "__objc_stubs",
+      "bytes": 5856
+    },
+    {
+      "group": "application_or_other",
+      "section": "__stubs",
+      "bytes": 3336
+    },
+    {
+      "group": "application_or_other",
+      "section": "__text",
+      "bytes": 365760
+    },
+    {
+      "group": "application_or_other",
+      "section": "__unwind_info",
+      "bytes": 7312
+    },
+    {
+      "group": "application_or_other",
+      "section": "unknown",
+      "bytes": 0
+    },
+    {
+      "group": "glfw",
+      "section": "__bss",
+      "bytes": 1080
+    },
+    {
+      "group": "glfw",
+      "section": "__cfstring",
+      "bytes": 1696
+    },
+    {
+      "group": "glfw",
+      "section": "__common",
+      "bytes": 14744
+    },
+    {
+      "group": "glfw",
+      "section": "__const",
+      "bytes": 2983
+    },
+    {
+      "group": "glfw",
+      "section": "__cstring",
+      "bytes": 55639
+    },
+    {
+      "group": "glfw",
+      "section": "__data",
+      "bytes": 1680
+    },
+    {
+      "group": "glfw",
+      "section": "__objc_arraydata",
+      "bytes": 16
+    },
+    {
+      "group": "glfw",
+      "section": "__objc_classlist",
+      "bytes": 40
+    },
+    {
+      "group": "glfw",
+      "section": "__objc_classname",
+      "bytes": 130
+    },
+    {
+      "group": "glfw",
+      "section": "__objc_const",
+      "bytes": 1880
+    },
+    {
+      "group": "glfw",
+      "section": "__objc_data",
+      "bytes": 400
+    },
+    {
+      "group": "glfw",
+      "section": "__objc_dictobj",
+      "bytes": 40
+    },
+    {
+      "group": "glfw",
+      "section": "__objc_ivar",
+      "bytes": 16
+    },
+    {
+      "group": "glfw",
+      "section": "__objc_methname",
+      "bytes": 3333
+    },
+    {
+      "group": "glfw",
+      "section": "__objc_methtype",
+      "bytes": 2242
+    },
+    {
+      "group": "glfw",
+      "section": "__objc_protolist",
+      "bytes": 24
+    },
+    {
+      "group": "glfw",
+      "section": "__objc_selrefs",
+      "bytes": 112
+    },
+    {
+      "group": "glfw",
+      "section": "__objc_superrefs",
+      "bytes": 16
+    },
+    {
+      "group": "glfw",
+      "section": "__text",
+      "bytes": 76004
+    },
+    {
+      "group": "miniaudio_and_audio_adapter",
+      "section": "__bss",
+      "bytes": 4215624
+    },
+    {
+      "group": "miniaudio_and_audio_adapter",
+      "section": "__const",
+      "bytes": 16532
+    },
+    {
+      "group": "miniaudio_and_audio_adapter",
+      "section": "__cstring",
+      "bytes": 3918
+    },
+    {
+      "group": "miniaudio_and_audio_adapter",
+      "section": "__data",
+      "bytes": 888
+    },
+    {
+      "group": "miniaudio_and_audio_adapter",
+      "section": "__eh_frame",
+      "bytes": 72
+    },
+    {
+      "group": "miniaudio_and_audio_adapter",
+      "section": "__text",
+      "bytes": 434092
+    },
+    {
+      "group": "raylib",
+      "section": "__bss",
+      "bytes": 37104
+    },
+    {
+      "group": "raylib",
+      "section": "__common",
+      "bytes": 11369
+    },
+    {
+      "group": "raylib",
+      "section": "__const",
+      "bytes": 23272
+    },
+    {
+      "group": "raylib",
+      "section": "__cstring",
+      "bytes": 41939
+    },
+    {
+      "group": "raylib",
+      "section": "__data",
+      "bytes": 932
+    },
+    {
+      "group": "raylib",
+      "section": "__text",
+      "bytes": 467440
+    }
+  ],
+  "sections": [
+    {
+      "address": "0x1000043e0",
+      "size": 1343296,
+      "segment": "__TEXT",
+      "section": "__text"
+    },
+    {
+      "address": "0x10014c320",
+      "size": 3336,
+      "segment": "__TEXT",
+      "section": "__stubs"
+    },
+    {
+      "address": "0x10014d040",
+      "size": 5856,
+      "segment": "__TEXT",
+      "section": "__objc_stubs"
+    },
+    {
+      "address": "0x10014e720",
+      "size": 1848,
+      "segment": "__TEXT",
+      "section": "__objc_methlist"
+    },
+    {
+      "address": "0x10014ee58",
+      "size": 124685,
+      "segment": "__TEXT",
+      "section": "__cstring"
+    },
+    {
+      "address": "0x10016d570",
+      "size": 43236,
+      "segment": "__TEXT",
+      "section": "__const"
+    },
+    {
+      "address": "0x100177e54",
+      "size": 130,
+      "segment": "__TEXT",
+      "section": "__objc_classname"
+    },
+    {
+      "address": "0x100177ed6",
+      "size": 6843,
+      "segment": "__TEXT",
+      "section": "__objc_methname"
+    },
+    {
+      "address": "0x100179991",
+      "size": 2242,
+      "segment": "__TEXT",
+      "section": "__objc_methtype"
+    },
+    {
+      "address": "0x10017a254",
+      "size": 7312,
+      "segment": "__TEXT",
+      "section": "__unwind_info"
+    },
+    {
+      "address": "0x10017bee8",
+      "size": 72,
+      "segment": "__TEXT",
+      "section": "__eh_frame"
+    },
+    {
+      "address": "0x10017c000",
+      "size": 2736,
+      "segment": "__DATA_CONST",
+      "section": "__got"
+    },
+    {
+      "address": "0x10017cab0",
+      "size": 16616,
+      "segment": "__DATA_CONST",
+      "section": "__const"
+    },
+    {
+      "address": "0x100180b98",
+      "size": 1760,
+      "segment": "__DATA_CONST",
+      "section": "__cfstring"
+    },
+    {
+      "address": "0x100181278",
+      "size": 40,
+      "segment": "__DATA_CONST",
+      "section": "__objc_classlist"
+    },
+    {
+      "address": "0x1001812a0",
+      "size": 24,
+      "segment": "__DATA_CONST",
+      "section": "__objc_protolist"
+    },
+    {
+      "address": "0x1001812b8",
+      "size": 8,
+      "segment": "__DATA_CONST",
+      "section": "__objc_imageinfo"
+    },
+    {
+      "address": "0x1001812c0",
+      "size": 16,
+      "segment": "__DATA_CONST",
+      "section": "__objc_superrefs"
+    },
+    {
+      "address": "0x1001812d0",
+      "size": 16,
+      "segment": "__DATA_CONST",
+      "section": "__objc_arraydata"
+    },
+    {
+      "address": "0x1001812e0",
+      "size": 40,
+      "segment": "__DATA_CONST",
+      "section": "__objc_dictobj"
+    },
+    {
+      "address": "0x100184000",
+      "size": 1880,
+      "segment": "__DATA",
+      "section": "__objc_const"
+    },
+    {
+      "address": "0x100184758",
+      "size": 2528,
+      "segment": "__DATA",
+      "section": "__objc_selrefs"
+    },
+    {
+      "address": "0x100185138",
+      "size": 16,
+      "segment": "__DATA",
+      "section": "__objc_ivar"
+    },
+    {
+      "address": "0x100185148",
+      "size": 400,
+      "segment": "__DATA",
+      "section": "__objc_data"
+    },
+    {
+      "address": "0x1001852e0",
+      "size": 2373996,
+      "segment": "__DATA",
+      "section": "__data"
+    },
+    {
+      "address": "0x1003c8c50",
+      "size": 4331312,
+      "segment": "__DATA",
+      "section": "__bss"
+    },
+    {
+      "address": "0x1007ea400",
+      "size": 26560,
+      "segment": "__DATA",
+      "section": "__common"
+    }
+  ]
+}

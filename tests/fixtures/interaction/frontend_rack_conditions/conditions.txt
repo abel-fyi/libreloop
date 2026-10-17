@@ -1,0 +1,2 @@
+inside 16 8
+extend 32 32

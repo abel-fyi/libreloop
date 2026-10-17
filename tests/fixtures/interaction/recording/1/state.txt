@@ -1,0 +1,3 @@
+start 2 2 0 0 0 0 0 0 0 1 0.5 0 0 0 0 0 0 0 0 Choose a MIDI input in View > MIDI / Recording
+finish 2 2 0 0 0 0 0 0 0 1 0.5 0 0 0 0 0 0 0 0 Choose a MIDI input in View > MIDI / Recording
+calls 0 0 0 13

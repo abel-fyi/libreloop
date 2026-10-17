@@ -1,0 +1,8 @@
+{
+  "reference_commit": "5e860696fe6cb6cd4c170f6ebf5378039b3e4af6",
+  "files": {
+    "automation-view.txt": "ac93068df977dcd1a6152d3bb405ce473fdf362edcce9b56af37647735a81fe8"
+  },
+  "repeat_exact": true,
+  "method": "Actual original automation_display_update/displayed_value;33 overlaps/boundaries/held/duplicate-target/mute/solo/stopped/pattern-mode cases including integer range display."
+}

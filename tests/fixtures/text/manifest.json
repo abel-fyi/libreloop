@@ -1,0 +1,296 @@
+{
+  "raylib_archive_sha256": "aea98ecf5bc5c5e0b789a76de0083a21a70457050ea4cc2aec7566935f5e258e",
+  "font_sha256": "76d04c18ea243f426b7de1f3ad208e927008f961dc5945e5aad352d0dfde8ee8",
+  "scenarios": [
+    {
+      "pixel_size": 10,
+      "files": {
+        "atlas-recs.txt": "3809f0460d1d3655bb3c76b6e3b4ab66591f397bdeafc73555841ee4e33bdaf1",
+        "glyphs.bin": "f7aadf69d1f2082b5dc47469685c3cf68a9f5ff47adc87e0da3e9eef18c66c32",
+        "metrics.txt": "8aab9fb7a545f57287e0b662239559d6030bc5e7156f48bc57c45e412eddce17",
+        "atlas.bin": "3c4860a1e1284746700db7dfa9015f652f608217ffa1dee1556b4fe1dd0d7de6"
+      },
+      "repeat_exact": true
+    },
+    {
+      "pixel_size": 11,
+      "files": {
+        "atlas-recs.txt": "ce0395915eb5b3b6299e5fc0a4128300a3bae8515e9d6300748660eb7b108aab",
+        "glyphs.bin": "933fa4ba21c183603269b9d3718c3b9031c5d8afe35a759de9e4d9465f5b0a28",
+        "metrics.txt": "3d275147a4c75740cc21337e1e5dafa2a78d87eec1b8208320a5d644f4671e0b",
+        "atlas.bin": "dbca5492deec872a8faf92224f8746f361107d18fa07a91424ef97b4b9b60cb7"
+      },
+      "repeat_exact": true
+    },
+    {
+      "pixel_size": 12,
+      "files": {
+        "atlas-recs.txt": "2ca93646140ccd2a827353ed77731fa330cac0689cf0ea7420b3cd1250b31eee",
+        "glyphs.bin": "2098ad452a1b3b5abf892b54a999d2942c8234e28ce2a8a7fc29f1e6b827edf7",
+        "metrics.txt": "bd78664eb7b476d9458b35503026cb6ab701a3f657a484bca9d3a081b3324313",
+        "atlas.bin": "9fe54679c3210648fe527f132ef785af196dbec52eec502a7ed4250a34de62a2"
+      },
+      "repeat_exact": true
+    },
+    {
+      "pixel_size": 13,
+      "files": {
+        "atlas-recs.txt": "ad6e7b767584e3609700722b7fdf104e6e1f5865cc89f60fd34cb71da52ec994",
+        "glyphs.bin": "72e2aa7f3f6ef06461250ee704f4b1775036c75667535a02c58359c9ef79f23b",
+        "metrics.txt": "d91198bb2e0c7a1fa3fd12cbf323ee1e20c62eb1bc29d588707ccdad1eb2b45f",
+        "atlas.bin": "56807822fde3837f991a6702f8e3c86a85e6aacbccf98843bc29867fdad19993"
+      },
+      "repeat_exact": true
+    },
+    {
+      "pixel_size": 14,
+      "files": {
+        "atlas-recs.txt": "4816a7feafb3addce20319f32630e09d350417c6e57394b41fbfc9035b56f404",
+        "glyphs.bin": "4a46ca14214b8ca5e941933b48b59651ece6b5bfc5989a81edcd766515a54e19",
+        "metrics.txt": "c5d6c1d5dc6aaf3bf266c753b3e50b31006b2713883d43e7aed3c9c1bd22ee0e",
+        "atlas.bin": "42b50494d76207c64ed87867e76c94acf90b4e120bb3cd79d6e73d8653282c66"
+      },
+      "repeat_exact": true
+    },
+    {
+      "pixel_size": 15,
+      "files": {
+        "atlas-recs.txt": "3be31b7fe6e307e5fa21f74f74128955b3804582f3437104bb6bea489a48f830",
+        "glyphs.bin": "8dec902226a4e1e16cec43375bb0efbf26d663226e830ad9c92efdec31dc698b",
+        "metrics.txt": "8d0fa03aeaacebeabe7111ba63c19108a98c5ef4aca019467929bc233d4da708",
+        "atlas.bin": "cbeabade16bc97bd39c03ef5090665748b745d06b68ed4e89530f1efddb16235"
+      },
+      "repeat_exact": true
+    },
+    {
+      "pixel_size": 16,
+      "files": {
+        "atlas-recs.txt": "a5d3baac82a365473380388894e87771d1c55a241c30777d7d29293cdb8f7779",
+        "glyphs.bin": "214be2960f028da53defddd6f9e716fc2aa6ee24ec1b886b58360ed37318f5db",
+        "metrics.txt": "cff1ee3f5b64a20d94900c2375b936b794f385ffc378f5aef3d30d3e2125329d",
+        "atlas.bin": "1dd92c175fb2d069511fa7f032aeacb60b5b5e9c0518d9a429f617e21a43fca7"
+      },
+      "repeat_exact": true
+    },
+    {
+      "pixel_size": 17,
+      "files": {
+        "atlas-recs.txt": "4ce01ef763b96ad70ea10a0ed48e32b8323dad17f7a10b5432bc089a9759db68",
+        "glyphs.bin": "8b70e5d6498c063b772a61c6c66bd18a0f6085aa1748a09ae35b126c7d17f10f",
+        "metrics.txt": "9f8f7bfc26b06625a1e31d0b25c2bd8d39f60d5b1e4ab368f58514086c1b7e32",
+        "atlas.bin": "f7e1a913d98d81f0d4b6ffc6d860edf22b9e824b1f65d643ea56d4942ac26e2e"
+      },
+      "repeat_exact": true
+    },
+    {
+      "pixel_size": 18,
+      "files": {
+        "atlas-recs.txt": "335e690a8074bba2f25dcd0ea5447b81c7ee00982a41b1460083818747b5b843",
+        "glyphs.bin": "81c43fd5f1818b7e82c6774adbc56a3b748933088f06d1246eba337754570dfd",
+        "metrics.txt": "26d40c11e2c7bd6908b74d0a8187169a60e9744d6e9bd2b203f2cedd4d5644aa",
+        "atlas.bin": "2c3ac97b3614aaef97669dcf03b3a97eed2a32a0cd03e1b58e3a771fc420597f"
+      },
+      "repeat_exact": true
+    },
+    {
+      "pixel_size": 19,
+      "files": {
+        "atlas-recs.txt": "359d0f0957733588a47b451bc22b0e0b31f415c597e3ae85cfdffd03f1e2a364",
+        "glyphs.bin": "a348e8d8f0afa046c6911ceb5252ef316f74d9cc205bb8ff19b5c648e7cb2a40",
+        "metrics.txt": "e3f9c22614d84f472b7aeb5aaf42ad03cf124158199f81d5cc1afde8ff0ad960",
+        "atlas.bin": "a676ba52d5182085fe033bad1c19cc3c17c2d9b971ef58abcd09c50d60d9c75a"
+      },
+      "repeat_exact": true
+    },
+    {
+      "pixel_size": 20,
+      "files": {
+        "atlas-recs.txt": "e3180dd8f1a9060ad4ced184afaa3d3bc7f42c9b8ab02745747abf6799896c7f",
+        "glyphs.bin": "f6054f0e0fc794dfa211410ea259a4e013f513dacf539b6dd41c5c8220ddbccd",
+        "metrics.txt": "c6a9cdfad390f31060d60a9bc667048908b2c5ab2f5d49b6d91d1c9d2ba1b5e4",
+        "atlas.bin": "9ec9a8124e5054e6369d7cab9a2935b766cea58cdbe6eeedbfc5c0c911418836"
+      },
+      "repeat_exact": true
+    },
+    {
+      "pixel_size": 21,
+      "files": {
+        "atlas-recs.txt": "d3fe3c92893e82e17a300f063330d287fd0b15230b7cb932652e3113cbfb32a4",
+        "glyphs.bin": "849f087735c3f3716052d1c675ea6a9ec8f37ab1e3a9a617d8000f4b81ad647a",
+        "metrics.txt": "4642eaad49e75e3c788fa405b90d31d143d8e656c38fbeae6d547fba591f8684",
+        "atlas.bin": "3abf1b8187fec3634d8f8f89fd89b2e38001954c2040327c53f0c19058b9a7d2"
+      },
+      "repeat_exact": true
+    },
+    {
+      "pixel_size": 22,
+      "files": {
+        "atlas-recs.txt": "946b7c9868bcdb34c2382148788e6858c10534813304abf13a00fa33ee72e83e",
+        "glyphs.bin": "c9780d8d626cb3f8d2387c67a5beb51e291a75b1c09f4bfa4e289ce12ab31b6b",
+        "metrics.txt": "39933b9fdcbfc59381d7b34368f5e7139f4b3b85b2a12639e1a14d0e3676db34",
+        "atlas.bin": "674c57e2aea2706cdd0e72e72a325fddc6bd26a77ab66655c3c5503b89713648"
+      },
+      "repeat_exact": true
+    },
+    {
+      "pixel_size": 23,
+      "files": {
+        "atlas-recs.txt": "f5a93ddf04a966bcff223e33f8c9f36c15a26e36b5114a163636395b178f44c5",
+        "glyphs.bin": "522fc33f8825eed4d197fc39671023d58ad6f2abc6d62cc417d196aaf4f7fce1",
+        "metrics.txt": "5d4dbaf262ac9e0c8417a8dd62b036250e4dac1b66e93e859368602e18147e46",
+        "atlas.bin": "45de760da78ed29ecc34a6639b9be83f3ef21fe5595884484ea6c8e1b0ee90d1"
+      },
+      "repeat_exact": true
+    },
+    {
+      "pixel_size": 24,
+      "files": {
+        "atlas-recs.txt": "e26788d3285687e3e78eeff51fa9d3a163a02ead638ee314e2279b3101947035",
+        "glyphs.bin": "c86990a834eebb3f860f8610935ac5fbdc3fca60e3ab7098d174044df67f0ee7",
+        "metrics.txt": "406fdf210bf8b8252793a4820b90a43b976042c50b3af7cce809592bd49e1ea7",
+        "atlas.bin": "e43c9004c71e801a1ced151d0b5f1f964bfc8a246e3b0d24b23517305b626d36"
+      },
+      "repeat_exact": true
+    },
+    {
+      "pixel_size": 25,
+      "files": {
+        "atlas-recs.txt": "9c94fd6d1debd3687d6142d82ee34b19f9533142f4516e37eb6a5a06b2e30042",
+        "glyphs.bin": "29959e7b5d1be8ac09806552567c3299feea87fbf51379ae83be926bf5d45ec0",
+        "metrics.txt": "27fcfc3b35838b01ae2d7bc7ac8b7f92e11d2c274681f94d209bbaf0e546261d",
+        "atlas.bin": "e56dc892d257af3a029f8981be009752c5a48c2e30d0f1a22b4ef3d878731ea4"
+      },
+      "repeat_exact": true
+    },
+    {
+      "pixel_size": 26,
+      "files": {
+        "atlas-recs.txt": "67c122f52176d7d0af39f4c59e3c8f3238519b52207bc5648f6e28354f753f8e",
+        "glyphs.bin": "f73f70816941adfeba868e328c0566700e3b56ad67f710202b9562948fcce5a3",
+        "metrics.txt": "3bcdc61328c180f80467cf010468255a869072aac176b8e638061aeadeba945a",
+        "atlas.bin": "ea7c750c8a6ab69d7aec60e9e4897036810366aef251536fe6e514d87ec73751"
+      },
+      "repeat_exact": true
+    },
+    {
+      "pixel_size": 27,
+      "files": {
+        "atlas-recs.txt": "33d46b8aa51cdf06696cc4f61b3e5eef95eab92edcc9df2ed6c7aa34eb299e3e",
+        "glyphs.bin": "dca06e3afeee7a885323f9ae9712e667ab148583e92e97968ef95d697bf30b87",
+        "metrics.txt": "88c6d3ca9d9269d3f9ef4bfb89906d837c1f7817ed9aeb289a71b06799116ae3",
+        "atlas.bin": "9d909951ba0793d03e1f9071afefe05b245739b5b1972184c9e505fcf8449a16"
+      },
+      "repeat_exact": true
+    },
+    {
+      "pixel_size": 28,
+      "files": {
+        "atlas-recs.txt": "6fb2132b324126548baed3bdb348e4d61366a799bcf0b7eb7fb9ff23e1fe04c3",
+        "glyphs.bin": "5a18eb8179d6eb5c91b14aa482a8cf245d9e100300388fcc5d56325b32b2460a",
+        "metrics.txt": "be65d7998a7ee05e0ddeec2fa40aa4184d4b0bd379a9a8c6d17fdb63014e101a",
+        "atlas.bin": "d8806682efeac16e663d9ca93e29d8fee0fdbde28c59902a17c31b0c49d098bd"
+      },
+      "repeat_exact": true
+    },
+    {
+      "pixel_size": 29,
+      "files": {
+        "atlas-recs.txt": "183326ea5d4d81355e534f612407b2cff2c77309e4e33a368710699394978e47",
+        "glyphs.bin": "984d5065ee749002b009ce9660a56c99c0f3a0a5ede8da04dd88cdcee1d0d105",
+        "metrics.txt": "ff8f22b7826ee1715f0122b18f730b7096049b6f2e3cf9838b04563be5e3f1d6",
+        "atlas.bin": "b5b8d025d15e30fc756c74f336752fc466734fc0754e7fdc99938e1fd8fb418b"
+      },
+      "repeat_exact": true
+    },
+    {
+      "pixel_size": 30,
+      "files": {
+        "atlas-recs.txt": "f18f9100b33e9e2aa84adfe9d4820d5ab079b55cd9636950922e074c47389135",
+        "glyphs.bin": "3264a3314fda18cd1db25351b0e194aabfcb29e1e5407713e9631b85dc5ed3f0",
+        "metrics.txt": "d66d2368a5bfd49543931f6a629563d003329fa25b16da2a5849097ea1161a80",
+        "atlas.bin": "3401d2817f8b0c3cba1595b005f3aa9dccb03b0355cdd67a00db2ae749a200f3"
+      },
+      "repeat_exact": true
+    },
+    {
+      "pixel_size": 32,
+      "files": {
+        "atlas-recs.txt": "13ce8c918093e79187d81f0dfbb3fbdb57f5d13c1e216c0da891937617b6a270",
+        "glyphs.bin": "f11531ff2ca6491de852c349dd84fe016129d3980cfdb153355926f37bb1c32d",
+        "metrics.txt": "1906c91ade8b6cd37907ae5acb4fb7e36f6473f665f3552ecd88733502febb8f",
+        "atlas.bin": "7f0a5572e90dce2ea77666e8408e36cdecdcfc4653e2ccc0e1c2f5af5baf2cca"
+      },
+      "repeat_exact": true
+    },
+    {
+      "pixel_size": 33,
+      "files": {
+        "atlas-recs.txt": "6a9d687b627ed68319da49ea9a447498916ac646b617c59f0f44ce6caba7b4c6",
+        "glyphs.bin": "05ae8248daed1031c6df6563d4fa028af8dde71e7edbb5dd4386b33c49501205",
+        "metrics.txt": "fb7183b14d4d1142ec3b510d9afad9f1049b5e63263ae1e300c86fa302f3263d",
+        "atlas.bin": "39cda8578e3e7a4d7a8c46e9f533c024b3280eb06029861c3136edb469561477"
+      },
+      "repeat_exact": true
+    },
+    {
+      "pixel_size": 34,
+      "files": {
+        "atlas-recs.txt": "c1eda3e1a5c49b9bb80d094912e47b5f06203abfe187ed3a042eb52101b06ace",
+        "glyphs.bin": "ac1da5f4a361ba37cd4f5ec90379db47f6b476b7ee4ac992f547edbc53362765",
+        "metrics.txt": "3f17da4660c8cfe3976d7ebddf19e7a3d1a5c10ec460ca4708573425028e4a12",
+        "atlas.bin": "2d830369c3437550c8e336fdeec6bc49f849e6a6856c29b7c5286702193b9a72"
+      },
+      "repeat_exact": true
+    },
+    {
+      "pixel_size": 36,
+      "files": {
+        "atlas-recs.txt": "a13bc27b40ef90727ac13b02c7f641812ecbefbcfd06e3aa2b66d9971aaf5fbf",
+        "glyphs.bin": "dab63e07f93116fd99e1612850548bf94646bed38ea39d938497468592cb73d5",
+        "metrics.txt": "bf9508e46c2e4d4b55a145ea21d4edb2a6e765eef7249f30fbf3cbd98d536f89",
+        "atlas.bin": "8eba06409a4d4ed6319ecce0765634dcbe8fb84a39a525459ae002f5925b572b"
+      },
+      "repeat_exact": true
+    },
+    {
+      "pixel_size": 38,
+      "files": {
+        "atlas-recs.txt": "ed2f8987a434f9fa0aab8b160dc6b061caa25d5560820f965fdc9a3eed3b3786",
+        "glyphs.bin": "a5cc48d6c8486bd9a1d9fae91988ff04f5ce3e5bbbb9d032025187991d5e5d55",
+        "metrics.txt": "0c91fbbd2900470a40afa8e24f745a9b2d599b86eea889654af9169e7d366b13",
+        "atlas.bin": "732f0228095cd21da9ae56c49f0b9c1815a78812a5f6485d1c1507eb5789a04b"
+      },
+      "repeat_exact": true
+    },
+    {
+      "pixel_size": 40,
+      "files": {
+        "atlas-recs.txt": "3811a8fc382b74862fcabe51e2a27ed4d671e6e3bb3fe2b4edbc26d4a404ce07",
+        "glyphs.bin": "161082b61a235a050a237f535ef0ca896729f500632f297e40c6a63ac56920a0",
+        "metrics.txt": "595e94beb7db7d8c420e0f482ff702a9fbfe7785f30205d991844acb529c09d7",
+        "atlas.bin": "155ce874131d75b6fd455ead7adcd2f3ddad96033ce73fff76b27287917c6822"
+      },
+      "repeat_exact": true
+    },
+    {
+      "pixel_size": 42,
+      "files": {
+        "atlas-recs.txt": "e56831d4bf7a1a425ec91054669e8b5d30cc06f44314865302ff503120022485",
+        "glyphs.bin": "c40b8a45952e631d8c5339f9c579de206abeef1fb035851416d89acab21c22da",
+        "metrics.txt": "e434861bf7369bf6f14b66c57e552809ebe7903d5797c51a68c409925fcef19a",
+        "atlas.bin": "ac74b9cf6bdf12aaf31ebf5c3158a2c59bce8810e17393e8a71ac481ea6f9593"
+      },
+      "repeat_exact": true
+    },
+    {
+      "pixel_size": 44,
+      "files": {
+        "atlas-recs.txt": "8882204099ccf69ce5173939e5532ade448c45a39f14126cb27719e6b0caadc9",
+        "glyphs.bin": "4efbf24e66a1d2066012e417d67bae814cf2976e9b8c024d5e5d9673f7974af6",
+        "metrics.txt": "f59c45267bd0245c9a99901dbf88e1a41814e52688f2381ba651149fe23e42c5",
+        "atlas.bin": "46d470019aecf89194e28653792b4064d878a0afa89db77c7412a9f4c33f026f"
+      },
+      "repeat_exact": true
+    }
+  ]
+}

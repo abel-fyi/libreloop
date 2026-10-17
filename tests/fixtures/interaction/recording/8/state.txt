@@ -1,0 +1,3 @@
+start 2 2 0 0 0 0 0 0 0 1 0.5 0 0 0 0 1 0 0 0 Cannot prepare recording: free Playlist tracks, memory or writable disk space required.
+finish 2 2 0 0 0 0 0 0 0 1 0.5 0 0 0 0 1 0 0 0 Cannot prepare recording: free Playlist tracks, memory or writable disk space required.
+calls 0 0 0 0

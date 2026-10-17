@@ -1,0 +1,69 @@
+{
+  "reference_commit": "5e860696fe6cb6cd4c170f6ebf5378039b3e4af6",
+  "scenarios": [
+    {
+      "mode": 0,
+      "files": {
+        "state.bin": "b02fa34aa13ee6f4a006bec7d9040549d120e27116a8f8928e05878a56e5beda",
+        "expected.llp": "5ffa194fe65f9f92b840ce021cd7e066655395e8a6461a0dffdb2c4490c39529",
+        "commands.txt": "9f7b3d7d55aa1ccb92046516fff3b5998565775e74e3cc3ceaf67c435bb1da25"
+      }
+    },
+    {
+      "mode": 1,
+      "files": {
+        "state.bin": "cc6a655ee45fc88d78d353aa388ad2802446422cdc7298c184667ce32e42ed21",
+        "expected.llp": "5ffa194fe65f9f92b840ce021cd7e066655395e8a6461a0dffdb2c4490c39529",
+        "commands.txt": "4395fd4c007a37a3aa95efcb1d05d573525e302ed92ae2b45d13c586b68ff9cf"
+      }
+    },
+    {
+      "mode": 2,
+      "files": {
+        "state.bin": "4d34049ddf4ad120fcb1798757faf2a99c43d7c1e2adaceeb5ea51743aa030b5",
+        "expected.llp": "fbce65d0cd171ad5381a7890671f71f113172b6ce7453579b45a71b552b14542",
+        "commands.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "mode": 3,
+      "files": {
+        "state.bin": "3c60b8adab3880ccab78c48079a6d5b621399da40b30029c2b9be76e6b31c9a4",
+        "expected.llp": "d8898797003f11fa565326cd52d5b9c9ab7d966d96680f4bd185bfc9c2174a07",
+        "commands.txt": "9f7b3d7d55aa1ccb92046516fff3b5998565775e74e3cc3ceaf67c435bb1da25"
+      }
+    },
+    {
+      "mode": 4,
+      "files": {
+        "state.bin": "241c9a2ef7368f98b23db1d0d97756643caf7cde13314d7352fc01eaf50dd3ef",
+        "expected.llp": "f66a2529a63f8a4c3a3fbfa6fae4d648849d34d02f44e0ce869ff555dc922467",
+        "commands.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "mode": 5,
+      "files": {
+        "state.bin": "4bdf140a5af929bc854038700eb430781899ed2f0c8ce99aebf6214909bbbd9d",
+        "expected.llp": "5ffa194fe65f9f92b840ce021cd7e066655395e8a6461a0dffdb2c4490c39529",
+        "commands.txt": "8cc4a69f70ae4138e68416bb0cc2d33ace6a84781be64b68612cccb36e7e33c4"
+      }
+    },
+    {
+      "mode": 6,
+      "files": {
+        "state.bin": "52e433c550b7e00557b12011857ccf59a086a2aa51038e80a4280f776de32761",
+        "expected.llp": "5ffa194fe65f9f92b840ce021cd7e066655395e8a6461a0dffdb2c4490c39529",
+        "commands.txt": "ef385eaf002f9388c2cd89f1c6edb0f1adb13d6ffa16296868fccf29ccffccee"
+      }
+    },
+    {
+      "mode": 7,
+      "files": {
+        "state.bin": "65f2d48887d461b182f888212363aa97977cf3fad29c1d1da7e22371f26760a4",
+        "expected.llp": "5ffa194fe65f9f92b840ce021cd7e066655395e8a6461a0dffdb2c4490c39529",
+        "commands.txt": "df93e94d387865c6d8b5549b3b0cf4866497988ed165b96cebe27023037faf88"
+      }
+    }
+  ]
+}

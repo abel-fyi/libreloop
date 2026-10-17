@@ -1,0 +1,494 @@
+[
+  {
+    "file": "audio/demo_song-512.f32",
+    "frames": 48128,
+    "maximum_abs_sample": 0.5249223709106445,
+    "sha256": "05fafb5a6cc23d24bd830c73131f2224bd861e6d37e98c5bd7539e4d00327b56"
+  },
+  {
+    "file": "audio/demo_song-64.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.5249223709106445,
+    "sha256": "70535756688bedefb9b64a9e36e5666e6cb2205db7b8e8cff7acc2592f6e3d5a"
+  },
+  {
+    "file": "audio/features/0-512/expected.f32",
+    "frames": 144000,
+    "maximum_abs_sample": 0.11127795279026031,
+    "sha256": "db6858a2b6a530a3a1221630aaf7b8abd6e43b87da2e3f3efc963887c46ad8c8"
+  },
+  {
+    "file": "audio/features/0-512/source-0.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/0-512/source-1.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/0-64/expected.f32",
+    "frames": 144000,
+    "maximum_abs_sample": 0.11127795279026031,
+    "sha256": "db6858a2b6a530a3a1221630aaf7b8abd6e43b87da2e3f3efc963887c46ad8c8"
+  },
+  {
+    "file": "audio/features/0-64/source-0.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/0-64/source-1.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/1-512/expected.f32",
+    "frames": 144000,
+    "maximum_abs_sample": 0.05607707425951958,
+    "sha256": "340e4551b9250c101676da3bf0199ac77dd5d1801323606842385b79729138d0"
+  },
+  {
+    "file": "audio/features/1-512/source-0.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/1-512/source-1.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/1-64/expected.f32",
+    "frames": 144000,
+    "maximum_abs_sample": 0.05607707425951958,
+    "sha256": "340e4551b9250c101676da3bf0199ac77dd5d1801323606842385b79729138d0"
+  },
+  {
+    "file": "audio/features/1-64/source-0.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/1-64/source-1.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/2-512/expected.f32",
+    "frames": 144000,
+    "maximum_abs_sample": 0.06965678185224533,
+    "sha256": "f249cb7cbe0af043480a9d62d07a79359df238c707bbdf74af214831d500d2d9"
+  },
+  {
+    "file": "audio/features/2-512/source-0.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/2-512/source-1.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/2-64/expected.f32",
+    "frames": 144000,
+    "maximum_abs_sample": 0.06965678185224533,
+    "sha256": "f249cb7cbe0af043480a9d62d07a79359df238c707bbdf74af214831d500d2d9"
+  },
+  {
+    "file": "audio/features/2-64/source-0.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/2-64/source-1.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/3-512/expected.f32",
+    "frames": 144000,
+    "maximum_abs_sample": 0.06965678185224533,
+    "sha256": "5fdf3218846929f6db9658923c68fd7cb3f5e1f90949018c38b0a3c7886f1b4a"
+  },
+  {
+    "file": "audio/features/3-512/source-0.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/3-512/source-1.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/3-64/expected.f32",
+    "frames": 144000,
+    "maximum_abs_sample": 0.06965678185224533,
+    "sha256": "5fdf3218846929f6db9658923c68fd7cb3f5e1f90949018c38b0a3c7886f1b4a"
+  },
+  {
+    "file": "audio/features/3-64/source-0.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/3-64/source-1.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/4-512/expected.f32",
+    "frames": 144000,
+    "maximum_abs_sample": 0.22085754573345184,
+    "sha256": "495e07bc71099955dc04a7dcca006d286eb8c95be38a538839fceae86b1076d5"
+  },
+  {
+    "file": "audio/features/4-512/source-0.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/4-512/source-1.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/4-64/expected.f32",
+    "frames": 144000,
+    "maximum_abs_sample": 0.22085754573345184,
+    "sha256": "495e07bc71099955dc04a7dcca006d286eb8c95be38a538839fceae86b1076d5"
+  },
+  {
+    "file": "audio/features/4-64/source-0.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/4-64/source-1.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/5-512/expected.f32",
+    "frames": 144000,
+    "maximum_abs_sample": 0.09511592984199524,
+    "sha256": "1552bd514d19e0afb12589ccc18667e6674855ae4d50d0f76699018f9ac28464"
+  },
+  {
+    "file": "audio/features/5-512/source-0.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/5-512/source-1.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/5-64/expected.f32",
+    "frames": 144000,
+    "maximum_abs_sample": 0.09511592984199524,
+    "sha256": "1552bd514d19e0afb12589ccc18667e6674855ae4d50d0f76699018f9ac28464"
+  },
+  {
+    "file": "audio/features/5-64/source-0.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/5-64/source-1.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/6-512/expected.f32",
+    "frames": 144000,
+    "maximum_abs_sample": 0.12215593457221985,
+    "sha256": "b747d60f38cbb238f626f1f3bfc06beb4bb26eaf79e2ec5f9c9aa8250aba06dd"
+  },
+  {
+    "file": "audio/features/6-512/source-0.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/6-512/source-1.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/6-64/expected.f32",
+    "frames": 144000,
+    "maximum_abs_sample": 0.12215593457221985,
+    "sha256": "b747d60f38cbb238f626f1f3bfc06beb4bb26eaf79e2ec5f9c9aa8250aba06dd"
+  },
+  {
+    "file": "audio/features/6-64/source-0.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/6-64/source-1.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/7-512/expected.f32",
+    "frames": 144000,
+    "maximum_abs_sample": 0.08768542855978012,
+    "sha256": "d2947845494b0fb1b42bf6edac8566d32a248b8c1d1c90bb714fef70aab721f8"
+  },
+  {
+    "file": "audio/features/7-512/source-0.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/7-512/source-1.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/7-64/expected.f32",
+    "frames": 144000,
+    "maximum_abs_sample": 0.08768542855978012,
+    "sha256": "d2947845494b0fb1b42bf6edac8566d32a248b8c1d1c90bb714fef70aab721f8"
+  },
+  {
+    "file": "audio/features/7-64/source-0.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/features/7-64/source-1.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.25,
+    "sha256": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84"
+  },
+  {
+    "file": "audio/fm_128-512.f32",
+    "frames": 48128,
+    "maximum_abs_sample": 0.17024168372154236,
+    "sha256": "314340950b04a0be046e32f5e9a1adf92a6dd303f18ad870b19fb0c0f369db8a"
+  },
+  {
+    "file": "audio/fm_128-64.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.4093627333641052,
+    "sha256": "bf039114568341dba7d79b11daeb40a04a32e3879d04df256a6a0ad80473dcd0"
+  },
+  {
+    "file": "audio/fm_32-512.f32",
+    "frames": 48128,
+    "maximum_abs_sample": 0.042767222970724106,
+    "sha256": "cd77bb43b3eb36499ae861513393ace8edfd6701034b2cc3ea5ff283b63b387b"
+  },
+  {
+    "file": "audio/fm_32-64.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.10262157768011093,
+    "sha256": "f047a4b84acdc4d16f884214263f3ef344d5d7bc2248f959f35a035782be1c2c"
+  },
+  {
+    "file": "audio/fm_32_motion-512.f32",
+    "frames": 48128,
+    "maximum_abs_sample": 0.036004263907670975,
+    "sha256": "664fd22bc16787617ee6aed859bc518d5fa8b453b5c9567a4e84e8e821e89894"
+  },
+  {
+    "file": "audio/fm_32_motion-64.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.089665487408638,
+    "sha256": "6c7744666f20e08bf684cf90eb810aa68d8e51e903abdc09593aa7a21d4f386e"
+  },
+  {
+    "file": "audio/fm_8-512.f32",
+    "frames": 48128,
+    "maximum_abs_sample": 0.012480690144002438,
+    "sha256": "c4bce2c154e0fb5548db93e036fa9b325058364ae849abe3704b69bb06f9fcc8"
+  },
+  {
+    "file": "audio/fm_8-64.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.036672092974185944,
+    "sha256": "b915ccdbeb60ef42c1b1f2f24b0adb03852930ce7c5e3b578d152f067d15489c"
+  },
+  {
+    "file": "audio/fm_analog_32-512.f32",
+    "frames": 48128,
+    "maximum_abs_sample": 0.0037466511130332947,
+    "sha256": "38e6a77431375a62a47e5583520a1cff233029879831595b398267c5019fdbdd"
+  },
+  {
+    "file": "audio/fm_analog_32-64.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.004117527045309544,
+    "sha256": "ff819f2566f5220f13aaaf133a78cdbedaca62ac753f2b0efb66e3507b17959e"
+  },
+  {
+    "file": "audio/fm_analog_8-512.f32",
+    "frames": 48128,
+    "maximum_abs_sample": 0.0011460589012131095,
+    "sha256": "9a80b332011ea3df217cb01a81553a7b8969622cf79b29efbd5175a84ebbee69"
+  },
+  {
+    "file": "audio/fm_analog_8-64.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.001217726618051529,
+    "sha256": "52e7612bcfed3edf87032c8ee4662fd5e51582bd3a198582ab2c3cb869e0638e"
+  },
+  {
+    "file": "audio/fm_legacy_32-512.f32",
+    "frames": 48128,
+    "maximum_abs_sample": 0.00619221106171608,
+    "sha256": "ea5d0c5f1b9d0e29c67f4ff2c54897bdd7abd85e0e91bf570ac6891d234a8da3"
+  },
+  {
+    "file": "audio/fm_legacy_32-64.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.0063838292844593525,
+    "sha256": "6de6dca05c63bd81f28f1e5ef30c4bf2250615869da68cfbbb95972bf2d7c80e"
+  },
+  {
+    "file": "audio/idle_monitor-512.f32",
+    "frames": 48128,
+    "maximum_abs_sample": 0.0,
+    "sha256": "b80948c1aae775acd3f549b180473333463df14d22586c06aa46c921502bb9b0"
+  },
+  {
+    "file": "audio/idle_monitor-64.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.0,
+    "sha256": "fec9afb531a8e036eba1d81651896e1b2c1f78b0234dbadc8e7549563f09407b"
+  },
+  {
+    "file": "audio/idle_no_rack-512.f32",
+    "frames": 48128,
+    "maximum_abs_sample": 0.0,
+    "sha256": "b80948c1aae775acd3f549b180473333463df14d22586c06aa46c921502bb9b0"
+  },
+  {
+    "file": "audio/idle_no_rack-64.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.0,
+    "sha256": "fec9afb531a8e036eba1d81651896e1b2c1f78b0234dbadc8e7549563f09407b"
+  },
+  {
+    "file": "audio/idle_rack-512.f32",
+    "frames": 48128,
+    "maximum_abs_sample": 0.0,
+    "sha256": "b80948c1aae775acd3f549b180473333463df14d22586c06aa46c921502bb9b0"
+  },
+  {
+    "file": "audio/idle_rack-64.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.0,
+    "sha256": "fec9afb531a8e036eba1d81651896e1b2c1f78b0234dbadc8e7549563f09407b"
+  },
+  {
+    "file": "audio/sampler_128-512.f32",
+    "frames": 48128,
+    "maximum_abs_sample": 0.002559998771175742,
+    "sha256": "d7be155d8bf00087225846b3648005bdd682fc3d78a49b483aacbbe4897ee566"
+  },
+  {
+    "file": "audio/sampler_128-64.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.002559998771175742,
+    "sha256": "1c5cd19c1c03d16f9aa8252443532838c62d280d229ca2731bf19463d8cd43ec"
+  },
+  {
+    "file": "audio/sampler_32-512.f32",
+    "frames": 48128,
+    "maximum_abs_sample": 0.0006399999256245792,
+    "sha256": "b4f389451160949e1abd80b3138510c71f3e39d9aa1aaa6bf965b35adaf7dca8"
+  },
+  {
+    "file": "audio/sampler_32-64.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.0006399999256245792,
+    "sha256": "660cc0ac69ea8b4fdb1b01f3e0aa6a8ee2618be1e93e5837f0ef275650f81d49"
+  },
+  {
+    "file": "audio/sampler_32_chorus-512.f32",
+    "frames": 48128,
+    "maximum_abs_sample": 0.0006395707605406642,
+    "sha256": "a54bcf6c3f078675c8a71dc3457d8583f9b28d797aac95ed6c7f98767cde43c8"
+  },
+  {
+    "file": "audio/sampler_32_chorus-64.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.0006395858945325017,
+    "sha256": "801101a2533bb9145af3ee7e8cfca7f749e28bae5f8c55c6debb76b5e6f2577a"
+  },
+  {
+    "file": "audio/sampler_32_eq-512.f32",
+    "frames": 48128,
+    "maximum_abs_sample": 0.0008442247635684907,
+    "sha256": "8d15f2291e4fbfa3df8f7eaf4762e1c1641a92c00b8584fbb858033a924de203"
+  },
+  {
+    "file": "audio/sampler_32_eq-64.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.0008442151010967791,
+    "sha256": "a08cbe83314ca41ea712a4ecda523703250e537768b7dd0354ade26130bf2e6f"
+  },
+  {
+    "file": "audio/sampler_32_stretch-512.f32",
+    "frames": 48128,
+    "maximum_abs_sample": 0.0006399957346729934,
+    "sha256": "273edde64ebf17b1f8df5ed72bbe678d768c682b705dd77f0d6602f8207d5e9f"
+  },
+  {
+    "file": "audio/sampler_32_stretch-64.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.0006399931735359132,
+    "sha256": "872d7416c94c480fedd489b9c4143bf4351923fe2f7f2b71daeb18e54f4f8ed2"
+  },
+  {
+    "file": "audio/song_100-512.f32",
+    "frames": 48128,
+    "maximum_abs_sample": 0.019999980926513672,
+    "sha256": "a8ec76ea7f101423157ced45edb497d6d3ddf7f5befd03360892852b48b2b872"
+  },
+  {
+    "file": "audio/song_100-64.f32",
+    "frames": 48000,
+    "maximum_abs_sample": 0.019999980926513672,
+    "sha256": "ea23d33c583fd9f0c2b1cae7dfd564e7d3068e2bd8b27c9d5d14537921885d1a"
+  }
+]

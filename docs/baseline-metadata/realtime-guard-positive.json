@@ -1,0 +1,5 @@
+{
+  "expected_failure": true,
+  "exit_code": -6,
+  "diagnostic": "Real-time forbidden call: pthread_mutex_trylock"
+}

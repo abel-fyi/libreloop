@@ -1,0 +1,9 @@
+# One PATT / SONG control
+
+The user requested merging playback-mode selection and the duplicate Arrange/Pattern page buttons. In the studio workspace, selecting the top PATT half chooses pattern playback and opens Pattern/Piano Roll; selecting SONG chooses song playback and opens Arrangement. Re-selecting the current mode opens its page without resetting playback. A mode change retains the existing reset request. The control remains disabled during recording. The legacy UI retains its original toggle and description.
+
+The explicit PATT/SONG text is retained as requested, superseding icon-only styling for this combined control. The duplicate Arrange/Pattern toolbar buttons are removed. Follow and typing-piano buttons move next to it; the freed width expands the existing master spectrum from 192 to 320 units at 1448×1086. It retains its 96 independent bins, fractional heights and analyzer math. L/R meters retain 104-unit width. Compact widths keep bounded controls and their existing no-spectrum fallback.
+
+This is a combined user control, not a rule that forces every programmatic focus change to alter audio mode: recording and editing can still show notes while the song plays. Local navigation and recording focus behavior are preserved. The two views are still exclusive, above the docked Mixer; floating instruments/effects remain independent.
+
+All 137 tests pass. The existing workspace preference test now checks actual frontend selection: both page/mode pairs, reset on change, and no reset when selecting the same mode. Toolbar geometry tests require no duplicate editor buttons, square Follow/typing controls, no overlap and the revised analyzer width. Frozen original behavior fixtures remain unchanged. Software captures under `../../baseline-artifacts/90s-final/` were reviewed; strict bundle signature verification passes. Native pointer/hardware validation remains unverified.

@@ -1,0 +1,8 @@
+{
+  "reference_commit": "5e860696fe6cb6cd4c170f6ebf5378039b3e4af6",
+  "files": {
+    "scissors.txt": "029b768cb5a5fd0f0bd34ccc2152a5306927ba94bb82f98c417fdb91b390b3c1"
+  },
+  "repeat_exact": true,
+  "method": "Pinned actual BeginScissorMode copied unchanged, GL calls intercepted;45 macOS/generic/FBO cases with integer inputs, fractional DPI and negative/outside bounds. Only CPP platform selection exposed for compiling both branches."
+}

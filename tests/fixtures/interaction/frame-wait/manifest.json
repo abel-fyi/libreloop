@@ -1,0 +1,9 @@
+{
+  "reference_commit": "5e860696fe6cb6cd4c170f6ebf5378039b3e4af6",
+  "raylib_version": "5.5",
+  "original_config": "CUSTOMIZE_BUILD=ON; SUPPORT_BUSY_WAIT_LOOP=OFF; SUPPORT_PARTIALBUSY_WAIT_LOOP=OFF; confirmed generated EXTERNAL_CONFIG_FLAGS omit both defines",
+  "capture": "Exact original WaitTime body, native macOS branch; captured usleep arguments/call counts for16 durations; no real sleep; two identical runs",
+  "files": {
+    "wait.txt": "53c5793612c3133e00cb1f73f12b4714e17150b57e9032ca9064bc131624e62d"
+  }
+}

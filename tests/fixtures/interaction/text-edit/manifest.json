@@ -1,0 +1,11 @@
+{
+  "reference_commit": "5e860696fe6cb6cd4c170f6ebf5378039b3e4af6",
+  "source_sha256": {
+    "ui_menus.c": "2683ab5521e481b2b6ff49b5bdf4442b2c7d0e6e5a27514acccd3cabc9a89958",
+    "ui_widgets.c": "8daad420731a1c5f93aa7f9947f497b1dae547e8e387122f739f5aa2336f02a4"
+  },
+  "capture": "Exact original text_input/backspace bodies, pinned raylib5.5 UTF8 functions; 24 key/clipboard/character-queue contexts; two identical runs",
+  "files": {
+    "text.txt": "a8ae4b4ba8e601249017f1384a70c585182802fb6878ff38b8f41ce15b8c3be7"
+  }
+}

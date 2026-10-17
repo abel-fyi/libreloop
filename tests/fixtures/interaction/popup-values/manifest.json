@@ -1,0 +1,10 @@
+{
+  "reference_commit": "5e860696fe6cb6cd4c170f6ebf5378039b3e4af6",
+  "source_sha256": {
+    "ui_menus.c": "2683ab5521e481b2b6ff49b5bdf4442b2c7d0e6e5a27514acccd3cabc9a89958"
+  },
+  "capture": "Original numeric apply branch and rename trimming branch; two identical runs; 200 numeric and 17 name cases",
+  "files": {
+    "values.txt": "4a35d68d2435f834a4316e4c85db8588c9b75ae651c3d3348a660fc8401c38ec"
+  }
+}

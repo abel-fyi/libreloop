@@ -1,0 +1,114 @@
+{
+  "reference_commit": "5e860696fe6cb6cd4c170f6ebf5378039b3e4af6",
+  "frames_per_scenario": 8,
+  "scenarios": [
+    {
+      "mode": 0,
+      "files": {
+        "frames.bin": "4724a9f31c1439849f450eb70c95f668372509e3b1407785e575f03ab3bc8a56",
+        "expected.llp": "a50a583f7c5a22c9d93f7c6f127ff9067a0483286e454b99b258c9c92b86b46b",
+        "previews.txt": "25348ce60829dd9b21b28bf3ad3ce1e9fcee0a1add15614f1eb642731d7c3908",
+        "audition.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "mode": 1,
+      "files": {
+        "frames.bin": "a61da1568be8ac14601e658ca94ba1edcd5dc9ed58e443bf9714f0d772f8889a",
+        "expected.llp": "ff7fa9afb53b493cd79deb143bb783b9a8bcc84a0f20fd8bdf1655b0ffe18d80",
+        "previews.txt": "910c3e908ae280c1a1aab8bffeef7f4c4ccb9f955f3790c06243d33f4b4223e6",
+        "audition.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "mode": 2,
+      "files": {
+        "frames.bin": "8b0c363b03732e70dfe86b6a0b1def162ea33d00f0fc659bff415366857b7baa",
+        "expected.llp": "a58753e96c564149ae4d85c0617623f64d936cb1ebae5bc6622c02ed4a4304fc",
+        "previews.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "audition.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "mode": 3,
+      "files": {
+        "frames.bin": "ae356fb02f41680c06354bb5cf5eb374af8e817f7ad6fc130a0a99d1a2d810ed",
+        "expected.llp": "090bdda5f978381d6219ad123808ef4c34e2a4fb34ad9d3b5062995b0a8923e8",
+        "previews.txt": "8b678f45f14f399c771e511fbf46368dce7b9f9dcff59eca71784852d67fdb3a",
+        "audition.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "mode": 4,
+      "files": {
+        "frames.bin": "e53740758faf11175d051f7d15e7fc2429042ba1a34c0d2360f7a7f40c04f1e3",
+        "expected.llp": "aa02abd74c43e9a99d1594d20810e82df13a1969d3307ee65ae50c3a4f74e9fe",
+        "previews.txt": "25fa2dc33bd191fc0a98bc5e1de36e79dea8cba2e883e32618292467f333661f",
+        "audition.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "mode": 5,
+      "files": {
+        "frames.bin": "5ff091dadf5415b55d16faa21f43b4138665a1db9ec761d691f768ded443ab3f",
+        "expected.llp": "a58753e96c564149ae4d85c0617623f64d936cb1ebae5bc6622c02ed4a4304fc",
+        "previews.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "audition.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "mode": 6,
+      "files": {
+        "frames.bin": "9b19dfb77a41e9749bf1f03bef946184464574eb87e20e8a87d44abd99dceb63",
+        "expected.llp": "a58753e96c564149ae4d85c0617623f64d936cb1ebae5bc6622c02ed4a4304fc",
+        "previews.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "audition.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "mode": 7,
+      "files": {
+        "frames.bin": "b0cf135e6ee3c432fde69243564256c2794442f131325d1fe3a2152df06bb914",
+        "expected.llp": "fd6127bb9e212295c4f838241b4dd8e02856f1a7d539f4ba4078d3d8da3aad7a",
+        "previews.txt": "1a8b9fbc71c89e1b322a23bd1384e707d3b03f84ced86b7538ecc8544f50e006",
+        "audition.txt": "cb1ae58c89e3b63511a8a28de1e37d5c32ee65c126d12cf21a1b9269f66c76ae"
+      }
+    },
+    {
+      "mode": 8,
+      "files": {
+        "frames.bin": "9d54a2f31b56997dfbe9e412f1e76165781225b52b014e6b479c1185f2406d02",
+        "expected.llp": "24a74bbb094ea754d2670c0d6e99e920300eb4b233c512b01b734a1151432ae6",
+        "previews.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "audition.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "mode": 9,
+      "files": {
+        "frames.bin": "6365b713b56bd8a6287556a31321692555337cff53feae4f183c83e0a9159d2b",
+        "expected.llp": "24a74bbb094ea754d2670c0d6e99e920300eb4b233c512b01b734a1151432ae6",
+        "previews.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "audition.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "mode": 10,
+      "files": {
+        "frames.bin": "17d8a73b5f537ae19ef5cec81d470456c329c6de8974e5be41e75a844b39594c",
+        "expected.llp": "c1ec2121f3970a472a3dbd8d8ed87379dc65e66f9306dd1d6640f394db77cc80",
+        "previews.txt": "c5b5d923735fcd47940d2ff1e02e854984a23f4147370b1524010ec93acddf76",
+        "audition.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "mode": 11,
+      "files": {
+        "frames.bin": "b0cf135e6ee3c432fde69243564256c2794442f131325d1fe3a2152df06bb914",
+        "expected.llp": "fd6127bb9e212295c4f838241b4dd8e02856f1a7d539f4ba4078d3d8da3aad7a",
+        "previews.txt": "1a8b9fbc71c89e1b322a23bd1384e707d3b03f84ced86b7538ecc8544f50e006",
+        "audition.txt": "cb1ae58c89e3b63511a8a28de1e37d5c32ee65c126d12cf21a1b9269f66c76ae"
+      }
+    }
+  ]
+}

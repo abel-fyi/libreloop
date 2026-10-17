@@ -1,0 +1,9 @@
+{
+  "reference_commit": "5e860696fe6cb6cd4c170f6ebf5378039b3e4af6",
+  "files": {
+    "service.txt": "bcb1af514c755ad7e5d3539cb94a5b4e576c714628f6c27dc00e1b7241203798",
+    "published.f32": "39ceb0ea2c5c05b85f5878a25222e09121acbcde2b0076b6fa359efeea477edb"
+  },
+  "repeat_exact": true,
+  "method": "Actual frozen sampler_worker/update/queue/flush and DSP; audio_sample and glfw wake captured. Recording/editing gates, adoption, epoch/generation rejection and original flush discard/reprocess; compares publication order/state and all processed PCM."
+}

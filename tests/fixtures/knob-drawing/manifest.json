@@ -1,0 +1,8 @@
+{
+  "reference_commit": "5e860696fe6cb6cd4c170f6ebf5378039b3e4af6",
+  "files": {
+    "knobs.txt": "dc912d1c77384f13c3000858afecd8e60a5034da6732b7a91f58a4139942160a"
+  },
+  "repeat_exact": true,
+  "method": "Actual frozen knob_style, drawing delivery intercepted;40 style/value/hover/drag cases. All texture source/destination/origin/rotation/tint calls compare, including fixed coarse display aliases."
+}

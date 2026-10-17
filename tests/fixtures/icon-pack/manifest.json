@@ -1,0 +1,41 @@
+{
+  "reference_commit": "5e860696fe6cb6cd4c170f6ebf5378039b3e4af6",
+  "scenarios": [
+    {
+      "mode": "1",
+      "files": {
+        "icons.rgba": "db500529a25641f960d9917ead43ebd0c4bf149b194c5f4bc475d54db3ddc0b2"
+      },
+      "repeat_exact": true
+    },
+    {
+      "mode": "1.25",
+      "files": {
+        "icons.rgba": "af246b4aa477a38a66138bfdf1d787e1c5dced7a9dcad4c6582cb687f14db50c"
+      },
+      "repeat_exact": true
+    },
+    {
+      "mode": "1.5",
+      "files": {
+        "icons.rgba": "1d5c8e3f45de11d7cdc3cda932a67c6eb953e328968a42b27d74865799298181"
+      },
+      "repeat_exact": true
+    },
+    {
+      "mode": "2",
+      "files": {
+        "icons.rgba": "7f026701ce1e47115c1a61d7e8233972fd683435b4bb64b492497f12a19673c9"
+      },
+      "repeat_exact": true
+    },
+    {
+      "mode": "3",
+      "files": {
+        "icons.rgba": "19a33eb1c118666a771d6a326f6e7e30012d723cc6219d076d2b440b7b401ea7"
+      },
+      "repeat_exact": true
+    }
+  ],
+  "method": "Actual original icon area-coverage/packing loop with synthetic deterministic high-resolution RGBA; proves CPU weights/rounding/variant placement, not original GPU source-mask parity."
+}

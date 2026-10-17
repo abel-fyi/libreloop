@@ -1,0 +1,10 @@
+{
+  "reference_commit": "5e860696fe6cb6cd4c170f6ebf5378039b3e4af6",
+  "files": {
+    "from-hsv.txt": "9c9ed0f440f45c199ca3c125e45d546bad7de26c9ca494e9c1e9e5c2590f7ea9",
+    "palette.bin": "44f8bf43aca39298fdf0a59194381b32bc5a7879c46559463f00a70253e917b3",
+    "colors.txt": "6e730f6bf8e3b0588d3ae4154c65c4429a2e403c048d9dd346b1a3026da2af09"
+  },
+  "repeat_exact": true,
+  "method": "Frozen original theme_init/theme_foreground and pinned raylib Fade/ColorAlphaBlend/ColorToHSV; complete palette and512 deterministic color triples plus3072 fade cases."
+}

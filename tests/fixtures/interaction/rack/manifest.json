@@ -1,0 +1,9 @@
+{
+  "reference_commit": "5e860696fe6cb6cd4c170f6ebf5378039b3e4af6",
+  "files": {
+    "expected.llp": "56352b3be20fec541499c43b047f7934df8ee973f7d7edf11a736b8983e8d8db",
+    "rack.txt": "f02afe106d1c9fece22b79e29cd520510eed756dce6bd5108ec8ce43e1ae387a"
+  },
+  "repeat_exact": true,
+  "method": "Actual original Rack filter/melodic/paint functions and pattern_extend; state trace plus complete saved project. Interpolated strokes, row/filter mapping, melodic rejection, boundaries, erase and duration extension."
+}

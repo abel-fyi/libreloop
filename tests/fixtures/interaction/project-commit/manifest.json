@@ -1,0 +1,251 @@
+{
+  "reference_commit": "5e860696fe6cb6cd4c170f6ebf5378039b3e4af6",
+  "source_sha256": {
+    "app_project.c": "b7a5d3f0c134ef1dfb6c71bb04c78f34a5b097a5f66d9a43d43f2ef0fd5ceacf"
+  },
+  "capture": "Complete original project handlers with actual project/preset/asset I/O, export and mapped F32 stereo WAV loading. Hardware publication captured; decoder fallback excluded. mkdtemp suffix controlled with real directory creation. Only temporary-root spelling in captured project paths normalized; saved files unchanged. Original confirmation commit branch included. Two identical original runs. Preset inputs use canonical sample paths as provided by actual import handlers.",
+  "scenarios": [
+    {
+      "mode": 0,
+      "files": {
+        "written.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "pcm-before.bin": "3b5c1d19b969528e51a5d444d184229d9980aa566976b67892651aa1ec631275",
+        "saved-0.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "saved-1.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "state-0.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "state-1.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "pcm-after.bin": "3b5c1d19b969528e51a5d444d184229d9980aa566976b67892651aa1ec631275",
+        "source.wav": "8601fb549819198b59f0ae65228abf664343ddda879d45dfb4c83155a8e573e9",
+        "trace.txt": "0e77dbf97884ee88d16f4e1b1e87b97248954e5d785cd75106ed307f2ea22d71"
+      },
+      "compression": {
+        "written.llp": "gzip",
+        "saved-0.llp": "gzip",
+        "saved-1.llp": "gzip",
+        "state-0.llp": "gzip",
+        "state-1.llp": "gzip"
+      }
+    },
+    {
+      "mode": 1,
+      "files": {
+        "written.llp": "6cf36dd6eb17953b490c1ce15dbf1997ed1d07df1fdc65345626a6f06cfe7b2d",
+        "pcm-before.bin": "3b5c1d19b969528e51a5d444d184229d9980aa566976b67892651aa1ec631275",
+        "saved-0.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "saved-1.llp": "03d8387d7c6df9601f5d474aa6115b3f12868eb7fe6d7fc7e69aef94dc30e62f",
+        "state-0.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "state-1.llp": "03d8387d7c6df9601f5d474aa6115b3f12868eb7fe6d7fc7e69aef94dc30e62f",
+        "pcm-after.bin": "3b5c1d19b969528e51a5d444d184229d9980aa566976b67892651aa1ec631275",
+        "source.wav": "8601fb549819198b59f0ae65228abf664343ddda879d45dfb4c83155a8e573e9",
+        "trace.txt": "0e77dbf97884ee88d16f4e1b1e87b97248954e5d785cd75106ed307f2ea22d71",
+        "written.llp.samples-REF001/channel-01.wav": "8601fb549819198b59f0ae65228abf664343ddda879d45dfb4c83155a8e573e9"
+      },
+      "compression": {
+        "written.llp": "gzip",
+        "saved-0.llp": "gzip",
+        "saved-1.llp": "gzip",
+        "state-0.llp": "gzip",
+        "state-1.llp": "gzip"
+      }
+    },
+    {
+      "mode": 2,
+      "files": {
+        "pcm-before.bin": "3b5c1d19b969528e51a5d444d184229d9980aa566976b67892651aa1ec631275",
+        "saved-0.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "saved-1.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "state-0.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "state-1.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "pcm-after.bin": "3b5c1d19b969528e51a5d444d184229d9980aa566976b67892651aa1ec631275",
+        "render.wav": "180a8094a5124ea98c99d07f88e49fa0917b0d55889bfb354e67e6dab109d2aa",
+        "source.wav": "8601fb549819198b59f0ae65228abf664343ddda879d45dfb4c83155a8e573e9",
+        "trace.txt": "2e2260784903173ad81cfb4d6d187c05848d41e9ee3639f2b527f27ec622d3ec"
+      },
+      "compression": {
+        "saved-0.llp": "gzip",
+        "saved-1.llp": "gzip",
+        "state-0.llp": "gzip",
+        "state-1.llp": "gzip"
+      }
+    },
+    {
+      "mode": 3,
+      "files": {
+        "pcm-before.bin": "3b5c1d19b969528e51a5d444d184229d9980aa566976b67892651aa1ec631275",
+        "saved-0.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "saved-1.llp": "2c4de648a06aaf2ed5875c5fac5e799be29b6462a1e58bbf04c0f6a4d7baccf8",
+        "input.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "state-0.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "state-1.llp": "2c4de648a06aaf2ed5875c5fac5e799be29b6462a1e58bbf04c0f6a4d7baccf8",
+        "pcm-after.bin": "8f8d497fed46968ac3a3330856aefaad7383e0b40e6a2d6bfd2db36eb7c79491",
+        "source.wav": "8601fb549819198b59f0ae65228abf664343ddda879d45dfb4c83155a8e573e9",
+        "trace.txt": "d681ac412b49614705b4efc0f01cf5b589a7c5503744c0260aa486c71afb2991"
+      },
+      "compression": {
+        "saved-0.llp": "gzip",
+        "saved-1.llp": "gzip",
+        "input.llp": "gzip",
+        "state-0.llp": "gzip",
+        "state-1.llp": "gzip"
+      }
+    },
+    {
+      "mode": 4,
+      "files": {
+        "pcm-before.bin": "3b5c1d19b969528e51a5d444d184229d9980aa566976b67892651aa1ec631275",
+        "saved-0.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "saved-1.llp": "2c4de648a06aaf2ed5875c5fac5e799be29b6462a1e58bbf04c0f6a4d7baccf8",
+        "input.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "state-0.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "state-1.llp": "2c4de648a06aaf2ed5875c5fac5e799be29b6462a1e58bbf04c0f6a4d7baccf8",
+        "pcm-after.bin": "aeced4a0a186c902ad99de208ddc92e9554654b67bed15caf3715a176ab94e9c",
+        "trace.txt": "62c38cb28b9f92d1d79f3cff21d097e8e3ce2c01e0569f78a3872ab082a2dc17"
+      },
+      "compression": {
+        "saved-0.llp": "gzip",
+        "saved-1.llp": "gzip",
+        "input.llp": "gzip",
+        "state-0.llp": "gzip",
+        "state-1.llp": "gzip"
+      }
+    },
+    {
+      "mode": 5,
+      "files": {
+        "pcm-before.bin": "3b5c1d19b969528e51a5d444d184229d9980aa566976b67892651aa1ec631275",
+        "saved-0.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "saved-1.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "state-0.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "state-1.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "pcm-after.bin": "3b5c1d19b969528e51a5d444d184229d9980aa566976b67892651aa1ec631275",
+        "source.wav": "8601fb549819198b59f0ae65228abf664343ddda879d45dfb4c83155a8e573e9",
+        "bad.llp": "f1234d75178d892a133a410355a5a990cf75d2f33eba25d575943d4df632f3a4",
+        "trace.txt": "f606baa3821a14fcf48de3534cba88c6e40aafcf184795ba7bdc30ddcaaf3200"
+      },
+      "compression": {
+        "saved-0.llp": "gzip",
+        "saved-1.llp": "gzip",
+        "state-0.llp": "gzip",
+        "state-1.llp": "gzip",
+        "bad.llp": "gzip"
+      }
+    },
+    {
+      "mode": 6,
+      "files": {
+        "pcm-before.bin": "3b5c1d19b969528e51a5d444d184229d9980aa566976b67892651aa1ec631275",
+        "saved-0.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "saved-1.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "state-0.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "state-1.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "pcm-after.bin": "3b5c1d19b969528e51a5d444d184229d9980aa566976b67892651aa1ec631275",
+        "source.wav": "8601fb549819198b59f0ae65228abf664343ddda879d45dfb4c83155a8e573e9",
+        "trace.txt": "103b9edd4b5b775a50644f691d742aea65b91b75ba0c7a49470a5325770ce04b"
+      },
+      "compression": {
+        "saved-0.llp": "gzip",
+        "saved-1.llp": "gzip",
+        "state-0.llp": "gzip",
+        "state-1.llp": "gzip"
+      }
+    },
+    {
+      "mode": 7,
+      "files": {
+        "pcm-before.bin": "3b5c1d19b969528e51a5d444d184229d9980aa566976b67892651aa1ec631275",
+        "saved-0.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "saved-1.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "state-0.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "state-1.llp": "2c4de648a06aaf2ed5875c5fac5e799be29b6462a1e58bbf04c0f6a4d7baccf8",
+        "pcm-after.bin": "5821cb84aa458ae492f37baaf3bf5c4450c4db86f6afd99e8219629bb654a906",
+        "source.wav": "8601fb549819198b59f0ae65228abf664343ddda879d45dfb4c83155a8e573e9",
+        "trace.txt": "84fc26c34019b9aedbc4cc3a6addf790fe546610f8a7968fd211fd004fab2ba2"
+      },
+      "compression": {
+        "saved-0.llp": "gzip",
+        "saved-1.llp": "gzip",
+        "state-0.llp": "gzip",
+        "state-1.llp": "gzip"
+      }
+    },
+    {
+      "mode": 8,
+      "files": {
+        "pcm-before.bin": "3b5c1d19b969528e51a5d444d184229d9980aa566976b67892651aa1ec631275",
+        "saved-0.llp": "2c4de648a06aaf2ed5875c5fac5e799be29b6462a1e58bbf04c0f6a4d7baccf8",
+        "saved-1.llp": "2c4de648a06aaf2ed5875c5fac5e799be29b6462a1e58bbf04c0f6a4d7baccf8",
+        "state-0.llp": "2c4de648a06aaf2ed5875c5fac5e799be29b6462a1e58bbf04c0f6a4d7baccf8",
+        "state-1.llp": "2c4de648a06aaf2ed5875c5fac5e799be29b6462a1e58bbf04c0f6a4d7baccf8",
+        "pcm-after.bin": "5821cb84aa458ae492f37baaf3bf5c4450c4db86f6afd99e8219629bb654a906",
+        "source.wav": "8601fb549819198b59f0ae65228abf664343ddda879d45dfb4c83155a8e573e9",
+        "trace.txt": "af557f293bdd83acb84ebf50efb58c669b24721729772b83e5da4cd7a142ed21",
+        "device.llpreset": "e93cac326912b331ac0f9148c57de27caeaa1d23a778e701b391119164a12667"
+      },
+      "compression": {
+        "saved-0.llp": "gzip",
+        "saved-1.llp": "gzip",
+        "state-0.llp": "gzip",
+        "state-1.llp": "gzip"
+      }
+    },
+    {
+      "mode": 9,
+      "files": {
+        "pcm-before.bin": "3b5c1d19b969528e51a5d444d184229d9980aa566976b67892651aa1ec631275",
+        "saved-0.llp": "2c4de648a06aaf2ed5875c5fac5e799be29b6462a1e58bbf04c0f6a4d7baccf8",
+        "saved-1.llp": "2c4de648a06aaf2ed5875c5fac5e799be29b6462a1e58bbf04c0f6a4d7baccf8",
+        "state-0.llp": "2c4de648a06aaf2ed5875c5fac5e799be29b6462a1e58bbf04c0f6a4d7baccf8",
+        "state-1.llp": "12834583217ce16465dcb13253b7fe07d1f31dca522b5c89bdd274866b402b7f",
+        "pcm-after.bin": "703f85df9f2d2b39b2b2c31c5ec34f1e5c7c996a316dc070b4903d45180348ee",
+        "trace.txt": "49e693568490113aa71911550ba1ad3cc36dd235fe1bdcb33acecd65aba3d766",
+        "device.llpreset": "e93cac326912b331ac0f9148c57de27caeaa1d23a778e701b391119164a12667"
+      },
+      "compression": {
+        "saved-0.llp": "gzip",
+        "saved-1.llp": "gzip",
+        "state-0.llp": "gzip",
+        "state-1.llp": "gzip"
+      }
+    },
+    {
+      "mode": 10,
+      "files": {
+        "written.llp": "6e931024d1e20b007a1fff8f0a5f5219f3fb5b9802baf19efa709aa858cb0417",
+        "pcm-before.bin": "3b5c1d19b969528e51a5d444d184229d9980aa566976b67892651aa1ec631275",
+        "saved-0.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "saved-1.llp": "6e931024d1e20b007a1fff8f0a5f5219f3fb5b9802baf19efa709aa858cb0417",
+        "state-0.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "state-1.llp": "6e931024d1e20b007a1fff8f0a5f5219f3fb5b9802baf19efa709aa858cb0417",
+        "pcm-after.bin": "3b5c1d19b969528e51a5d444d184229d9980aa566976b67892651aa1ec631275",
+        "source.wav": "8601fb549819198b59f0ae65228abf664343ddda879d45dfb4c83155a8e573e9",
+        "trace.txt": "441b6c826bd5989ecafb4d75dab43d61936a8a3443679064a7ae50abce6cef57"
+      },
+      "compression": {
+        "written.llp": "gzip",
+        "saved-0.llp": "gzip",
+        "saved-1.llp": "gzip",
+        "state-0.llp": "gzip",
+        "state-1.llp": "gzip"
+      }
+    },
+    {
+      "mode": 11,
+      "files": {
+        "pcm-before.bin": "3b5c1d19b969528e51a5d444d184229d9980aa566976b67892651aa1ec631275",
+        "saved-0.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "saved-1.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "state-0.llp": "4866b132a2e33ca466d58be80d910bfa8313596ea811d815a298d79e23128370",
+        "state-1.llp": "6e931024d1e20b007a1fff8f0a5f5219f3fb5b9802baf19efa709aa858cb0417",
+        "pcm-after.bin": "3b5c1d19b969528e51a5d444d184229d9980aa566976b67892651aa1ec631275",
+        "source.wav": "8601fb549819198b59f0ae65228abf664343ddda879d45dfb4c83155a8e573e9",
+        "trace.txt": "674649f9b7ba2dc09db3f64f6137fc5dac8b7128855aa59b8dccded9e809d087"
+      },
+      "compression": {
+        "saved-0.llp": "gzip",
+        "saved-1.llp": "gzip",
+        "state-0.llp": "gzip",
+        "state-1.llp": "gzip"
+      }
+    }
+  ]
+}

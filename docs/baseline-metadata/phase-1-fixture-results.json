@@ -1,0 +1,1002 @@
+[
+  {
+    "fixture": [
+      "benchmark",
+      "idle_no_rack",
+      "1",
+      "64",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "idle_rack",
+      "1",
+      "64",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "idle_monitor",
+      "1",
+      "64",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "demo_song",
+      "1",
+      "64",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "sampler_32",
+      "1",
+      "64",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "sampler_128",
+      "1",
+      "64",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "song_100",
+      "1",
+      "64",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "sampler_32_stretch",
+      "1",
+      "64",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "sampler_32_chorus",
+      "1",
+      "64",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "sampler_32_eq",
+      "1",
+      "64",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "fm_8",
+      "1",
+      "64",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "fm_32",
+      "1",
+      "64",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "fm_128",
+      "1",
+      "64",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "fm_legacy_32",
+      "1",
+      "64",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "fm_32_motion",
+      "1",
+      "64",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "fm_analog_8",
+      "1",
+      "64",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "fm_analog_32",
+      "1",
+      "64",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "idle_no_rack",
+      "1",
+      "512",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "idle_rack",
+      "1",
+      "512",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "idle_monitor",
+      "1",
+      "512",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "demo_song",
+      "1",
+      "512",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "sampler_32",
+      "1",
+      "512",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "sampler_128",
+      "1",
+      "512",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "song_100",
+      "1",
+      "512",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "sampler_32_stretch",
+      "1",
+      "512",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "sampler_32_chorus",
+      "1",
+      "512",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "sampler_32_eq",
+      "1",
+      "512",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "fm_8",
+      "1",
+      "512",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "fm_32",
+      "1",
+      "512",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "fm_128",
+      "1",
+      "512",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "fm_legacy_32",
+      "1",
+      "512",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "fm_32_motion",
+      "1",
+      "512",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "fm_analog_8",
+      "1",
+      "512",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "benchmark",
+      "fm_analog_32",
+      "1",
+      "512",
+      "verify"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "capture.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "feature",
+      "0",
+      "64"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt",
+      "input.llp",
+      "source-0.f32",
+      "source-1.f32",
+      "expected-export.wav"
+    ]
+  },
+  {
+    "fixture": [
+      "feature",
+      "0",
+      "512"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt",
+      "input.llp",
+      "source-0.f32",
+      "source-1.f32",
+      "expected-export.wav"
+    ]
+  },
+  {
+    "fixture": [
+      "feature",
+      "1",
+      "64"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt",
+      "input.llp",
+      "source-0.f32",
+      "source-1.f32",
+      "expected-export.wav"
+    ]
+  },
+  {
+    "fixture": [
+      "feature",
+      "1",
+      "512"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt",
+      "input.llp",
+      "source-0.f32",
+      "source-1.f32",
+      "expected-export.wav"
+    ]
+  },
+  {
+    "fixture": [
+      "feature",
+      "2",
+      "64"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt",
+      "input.llp",
+      "source-0.f32",
+      "source-1.f32",
+      "expected-export.wav"
+    ]
+  },
+  {
+    "fixture": [
+      "feature",
+      "2",
+      "512"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt",
+      "input.llp",
+      "source-0.f32",
+      "source-1.f32",
+      "expected-export.wav"
+    ]
+  },
+  {
+    "fixture": [
+      "feature",
+      "3",
+      "64"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt",
+      "input.llp",
+      "source-0.f32",
+      "source-1.f32",
+      "expected-export.wav"
+    ]
+  },
+  {
+    "fixture": [
+      "feature",
+      "3",
+      "512"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt",
+      "input.llp",
+      "source-0.f32",
+      "source-1.f32",
+      "expected-export.wav"
+    ]
+  },
+  {
+    "fixture": [
+      "feature",
+      "4",
+      "64"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt",
+      "input.llp",
+      "source-0.f32",
+      "source-1.f32",
+      "expected-export.wav"
+    ]
+  },
+  {
+    "fixture": [
+      "feature",
+      "4",
+      "512"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt",
+      "input.llp",
+      "source-0.f32",
+      "source-1.f32",
+      "expected-export.wav"
+    ]
+  },
+  {
+    "fixture": [
+      "feature",
+      "5",
+      "64"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt",
+      "input.llp",
+      "source-0.f32",
+      "source-1.f32",
+      "expected-export.wav"
+    ]
+  },
+  {
+    "fixture": [
+      "feature",
+      "5",
+      "512"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt",
+      "input.llp",
+      "source-0.f32",
+      "source-1.f32",
+      "expected-export.wav"
+    ]
+  },
+  {
+    "fixture": [
+      "feature",
+      "6",
+      "64"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt",
+      "input.llp",
+      "source-0.f32",
+      "source-1.f32",
+      "expected-export.wav"
+    ]
+  },
+  {
+    "fixture": [
+      "feature",
+      "6",
+      "512"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt",
+      "input.llp",
+      "source-0.f32",
+      "source-1.f32",
+      "expected-export.wav"
+    ]
+  },
+  {
+    "fixture": [
+      "feature",
+      "7",
+      "64"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt",
+      "input.llp",
+      "source-0.f32",
+      "source-1.f32",
+      "expected-export.wav"
+    ]
+  },
+  {
+    "fixture": [
+      "feature",
+      "7",
+      "512"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt",
+      "input.llp",
+      "source-0.f32",
+      "source-1.f32",
+      "expected-export.wav"
+    ]
+  },
+  {
+    "fixture": [
+      "callback",
+      "0",
+      "64"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt"
+    ]
+  },
+  {
+    "fixture": [
+      "callback",
+      "0",
+      "512"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt"
+    ]
+  },
+  {
+    "fixture": [
+      "callback",
+      "1",
+      "64"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt"
+    ]
+  },
+  {
+    "fixture": [
+      "callback",
+      "1",
+      "512"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt"
+    ]
+  },
+  {
+    "fixture": [
+      "callback",
+      "2",
+      "64"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt"
+    ]
+  },
+  {
+    "fixture": [
+      "callback",
+      "2",
+      "512"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt"
+    ]
+  },
+  {
+    "fixture": [
+      "callback",
+      "3",
+      "64"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt"
+    ]
+  },
+  {
+    "fixture": [
+      "callback",
+      "3",
+      "512"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt"
+    ]
+  },
+  {
+    "fixture": [
+      "callback",
+      "4",
+      "64"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt"
+    ]
+  },
+  {
+    "fixture": [
+      "callback",
+      "4",
+      "512"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt"
+    ]
+  },
+  {
+    "fixture": [
+      "callback",
+      "5",
+      "64"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt",
+      "take-0.f32",
+      "take-1.f32",
+      "take-2.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "callback",
+      "5",
+      "512"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt",
+      "take-0.f32",
+      "take-1.f32",
+      "take-2.f32"
+    ]
+  },
+  {
+    "fixture": [
+      "callback",
+      "6",
+      "64"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt"
+    ]
+  },
+  {
+    "fixture": [
+      "callback",
+      "6",
+      "512"
+    ],
+    "maximum_error": 0.0,
+    "rms_error": 0.0,
+    "different_samples": 0,
+    "checks": [
+      "expected.f32",
+      "expected-state.txt"
+    ]
+  }
+]

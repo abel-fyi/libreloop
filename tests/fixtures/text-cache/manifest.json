@@ -1,0 +1,10 @@
+{
+  "reference_commit": "5e860696fe6cb6cd4c170f6ebf5378039b3e4af6",
+  "font_sha256": "76d04c18ea243f426b7de1f3ad208e927008f961dc5945e5aad352d0dfde8ee8",
+  "files": {
+    "cache.txt": "d338e4a159f5ddd43e09619a65c5d235c32ff3b698ad73d16af27aedaa3a8b2d"
+  },
+  "repeat_exact": true,
+  "method": "Actual frozen original text_fonts.c; original CPU font raster/atlas/default-font construction. GL upload/flush/filter/unload only replaced by CPU ownership sinks.336 cache cases, 5040 truncations,1008 button-size results,183 pixel-position cases.",
+  "description": "Original font cache:336 cases,5040 truncations,1008 button sizes,183 pixel positions match exactly"
+}

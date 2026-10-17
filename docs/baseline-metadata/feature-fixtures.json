@@ -1,0 +1,226 @@
+[
+  {
+    "mode": 0,
+    "block": 64,
+    "frames": 144000,
+    "repeat_exact": true,
+    "files": {
+      "expected.f32": "db6858a2b6a530a3a1221630aaf7b8abd6e43b87da2e3f3efc963887c46ad8c8",
+      "expected-state.txt": "c617c9fed0984a29a923da3ab89eebeb9710b495b07c32ffa98febdeb1c23c92",
+      "input.llp": "4c61f5345b94a9c3660240a527b93c8541fa500cd46a526aac15022ff9fd1e20",
+      "source-0.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "source-1.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "expected-export.wav": "e7afe1270e8304873f4eee220e959f896ee103a1bedf7ed12a87ee7051f789cd"
+    }
+  },
+  {
+    "mode": 0,
+    "block": 512,
+    "frames": 144000,
+    "repeat_exact": true,
+    "files": {
+      "expected.f32": "db6858a2b6a530a3a1221630aaf7b8abd6e43b87da2e3f3efc963887c46ad8c8",
+      "expected-state.txt": "5a6aa3d3220a4bea5e52439c184074778c3f1982757e5f1367ecee195a668bb8",
+      "input.llp": "4c61f5345b94a9c3660240a527b93c8541fa500cd46a526aac15022ff9fd1e20",
+      "source-0.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "source-1.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "expected-export.wav": "e7afe1270e8304873f4eee220e959f896ee103a1bedf7ed12a87ee7051f789cd"
+    }
+  },
+  {
+    "mode": 1,
+    "block": 64,
+    "frames": 144000,
+    "repeat_exact": true,
+    "files": {
+      "expected.f32": "340e4551b9250c101676da3bf0199ac77dd5d1801323606842385b79729138d0",
+      "expected-state.txt": "90de5a97d2f09855334a04c0e769d247ac9700c91b6ebbb3253956968ee3d4e5",
+      "input.llp": "082ae12cf7535492691027292c8aa817d5ec072d62c82d68da2dae0653a243d1",
+      "source-0.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "source-1.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "expected-export.wav": "2aa15a984caaf326e971efeffea5b3cdb26925f596c45e36ca9776c17b00e16e"
+    }
+  },
+  {
+    "mode": 1,
+    "block": 512,
+    "frames": 144000,
+    "repeat_exact": true,
+    "files": {
+      "expected.f32": "340e4551b9250c101676da3bf0199ac77dd5d1801323606842385b79729138d0",
+      "expected-state.txt": "8817ee0ac4f7f74facaf0b63b1c979d620c79659bb29186551dcd970abdd028d",
+      "input.llp": "082ae12cf7535492691027292c8aa817d5ec072d62c82d68da2dae0653a243d1",
+      "source-0.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "source-1.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "expected-export.wav": "2aa15a984caaf326e971efeffea5b3cdb26925f596c45e36ca9776c17b00e16e"
+    }
+  },
+  {
+    "mode": 2,
+    "block": 64,
+    "frames": 144000,
+    "repeat_exact": true,
+    "files": {
+      "expected.f32": "f249cb7cbe0af043480a9d62d07a79359df238c707bbdf74af214831d500d2d9",
+      "expected-state.txt": "c617c9fed0984a29a923da3ab89eebeb9710b495b07c32ffa98febdeb1c23c92",
+      "input.llp": "54b59302969b822567360faca8674c19170f6b200fcdd2bea3163968349d2781",
+      "source-0.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "source-1.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "expected-export.wav": "d5d8d251a19c824bb26a0bb9a87a6df5454166ea5daa92721eefcca10efb9f27"
+    }
+  },
+  {
+    "mode": 2,
+    "block": 512,
+    "frames": 144000,
+    "repeat_exact": true,
+    "files": {
+      "expected.f32": "f249cb7cbe0af043480a9d62d07a79359df238c707bbdf74af214831d500d2d9",
+      "expected-state.txt": "5a6aa3d3220a4bea5e52439c184074778c3f1982757e5f1367ecee195a668bb8",
+      "input.llp": "54b59302969b822567360faca8674c19170f6b200fcdd2bea3163968349d2781",
+      "source-0.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "source-1.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "expected-export.wav": "d5d8d251a19c824bb26a0bb9a87a6df5454166ea5daa92721eefcca10efb9f27"
+    }
+  },
+  {
+    "mode": 3,
+    "block": 64,
+    "frames": 144000,
+    "repeat_exact": true,
+    "files": {
+      "expected.f32": "5fdf3218846929f6db9658923c68fd7cb3f5e1f90949018c38b0a3c7886f1b4a",
+      "expected-state.txt": "c617c9fed0984a29a923da3ab89eebeb9710b495b07c32ffa98febdeb1c23c92",
+      "input.llp": "53a496651be82db1d794c1b8500368b84795f6a22d0a7709179d47acc4ed5299",
+      "source-0.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "source-1.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "expected-export.wav": "23af6b2d1b051ff301436928133c281db56e306555358283f3743ee4689c6fff"
+    }
+  },
+  {
+    "mode": 3,
+    "block": 512,
+    "frames": 144000,
+    "repeat_exact": true,
+    "files": {
+      "expected.f32": "5fdf3218846929f6db9658923c68fd7cb3f5e1f90949018c38b0a3c7886f1b4a",
+      "expected-state.txt": "5a6aa3d3220a4bea5e52439c184074778c3f1982757e5f1367ecee195a668bb8",
+      "input.llp": "53a496651be82db1d794c1b8500368b84795f6a22d0a7709179d47acc4ed5299",
+      "source-0.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "source-1.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "expected-export.wav": "23af6b2d1b051ff301436928133c281db56e306555358283f3743ee4689c6fff"
+    }
+  },
+  {
+    "mode": 4,
+    "block": 64,
+    "frames": 144000,
+    "repeat_exact": true,
+    "files": {
+      "expected.f32": "495e07bc71099955dc04a7dcca006d286eb8c95be38a538839fceae86b1076d5",
+      "expected-state.txt": "c617c9fed0984a29a923da3ab89eebeb9710b495b07c32ffa98febdeb1c23c92",
+      "input.llp": "5d3cb9ce634cfa21bb7b681a7e6ada11bc5211ab0e56302283693eb0150344e0",
+      "source-0.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "source-1.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "expected-export.wav": "3e67553f7e263d737f80097a817b098982890cbdcd48b9ce8c43494ab9983595"
+    }
+  },
+  {
+    "mode": 4,
+    "block": 512,
+    "frames": 144000,
+    "repeat_exact": true,
+    "files": {
+      "expected.f32": "495e07bc71099955dc04a7dcca006d286eb8c95be38a538839fceae86b1076d5",
+      "expected-state.txt": "5a6aa3d3220a4bea5e52439c184074778c3f1982757e5f1367ecee195a668bb8",
+      "input.llp": "5d3cb9ce634cfa21bb7b681a7e6ada11bc5211ab0e56302283693eb0150344e0",
+      "source-0.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "source-1.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "expected-export.wav": "3e67553f7e263d737f80097a817b098982890cbdcd48b9ce8c43494ab9983595"
+    }
+  },
+  {
+    "mode": 5,
+    "block": 64,
+    "frames": 144000,
+    "repeat_exact": true,
+    "files": {
+      "expected.f32": "1552bd514d19e0afb12589ccc18667e6674855ae4d50d0f76699018f9ac28464",
+      "expected-state.txt": "c617c9fed0984a29a923da3ab89eebeb9710b495b07c32ffa98febdeb1c23c92",
+      "input.llp": "4a5299f8e1834c59c3d670876889cebfdfa926502450d3a41f69646d9cfce0dc",
+      "source-0.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "source-1.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "expected-export.wav": "53e3cc4330dfa2bb355d34a151ab94e6ce52fdf8e900dde546c0f145b88848a9"
+    }
+  },
+  {
+    "mode": 5,
+    "block": 512,
+    "frames": 144000,
+    "repeat_exact": true,
+    "files": {
+      "expected.f32": "1552bd514d19e0afb12589ccc18667e6674855ae4d50d0f76699018f9ac28464",
+      "expected-state.txt": "5a6aa3d3220a4bea5e52439c184074778c3f1982757e5f1367ecee195a668bb8",
+      "input.llp": "4a5299f8e1834c59c3d670876889cebfdfa926502450d3a41f69646d9cfce0dc",
+      "source-0.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "source-1.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "expected-export.wav": "53e3cc4330dfa2bb355d34a151ab94e6ce52fdf8e900dde546c0f145b88848a9"
+    }
+  },
+  {
+    "mode": 6,
+    "block": 64,
+    "frames": 144000,
+    "repeat_exact": true,
+    "files": {
+      "expected.f32": "b747d60f38cbb238f626f1f3bfc06beb4bb26eaf79e2ec5f9c9aa8250aba06dd",
+      "expected-state.txt": "c617c9fed0984a29a923da3ab89eebeb9710b495b07c32ffa98febdeb1c23c92",
+      "input.llp": "7ccdac768f184629ec81392131f097154cf41321d88ebc47b5883ff9dad1291b",
+      "source-0.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "source-1.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "expected-export.wav": "739c459385ee300c8691c4e13ae95526e41377eb41b841336e329c072a27d6c9"
+    }
+  },
+  {
+    "mode": 6,
+    "block": 512,
+    "frames": 144000,
+    "repeat_exact": true,
+    "files": {
+      "expected.f32": "b747d60f38cbb238f626f1f3bfc06beb4bb26eaf79e2ec5f9c9aa8250aba06dd",
+      "expected-state.txt": "5a6aa3d3220a4bea5e52439c184074778c3f1982757e5f1367ecee195a668bb8",
+      "input.llp": "7ccdac768f184629ec81392131f097154cf41321d88ebc47b5883ff9dad1291b",
+      "source-0.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "source-1.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "expected-export.wav": "739c459385ee300c8691c4e13ae95526e41377eb41b841336e329c072a27d6c9"
+    }
+  },
+  {
+    "mode": 7,
+    "block": 64,
+    "frames": 144000,
+    "repeat_exact": true,
+    "files": {
+      "expected.f32": "d2947845494b0fb1b42bf6edac8566d32a248b8c1d1c90bb714fef70aab721f8",
+      "expected-state.txt": "c617c9fed0984a29a923da3ab89eebeb9710b495b07c32ffa98febdeb1c23c92",
+      "input.llp": "797e7f5e4057613c848eee5d3a7095f97a3179fb33dc2bb6f6b1cbba95e2d43f",
+      "source-0.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "source-1.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "expected-export.wav": "51a7af7eb5478743ac5228a56b1492552a72f365407b12a5c310fe1b7d82185a"
+    }
+  },
+  {
+    "mode": 7,
+    "block": 512,
+    "frames": 144000,
+    "repeat_exact": true,
+    "files": {
+      "expected.f32": "d2947845494b0fb1b42bf6edac8566d32a248b8c1d1c90bb714fef70aab721f8",
+      "expected-state.txt": "5a6aa3d3220a4bea5e52439c184074778c3f1982757e5f1367ecee195a668bb8",
+      "input.llp": "797e7f5e4057613c848eee5d3a7095f97a3179fb33dc2bb6f6b1cbba95e2d43f",
+      "source-0.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "source-1.f32": "ec7583ae3427fb9782acf9a8d53757805183902b99d0b584d7dc9427762adb84",
+      "expected-export.wav": "51a7af7eb5478743ac5228a56b1492552a72f365407b12a5c310fe1b7d82185a"
+    }
+  }
+]

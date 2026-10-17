@@ -1,0 +1,20 @@
+initial 1 0 0 0 0 0 0 8 72 
+select-all 1 0 0 0 0 0 0 8 72 Selected all notes
+copy 1 0 1 2 0 0 0 8 72 Copied 2 notes
+paste 1 0 1 2 0 0 8 16 72 Pasted 2 notes at the start marker
+undo-paste 2 0 1 2 0 0 8 16 72 Undone.
+redo-paste 2 1 1 2 0 0 8 16 72 Redone.
+cut 2 1 1 4 0 0 8 16 72 Cut 4 notes
+undo-cut 3 1 1 4 0 0 8 16 72 Undone.
+shift 3 1 1 4 0 0 8 16 72 Moved 4 notes up/right
+octave 3 2 1 4 0 0 8 16 77 Moved 4 notes up an octave
+undo-octave 4 2 1 4 0 0 8 16 77 Undone.
+undo-shift 4 1 1 4 0 0 8 16 77 Undone.
+browser-block 4 1 1 4 0 0 8 16 77 Focus the Piano Roll or Arrangement to edit its selection
+capture-block 4 1 1 4 0 0 8 16 77 Finish the current edit or recording before undo/redo.
+take-block 4 1 1 4 0 0 8 16 77 Finish the MIDI take before editing notes or clips
+copy-clip 4 1 2 1 0 0 8 16 77 Copied 1 clips
+paste-clip 4 1 2 1 0 0 8 16 77 Pasted 1 clips at the start marker
+undo-clip 3 1 2 1 0 0 8 16 77 Undone.
+redo-clip 3 2 2 1 0 0 8 16 77 Redone.
+changed-source-paste 4 3 2 1 0 0 8 16 77 Clip sources changed; copy the selection again

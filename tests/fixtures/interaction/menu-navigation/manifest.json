@@ -1,0 +1,10 @@
+{
+  "reference_commit": "5e860696fe6cb6cd4c170f6ebf5378039b3e4af6",
+  "source_sha256": {
+    "ui_widgets.c": "8daad420731a1c5f93aa7f9947f497b1dae547e8e387122f739f5aa2336f02a4"
+  },
+  "capture": "Exact original menu_key/menu_keys_begin/menu_keys_end with controlled pointer/key/repeat/scroll/item counts; two identical runs",
+  "files": {
+    "menu.txt": "7fb788da0332d9e7abdb532105a7c6925fcf70638807ad71be5b62abd992aaef"
+  }
+}

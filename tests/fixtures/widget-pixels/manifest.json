@@ -1,0 +1,10 @@
+{
+  "reference_commit": "5e860696fe6cb6cd4c170f6ebf5378039b3e4af6",
+  "files": {
+    "circle.rgba": "b4c1adb4d3c0f1bff87a02220c21e48641a18171bb0b91414baace6ab17523cf",
+    "arcs.rgba": "3ff60d52cbc1e98ff145c68c7012fccc769352968e86a51968a39124f18c6073",
+    "cable.rgba": "4377b01b7e20cc8258e1e924a15d59b2eb79e7eba666321f3703ac0fbe2ed138"
+  },
+  "repeat_exact": true,
+  "method": "Frozen original circles_init/arcs_init/cables_init and pinned raylib GenImageColor; GPU upload captured as raw RGBA instead of executed."
+}

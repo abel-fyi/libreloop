@@ -1,0 +1,12 @@
+{
+  "reference_commit": "5e860696fe6cb6cd4c170f6ebf5378039b3e4af6",
+  "source_sha256": {
+    "ui_menus.c": "2683ab5521e481b2b6ff49b5bdf4442b2c7d0e6e5a27514acccd3cabc9a89958",
+    "ui_widgets.c": "8daad420731a1c5f93aa7f9947f497b1dae547e8e387122f739f5aa2336f02a4",
+    "file_chooser.c": "44fd7f149bfec18c09e0f2c6796446c342c1436e080a94698a900ed234159d89"
+  },
+  "capture": "Exact original file-picker draw/submit/commit/sync/text-input handlers and real original chooser filesystem; 24 three-frame contexts at logical scale1/2; temporary-root path normalized; project I/O outcome controlled; two identical runs; initial save field/select-all and per-action remembered-folder purpose match the original launch handlers",
+  "files": {
+    "picker.txt": "83160d46ccd293cd8f5d4d7f00380394488b5ffd1c7971e39ab2153a9c5bf82a"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "source_archive_sha256": "aea98ecf5bc5c5e0b789a76de0083a21a70457050ea4cc2aec7566935f5e258e",
+  "files": {
+    "third_party/miniaudio/miniaudio.h": "60b53a3bfd81319bd23bc18aa728f75e4ae70d3c5c2993ebbf4fedf808a1e45e",
+    "third_party/miniaudio/LICENSE.txt": "d9dd1ea2752647ac5570a514c59125ce0cba4cdb9b6f6ee379f59a481603af29",
+    "third_party/stb/stb_image_write.h": "cbd5f0ad7a9cf4468affb36354a1d2338034f2c12473cf1a8e32053cb6914a05",
+    "third_party/stb/stb_image.h": "594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3",
+    "third_party/stb/stb_truetype.h": "ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab"
+  }
+}

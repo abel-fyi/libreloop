@@ -1,0 +1,25 @@
+# Local builds and measurements
+/build*/
+/cmake-build-*/
+/build-*.log
+/CMakeFiles/
+/CMakeCache.txt
+/compile_commands.json
+/Testing/
+/.cache/
+
+# Private working notes: retain locally, never publish
+/notes.txt
+/notes-order.md
+
+# Editor and operating-system files
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Local credentials/configuration
+.env
+.env.*
+!.env.example

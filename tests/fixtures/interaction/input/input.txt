@@ -1,0 +1,279 @@
+frame 0 pointer 24.123457 32.9876556 delta 24.123457 32.9876556 wheel -0.25 0.25 scalar 0.25
+key -1 0 0 0 0 0
+key 0 0 0 0 0 0
+key 1 0 0 0 0 1
+key 32 0 0 0 0 1
+key 65 0 0 0 0 1
+key 66 1 0 1 0 0
+key 67 0 0 0 0 1
+key 68 0 0 0 0 1
+key 69 0 0 0 0 1
+key 80 0 0 0 0 1
+key 90 0 0 0 0 1
+key 256 0 0 0 0 1
+key 257 0 0 0 0 1
+key 280 0 0 0 0 1
+key 282 0 0 0 0 1
+key 340 0 0 0 0 1
+key 341 0 0 0 0 1
+key 343 0 0 0 0 1
+key 348 0 0 0 0 1
+key 511 0 0 0 0 1
+key 512 0 0 0 0 0
+button 0 0 0 0 1
+button 1 0 0 0 1
+button 2 1 1 0 0
+button 3 0 0 0 1
+button 4 0 0 0 1
+button 5 0 0 0 1
+button 6 0 0 0 1
+button 7 0 0 0 1
+queues 65 66 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 0 0 
+frame 1 pointer 24.9876537 32.123455 delta 0.864196777 -0.864200592 wheel -0.100000001 0 scalar -0.100000001
+key -1 0 0 0 0 0
+key 0 0 0 0 0 0
+key 1 0 0 0 0 1
+key 32 0 0 0 0 1
+key 65 0 0 0 0 1
+key 66 0 1 1 0 0
+key 67 0 1 0 0 1
+key 68 0 0 0 0 1
+key 69 0 0 0 0 1
+key 80 0 0 0 0 1
+key 90 0 0 0 0 1
+key 256 0 0 0 0 1
+key 257 0 0 0 0 1
+key 280 0 0 0 0 1
+key 282 0 0 0 0 1
+key 340 0 0 0 0 1
+key 341 0 0 0 0 1
+key 343 0 0 0 0 1
+key 348 0 0 0 0 1
+key 511 0 0 0 0 1
+key 512 0 0 0 0 0
+button 0 0 0 0 1
+button 1 0 0 0 1
+button 2 0 1 0 0
+button 3 0 0 0 1
+button 4 0 0 0 1
+button 5 0 0 0 1
+button 6 0 0 0 1
+button 7 0 0 0 1
+queues 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+frame 2 pointer 24.9876537 32.123455 delta 0 0 wheel 0 0 scalar 0
+key -1 0 0 0 0 0
+key 0 0 0 0 0 0
+key 1 0 0 0 0 1
+key 32 0 0 0 0 1
+key 65 0 0 0 0 1
+key 66 0 0 0 1 1
+key 67 0 0 0 0 1
+key 68 0 0 0 0 1
+key 69 0 0 0 0 1
+key 80 1 0 1 0 0
+key 90 1 0 1 0 0
+key 256 0 0 0 0 1
+key 257 0 0 0 0 1
+key 280 1 0 1 0 0
+key 282 1 0 1 0 0
+key 340 0 0 0 0 1
+key 341 0 0 0 0 1
+key 343 0 0 0 0 1
+key 348 0 0 0 0 1
+key 511 0 0 0 0 1
+key 512 0 0 0 0 0
+button 0 0 0 0 1
+button 1 1 1 0 0
+button 2 0 0 1 1
+button 3 0 0 0 1
+button 4 0 0 0 1
+button 5 0 0 0 1
+button 6 0 0 0 1
+button 7 0 0 0 1
+queues 68 280 282 80 81 82 83 84 85 86 87 88 89 90 91 92 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+frame 3 pointer 24.9876537 32.123455 delta 0 0 wheel 0.100000001 -0.200000003 scalar -0.200000003
+key -1 0 0 0 0 0
+key 0 0 0 0 0 0
+key 1 0 0 0 0 1
+key 32 0 0 0 0 1
+key 65 0 0 0 0 1
+key 66 0 0 0 0 1
+key 67 0 0 0 0 1
+key 68 0 0 0 0 1
+key 69 0 0 0 0 1
+key 80 0 0 0 1 1
+key 90 0 0 0 1 1
+key 256 0 0 0 0 1
+key 257 0 0 0 0 1
+key 280 0 0 0 1 1
+key 282 0 0 0 1 1
+key 340 0 0 0 0 1
+key 341 0 0 0 0 1
+key 343 0 0 0 0 1
+key 348 0 0 0 0 1
+key 511 0 0 0 0 1
+key 512 0 0 0 0 0
+button 0 0 0 0 1
+button 1 0 0 1 1
+button 2 0 0 0 1
+button 3 0 0 0 1
+button 4 0 0 0 1
+button 5 0 0 0 1
+button 6 0 0 0 1
+button 7 0 0 0 1
+queues 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 955 956 957 958 959 960 961 962 963 964 965 966 967 968 969 970 0 0 
+frame 4 pointer 243.5625 2017.5 delta 475.13736 968.626526 wheel 0 0 scalar 0
+key -1 0 0 0 0 0
+key 0 0 0 0 0 0
+key 1 0 0 0 0 1
+key 32 0 0 0 0 1
+key 65 0 0 0 0 1
+key 66 0 0 0 0 1
+key 67 0 0 0 0 1
+key 68 0 0 0 0 1
+key 69 0 0 0 0 1
+key 80 0 0 0 0 1
+key 90 0 0 0 0 1
+key 256 0 0 0 0 1
+key 257 0 0 0 0 1
+key 280 0 0 0 0 1
+key 282 0 0 0 0 1
+key 340 1 0 1 0 0
+key 341 1 0 1 0 0
+key 343 1 0 1 0 0
+key 348 0 0 0 0 1
+key 511 0 0 0 0 1
+key 512 0 0 0 0 0
+button 0 0 0 0 1
+button 1 0 0 0 1
+button 2 0 0 0 1
+button 3 0 0 0 1
+button 4 0 0 0 1
+button 5 0 0 0 1
+button 6 0 0 0 1
+button 7 1 1 0 0
+queues 340 341 343 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+frame 5 pointer -100.5 500.25 delta -600.625 -500.5 wheel 0 0 scalar 0
+key -1 0 0 0 0 0
+key 0 0 0 0 0 0
+key 1 0 0 0 0 1
+key 32 0 0 0 0 1
+key 65 0 0 0 0 1
+key 66 0 0 0 0 1
+key 67 0 0 0 0 1
+key 68 0 0 0 0 1
+key 69 0 0 0 0 1
+key 80 0 0 0 0 1
+key 90 0 0 0 0 1
+key 256 0 0 0 0 1
+key 257 0 0 0 0 1
+key 280 0 0 0 0 1
+key 282 0 0 0 0 1
+key 340 0 0 0 1 1
+key 341 0 0 0 1 1
+key 343 0 0 0 1 1
+key 348 0 0 0 0 1
+key 511 0 0 0 0 1
+key 512 0 0 0 0 0
+button 0 0 0 0 1
+button 1 0 0 0 1
+button 2 0 0 0 1
+button 3 0 0 0 1
+button 4 0 0 0 1
+button 5 0 0 0 1
+button 6 0 0 0 1
+button 7 0 0 1 1
+queues 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+frame 6 pointer -100.5 500.25 delta 0 0 wheel 0 0 scalar 0
+key -1 0 0 0 0 0
+key 0 0 0 0 0 0
+key 1 1 0 1 0 0
+key 32 0 0 0 0 1
+key 65 0 0 0 0 1
+key 66 0 0 0 0 1
+key 67 0 0 0 0 1
+key 68 0 0 0 0 1
+key 69 0 0 0 0 1
+key 80 0 0 0 0 1
+key 90 0 0 0 0 1
+key 256 0 0 0 0 1
+key 257 0 0 0 0 1
+key 280 0 0 0 0 1
+key 282 0 0 0 0 1
+key 340 0 0 0 0 1
+key 341 0 0 0 0 1
+key 343 0 0 0 0 1
+key 348 0 0 0 0 1
+key 511 1 1 1 0 0
+key 512 0 0 0 0 0
+button 0 1 1 0 0
+button 1 0 0 0 1
+button 2 0 0 0 1
+button 3 0 0 0 1
+button 4 0 0 0 1
+button 5 0 0 0 1
+button 6 0 0 0 1
+button 7 0 0 0 1
+queues 511 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1114111 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+frame 7 pointer -100.5 500.25 delta 0 0 wheel 0 0 scalar 0
+key -1 0 0 0 0 0
+key 0 0 0 0 0 0
+key 1 0 0 1 0 0
+key 32 0 0 0 0 1
+key 65 0 0 0 0 1
+key 66 0 0 0 0 1
+key 67 0 0 0 0 1
+key 68 0 0 0 0 1
+key 69 0 0 0 0 1
+key 80 0 0 0 0 1
+key 90 0 0 0 0 1
+key 256 0 0 0 0 1
+key 257 0 0 0 0 1
+key 280 0 0 0 0 1
+key 282 0 0 0 0 1
+key 340 0 0 0 0 1
+key 341 0 0 0 0 1
+key 343 0 0 0 0 1
+key 348 0 0 0 0 1
+key 511 0 0 1 0 0
+key 512 0 0 0 0 0
+button 0 0 1 0 0
+button 1 0 0 0 1
+button 2 0 0 0 1
+button 3 0 0 0 1
+button 4 0 0 0 1
+button 5 0 0 0 1
+button 6 0 0 0 1
+button 7 0 0 0 1
+queues 511 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+frame 8 pointer -100.5 500.25 delta 0 0 wheel 0 0 scalar 0
+key -1 0 0 0 0 0
+key 0 0 0 0 0 0
+key 1 0 0 1 0 0
+key 32 0 0 0 0 1
+key 65 0 0 0 0 1
+key 66 0 0 0 0 1
+key 67 0 0 0 0 1
+key 68 0 0 0 0 1
+key 69 0 0 0 0 1
+key 80 0 0 0 0 1
+key 90 0 0 0 0 1
+key 256 0 0 0 0 1
+key 257 0 0 0 0 1
+key 280 0 0 0 0 1
+key 282 0 0 0 0 1
+key 340 0 0 0 0 1
+key 341 0 0 0 0 1
+key 343 0 0 0 0 1
+key 348 0 0 0 0 1
+key 511 0 0 1 0 0
+key 512 0 0 0 0 0
+button 0 0 1 0 0
+button 1 0 0 0 1
+button 2 0 0 0 1
+button 3 0 0 0 1
+button 4 0 0 0 1
+button 5 0 0 0 1
+button 6 0 0 0 1
+button 7 0 0 0 1
+queues 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 

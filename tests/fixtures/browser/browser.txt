@@ -1,0 +1,171 @@
+initial 0 10 0 0 1
+$ROOT/samples
+$ROOT/samples
+$ROOT/config/libreloop/folders.txt
+0 0 1 1 $ROOT/samples
+1 1 1 0 $ROOT/samples/.hidden-dir
+2 1 1 0 $ROOT/samples/Sub\samples
+3 1 0 0 $ROOT/samples/.hidden.WAV
+4 1 0 0 $ROOT/samples/UPPER.WAV
+5 1 0 0 $ROOT/samples/alias.flac
+6 1 0 0 $ROOT/samples/broken.wav
+7 1 0 0 $ROOT/samples/session.llp
+8 1 0 0 $ROOT/samples/song.mp3
+9 1 0 0 $ROOT/samples/z.FLAC
+expanded 0 12 0 2 1
+$ROOT/samples/Sub\samples
+$ROOT/samples
+$ROOT/config/libreloop/folders.txt
+0 0 1 1 $ROOT/samples
+1 1 1 0 $ROOT/samples/.hidden-dir
+2 1 1 1 $ROOT/samples/Sub\samples
+3 2 1 0 $ROOT/samples/Sub\samples/Deep
+4 2 0 0 $ROOT/samples/Sub\samples/note.wav
+5 1 0 0 $ROOT/samples/.hidden.WAV
+6 1 0 0 $ROOT/samples/UPPER.WAV
+7 1 0 0 $ROOT/samples/alias.flac
+8 1 0 0 $ROOT/samples/broken.wav
+9 1 0 0 $ROOT/samples/session.llp
+10 1 0 0 $ROOT/samples/song.mp3
+11 1 0 0 $ROOT/samples/z.FLAC
+first-child 0 12 0 3 1
+$ROOT/samples/Sub\samples/Deep
+$ROOT/samples
+$ROOT/config/libreloop/folders.txt
+0 0 1 1 $ROOT/samples
+1 1 1 0 $ROOT/samples/.hidden-dir
+2 1 1 1 $ROOT/samples/Sub\samples
+3 2 1 0 $ROOT/samples/Sub\samples/Deep
+4 2 0 0 $ROOT/samples/Sub\samples/note.wav
+5 1 0 0 $ROOT/samples/.hidden.WAV
+6 1 0 0 $ROOT/samples/UPPER.WAV
+7 1 0 0 $ROOT/samples/alias.flac
+8 1 0 0 $ROOT/samples/broken.wav
+9 1 0 0 $ROOT/samples/session.llp
+10 1 0 0 $ROOT/samples/song.mp3
+11 1 0 0 $ROOT/samples/z.FLAC
+parent 0 12 0 2 1
+$ROOT/samples/Sub\samples
+$ROOT/samples
+$ROOT/config/libreloop/folders.txt
+0 0 1 1 $ROOT/samples
+1 1 1 0 $ROOT/samples/.hidden-dir
+2 1 1 1 $ROOT/samples/Sub\samples
+3 2 1 0 $ROOT/samples/Sub\samples/Deep
+4 2 0 0 $ROOT/samples/Sub\samples/note.wav
+5 1 0 0 $ROOT/samples/.hidden.WAV
+6 1 0 0 $ROOT/samples/UPPER.WAV
+7 1 0 0 $ROOT/samples/alias.flac
+8 1 0 0 $ROOT/samples/broken.wav
+9 1 0 0 $ROOT/samples/session.llp
+10 1 0 0 $ROOT/samples/song.mp3
+11 1 0 0 $ROOT/samples/z.FLAC
+collapsed 0 10 0 2 1
+$ROOT/samples/Sub\samples
+$ROOT/samples
+$ROOT/config/libreloop/folders.txt
+0 0 1 1 $ROOT/samples
+1 1 1 0 $ROOT/samples/.hidden-dir
+2 1 1 0 $ROOT/samples/Sub\samples
+3 1 0 0 $ROOT/samples/.hidden.WAV
+4 1 0 0 $ROOT/samples/UPPER.WAV
+5 1 0 0 $ROOT/samples/alias.flac
+6 1 0 0 $ROOT/samples/broken.wav
+7 1 0 0 $ROOT/samples/session.llp
+8 1 0 0 $ROOT/samples/song.mp3
+9 1 0 0 $ROOT/samples/z.FLAC
+broken-file-selected 0 10 0 6 1
+$ROOT/samples
+$ROOT/samples
+$ROOT/config/libreloop/folders.txt
+0 0 1 1 $ROOT/samples
+1 1 1 0 $ROOT/samples/.hidden-dir
+2 1 1 0 $ROOT/samples/Sub\samples
+3 1 0 0 $ROOT/samples/.hidden.WAV
+4 1 0 0 $ROOT/samples/UPPER.WAV
+5 1 0 0 $ROOT/samples/alias.flac
+6 1 0 0 $ROOT/samples/broken.wav
+7 1 0 0 $ROOT/samples/session.llp
+8 1 0 0 $ROOT/samples/song.mp3
+9 1 0 0 $ROOT/samples/z.FLAC
+add 1
+favorite 1 13 0 10 1
+$ROOT/samples/Sub\samples
+$ROOT/samples
+$ROOT/config/libreloop/folders.txt
+$ROOT/samples/Sub\samples
+0 0 1 1 $ROOT/samples
+1 1 1 0 $ROOT/samples/.hidden-dir
+2 1 1 0 $ROOT/samples/Sub\samples
+3 1 0 0 $ROOT/samples/.hidden.WAV
+4 1 0 0 $ROOT/samples/UPPER.WAV
+5 1 0 0 $ROOT/samples/alias.flac
+6 1 0 0 $ROOT/samples/broken.wav
+7 1 0 0 $ROOT/samples/session.llp
+8 1 0 0 $ROOT/samples/song.mp3
+9 1 0 0 $ROOT/samples/z.FLAC
+10 0 1 1 $ROOT/samples/Sub\samples
+11 1 1 0 $ROOT/samples/Sub\samples/Deep
+12 1 0 0 $ROOT/samples/Sub\samples/note.wav
+duplicate 1
+duplicate 1 13 0 10 1
+$ROOT/samples/Sub\samples
+$ROOT/samples
+$ROOT/config/libreloop/folders.txt
+$ROOT/samples/Sub\samples
+0 0 1 1 $ROOT/samples
+1 1 1 0 $ROOT/samples/.hidden-dir
+2 1 1 0 $ROOT/samples/Sub\samples
+3 1 0 0 $ROOT/samples/.hidden.WAV
+4 1 0 0 $ROOT/samples/UPPER.WAV
+5 1 0 0 $ROOT/samples/alias.flac
+6 1 0 0 $ROOT/samples/broken.wav
+7 1 0 0 $ROOT/samples/session.llp
+8 1 0 0 $ROOT/samples/song.mp3
+9 1 0 0 $ROOT/samples/z.FLAC
+10 0 1 1 $ROOT/samples/Sub\samples
+11 1 1 0 $ROOT/samples/Sub\samples/Deep
+12 1 0 0 $ROOT/samples/Sub\samples/note.wav
+root-collapsed 1 4 0 0 1
+$ROOT/samples
+$ROOT/samples
+$ROOT/config/libreloop/folders.txt
+$ROOT/samples/Sub\samples
+0 0 1 0 $ROOT/samples
+1 0 1 1 $ROOT/samples/Sub\samples
+2 1 1 0 $ROOT/samples/Sub\samples/Deep
+3 1 0 0 $ROOT/samples/Sub\samples/note.wav
+root-expanded 1 13 0 0 1
+$ROOT/samples
+$ROOT/samples
+$ROOT/config/libreloop/folders.txt
+$ROOT/samples/Sub\samples
+0 0 1 1 $ROOT/samples
+1 1 1 0 $ROOT/samples/.hidden-dir
+2 1 1 0 $ROOT/samples/Sub\samples
+3 1 0 0 $ROOT/samples/.hidden.WAV
+4 1 0 0 $ROOT/samples/UPPER.WAV
+5 1 0 0 $ROOT/samples/alias.flac
+6 1 0 0 $ROOT/samples/broken.wav
+7 1 0 0 $ROOT/samples/session.llp
+8 1 0 0 $ROOT/samples/song.mp3
+9 1 0 0 $ROOT/samples/z.FLAC
+10 0 1 1 $ROOT/samples/Sub\samples
+11 1 1 0 $ROOT/samples/Sub\samples/Deep
+12 1 0 0 $ROOT/samples/Sub\samples/note.wav
+reload 1 11 0 0 1
+$ROOT/samples
+$ROOT/samples
+$ROOT/config/libreloop/folders.txt
+$ROOT/samples/Sub\samples
+0 0 1 1 $ROOT/samples
+1 1 1 0 $ROOT/samples/.hidden-dir
+2 1 1 0 $ROOT/samples/Sub\samples
+3 1 0 0 $ROOT/samples/.hidden.WAV
+4 1 0 0 $ROOT/samples/UPPER.WAV
+5 1 0 0 $ROOT/samples/alias.flac
+6 1 0 0 $ROOT/samples/broken.wav
+7 1 0 0 $ROOT/samples/session.llp
+8 1 0 0 $ROOT/samples/song.mp3
+9 1 0 0 $ROOT/samples/z.FLAC
+10 0 1 0 $ROOT/samples/Sub\samples
