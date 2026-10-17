@@ -7,7 +7,7 @@ in a 480×220 logical-unit floating editor (minimum 440×220):
 | Control | Range | Default |
 |---|---|---|
 | Drive | 0–36 dB | +12 dB |
-| Tone | 1200–20000 Hz, logarithmic, then None | 6500 Hz |
+| Tone | 1200–20000 Hz, logarithmic, then None | None |
 | Mix | 0–100% | 100% |
 | Output | −24–+12 dB | −3 dB |
 
@@ -92,7 +92,7 @@ size, per-frame rendering cost and real-device CPU/latency remain unmeasured.
 
 | Measurement | Test conditions | Result |
 |---|---|---|
-| Second harmonic | 1 kHz sine, amplitude 0.3, default controls | −24.71 dBc |
+| Second harmonic | 1 kHz sine, amplitude 0.3, Drive +12 dB, Tone 6500 Hz, Output −3 dB | −24.71 dBc |
 | Third harmonic | Same | −18.96 dBc |
 | Ninth harmonic | Same | −69.49 dBc |
 | Selected folded-harmonic reduction | 7 kHz sine, amplitude 0.5, Drive +24 dB, Tone 18 kHz, Output 0 dB | 18.63 dB relative to fundamental versus the same point-sampled model |

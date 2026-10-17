@@ -3,7 +3,7 @@
 #include <math.h>
 static const ParameterDescriptor descriptors[]={
     {PARAM_TUBE_DRIVE,"Tube drive (dB)",0,36,12,PARAMETER_CONTINUOUS},
-    {PARAM_TUBE_TONE,"Tube tone (Hz / None)",1200,TUBE_TONE_OFF,6500,PARAMETER_LOGARITHMIC},
+    {PARAM_TUBE_TONE,"Tube tone (Hz / None)",1200,TUBE_TONE_OFF,TUBE_TONE_OFF,PARAMETER_LOGARITHMIC},
     {PARAM_TUBE_OUTPUT,"Tube output (dB)",-24,12,-3,PARAMETER_CONTINUOUS},
     {PARAM_DELAY_STEPS,"Delay time (steps)",.125f,16,3,PARAMETER_LOGARITHMIC},
     {PARAM_DELAY_INPUT_PAN,"Delay input pan",-1,1,0,PARAMETER_CONTINUOUS},

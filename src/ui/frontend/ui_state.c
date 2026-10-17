@@ -2,6 +2,7 @@
 #include "ui_internal.h"
 
 UiState ui={
+    .song=1,
     .record_mask=RECORD_NOTES,
     .record_count_steps=16,
     .typing_keys=1,

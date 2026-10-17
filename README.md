@@ -44,7 +44,8 @@ Python 3's standard library is used for test orchestration, not app runtime.
 ## Current status
 
 The desktop is a development build. Its Arrange/Pattern pages sit above a docked
-Mixer; instruments and effects open as floating editors. The Browser and Mixer
+Mixer; instruments and effects open as floating editors. New sessions start in
+SONG mode. The Browser and Mixer
 collapse, and the piano-roll velocity lane resizes and collapses. Controls share
 pixel-style materials, labeled action menus and five-dot divider grips.
 

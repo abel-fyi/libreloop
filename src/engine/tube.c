@@ -4,7 +4,7 @@
 #include <math.h>
 #include <string.h>
 #define TUBE_RATE 48000.f
-TubeSettings tube_default(void) {return (TubeSettings){12,6500,-3};}
+TubeSettings tube_default(void) {return (TubeSettings){12,TUBE_TONE_OFF,-3};}
 int tube_valid(TubeSettings s) {
     return isfinite(s.drive) && s.drive>=0 && s.drive<=36 &&
         isfinite(s.tone) && s.tone>=1200 && s.tone<=TUBE_TONE_OFF &&

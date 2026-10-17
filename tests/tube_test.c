@@ -38,7 +38,7 @@ static double render_sine(TubeSettings settings,float amplitude,int hz,int compa
     return sqrt(energy/N);
 }
 int main(void) {
-    TubeSettings settings=tube_default();CHECK(tube_valid(settings));settings.drive=NAN;CHECK(!tube_valid(settings));settings=tube_default();settings.tone=0;CHECK(!tube_valid(settings));
+    TubeSettings settings=tube_default();CHECK(tube_valid(settings) && settings.tone==TUBE_TONE_OFF);settings.drive=NAN;CHECK(!tube_valid(settings));settings=tube_default();settings.tone=0;CHECK(!tube_valid(settings));
     Tube tube;tube_reset(&tube);settings=tube_default();
     for(int i=0;i<RATE;i++){float frame[2]={0};tube_process(&tube,settings,1,frame);CHECK(frame[0]==0 && frame[1]==0);}
     tube_reset(&tube);
@@ -59,7 +59,7 @@ int main(void) {
     settings=(TubeSettings){24,6500,-3};
     double small=render_sine(settings,.02f,1000,0)/.02,medium=render_sine(settings,.2f,1000,0)/.2,large=render_sine(settings,.8f,1000,0)/.8;
     CHECK(small>medium && medium>large);
-    render_sine(tube_default(),.3f,1000,0);
+    render_sine((TubeSettings){12,6500,-3},.3f,1000,0);
     double fundamental=magnitude(processed,1000),second=magnitude(processed,2000),third=magnitude(processed,3000),ninth=magnitude(processed,9000);
     CHECK(second/fundamental>.001 && third/fundamental>.01 && ninth<third*.18);
     double sum=0;for(int i=0;i<N;i++)sum+=processed[i];CHECK(fabs(sum/N)<.00001);

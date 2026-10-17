@@ -313,7 +313,8 @@ void new_project(int demo) {
             snprintf(ui.status,sizeof ui.status,"Project unchanged: could not prepare samples."); return;
         }
     }
-    ui.pattern=ui.channel=0; ui.song=demo; install_project(next,fresh,processed,demo?"demo" PROJECT_FILE_SUFFIX:"project" PROJECT_FILE_SUFFIX); ui.document.saved_on_disk=0;
+    ui.pattern=ui.channel=0; ui.song=1; install_project(next,fresh,processed,demo?"demo" PROJECT_FILE_SUFFIX:"project" PROJECT_FILE_SUFFIX); ui.document.saved_on_disk=0;
+    if(ui.windows.workspace.enabled)windows_focus(&ui.windows,1);
     snprintf(ui.status,sizeof ui.status,demo?"Demo loaded: press Play to hear the eight-bar groove.":"New project: load a sample to get started.");
 }
 
