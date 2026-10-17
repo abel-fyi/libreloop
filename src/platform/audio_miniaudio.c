@@ -56,7 +56,8 @@ typedef struct {
     uint8_t pattern_notes[PATTERNS][CHANNELS][NOTES];
     unsigned sample_frames[CHANNELS],live_frames,visual_frames;
     double speeds[CHANNELS],live_time,visual_frame,visual_time,visual_start,visual_end;
-    int playing;
+    uint64_t note_serial;
+    int playing,note_active,note_channel,note_pitch;
 } AudioView;
 /* Three owned buffers: callback writer, UI reader and atomic middle slot.
    Only the middle is exchanged. Neither side accesses the other owned slot. */
@@ -83,7 +84,8 @@ static double preview_position,preview_speed=1,preview_note_pitch=1,preview_fram
 static float preview_gain=.7f;
 static unsigned preview_end;
 static unsigned preview_remaining;
-static int preview_channel=-1;
+static int preview_channel=-1,note_preview_channel=-1,note_preview_pitch;
+static uint64_t note_preview_serial;
 static Player player,live;
 static EffectRack *effects;
 static int playing, ready;
@@ -263,6 +265,14 @@ static void publish_view(void) {
         if(v->gain>0 && v->note_id>0 && v->note_id<=NOTES && v->pattern>=0 && v->pattern<PATTERNS && v->channel>=0 && v->channel<CHANNELS && player.channel_active[v->channel] && (v->lane<0 || (v->lane<LANES && player.lane_active[v->lane])))
             target->pattern_notes[v->pattern][v->channel][v->note_id-1]=1;
     }
+    target->note_serial=note_preview_serial;target->note_channel=note_preview_channel;target->note_pitch=note_preview_pitch;target->note_active=0;
+    if(note_preview_channel>=0 && note_preview_channel<project.channel_count) {
+        int channel=note_preview_channel;
+        if(project.instrument[channel]==INSTRUMENT_FM) {
+            const Voice *voice=&live.voices[127];
+            target->note_active=voice->channel==channel && voice->instrument==INSTRUMENT_FM && voice->gain>0 && project.volume[channel]>0 && project.master>0 && !project.master_mute;
+        } else target->note_active=preview_channel==channel && preview_remaining && preview_position<preview_end && preview_gain>0;
+    }
     target->preview=preview; target->preview_position=preview_position;
     target->preview_frame=preview_frame; target->preview_time=preview_time; target->preview_rate=preview_rate;
     target->preview_end=preview_end; target->preview_remaining=preview_remaining;
@@ -323,6 +333,7 @@ static void consume_commands(void) {
             }
             break;
         case SAMPLE: case CHANNEL_SAMPLES:
+            note_preview_channel=-1;
             for(int channel=0;channel<CHANNELS;channel++) {
                 Sample next=c->kind==SAMPLE?(channel==c->channel?c->sample:samples[channel]):c->channels[channel];
                 if(next.data!=samples[channel].data || next.frames!=samples[channel].frames || next.channels!=samples[channel].channels) {
@@ -336,12 +347,15 @@ static void consume_commands(void) {
             preview=(Sample){0}; preview_end=preview_remaining=0; preview_channel=-1;
             break;
         case PREVIEW:
-            preview_channel=-1;
+            note_preview_channel=-1;preview_channel=-1;
             preview=c->sample; preview_position=preview_frame=0; preview_time=monotonic_time();
             preview_speed=preview_rate=1; preview_gain=.7f; preview_end=preview.frames; preview_remaining=5*RATE;
             break;
         case NOTE:
+            note_preview_channel=-1;
             if(c->channel>=0 && c->channel<project.channel_count) {
+                note_preview_channel=c->note.velocity && project.volume[c->channel]>0 && project.master>0 && (project.instrument[c->channel]==INSTRUMENT_FM || samples[c->channel].frames)?c->channel:-1;
+                note_preview_pitch=c->note.pitch;note_preview_serial=c->serial;
                 if(project.instrument[c->channel]==INSTRUMENT_FM) {
                     Voice *voice=&live.voices[127]; uint32_t phase[6];
                     int retain=voice->instrument==INSTRUMENT_FM && voice->channel==c->channel && voice->fm.engine==1 && project.fm[c->channel].engine==1 && !project.fm[c->channel].dx7.value[136];
@@ -380,6 +394,7 @@ static void consume_commands(void) {
             }
             break;
         case STOP: {
+            note_preview_channel=-1;
             int active=playing || (preview_remaining && preview_position<preview_end);
             for(int i=0;i<128;i++) active|=live.voices[i].gain!=0;
             atomic_store(&stopped_active,active);
@@ -473,7 +488,7 @@ int audio_start(const Project *p,const Sample s[CHANNELS]) {
     effects=effects_create(INSERTS+1); if(!effects) return 0;
     project_snapshot_update(&pending.snapshot,p,1,NULL); playback=pending.snapshot.plan;
     player.plan=live.plan=&playback;
-    player.effects=live.effects=effects; playing=0; preview=(Sample){0}; preview_end=preview_remaining=0; preview_channel=-1;
+    player.effects=live.effects=effects; playing=0;note_preview_channel=-1; preview=(Sample){0}; preview_end=preview_remaining=0; preview_channel=-1;
     visual_frames=live_frames=0; output_volume=1; publish_view();
     ma_device_config config=ma_device_config_init(ma_device_type_playback);
     config.playback.format=ma_format_f32; config.playback.channels=2;
@@ -584,6 +599,26 @@ void audio_preview(Sample s) {
 }
 void audio_note(int c,Note n) {
     control_begin(); submit((AudioCommand){.kind=NOTE,.channel=c,.note=n}); control_end();
+}
+int audio_note_activity(int *channel,int *pitch) {
+    static uint64_t seen;
+    refresh_view();int c=ready && (view.note_active || view.note_serial!=seen)?view.note_channel:-1,p=view.note_pitch;
+    seen=view.note_serial;
+    /* Reflect queued previews immediately, without reading callback-owned state. */
+    for(unsigned i=pending.read;i!=pending.write;i++) {
+        const AudioCommand *command=&pending.commands[i%AUDIO_COMMANDS];
+        if(command->kind==STOP || command->kind==SAMPLE || command->kind==CHANNEL_SAMPLES || command->kind==PREVIEW)c=-1;
+        if(command->kind==NOTE) {
+            int next=command->channel;const Project *state=&pending.snapshot.project;
+            c=ready && next>=0 && next<state->channel_count && command->note.velocity && state->volume[next]>0 && state->master>0 &&
+                (state->instrument[next]==INSTRUMENT_FM || view.sample_frames[next])?next:-1;
+            p=command->note.pitch;seen=command->serial;
+        }
+    }
+    if(c<0 || c>=CHANNELS || p<0 || p>=128){if(channel)*channel=-1;if(pitch)*pitch=-1;return 0;}
+    if(channel)*channel=c;
+    if(pitch)*pitch=p;
+    return 1;
 }
 void audio_key(int slot,int channel,int pitch,int down) { audio_key_velocity(slot,channel,pitch,down?100:0); }
 void audio_key_velocity(int slot,int channel,int pitch,int velocity) {

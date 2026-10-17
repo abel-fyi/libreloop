@@ -451,3 +451,14 @@ fixed-width insert strips, fractional horizontal scrolling, separate Mute/Solo
 buttons and 99 inserts for new studio projects. Legacy projects retain insert
 100 and referenced tenth FX slots. See `mixer-layout.md` for the interaction
 rules, explicit geometry-fixture changes and validation limits.
+
+Piano preview follow-up: note placement, note clicking and pitch-drag auditions
+now contribute their actual channel/pitch to the existing blue piano-key and
+row highlighting. The audio callback publishes preview identity/lifetime
+through its existing state snapshot, covering both sample and FM auditions.
+Queued notes are reflected immediately. A completed preview not yet seen by
+the UI receives one visible frame, so very short drum samples still flash;
+there is no new visual timer or change to audio/gate duration. Stop, sample
+replacement, browser preview and project replacement clear the preview identity.
+The callback test covers queued/replaced notes, active playback, completion,
+short samples between frames, browser cancellation and FM release.

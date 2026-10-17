@@ -13,6 +13,9 @@ void audio_preview(Sample sample);
 int audio_stop(void); /* Stops all playback; returns whether anything was playing. */
 double audio_preview_position(Sample sample);
 void audio_note(int channel,Note note);
+/* Sounding preview, or one UI frame for a preview that ended between frames.
+   Returns zero and writes -1 when silent. Single UI-thread consumer. */
+int audio_note_activity(int *channel,int *pitch);
 void audio_key_velocity(int slot,int channel,int pitch,int velocity);
 void audio_key(int slot,int channel,int pitch,int down);
 double audio_key_position(int slot,int channel);

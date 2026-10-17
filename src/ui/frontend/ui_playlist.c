@@ -275,6 +275,8 @@ void follow_view(float *start,float span,double position) {
 void track_activity_update(void) {
     audio_pattern_activity(ui.pattern,ui.playing_notes); memset(ui.playing_keys,0,sizeof ui.playing_keys);
     for(int c=0;c<ui.project.channel_count;c++) for(int n=0;n<NOTES;n++) if(ui.playing_notes[c][n] && ui.project.notes[ui.pattern][c][n].velocity) ui.playing_keys[c][ui.project.notes[ui.pattern][c][n].pitch]=1;
+    int preview_channel,preview_pitch;
+    if(audio_note_activity(&preview_channel,&preview_pitch))ui.playing_keys[preview_channel][preview_pitch]=1;
     uint8_t channel_triggered[CHANNELS]; audio_channel_activity(ui.channel_active_ui,channel_triggered);
     ui.channel_decay_active=0;
     for(int c=0;c<CHANNELS;c++) {

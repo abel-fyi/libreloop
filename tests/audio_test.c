@@ -263,6 +263,37 @@ int main(void) {
     fixture.lane_mute[0]=0; audio_update(&fixture,1,0,0,1,1,0,0,0); test_callback(NULL,out,NULL,64);
     audio_pattern_activity(0,activity); CHECK(activity[0][0]);
     audio_stop(); audio_pattern_activity(0,activity); CHECK(!activity[0][0]);
+    /* Placed/dragged note previews expose their actual pitch, not a UI timer. */
+    setup((Sample){pcm,1024,2});audio_update(&fixture,0,0,0,1,1,0,0,0);
+    ready=1;ma_atomic_device_state_set(&device.state,ma_device_state_started);
+    int preview_c,preview_p;
+    audio_note(0,(Note){60,100,0,.25f});
+    CHECK(audio_note_activity(&preview_c,&preview_p) && preview_c==0 && preview_p==60);
+    audio_note(0,(Note){64,100,0,.25f});
+    CHECK(audio_note_activity(&preview_c,&preview_p) && preview_p==64);
+    test_callback(NULL,out,NULL,64);CHECK(audio_note_activity(&preview_c,&preview_p) && preview_p==64);
+    for(int i=0;i<40;i++)test_callback(NULL,out,NULL,64);
+    CHECK(!audio_note_activity(&preview_c,&preview_p) && preview_c==-1 && preview_p==-1);
+    audio_note(0,(Note){67,100,0,.25f});
+    /* Queue the browser replacement directly: this test has no device thread
+       to acknowledge audio_preview() synchronously. */
+    control_begin();submit((AudioCommand){.kind=PREVIEW,.sample={pcm,1024,2}});control_end();
+    CHECK(!audio_note_activity(&preview_c,&preview_p));
+    ready=0;ma_atomic_device_state_set(&device.state,ma_device_state_uninitialized);audio_stop();
+    setup((Sample){pcm,4,2});audio_update(&fixture,0,0,0,1,1,0,0,0);
+    ready=1;ma_atomic_device_state_set(&device.state,ma_device_state_started);
+    audio_note(0,(Note){60,100,0,1});test_callback(NULL,out,NULL,64);
+    CHECK(!preview_remaining || preview_position>=preview_end);
+    CHECK(audio_note_activity(&preview_c,&preview_p) && preview_p==60);
+    CHECK(!audio_note_activity(&preview_c,&preview_p));
+    ready=0;ma_atomic_device_state_set(&device.state,ma_device_state_uninitialized);audio_stop();
+    fixture.instrument[0]=INSTRUMENT_FM;fixture.fm[0]=fm_legacy();fixture.fm[0].release=.01f;
+    audio_update(&fixture,0,0,0,1,1,0,0,0);ready=1;ma_atomic_device_state_set(&device.state,ma_device_state_started);
+    audio_note(0,(Note){69,100,0,.25f});CHECK(audio_note_activity(&preview_c,&preview_p) && preview_p==69);
+    test_callback(NULL,out,NULL,64);CHECK(audio_note_activity(&preview_c,&preview_p) && preview_c==0 && preview_p==69);
+    for(int i=0;i<100;i++)test_callback(NULL,out,NULL,64);
+    CHECK(!audio_note_activity(&preview_c,&preview_p));
+    ready=0;ma_atomic_device_state_set(&device.state,ma_device_state_uninitialized);audio_stop();
     puts("Transparent output, capture, post-fader recording, ring bounds, mixing and ordered controls passed.");
     return 0;
 }
