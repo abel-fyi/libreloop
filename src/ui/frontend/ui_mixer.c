@@ -496,6 +496,8 @@ void desktop_fx_drag_update(void) {
         if(ui.fx_dragging && ui.fx_drop>=0 && effect_chain_move(&ui.project,bus,ui.fx_slot,ui.fx_drop)) {
             for(int id=5;id<WINDOW_CAPACITY;id++)if(ui.effect_windows[id].bus==bus)ui.effect_windows[id].slot=effect_slot_after_move(ui.effect_windows[id].slot,ui.fx_slot,ui.fx_drop);
             if(ui.eq_bus==bus){ui.eq_slot=effect_slot_after_move(ui.eq_slot,ui.fx_slot,ui.fx_drop);ui.effect_slot=effect_slot_after_move(ui.effect_slot,ui.fx_slot,ui.fx_drop);}
+            effect_target_after_move(&ui.midi_learn_target,bus,ui.fx_slot,ui.fx_drop);
+            effect_target_after_move(&ui.automation_target,bus,ui.fx_slot,ui.fx_drop);
             snprintf(ui.status,sizeof ui.status,"Effect moved to slot %d; the chain runs top to bottom.",ui.fx_drop+1);
         } else if(!ui.fx_dragging && ui.fx_drop==ui.fx_slot)mixer_effect_open(bus,ui.fx_slot,1);
         ui.fx_press=ui.fx_dragging=0;
