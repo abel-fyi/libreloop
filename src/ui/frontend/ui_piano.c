@@ -198,11 +198,9 @@ void piano(float width,float height) {
         DrawRect key=piano_key_rect(pitch,rh);
         float top=fmaxf(gy,key.y),bottom=fminf(gy+rh*piano_visible_rows(),key.y+key.height);
         if(bottom-top>1) {
-            float label_height=fmaxf(UI_TEXT_SIZE+2,bottom-top-1);
-            float label_top=fmaxf(gy,fminf(gy+rh*piano_visible_rows()-label_height,(top+bottom-label_height)/2));
-            DrawRect plate={30,label_top,27,label_height};
-            host_draw_rectangle_rec(plate,ui_theme.piano_c);
-            label_key(host_text_format("C%d",pitch/12-1),plate,ui_theme.piano_black);
+            /* Keep octave ink on the white-key tip, beyond the black keys. */
+            DrawRect bounds={39,top+1,18,fmaxf(0,bottom-top-2)};
+            label_key(host_text_format("C%d",pitch/12-1),bounds,ui_theme.piano_black);
         }
     }
     host_begin_scissor_mode((r.x+gx)*scale,(r.y+gy)*scale,gridw*scale,rh*piano_visible_rows()*scale);

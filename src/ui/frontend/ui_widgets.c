@@ -517,12 +517,9 @@ void knob(int x,int y,float *value,float low,float high,float initial,const char
 }
 
 void label_key(const char *text,DrawRect bounds,DrawColor color) {
-    if(ui.studio_style) {
-        label(text,bounds.x+bounds.width-text_width(text,UI_TEXT_SIZE),bounds.y+(bounds.height-UI_TEXT_SIZE)/2,UI_TEXT_SIZE,color);
-        return;
-    }
-    DrawFont *font=text_font(host_fonts(),text,12);FontPoint p;float size;
-    if(font_fit_ink(draw_font_layout(font),text,(GlyphRect){bounds.x,bounds.y,bounds.width,bounds.height},12,&p,&size))
+    int maximum=ui.studio_style?UI_TEXT_SIZE:12;
+    DrawFont *font=text_font(host_fonts(),text,maximum);FontPoint p;float size;
+    if(font_fit_ink(draw_font_layout(font),text,(GlyphRect){bounds.x,bounds.y,bounds.width,bounds.height},maximum,&p,&size))
         host_draw_text_ex(font,text,(DrawPoint){p.x,p.y},size,0,color);
 }
 
