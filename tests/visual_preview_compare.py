@@ -19,7 +19,9 @@ with tempfile.TemporaryDirectory(prefix="libreloop-visual-review-") as temporary
             directory.mkdir()
             args = [str(exe), "--smoke", "--smoke-scene", str(scene)]
             if mode == "preview":
-                args.append("--visual-preview")
+                args.extend(["--visual-preview", "--smoke-inserts", "100"])
+                # Hold the input project fixed: new studio projects intentionally
+                # default to 99 inserts; this test compares rendering only.
             subprocess.run(args, cwd=directory, env=env, check=True, timeout=30)
             for name in ("libreloop-smoke.png", "libreloop-view-1.png", "libreloop-view-2.png", "libreloop-view-3.png"):
                 image = (directory / name).read_bytes()
@@ -27,4 +29,8 @@ with tempfile.TemporaryDirectory(prefix="libreloop-visual-review-") as temporary
                 assert struct.unpack(">II", image[16:24]) == ((1448, 1086) if mode == "preview" else (1200, 675))
         assert (scene_root / "legacy/libreloop-smoke.llp").read_bytes() == (scene_root / "preview/libreloop-smoke.llp").read_bytes(), "Visual preview changed project state"
         assert (scene_root / "legacy/libreloop-view-2.png").read_bytes() != (scene_root / "preview/libreloop-view-2.png").read_bytes(), "Visual preview did not change the scene"
+    default_root = root / "default-studio"
+    default_root.mkdir()
+    subprocess.run([str(exe), "--smoke", "--visual-preview"], cwd=default_root, env=env, check=True, timeout=30)
+    assert b"insert_count i32 1\n1 99\n" in (default_root / "libreloop-smoke.llp").read_bytes(), "New studio project must have 99 inserts"
 print("Legacy and classic layouts produce 56 scenes each at their specified dimensions and byte-identical project state")

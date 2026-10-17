@@ -74,11 +74,15 @@ static void smoke_scene_prepare(int scene) {
 
 int main(int argc,char **argv) {
     int smoke_playing=0,smoke_piano_maximized=0;
-    float smoke_velocity=0;int smoke_seconds=0;
+    float smoke_velocity=0,smoke_mixer_offset=0,smoke_fx_scroll=0;int smoke_seconds=0,smoke_fx_hidden=0,smoke_inserts=0;
     float smoke_rack_zoom=0;int smoke_grid_menu=0,smoke_grid=-1,smoke_workspace=0,smoke_fill=0,smoke_count=0;
     int smoke=0,visual_preview=0,legacy_ui=0,smoke_scene=0,smoke_width=0,smoke_height=0,smoke_popup=0,profile_frames=0,profile_motion=0;
     for(int i=1;i<argc;i++) {
         if(!strcmp(argv[i],"--smoke")) smoke=1;
+        else if(!strcmp(argv[i],"--smoke-mixer-offset") && i+1<argc)smoke_mixer_offset=atof(argv[++i]);
+        else if(!strcmp(argv[i],"--smoke-fx-scroll") && i+1<argc)smoke_fx_scroll=atof(argv[++i]);
+        else if(!strcmp(argv[i],"--smoke-fx-hidden"))smoke_fx_hidden=1;
+        else if(!strcmp(argv[i],"--smoke-inserts") && i+1<argc)smoke_inserts=atoi(argv[++i]);
         else if(!strcmp(argv[i],"--smoke-count-in") && i+1<argc)smoke_count=atoi(argv[++i]);
         else if(!strcmp(argv[i],"--smoke-fill-dialog"))smoke_fill=1;
         else if(!strcmp(argv[i],"--smoke-velocity-height") && i+1<argc)smoke_velocity=atof(argv[++i]);
@@ -99,6 +103,8 @@ int main(int argc,char **argv) {
         else if(!strcmp(argv[i],"--legacy-ui"))legacy_ui=1;
         else if(!strcmp(argv[i],"--version")) { printf("LibreLoop %s\n",LIBRELOOP_VERSION); return 0; }
     }
+    if((smoke_mixer_offset || smoke_fx_scroll || smoke_fx_hidden || smoke_inserts) && !smoke)return 1;
+    if(!isfinite(smoke_mixer_offset) || !isfinite(smoke_fx_scroll) || smoke_inserts<0 || smoke_inserts>INSERTS)return 1;
     if((smoke_playing || smoke_piano_maximized) && !smoke)return 1;
     if((smoke_seconds || smoke_velocity || smoke_count || smoke_fill || smoke_workspace || smoke_rack_zoom || smoke_grid_menu || smoke_grid>=0) && !smoke)return 1;
     if(smoke_rack_zoom && (!isfinite(smoke_rack_zoom) || smoke_rack_zoom<.25f || smoke_rack_zoom>8))return 1;
@@ -130,7 +136,7 @@ int main(int argc,char **argv) {
         }
     }
 #endif
-    project_new(&ui.project); project_document_saved(&ui.document,&ui.project,NULL); history_checkpoint();
+    project_new(&ui.project);if(ui.studio_style)ui.project.insert_count=STUDIO_INSERTS; project_document_saved(&ui.document,&ui.project,NULL); history_checkpoint();
     for(int c=0;c<CHANNELS;c++) ui.sampler_applied[c]=ui.project.sampler[c];
     unsigned flags=HOST_FLAG_WINDOW_RESIZABLE;
 #ifdef __APPLE__
@@ -234,7 +240,7 @@ int main(int argc,char **argv) {
         }
         ui.mouse=host_get_mouse_position(); ui.mouse.x/=scale; ui.mouse.y/=scale; ui.reset=0; ui.popup_opened=0; ui.context_opened=0;
         host_set_mouse_cursor(HOST_MOUSE_CURSOR_DEFAULT);
-        if(smoke && frames==0){ui.velocity_lane.height=smoke_velocity;ui.velocity_lane.collapsed=smoke_velocity<0;ui.position_seconds=smoke_seconds;}
+        if(smoke && frames==0){ui.velocity_lane.height=smoke_velocity;ui.velocity_lane.collapsed=smoke_velocity<0;ui.position_seconds=smoke_seconds;ui.mixer_offset=smoke_mixer_offset;ui.mixer_fx_scroll=smoke_fx_scroll;ui.mixer_fx_hidden=smoke_fx_hidden;if(smoke_inserts)ui.project.insert_count=smoke_inserts;}
         if(ui.studio_style)ui.piano_top=fmaxf(piano_min_top(),fminf(127,ui.piano_top));
         desktop_velocity_resize();
         navigate_editors(scale);
@@ -269,7 +275,8 @@ int main(int argc,char **argv) {
             host_set_mouse_cursor(HOST_MOUSE_CURSOR_RESIZE_NS);
             if(!host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT)) ui.track_resize=-1;
         }
-        if(ui.mixer_pan) {
+        if(ui.mixer_pan && ui.studio_style && ui.windows.workspace.enabled)desktop_mixer_scrollbar_update();
+        else if(ui.mixer_pan) {
             Rect r=ui.windows.editors[3].rect; float area=r.w-MIXER_PANEL-MIXER_LEFT-8; int visible=fmaxf(1,area/mixer_strip_width()-1);
             ui.mixer_scroll=fmaxf(0,fminf(INSERTS-visible,(ui.mouse.x-r.x-MIXER_LEFT-area*visible/INSERTS/2)/area*INSERTS));
             if(!host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT) || host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)) ui.mixer_pan=0;
@@ -409,9 +416,14 @@ int main(int argc,char **argv) {
         if(ui.route_drag>=0) {
             ui.project.route[ui.route_drag]=(int)fmaxf(0,fminf(ui.project.insert_count,ui.route_start+(int)((ui.route_y-ui.mouse.y)/3)));
             ui.mixer_selected=ui.project.route[ui.route_drag];
+            if(ui.studio_style && ui.windows.workspace.enabled){
+                Rect r=desktop_editor_rect(3);MixerView v=mixer_view(r.w,r.h,ui.project.insert_count,ui.mixer_offset,ui.mixer_fx_hidden);
+                ui.mixer_offset=mixer_reveal_bus(v,ui.mixer_selected);
+            } else {
             int visible=fmaxf(1,(ui.windows.editors[3].rect.w-MIXER_PANEL-MIXER_LEFT-8)/mixer_strip_width()-1);
             if(ui.mixer_selected>ui.mixer_scroll+visible) ui.mixer_scroll=ui.mixer_selected-visible;
             else if(ui.mixer_selected>0 && ui.mixer_selected<=ui.mixer_scroll) ui.mixer_scroll=ui.mixer_selected-1;
+            }
             snprintf(ui.status,sizeof ui.status,"%s -> %s",ui.project.channel_names[ui.route_drag],mixer_name(ui.mixer_selected));
         }
         Rect filter_rect=ui.windows.editors[0].rect;

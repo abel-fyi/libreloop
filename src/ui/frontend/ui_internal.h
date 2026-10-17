@@ -29,6 +29,7 @@
 #include "record_count_in.h"
 #include "instrument_layout.h"
 #include "velocity_lane.h"
+#include "mixer_view.h"
 #include "transport_readout.h"
 #include "piano.h"
 #include "atomic_file.h"
@@ -163,6 +164,8 @@ typedef struct {
     int device_count,device_target,device_io,device_scroll;
     Browser browser;
     int route_drag,route_start,mixer_selected,mixer_scroll,mixer_pan,cable_drag;
+    float mixer_offset,mixer_scroll_grab,mixer_fx_scroll;
+    int mixer_fx_hidden;
     float route_y;
     Sample audition;
     double browser_progress;
@@ -293,9 +296,7 @@ static inline void desktop_playback_page(int song){
 }
 static inline int mixer_strip_width(void){
     if(!ui.studio_style)return 51;
-    int area=fmaxf(224,ui.windows.editors[3].rect.w-MIXER_PANEL-MIXER_LEFT-8);
-    int visible=fminf(ui.project.insert_count,fmaxf(1,area/112-1));
-    return area/(visible+1);
+    return MIXER_STRIDE;
 }
 static inline float mixer_route_y(float height){return height-(ui.studio_style?37:46);}
 
@@ -489,6 +490,8 @@ int piano_key_at(float x,float y,float rh);
 void desktop_piano_key_update(float x,float y,int cancel);
 void piano(float width,float height);
 int mixer_input_at(DrawPoint point);
+void desktop_mixer_scrollbar_update(void);
+void mute_solo_buttons(float x,float y,uint8_t *states,int count,int selected,const char *name);
 void recording_finish(void);
 void recording_poll(void);
 void recording_start_audio(void);

@@ -364,13 +364,14 @@ void playlist(float width,float height,float scale) {
             host_draw_line(hx,y+rowh-1,gx-2,y+rowh-1,ui_theme.border);
             host_draw_line(hx,y,hx,y+rowh-1,ui_theme.border);
         }
-        label(fit_text(ui.project.track_names[l],gx-hx-(ui.studio_style?28:22),12),hx+8,y+fmaxf(1,(rowh-12)/2),12,ink);
+        label(fit_text(ui.project.track_names[l],gx-hx-(ui.studio_style?56:22),12),hx+8,y+fmaxf(1,(rowh-12)/2),12,ink);
         float brightness=fmaxf(ui.track_active_ui[l]?.32f:0,ui.track_flash[l]);
         DrawRect activity={gx-9,y+1,8,rowh-2};
         host_draw_rectangle_rec(activity,ui_theme.track);
         if(brightness>.005f) host_draw_rectangle_rec(activity,host_fade(WHITE,brightness));
         if(ui.selected_track==l) host_draw_rectangle_lines_ex(activity,1,accent);
-        mute_light(gx-18,y+rowh-10,ui.project.lane_mute,LANES,l,host_text_format("Playlist track %d",l+1));
+        if(ui.studio_style)mute_solo_buttons(gx-48,y+rowh-23,ui.project.lane_mute,LANES,l,host_text_format("Playlist track %d",l+1));
+        else mute_light(gx-18,y+rowh-10,ui.project.lane_mute,LANES,l,host_text_format("Playlist track %d",l+1));
         host_begin_scissor_mode((rect.x+gx)*scale,(rect.y+gy)*scale,gridw*scale,track_area*scale);
         host_draw_rectangle_rec((DrawRect){gx,y,gridw,rowh},ui_theme.track);
         if(ui.studio_style)ui_graph_dots(host_draw(),(DrawRect){gx,y,gridw,rowh-1});

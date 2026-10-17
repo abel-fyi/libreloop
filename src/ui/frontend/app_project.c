@@ -289,11 +289,11 @@ void install_project(Project next,Sample fresh[CHANNELS],Sample processed[CHANNE
         ui.sample_generation[c]++; ui.sampler_generation[c]=ui.sample_generation[c]; ui.sampler_applied[c]=next.sampler[c];
     }
     ui.project=next; project_document_saved(&ui.document,&ui.project,filename);
-    ui.project.insert_count=INSERTS; ui.rack_scroll=0; ui.rack_scroll_remainder=0; ui.rack_filter=0; ui.channel=fmaxf(0,fminf(ui.channel,ui.project.channel_count-1));
+    ui.project.insert_count=ui.studio_style?next.insert_count:INSERTS; ui.rack_scroll=0; ui.rack_scroll_remainder=0; ui.rack_filter=0; ui.channel=fmaxf(0,fminf(ui.channel,ui.project.channel_count-1));
     ui.piano_channel=ui.instrument_channel=ui.channel;
     for(int i=0;i<PATTERNS;i++) { ui.piano_span[i]=fmaxf(STEPS,next.pattern_steps[i]); ui.piano_pan[i]=0; ui.piano_range[i]=0; }
     memset(ui.note_selected,0,sizeof ui.note_selected); ui.piano_gesture=PIANO_IDLE; ui.playlist_start=0; memset(ui.piano_start,0,sizeof ui.piano_start); memset(ui.song_loop,0,sizeof ui.song_loop); memset(ui.pattern_loop,0,sizeof ui.pattern_loop); ui.marker_drag=-1;
-    memset(ui.piano_channels,0,sizeof ui.piano_channels); ui.mixer_selected=ui.project.route[ui.channel]; ui.mixer_scroll=0;
+    memset(ui.piano_channels,0,sizeof ui.piano_channels); ui.mixer_selected=ui.project.route[ui.channel]; ui.mixer_scroll=0;ui.mixer_offset=ui.mixer_fx_scroll=0;
     ui.piano_key_drag=0; ui.piano_key=-1;
     ui.note_drag=NULL; ui.velocity_drag=-1; ui.control_drag=NULL; ui.route_drag=-1; ui.rack_paint=-1; ui.cable_drag=-1;
     memset(&ui.arrangement,0,sizeof ui.arrangement); ui.arrangement.source_pattern=-1; ui.arrangement.source_steps=STEPS; ui.arrangement.zoom=1; ui.playlist_pan=0; ui.playlist_vpan=0; ui.track_scroll=0; memset(ui.rack_view,0,sizeof ui.rack_view); memset(ui.rack_range,0,sizeof ui.rack_range); memset(ui.rack_step_width,0,sizeof ui.rack_step_width);
@@ -306,6 +306,7 @@ void new_project(int demo) {
     Project next; Sample fresh[CHANNELS]={0},processed[CHANNELS]={0};
     if(demo) { project_demo(&next); samples_default(fresh); }
     else project_new(&next);
+    if(ui.studio_style)next.insert_count=STUDIO_INSERTS;
     for(int c=0;c<CHANNELS;c++) {
         if((demo && c<4 && !fresh[c].data) || !sample_process(fresh[c],next.sampler[c],&processed[c])) {
             for(int i=0;i<CHANNELS;i++) { sample_free(fresh[i]); sample_free(processed[i]); }

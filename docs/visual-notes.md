@@ -445,3 +445,9 @@ Toolbar roadmap pass: labeled icon-first FILE/EDIT/VIEW/HELP controls, fitted
 transport sprites, and MM:SS:CS time with smaller bottom-aligned centiseconds.
 Compact clock/tempo wells reserve separate rows for digits and captions.
 See `toolbar-polish.md` for geometry changes, tests and screenshot locations.
+
+Mixer layout follow-up: fixed Master beside the dBFS scale, FX shelves above
+fixed-width insert strips, fractional horizontal scrolling, separate Mute/Solo
+buttons and 99 inserts for new studio projects. Legacy projects retain insert
+100 and referenced tenth FX slots. See `mixer-layout.md` for the interaction
+rules, explicit geometry-fixture changes and validation limits.

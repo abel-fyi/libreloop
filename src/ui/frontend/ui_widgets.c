@@ -362,6 +362,33 @@ void mute_light(float x,float y,uint8_t *states,int count,int selected,const cha
     }
 }
 
+void mute_solo_buttons(float x,float y,uint8_t *states,int count,int selected,const char *name) {
+    int is_muted=displayed_value(&states[selected],!!(states[selected]&1))>=.5f;
+    int solo=count?!!(states[selected]&2):solo_any(ui.project.insert_mute,ui.project.insert_count) || solo_any(ui.project.mute,ui.project.channel_count) || solo_any(ui.project.lane_mute,LANES);
+    if(button("",x,y,18,20,is_muted)){states[selected]^=1;ui.input_enabled=0;}
+    label("M",x+5,y+2,UI_TEXT_SIZE,ink);
+    if(is_muted)host_draw_rectangle(x+3,y+17,12,2,ui_theme.meter_high);
+    if(hover(x,y,18,20)) {
+        snprintf(ui.status,sizeof ui.status,"%s: mute / unmute; right-click for automation",name);
+        if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT) && parameter_from_pointer(&ui.project,&states[selected],&ui.automation_target)){
+            snprintf(ui.menu_name,sizeof ui.menu_name,"Mute");Rect r=desktop_editor_rect(ui.knob_context);
+            open_context(10,0,(DrawPoint){ui.mouse.x+r.x,ui.mouse.y+r.y});
+        }
+    }
+    if(button("",x+20,y,18,20,solo)) {
+        if(count)solo_toggle(states,count,selected);
+        else {
+            for(int i=0;i<INSERTS;i++)ui.project.insert_mute[i]&=~2;
+            for(int i=0;i<CHANNELS;i++)ui.project.mute[i]&=~2;
+            for(int i=0;i<LANES;i++)ui.project.lane_mute[i]&=~2;
+        }
+        ui.input_enabled=0;
+    }
+    label("S",x+25,y+2,UI_TEXT_SIZE,ink);
+    if(solo)host_draw_rectangle(x+23,y+17,12,2,ui_theme.meter_mid);
+    if(hover(x+20,y,18,20))snprintf(ui.status,sizeof ui.status,count?"%s: add / remove solo":"%s: clear all solos",name);
+}
+
 int editor_button(int id,int x) {
     static const char *names[]={"Channel Rack","Playlist","Piano Roll","Mixer"};
     int front=0;

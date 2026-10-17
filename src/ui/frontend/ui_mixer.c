@@ -4,6 +4,7 @@
 
 int mixer_input_at(DrawPoint point) {
     Rect r=desktop_editor_rect(3); if(!ui.windows.editors[3].visible) return -1;
+    if(ui.studio_style && ui.windows.workspace.enabled)return mixer_route_hit(mixer_view(r.w,r.h,ui.project.insert_count,ui.mixer_offset,ui.mixer_fx_hidden),point.x-r.x,point.y-r.y);
     int capacity=fmaxf(1,(r.w-MIXER_PANEL-MIXER_LEFT-8)/mixer_strip_width()-1),visible=fminf(ui.project.insert_count,capacity);
     for(int col=0;col<=visible;col++) if(host_check_collision_point_rec(point,(DrawRect){r.x+MIXER_LEFT+col*mixer_strip_width()+7,r.y+mixer_route_y(r.h),12,12})) return col?col+ui.mixer_scroll:0;
     return -1;
@@ -282,7 +283,7 @@ static void mixer_slots(float fx,float height) {
     }
 }
 
-void mixer(float width,float height) {
+static void mixer_legacy(float width,float height) {
     selected_meter(height);
     int capacity=fmaxf(1,(width-MIXER_PANEL-MIXER_LEFT-8)/mixer_strip_width()-1),visible=ui.project.insert_count<capacity?ui.project.insert_count:capacity;
     ui.mixer_scroll=(int)fmaxf(0,fminf(fmaxf(0,ui.project.insert_count-visible),ui.mixer_scroll));
@@ -462,4 +463,168 @@ void mixer(float width,float height) {
         snprintf(ui.status,sizeof ui.status,"Mixer: wheel over inserts or drag this scrollbar to browse all 100 inserts");
         if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)) { ui.mixer_pan=1; ui.mixer_scroll=fmaxf(0,fminf(INSERTS-visible,(ui.mouse.x-MIXER_LEFT-thumb/2)/area*INSERTS)); ui.input_enabled=0; }
     }
+}
+
+/* The studio mixer keeps Master fixed and translates insert-local controls
+   together. Input, text and drawing share that translation, including partial
+   strips, while the engine and the frozen legacy renderer remain unchanged. */
+static void studio_fx_slots(int counts[INSERTS+1]) {
+    for(int bus=0;bus<=INSERTS;bus++)counts[bus]=ui.project.effect_type[bus][EFFECT_SLOTS-1]?EFFECT_SLOTS:STUDIO_FX_SLOTS;
+    for(int i=0;i<ui.project.automation_count+ui.project.midi_binding_count;i++) {
+        ParameterTarget t=i<ui.project.automation_count?ui.project.automations[i].target:ui.project.midi_bindings[i-ui.project.automation_count].target;
+        if(t.owner<=INSERTS && t.slot==EFFECT_SLOTS-1 && ((t.parameter>=PARAM_CHORUS_RATE && t.parameter<=PARAM_EFFECT_MIX) || (t.parameter>=PARAM_EQ_FIRST && t.parameter<=PARAM_EQ_LAST)))counts[t.owner]=EFFECT_SLOTS;
+    }
+}
+void desktop_mixer_scrollbar_update(void) {
+    Rect r=desktop_editor_rect(3);MixerView v=mixer_view(r.w,r.h,ui.project.insert_count,ui.mixer_offset,ui.mixer_fx_hidden);
+    ui.mixer_offset=mixer_scroll_from_thumb(v,ui.mouse.x-r.x,ui.mixer_scroll_grab);
+    if(!host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT) || host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT))ui.mixer_pan=0;
+}
+static void studio_mixer_scale(MixerView v) {
+    label("dBFS",3,v.fader_top-20,UI_TEXT_SIZE,muted);
+    const int ticks[]={6,0,-6,-12,-24,-36,-48,-60};float last=-1000;
+    for(unsigned i=0;i<sizeof ticks/sizeof *ticks;i++) {
+        float y=v.fader_bottom-meter_height(powf(10,ticks[i]/20.f))*(v.fader_bottom-v.fader_top);
+        host_draw_line(36,y,41,y,muted);
+        if(y-last>=UI_TEXT_SIZE+2){label(host_text_format("%d",ticks[i]),3,y-8,UI_TEXT_SIZE,muted);last=y;}
+    }
+}
+static void studio_mixer_strip(MixerView v,int bus,int slots) {
+    int over=hover(0,v.fx_top,MIXER_STRIDE-4,v.height-v.fx_top-18);
+    if(over && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT))ui.mixer_selected=bus;
+    ui_panel(host_draw(),(DrawRect){0,v.fx_top,MIXER_STRIDE-4,v.height-v.fx_top-18},ui.mixer_selected==bus?(DrawColor){150,160,169,255}:cell);
+    static const DrawColor colors[]={
+        {0,216,200,255},{248,219,62,255},{100,201,239,255},{245,215,65,255},
+        {226,110,219,255},{105,181,243,255},{92,225,132,255},{238,148,77,255}};
+    if(v.fx_rows) {
+        int body_input=ui.input_enabled;
+        ui.input_enabled=body_input && ui.mouse.y>=v.fx_top && ui.mouse.y<v.fx_top+v.fx_height;
+        int fx_input=ui.input_enabled,first=(int)(ui.mixer_fx_scroll/22);
+        Rect root=desktop_editor_rect(3);float x=mixer_bus_x(v,bus),scale=ui_scale();
+        float left=bus?fmaxf(v.insert_x,x):x,right=bus?fminf(v.insert_x+v.viewport,x+108):x+108;
+        host_begin_scissor_mode((root.x+left)*scale,(root.y+v.fx_top)*scale,(right-left)*scale,v.fx_height*scale);
+        for(int slot=first;slot<slots && slot<first+v.fx_rows+1;slot++) {
+            float y=v.fx_top+slot*22-ui.mixer_fx_scroll;
+            int type=ui.project.effect_type[bus][slot];
+            const char *name=type?effect_descriptor(type)->name:"Empty";
+            if(type==EFFECT_EQ)name="EQ";
+            if(button(fit_text(name,type?74:98,UI_TEXT_SIZE),2,y, type?82:104,21,mixer_effect_window(bus,slot)>=5)) {
+                if(type)mixer_effect_open(bus,slot,1);else effect_slot_menu(bus,slot);
+                ui.input_enabled=0;
+            }
+            if(type && button(ui.project.effect_bypass[bus][slot]?"-":"o",86,y,18,21,!ui.project.effect_bypass[bus][slot]))ui.project.effect_bypass[bus][slot]^=1;
+            if(hover(0,y,108,21)) {
+                snprintf(ui.status,sizeof ui.status,"%s FX %d: %s | click to %s; right-click for slot options",mixer_name(bus),slot+1,name,type?"open / close":"add an effect");
+                if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT))effect_slot_menu(bus,slot);
+            }
+        }
+        ui.input_enabled=body_input && !(fx_input && !ui.input_enabled);
+        host_begin_scissor_mode((root.x+left)*scale,(root.y+v.fx_top)*scale,(right-left)*scale,(v.height-v.fx_top-18)*scale);
+    }
+    ui_surface(host_draw(),(DrawRect){2,v.header,104,20},bus?colors[(bus-1)%8]:ui_theme.control);
+    if(bus)label(host_text_format("%d",bus),5,v.header+2,UI_TEXT_SIZE,(DrawColor){12,22,26,255});
+    label(fit_text(mixer_name(bus),bus?76:98,UI_TEXT_SIZE),bus?28:6,v.header+2,UI_TEXT_SIZE,(DrawColor){12,22,26,255});
+    if(hover(0,v.header,108,20)) {
+        snprintf(ui.status,sizeof ui.status,"%s: right-click name to rename; left edge for channel actions",mixer_name(bus));
+        if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)) {
+            ui.mixer_selected=bus;
+            if(bus && ui.mouse.x>=24) {
+                ui.rename_channel=ui.rename_track=-1;ui.rename_mixer=bus-1;
+                snprintf(ui.rename_text,sizeof ui.rename_text,"%s",ui.project.insert_names[bus-1]);ui.rename_select_all=1;open_popup(2);ui.input_enabled=0;
+            } else open_context(3,bus,(DrawPoint){ui.mouse.x+desktop_editor_rect(3).x,ui.mouse.y+desktop_editor_rect(3).y});
+        }
+    }
+    mute_solo_buttons(3,v.controls-10,bus?ui.project.insert_mute:&ui.project.master_mute,bus?ui.project.insert_count:0,bus?bus-1:0,mixer_name(bus));
+    if(bus)knob_style(55,v.controls,&ui.project.insert_pan[bus-1],-1,1,0,"Insert pan",KNOB_PAN);
+    knob_style(77,v.controls,bus?&ui.project.insert_width[bus-1]:&ui.project.master_width,0,2,1,"Stereo width (left wider, center unchanged, right mono)",KNOB_WIDTH);
+    int arm=hover(91,v.controls-8,16,16);
+    ui_check_face(host_draw(),(DrawRect){91,v.controls-8,16,16},ui.record_armed[bus],ui_theme.meter_high);
+    if(arm){snprintf(ui.status,sizeof ui.status,"%s record arm: %s",mixer_name(bus),ui.record_armed[bus]?"On":"Off");if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT) && !recording_active()){ui.record_armed[bus]^=1;ui.input_enabled=0;}}
+    float *volume=bus?&ui.project.insert_volume[bus-1]:&ui.project.master;
+    ui_surface(host_draw(),(DrawRect){30,v.fader_top-2,9,v.fader_bottom-v.fader_top+4},(DrawColor){63,72,81,255});
+    ui_bevel(host_draw(),(DrawRect){30,v.fader_top-2,9,v.fader_bottom-v.fader_top+4},1);
+    meter_draw(bus,65,v.fader_top,v.fader_bottom,6);
+    for(int tick=0;tick<=8;tick++){float y=v.fader_top+(v.fader_bottom-v.fader_top)*tick/8;host_draw_line(tick%2?24:20,y,28,y,muted);}
+    int fader_over=hover(23,v.fader_top-4,22,v.fader_bottom-v.fader_top+8);
+    if(fader_over){
+        host_set_mouse_cursor(HOST_MOUSE_CURSOR_RESIZE_NS);
+        snprintf(ui.status,sizeof ui.status,"%s fader: %.1f dB | right-click for value / automation",mixer_name(bus),gain_db(*volume));
+        if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT))control_menu(volume,0,MIXER_GAIN_MAX,1,bus?"Insert volume":"Master volume");
+        if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)){capture_control(volume,0,MIXER_GAIN_MAX,1);ui.control_range=v.fader_bottom-v.fader_top;ui.control_bottom=ui.mouse.y+desktop_editor_rect(3).y+fader_position(*volume)*ui.control_range;}
+    }
+    float mark=v.fader_bottom-fader_position(1)*(v.fader_bottom-v.fader_top);
+    host_draw_line(25,mark,44,mark,muted);
+    float fy=v.fader_bottom-fader_position(displayed_value(volume,*volume))*(v.fader_bottom-v.fader_top);
+    ui_fader_handle(host_draw(),(DrawRect){22,fy-9,22,18},ui.mixer_selected==bus);
+    ui_text_well(host_draw(),(DrawRect){20,v.height-49,58,18},0);
+    label(host_text_format("%.1f",gain_db(*volume)),24,v.height-48,UI_TEXT_SIZE,ui_theme.signal);
+    int input=hover(7,v.route,12,12);
+    host_draw_rectangle_lines(9,v.route+2,8,8,input?ui_theme.signal:muted);
+    if(input)snprintf(ui.status,sizeof ui.status,"%s input: drop an insert output cable here",mixer_name(bus));
+    if(bus){
+        int output=hover(29,v.route,12,12);
+        circle(35,v.route+6,5,output || ui.cable_drag==bus?accent:muted);
+        circle(35,v.route+6,2,ui.project.insert_output[bus-1]==255?bg:accent);
+        if(output){snprintf(ui.status,sizeof ui.status,"Insert %d output: drag to an input; right-click to unplug",bus);if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT))insert_connect(&ui.project,bus,255);if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)){ui.cable_drag=bus;ui.mixer_selected=bus;ui.input_enabled=0;}}
+    }
+}
+static void mixer_studio(float width,float height) {
+    Rect root=desktop_editor_rect(3);float scale=ui_scale();
+    MixerView v=mixer_view(width,height,ui.project.insert_count,ui.mixer_offset,ui.mixer_fx_hidden);
+    ui.mixer_offset=v.offset;
+    int shift=host_is_key_down(HOST_KEY_LEFT_SHIFT) || host_is_key_down(HOST_KEY_RIGHT_SHIFT);
+    NavigationMotion motion=navigation_motion(ui.navigation_input,shift,0,scale);
+    if(!captured() && ui.input_enabled)ui.mixer_offset=mixer_scroll_motion(v,motion.x,motion.y,shift,ui.mouse.x,ui.mouse.y,&ui.mixer_fx_scroll);
+    int counts[INSERTS+1];studio_fx_slots(counts);
+    int slots=STUDIO_FX_SLOTS;for(int bus=0;bus<=ui.project.insert_count;bus++)slots=fmaxf(slots,counts[bus]);
+    ui.mixer_fx_scroll=fmaxf(0,fminf(fmaxf(0,slots*22-v.fx_height),ui.mixer_fx_scroll));
+    v.offset=ui.mixer_offset;
+    if(button("FX",4,TITLE+4,60,22,!ui.mixer_fx_hidden)){ui.mixer_fx_hidden^=1;ui.input_enabled=0;v=mixer_view(width,height,ui.project.insert_count,ui.mixer_offset,ui.mixer_fx_hidden);}
+    label(fit_text(mixer_name(ui.mixer_selected),112,UI_TEXT_SIZE),72,TITLE+7,UI_TEXT_SIZE,ink);
+    device_button(0,196,TITLE+4,170);device_button(1,374,TITLE+4,170);
+    ui.mixer_fx_scroll=fmaxf(0,fminf(fmaxf(0,slots*22-v.fx_height),ui.mixer_fx_scroll));
+    if(v.fx_rows){
+        if(button("<",width-44,TITLE+4,18,22,0))ui.mixer_fx_scroll=fmaxf(0,ui.mixer_fx_scroll-22);
+        if(button(">",width-24,TITLE+4,18,22,0))ui.mixer_fx_scroll=fminf(slots*22-v.fx_height,ui.mixer_fx_scroll+22);
+        if(width>=800)label(host_text_format("%d-%d/%d",(int)(ui.mixer_fx_scroll/22)+1,(int)fminf(slots,ceilf((ui.mixer_fx_scroll+v.fx_height)/22)),slots),width-116,TITLE+7,UI_TEXT_SIZE,muted);
+    }
+    studio_mixer_scale(v);
+    DrawPoint pointer=ui.mouse,origin=ui.text_origin;int enabled=ui.input_enabled;
+    for(int bus=0;bus<=v.count;bus++) {
+        if(!mixer_bus_visible(v,bus))continue;
+        float x=mixer_bus_x(v,bus),left=bus?fmaxf(v.insert_x,x):x,right=bus?fminf(v.insert_x+v.viewport,x+108):x+108;
+        if(right<=left)continue;
+        host_begin_scissor_mode((root.x+left)*scale,(root.y+v.fx_top)*scale,(right-left)*scale,(height-v.fx_top-18)*scale);
+        ui.text_origin=(DrawPoint){(root.x+x)*scale,root.y*scale};
+        host_begin_mode2_d((HostCamera){.offset=ui.text_origin,.zoom=scale});
+        int strip_enabled=enabled && pointer.x>=left && pointer.x<right && pointer.y>=v.fx_top;
+        ui.mouse=(DrawPoint){pointer.x-x,pointer.y};ui.input_enabled=strip_enabled;
+        int context=ui.context_opened;
+        studio_mixer_strip(v,bus,counts[bus]);
+        if(!context && ui.context_opened)ui.context_position.x+=x;
+        if(strip_enabled && !ui.input_enabled){enabled=0;}
+    }
+    ui.mouse=pointer;ui.text_origin=origin;ui.input_enabled=enabled;
+    host_begin_mode2_d((HostCamera){.offset=origin,.zoom=scale});
+    host_begin_scissor_mode(root.x*scale,root.y*scale,width*scale,height*scale);
+    if(ui.mixer_selected>0 && mixer_port_visible(v,ui.mixer_selected,35)) {
+        int bus=ui.mixer_selected,dest=ui.project.insert_output[bus-1];
+        if(ui.cable_drag==bus || (dest!=255 && mixer_port_visible(v,dest,13))){
+            DrawPoint start={mixer_bus_x(v,bus)+35,v.route+6},end=ui.cable_drag==bus?pointer:(DrawPoint){mixer_bus_x(v,dest)+13,v.route+6};
+            DrawPoint points[]={start,{start.x,height-19},{end.x,height-19},end};cable(points,host_fade(ui_theme.signal,.8f));
+        }
+    }
+    DrawRect rail={v.insert_x,height-16,v.viewport,12},thumb={mixer_thumb_x(v),height-16,mixer_thumb_width(v),12};
+    ui_scrollbar(host_draw(),rail,thumb,ui.mixer_pan || hover(rail.x,rail.y,rail.width,rail.height));
+    if(hover(rail.x,rail.y,rail.width,rail.height)) {
+        snprintf(ui.status,sizeof ui.status,"Drag to scroll inserts; Master stays fixed. Wheel scrolls; Shift+wheel or trackpad scrolls horizontally.");
+        if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)){
+            ui.mixer_pan=1;ui.mixer_scroll_grab=ui.mouse.x>=thumb.x && ui.mouse.x<thumb.x+thumb.width?ui.mouse.x-thumb.x:thumb.width/2;
+            ui.mixer_offset=mixer_scroll_from_thumb(v,ui.mouse.x,ui.mixer_scroll_grab);ui.input_enabled=0;
+        }
+    }
+}
+void mixer(float width,float height) {
+    if(ui.studio_style && ui.windows.workspace.enabled)mixer_studio(width,height);
+    else mixer_legacy(width,height);
 }
