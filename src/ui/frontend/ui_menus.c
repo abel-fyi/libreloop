@@ -343,7 +343,7 @@ void draw_popup_content(void) {
 void draw_popup(void) {
     int kind=ui.pattern_popup;
     int navigation=kind==1 || kind==6 || kind==7 || kind==8 || kind==9 || kind==10 || kind==12;
-    if(navigation) menu_keys_begin(kind,ui.popup_opened,kind==12?2:0,kind==8?&ui.device_scroll:NULL,ui.device_count+2);
+    if(navigation) menu_keys_begin(kind,ui.popup_opened,0,kind==8?&ui.device_scroll:NULL,ui.device_count+2);
     draw_popup_content();
     if(navigation) menu_keys_end();
     if(!ui.pattern_popup && !ui.context_kind) ui.menu_keys.id=0;
