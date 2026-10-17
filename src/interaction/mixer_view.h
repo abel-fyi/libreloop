@@ -13,17 +13,27 @@ static inline MixerView mixer_view(float width,float height,int count,float offs
     v.viewport=fmaxf(1,width-v.insert_x-4);
     v.maximum=fmaxf(0,count*MIXER_STRIDE-v.viewport);
     v.offset=fmaxf(0,fminf(v.maximum,offset));
-    v.fx_rows=fx_hidden?0:(int)fmaxf(1,fminf(4,floorf((height-202)/22)));
-    v.fx_height=v.fx_rows*22;v.header=v.fx_top+v.fx_height+4;
+    v.fx_rows=fx_hidden?0:(int)fmaxf(0,fminf(3,floorf((height-224)/22)));
+    v.fx_height=fx_hidden?0:(v.fx_rows+1)*22;v.header=v.fx_top+v.fx_height+4;
     v.controls=v.header+32;v.fader_top=v.header+48;
     v.fader_bottom=fmaxf(v.fader_top+12,height-66);v.route=height-31;
     return v;
 }
-static inline float mixer_fx_top(MixerView v,int slots) {return v.fx_top+fmaxf(0,v.fx_height-slots*22);}
+static inline MixerView mixer_view_rows(float width,float height,int count,float offset,int hidden,int rows) {
+    MixerView v=mixer_view(width,height,count,offset,hidden);
+    v.fx_rows=hidden?0:(int)fmaxf(0,fminf(3,rows));
+    v.fx_height=hidden?0:(1+v.fx_rows)*22;
+    v.header=v.fx_top+v.fx_height+4;v.controls=v.header+32;v.fader_top=v.header+48;
+    v.fader_bottom=fmaxf(v.fader_top+12,height-66);return v;
+}
+static inline float mixer_fx_list_height(MixerView v,int count) {return fminf(v.fx_rows,count)*22;}
+static inline float mixer_fx_adder_top(MixerView v,int count) {return v.header-4-22-mixer_fx_list_height(v,count);}
+static inline float mixer_fx_top(MixerView v,int count) {return mixer_fx_adder_top(v,count)+22;}
+
 /* Motion is already normalized to logical units by navigation_motion(). */
 static inline float mixer_scroll_motion(MixerView v,float dx,float dy,int shift,float x,float y,float *fx_scroll) {
     if(x<0 || x>=v.width || y<v.fx_top || y>=v.height-18)return v.offset;
-    if(y<v.fx_top+v.fx_height && !shift)*fx_scroll+=dy;
+    if(y>=v.fx_top+22 && y<v.fx_top+v.fx_height && !shift)*fx_scroll+=dy;
     else if(y>v.controls+14 || (y>=v.header && y<v.header+20))dx+=dy;
     return x>=v.insert_x?fmaxf(0,fminf(v.maximum,v.offset+dx)):v.offset;
 }

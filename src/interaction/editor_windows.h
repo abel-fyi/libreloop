@@ -11,6 +11,7 @@ typedef struct {
     int editor_right;
     float editor_width;
     int enabled,show[WINDOW_CAPACITY],floating[WINDOW_CAPACITY],inspector,maximized,drag,last_split;
+    int mixer_fx_rows; /* -1 hidden, otherwise occupied rows capped at three */
     float mixer,piano,rack,inspector_width,width,height,sidebar;
     float start_pointer,start_size,last_x,last_y;
     double last_time;

@@ -293,7 +293,7 @@ void install_project(Project next,Sample fresh[CHANNELS],Sample processed[CHANNE
     ui.piano_channel=ui.instrument_channel=ui.channel;
     for(int i=0;i<PATTERNS;i++) { ui.piano_span[i]=fmaxf(STEPS,next.pattern_steps[i]); ui.piano_pan[i]=0; ui.piano_range[i]=0; }
     memset(ui.note_selected,0,sizeof ui.note_selected); ui.piano_gesture=PIANO_IDLE; ui.playlist_start=0; memset(ui.piano_start,0,sizeof ui.piano_start); memset(ui.song_loop,0,sizeof ui.song_loop); memset(ui.pattern_loop,0,sizeof ui.pattern_loop); ui.marker_drag=-1;
-    memset(ui.piano_channels,0,sizeof ui.piano_channels); ui.mixer_selected=ui.project.route[ui.channel]; ui.mixer_scroll=0;ui.mixer_offset=0;ui.fx_press=ui.fx_dragging=0;memset(ui.mixer_fx_scroll,0,sizeof ui.mixer_fx_scroll);
+    memset(ui.piano_channels,0,sizeof ui.piano_channels); ui.mixer_selected=ui.project.route[ui.channel]; ui.mixer_scroll=0;ui.mixer_offset=0;ui.fx_press=ui.fx_dragging=ui.fx_add_pending=0;memset(ui.mixer_fx_scroll,0,sizeof ui.mixer_fx_scroll);
     ui.piano_key_drag=0; ui.piano_key=-1;
     ui.note_drag=NULL; ui.velocity_drag=-1; ui.control_drag=NULL; ui.route_drag=-1; ui.rack_paint=-1; ui.cable_drag=-1;
     memset(&ui.arrangement,0,sizeof ui.arrangement); ui.arrangement.source_pattern=-1; ui.arrangement.source_steps=STEPS; ui.arrangement.zoom=1; ui.playlist_pan=0; ui.playlist_vpan=0; ui.track_scroll=0; memset(ui.rack_view,0,sizeof ui.rack_view); memset(ui.rack_range,0,sizeof ui.rack_range); memset(ui.rack_step_width,0,sizeof ui.rack_step_width);
@@ -459,7 +459,7 @@ void workspace_load(void) {
     char path[LL_PATH_CAPACITY];if(!workspace_path(path))return;
     FILE *f=platform_file_open(path,"r");if(!f)return;
     StudioWorkspace next=ui.windows.workspace;Rect rects[WINDOW_CAPACITY]={0};int version=0;
-    int ok=fscanf(f,"%d%f%f%f%f%d",&version,&next.mixer,&next.piano,&next.rack,&next.inspector_width,&next.inspector)==6 && (version==1 || version==2 || version==3);
+    int ok=fscanf(f,"%d%f%f%f%f%d",&version,&next.mixer,&next.piano,&next.rack,&next.inspector_width,&next.inspector)==6 && (version>=1 && version<=4);
     if(ok && version>=2)ok=fscanf(f,"%d%f",&next.editor_right,&next.editor_width)==2;
     for(int i=0;i<(version==1?EDITORS:WINDOW_CAPACITY) && ok;i++) {
         int show,floating;Rect r;
@@ -469,6 +469,7 @@ void workspace_load(void) {
     fclose(f);
     if(!ok || !isfinite(next.mixer) || !isfinite(next.piano) || !isfinite(next.rack) || !isfinite(next.inspector_width) || next.mixer<.05f || next.mixer>.8f || next.piano<.05f || next.piano>.9f || next.rack<152 || next.rack>600 || next.inspector_width<330 || next.inspector_width>700 || (next.inspector!=4 && next.inspector!=5))return;
     if(!isfinite(next.editor_width) || next.editor_width<.1f || next.editor_width>.9f)return;
+    if(version<4)next.mixer=fmaxf(182/(next.height-84),next.mixer-88/(next.height-84));
     if(next.inspector==5 && !ui.project.effect_type[ui.eq_bus][ui.eq_slot]){next.inspector=4;next.show[4]=next.show[5];}
     for(int i=5;i<WINDOW_CAPACITY;i++){next.show[i]=0;next.floating[i]=1;ui.windows.editors[i].visible=0;}
     if(!next.floating[4])rects[4]=ui.windows.editors[4].rect;
@@ -484,7 +485,7 @@ void workspace_save(void) {
     char path[LL_PATH_CAPACITY];if(!workspace_path(path))return;
     AtomicFile out;if(!atomic_file_open(&out,path))return;
     StudioWorkspace *s=&ui.windows.workspace;
-    fprintf(out.file,"3 %.9g %.9g %.9g %.9g %d %d %.9g\n",s->mixer,s->piano,s->rack,s->inspector_width,s->inspector,s->editor_right,s->editor_width);
+    fprintf(out.file,"4 %.9g %.9g %.9g %.9g %d %d %.9g\n",s->mixer,s->piano,s->rack,s->inspector_width,s->inspector,s->editor_right,s->editor_width);
     for(int i=0;i<WINDOW_CAPACITY;i++){Rect r=ui.windows.editors[i].rect;fprintf(out.file,"%d %d %.9g %.9g %.9g %.9g\n",s->show[i],s->floating[i],r.x,r.y,r.w,r.h);}
     atomic_file_commit(&out);
 }

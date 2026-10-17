@@ -8,7 +8,13 @@ static int overlap(Rect a,Rect b){return a.x<b.x+b.w && b.x<a.x+a.w && a.y<b.y+b
 int main(void) {
     Windows w;windows_init(&w,1448,1086);studio_workspace_init(&w,1448,1086,238);
     CHECK(w.editors[1].visible && !w.editors[0].visible && !w.editors[2].visible && !w.editors[4].visible);
-    CHECK(w.editors[1].rect.h==636 && w.editors[3].rect.h==360);
+    CHECK(w.editors[1].rect.h==702 && w.editors[3].rect.h==294);
+    Rect empty_mixer=w.editors[3].rect;
+    for(int rows=1;rows<=3;rows++) {
+        w.workspace.mixer_fx_rows=rows;studio_workspace_layout(&w,1448,1086,238);
+        CHECK(w.editors[3].rect.h==empty_mixer.h+rows*22 && w.editors[3].rect.y==empty_mixer.y-rows*22);
+    }
+    w.workspace.mixer_fx_rows=0;studio_workspace_layout(&w,1448,1086,238);
     Rect page=w.editors[1].rect,desktop={244,60,1200,1002};
     windows_focus(&w,0);CHECK(w.focused==2 && w.editors[2].visible && !w.editors[1].visible && !w.editors[0].visible);
     CHECK(!memcmp(&page,&w.editors[2].rect,sizeof page));
@@ -22,12 +28,12 @@ int main(void) {
     instrument=w.editors[4].rect;float y=w.editors[3].rect.y-3;
     CHECK(studio_workspace_split(&w,500,y)==3);
     windows_update(&w,desktop,500,y,1,1,1);windows_update(&w,desktop,500,y-100,0,1,1.1);
-    CHECK(w.editors[3].rect.h==460 && w.editors[1].rect.h==536);
+    CHECK(w.editors[3].rect.h==394 && w.editors[1].rect.h==602);
     CHECK(!memcmp(&instrument,&w.editors[4].rect,sizeof instrument));
     windows_update(&w,desktop,500,y-100,0,0,1.2);CHECK(w.workspace.drag==-1);
     y=w.editors[3].rect.y-3;
     windows_update(&w,desktop,500,y,1,1,3);windows_update(&w,desktop,500,y,0,0,3.05);
-    windows_update(&w,desktop,500,y,1,1,3.2);CHECK(w.editors[3].rect.h==360);
+    windows_update(&w,desktop,500,y,1,1,3.2);CHECK(w.editors[3].rect.h==294);
     windows_update(&w,desktop,500,y,0,0,3.3);
     /* Only close remains; former minimize/maximize positions do not hide/zoom. */
     studio_workspace_maximize(&w,4);CHECK(!w.editors[4].maximized);

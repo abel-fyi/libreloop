@@ -22,20 +22,15 @@ int main(void) {
 
     }
     ui.windows.editors[3].rect.w=saved_width;ui.project.insert_count=saved_count;ui.studio_style=0;
-    int counts[INSERTS+1];studio_fx_slots(counts);CHECK(counts[1]==1);
+    EffectChainList chain=effect_chain_list(&ui.project,1);CHECK(chain.count==0 && chain.add_slot==0);
     for(int slot=0;slot<STUDIO_FX_SLOTS;slot++) {
-        ui.project.effect_type[2][slot]=EFFECT_CHORUS;studio_fx_slots(counts);
-        CHECK(counts[2]==(slot<8?slot+2:9) && counts[1]==1);
+        ui.project.effect_type[2][slot]=EFFECT_CHORUS;chain=effect_chain_list(&ui.project,2);
+        CHECK(chain.count==slot+1 && chain.add_slot==(slot<8?slot+1:-1));
     }
-    ui.project.effect_type[2][3]=EFFECT_EMPTY;studio_fx_slots(counts);CHECK(counts[2]==9);
+    ui.project.effect_type[2][3]=EFFECT_EMPTY;chain=effect_chain_list(&ui.project,2);CHECK(chain.count==8 && chain.add_slot==3);
     memset(ui.project.effect_type[2],0,sizeof ui.project.effect_type[2]);
-    studio_fx_slots(counts);CHECK(counts[2]==1);
-    ui.project.midi_binding_count=1;ui.project.midi_bindings[0].target=(ParameterTarget){PARAM_CHANNEL_VOLUME,1,9};
-    studio_fx_slots(counts);CHECK(counts[1]==1);
-    ui.project.midi_bindings[0].target=(ParameterTarget){PARAM_EQ_FIRST,100,9};
-    studio_fx_slots(counts);CHECK(counts[100]==10 && counts[1]==1);ui.project.midi_binding_count=0;
     mixer_effect_add(1,9,EFFECT_CHORUS);
-    studio_fx_slots(counts);CHECK(counts[1]==10 && counts[0]==1);
+    chain=effect_chain_list(&ui.project,1);CHECK(chain.count==1 && chain.slots[0]==9 && chain.add_slot==0);
     CHECK(ui.eq_bus==1 && ui.eq_slot==9 && ui.effect_slot==9 && ui.windows.workspace.inspector==4 && ui.windows.workspace.floating[5]);
     CHECK(ui.windows.editors[5].visible && !ui.windows.editors[4].visible);
     CHECK(ui.project.effect_type[1][9]==EFFECT_CHORUS && ui.project.effect_mix[1][9]==.5f);
@@ -46,10 +41,10 @@ int main(void) {
     mixer_effect_add(1,8,EFFECT_CHORUS);
     CHECK(automation_create(&ui.project,(ParameterTarget){PARAM_CHORUS_RATE,1,8},"other slot",16)>=0);
     CHECK(automation_create(&ui.project,(ParameterTarget){PARAM_CHANNEL_VOLUME,0,0},"channel",16)>=0);
-    ui.project.effect_type[1][9]=EFFECT_EMPTY;studio_fx_slots(counts);CHECK(counts[1]==10);
+    ui.project.effect_type[1][9]=EFFECT_EMPTY;chain=effect_chain_list(&ui.project,1);CHECK(chain.count==1 && chain.slots[0]==8);
     ui.project.effect_type[1][9]=EFFECT_CHORUS;
     mixer_effect_remove(1,9);
-    studio_fx_slots(counts);CHECK(counts[1]==9);
+    chain=effect_chain_list(&ui.project,1);CHECK(chain.count==1 && chain.slots[0]==8);
     CHECK(ui.project.effect_type[1][9]==EFFECT_EMPTY && ui.project.automation_count==2);
     CHECK(ui.project.automations[0].target.slot==8);
     ui.project.effect_bypass[1][9]=1;mixer_effect_add(1,9,EFFECT_EQ);
@@ -64,8 +59,8 @@ int main(void) {
     windows_focus(&ui.windows,1);CHECK(ui.windows.focused==1 && ui.windows.order[WINDOW_CAPACITY-1]==a);
     mixer_effect_open(1,2,1);CHECK(!ui.windows.editors[b].visible && ui.windows.editors[a].visible && ui.windows.editors[c].visible);
     mixer_effect_open(1,2,1);CHECK(mixer_effect_window(1,2)>=5);
-    ui.studio_style=1;
-    Rect root=desktop_editor_rect(3);MixerView view=mixer_view(root.w,root.h,ui.project.insert_count,0,0);
+    ui.studio_style=1;ui.windows.workspace.mixer_fx_rows=3;
+    Rect root=desktop_editor_rect(3);MixerView view=desktop_mixer_view(root.w,root.h);
     ui.midi_learn_target=(ParameterTarget){PARAM_CHORUS_RATE,1,1};ui.automation_target=(ParameterTarget){PARAM_EFFECT_MIX,1,3};
     ui.fx_press=1;ui.fx_slot=1;ui.fx_bus=1;ui.fx_press_point=(DrawPoint){root.x+view.insert_x+50,root.y+view.fx_top+33};
     ui.mouse=(DrawPoint){ui.fx_press_point.x,root.y+view.fx_top+77};
@@ -74,5 +69,10 @@ int main(void) {
     CHECK(ui.midi_learn_target.slot==3 && ui.automation_target.slot==2);
     CHECK(ui.effect_windows[a].slot==3 && ui.effect_windows[b].slot==1 && ui.effect_windows[c].slot==2);
     ui.fx_press=1;ui.fx_dragging=1;cancel=1;desktop_fx_drag_update();CHECK(!ui.fx_press && ui.project.effect_type[1][2]==EFFECT_EQ);
+    mixer_effect_add(3,0,EFFECT_CHORUS);int original=mixer_effect_window(3,0);CHECK(original>=5);
+    ui.eq_bus=3;ui.eq_slot=1;ui.fx_add_pending=1;ui.mixer_fx_scroll[3]=44;ui.midi_learn_target=(ParameterTarget){PARAM_CHORUS_RATE,3,0};
+    mixer_effect_add(3,1,EFFECT_EQ);
+    CHECK(!ui.fx_add_pending && ui.mixer_fx_scroll[3]==0 && ui.project.effect_type[3][0]==EFFECT_EQ && ui.project.effect_type[3][1]==EFFECT_CHORUS);
+    CHECK(ui.effect_windows[original].slot==1 && ui.midi_learn_target.slot==1 && mixer_effect_window(3,0)>=5);
     return 0;
 }

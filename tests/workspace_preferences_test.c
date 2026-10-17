@@ -30,6 +30,7 @@ int main(void) {
     fclose(old);workspace_load();studio_workspace_layout(&ui.windows,1448,1086,238);
     CHECK(ui.windows.editors[1].visible && !ui.windows.editors[0].visible && !ui.windows.editors[2].visible && !ui.windows.editors[4].visible);
     CHECK(ui.windows.workspace.floating[4] && ui.windows.editors[1].rect.w==1200);
+    CHECK(fabsf(ui.windows.workspace.mixer-(.31f-88.f/1002))<.00001f);
     Windows expected=ui.windows;FILE *f=fopen("workspace-prefs/workspace.txt","w");CHECK(f);
     fputs("1 nan .5 168 334 4\n",f);fclose(f);workspace_load();CHECK(!memcmp(&expected,&ui.windows,sizeof expected));
     remove("workspace-prefs/workspace.txt");

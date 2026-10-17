@@ -166,7 +166,7 @@ typedef struct {
     Browser browser;
     int route_drag,route_start,mixer_selected,mixer_scroll,mixer_pan,cable_drag;
     float mixer_offset,mixer_scroll_grab,mixer_fx_scroll[INSERTS+1];
-    int mixer_fx_hidden,fx_press,fx_dragging,fx_bus,fx_slot,fx_drop,route_menu_scroll;
+    int mixer_fx_hidden,fx_press,fx_dragging,fx_bus,fx_slot,fx_drop,fx_add_pending,route_menu_scroll;
     DrawPoint fx_press_point;
     float route_y;
     Sample audition;
@@ -295,6 +295,17 @@ static inline void desktop_playback_page(int song){
     song=!!song;
     if(ui.song!=song){ui.song=song;ui.reset=1;}
     if(ui.windows.workspace.enabled)windows_focus(&ui.windows,song?1:2);
+}
+static inline int desktop_mixer_fx_rows(void) {
+    int rows=0;for(int bus=0;bus<=ui.project.insert_count;bus++) {
+        int count=effect_chain_list(&ui.project,bus).count;if(count>rows)rows=count;
+    }
+    return rows>3?3:rows;
+}
+static inline MixerView desktop_mixer_view(float width,float height) {
+    int rows=desktop_mixer_fx_rows();
+    if(ui.windows.workspace.enabled && ui.windows.workspace.mixer_fx_rows>=0 && rows>ui.windows.workspace.mixer_fx_rows)rows=ui.windows.workspace.mixer_fx_rows;
+    return mixer_view_rows(width,height,ui.project.insert_count,ui.mixer_offset,ui.mixer_fx_hidden,rows);
 }
 static inline int mixer_strip_width(void){
     if(!ui.studio_style)return 51;
