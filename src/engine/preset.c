@@ -24,7 +24,7 @@ int preset_save(const char *path,const DevicePreset *p) {
         } else snprintf(reference,sizeof reference,"%s",p->sample_path);
     }
     AtomicFile out; if(!atomic_file_open(&out,path)) return 0;
-    fprintf(out.file,"LIBRELOOP_PRESET 6 %d\n",p->kind);
+    fprintf(out.file,"LIBRELOOP_PRESET %d %d\n",p->kind==PRESET_DELAY?7:6,p->kind);
     if(p->kind==PRESET_FM) {
         FMSettings s=p->fm; fprintf(out.file,"%.9g %.9g %.9g %.9g %.9g %.9g\n",s.ratio,s.depth,s.attack,s.decay,s.sustain,s.release);
         fprintf(out.file,"%.9g %.9g %.9g %.9g %.9g %.9g\n",s.mod_decay,s.mod_sustain,s.velocity,s.lfo_rate,s.vibrato,s.tremolo);
@@ -34,7 +34,9 @@ int preset_save(const char *path,const DevicePreset *p) {
         for(int i=0;i<DX7_PARAMETERS;i++) fprintf(out.file,"%.9g ",s.dx7.value[i]);
         fputc('\n',out.file);
     } else if(p->kind==PRESET_CHORUS) fprintf(out.file,"%.9g %.9g %.9g\n",p->chorus.rate,p->chorus.depth,p->mix);
-    else if(p->kind==PRESET_DELAY) fprintf(out.file,"%.9g %.9g %.9g %.9g %.9g %u %u %.9g\n",p->delay.time_ms,p->delay.feedback,p->delay.cutoff,p->delay.stereo,p->delay.output,p->delay.sync,p->delay.division,p->mix);
+    else if(p->kind==PRESET_DELAY) { fprintf(out.file,"%.9g %.9g %.9g %.9g %.9g %u %u %.9g\n",p->delay.time_ms,p->delay.feedback,p->delay.cutoff,p->delay.stereo,p->delay.output,p->delay.sync,p->delay.division,p->mix);
+        fprintf(out.file,"%.9g %.9g %.9g %.9g %.9g %u %u\n",p->delay.input_pan,p->delay.input_gain,p->delay.steps,p->delay.offset,p->delay.dry,p->delay.mode,p->delay.model);
+    }
     else if(p->kind==PRESET_EQ) {
         for(int b=0;b<EQ_BANDS;b++) { EQBand v=p->eq.bands[b]; fprintf(out.file,"%.9g %.9g %.9g %u\n",v.frequency,v.gain,v.q,v.shape); }
         fprintf(out.file,"%.9g\n",p->mix);
@@ -47,7 +49,7 @@ int preset_save(const char *path,const DevicePreset *p) {
 int preset_load(const char *path,DevicePreset *p) {
     FILE *f=platform_file_open(path,"r"); if(!f) return 0;
     DevicePreset next={0}; char magic[32]; int version;
-    int ok=fscanf(f,"%31s %d %d",magic,&version,&next.kind)==3 && !strcmp(magic,"LIBRELOOP_PRESET") && (version>=1 && version<=6);
+    int ok=fscanf(f,"%31s %d %d",magic,&version,&next.kind)==3 && !strcmp(magic,"LIBRELOOP_PRESET") && (version>=1 && version<=7);
     if(ok && next.kind==PRESET_FM) {
         next.fm=fm_legacy(); FMSettings *s=&next.fm; ok=fscanf(f,"%f %f %f %f %f %f",&s->ratio,&s->depth,&s->attack,&s->decay,&s->sustain,&s->release)==6;
         if(ok && version>=3) ok=fscanf(f,"%f %f %f %f %f %f",&s->mod_decay,&s->mod_sustain,&s->velocity,&s->lfo_rate,&s->vibrato,&s->tremolo)==6;
@@ -59,7 +61,9 @@ int preset_load(const char *path,DevicePreset *p) {
             if(version<6) dx7_legacy_tracking(&s->dx7);
         }
     } else if(ok && next.kind==PRESET_CHORUS) ok=fscanf(f,"%f %f %f",&next.chorus.rate,&next.chorus.depth,&next.mix)==3;
-    else if(ok && next.kind==PRESET_DELAY) ok=fscanf(f,"%f %f %f %f %f %u %u %f",&next.delay.time_ms,&next.delay.feedback,&next.delay.cutoff,&next.delay.stereo,&next.delay.output,&next.delay.sync,&next.delay.division,&next.mix)==8;
+    else if(ok && next.kind==PRESET_DELAY) { next.delay=delay_legacy();ok=fscanf(f,"%f %f %f %f %f %u %u %f",&next.delay.time_ms,&next.delay.feedback,&next.delay.cutoff,&next.delay.stereo,&next.delay.output,&next.delay.sync,&next.delay.division,&next.mix)==8;
+        if(ok && version>=7)ok=fscanf(f,"%f %f %f %f %f %u %u",&next.delay.input_pan,&next.delay.input_gain,&next.delay.steps,&next.delay.offset,&next.delay.dry,&next.delay.mode,&next.delay.model)==7;
+    }
     else if(ok && next.kind==PRESET_EQ) {
         next.eq=version==1?equalizer_legacy():equalizer_default();
         for(int b=0;ok && b<(version==1?4:EQ_BANDS);b++) {

@@ -6,12 +6,16 @@
 #include <stddef.h>
 #define DELAY_MAX_MS 4000
 #define DELAY_DIVISIONS 9
+enum { DELAY_NORMAL, DELAY_INVERT, DELAY_PINGPONG };
 typedef struct {
     float time_ms,feedback,cutoff,stereo,output;
-    unsigned sync,division;
+    unsigned sync,division; /* Legacy editor settings, retained for existing projects. */
+    float input_pan,input_gain,steps,offset,dry;
+    unsigned mode,model; /* model 0: original delay, 1: stereo input/dry/offset processor */
 } DelaySettings;
 typedef struct Delay Delay;
 DelaySettings delay_default(void);
+DelaySettings delay_legacy(void);
 int delay_valid(DelaySettings settings);
 const char *delay_division_name(unsigned division);
 float delay_time_ms(DelaySettings settings,float bpm);

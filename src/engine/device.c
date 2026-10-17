@@ -27,7 +27,7 @@ static void delay_defaults(void *s) { *(DelaySettings *)s=delay_default(); }
 static int delay_check(const void *s) { return s && delay_valid(*(const DelaySettings *)s); }
 static const float *delay_parameter(const void *s,unsigned id) {
     const DelaySettings *d=s;
-    switch(id) {case PARAM_DELAY_TIME:return &d->time_ms;case PARAM_DELAY_FEEDBACK:return &d->feedback;case PARAM_DELAY_CUTOFF:return &d->cutoff;case PARAM_DELAY_STEREO:return &d->stereo;case PARAM_DELAY_OUTPUT:return &d->output;default:return NULL;}
+    switch(id) {case PARAM_DELAY_STEPS:return &d->steps;case PARAM_DELAY_INPUT_PAN:return &d->input_pan;case PARAM_DELAY_INPUT_GAIN:return &d->input_gain;case PARAM_DELAY_OFFSET:return &d->offset;case PARAM_DELAY_DRY:return &d->dry;case PARAM_DELAY_TIME:return &d->time_ms;case PARAM_DELAY_FEEDBACK:return &d->feedback;case PARAM_DELAY_CUTOFF:return &d->cutoff;case PARAM_DELAY_STEREO:return &d->stereo;case PARAM_DELAY_OUTPUT:return &d->output;default:return NULL;}
 }
 static const DeviceDescriptor devices[]={
     {"Sampler",sizeof(Sampler),sampler_defaults,sampler_check,NULL,{{0,0},{0,0}}},

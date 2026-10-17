@@ -174,6 +174,13 @@ static const Field fields[]={
     SUB(fm,FMSettings,analog,AnalogSettings,filter_env,F32,CHANNELS),
     SUB(fm,FMSettings,analog,AnalogSettings,chorus,F32,CHANNELS),
     {"fm.dx7.value",F32,offsetof(Project,fm)+offsetof(FMSettings,dx7)+offsetof(DX7Settings,value),CHANNELS*DX7_PARAMETERS,DX7_PARAMETERS,sizeof(FMSettings),sizeof(float),sizeof(float)},
+    {"x-delay.input_pan",F32,offsetof(Project,delay)+offsetof(DelaySettings,input_pan),(INSERTS+1)*EFFECT_SLOTS,1,sizeof(DelaySettings),0,sizeof(((DelaySettings *)0)->input_pan)},
+    {"x-delay.input_gain",F32,offsetof(Project,delay)+offsetof(DelaySettings,input_gain),(INSERTS+1)*EFFECT_SLOTS,1,sizeof(DelaySettings),0,sizeof(((DelaySettings *)0)->input_gain)},
+    {"x-delay.steps",F32,offsetof(Project,delay)+offsetof(DelaySettings,steps),(INSERTS+1)*EFFECT_SLOTS,1,sizeof(DelaySettings),0,sizeof(((DelaySettings *)0)->steps)},
+    {"x-delay.offset",F32,offsetof(Project,delay)+offsetof(DelaySettings,offset),(INSERTS+1)*EFFECT_SLOTS,1,sizeof(DelaySettings),0,sizeof(((DelaySettings *)0)->offset)},
+    {"x-delay.dry",F32,offsetof(Project,delay)+offsetof(DelaySettings,dry),(INSERTS+1)*EFFECT_SLOTS,1,sizeof(DelaySettings),0,sizeof(((DelaySettings *)0)->dry)},
+    {"x-delay.mode",U32,offsetof(Project,delay)+offsetof(DelaySettings,mode),(INSERTS+1)*EFFECT_SLOTS,1,sizeof(DelaySettings),0,sizeof(((DelaySettings *)0)->mode)},
+    {"x-delay.model",U32,offsetof(Project,delay)+offsetof(DelaySettings,model),(INSERTS+1)*EFFECT_SLOTS,1,sizeof(DelaySettings),0,sizeof(((DelaySettings *)0)->model)},
     {"x-delay.time_ms",F32,offsetof(Project,delay)+offsetof(DelaySettings,time_ms),(INSERTS+1)*EFFECT_SLOTS,1,sizeof(DelaySettings),0,sizeof(((DelaySettings *)0)->time_ms)},
     {"x-delay.feedback",F32,offsetof(Project,delay)+offsetof(DelaySettings,feedback),(INSERTS+1)*EFFECT_SLOTS,1,sizeof(DelaySettings),0,sizeof(((DelaySettings *)0)->feedback)},
     {"x-delay.cutoff",F32,offsetof(Project,delay)+offsetof(DelaySettings,cutoff),(INSERTS+1)*EFFECT_SLOTS,1,sizeof(DelaySettings),0,sizeof(((DelaySettings *)0)->cutoff)},
@@ -346,6 +353,12 @@ int project_load(const char *path,Project *p) {
         for(size_t i=0;i<FIELD_COUNT;i++) if(!strcmp(name,fields[i].name)) { field=&fields[i]; seen[i]=1; break; }
         ok=type>=0 && (field?field->type==(FieldType)type && field->count==count:!strncmp(name,"x-",2));
         if(ok) ok=read_values(file,next,field,(FieldType)type,count);
+    }
+    int delay_model_present=0;
+    for(size_t i=0;i<FIELD_COUNT;i++)if(!strcmp(fields[i].name,"x-delay.model"))delay_model_present=seen[i];
+    if(next && !delay_model_present)for(int bus=0;bus<=INSERTS;bus++)for(int slot=0;slot<EFFECT_SLOTS;slot++)if(next->effect_type[bus][slot]==EFFECT_DELAY) {
+        DelaySettings *d=&next->delay[bus][slot];
+        d->input_pan=d->input_gain=d->steps=d->offset=d->dry=0;d->mode=d->model=0;
     }
     ok=ok && ended && !ferror(file);
     for(size_t i=0;ok && i<FIELD_COUNT;i++) if(!seen[i] && strncmp(fields[i].name,"x-",2)) ok=0;

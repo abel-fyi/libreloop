@@ -304,6 +304,12 @@ int main(void) {
     test_callback(NULL,out,NULL,64);CHECK(out[64]==.1f && out[65]==.1f);
     audio_update(&fixture,1,1,0,0,1,0,0,0);test_callback(NULL,out,NULL,64);CHECK(out[32]==.05f && out[33]==.05f);
     ready=0;ma_atomic_device_state_set(&device.state,ma_device_state_uninitialized);audio_stop();
+    fixture.delay[0][0]=delay_default();fixture.delay[0][0].input_gain=1;fixture.delay[0][0].dry=0;fixture.delay[0][0].steps=.125f;fixture.delay[0][0].cutoff=20000;
+    audio_update(&fixture,1,1,0,1,1,0,0,0);
+    ready=1;ma_atomic_device_state_set(&device.state,ma_device_state_started);
+    for(int i=0;i<12;i++)test_callback(NULL,out,NULL,64);
+    CHECK(out[92]==.2f && out[93]==.2f); /* 750-frame tempo-relative echo. */
+    ready=0;ma_atomic_device_state_set(&device.state,ma_device_state_uninitialized);audio_stop();
     effects_free(effects);effects=NULL;player.effects=live.effects=NULL;
     puts("Transparent output, capture, post-fader recording, ring bounds, mixing and ordered controls passed.");
     return 0;

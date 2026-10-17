@@ -2,8 +2,13 @@
 #include "engine.h"
 #include <math.h>
 static const ParameterDescriptor descriptors[]={
+    {PARAM_DELAY_STEPS,"Delay time (steps)",.125f,16,3,PARAMETER_LOGARITHMIC},
+    {PARAM_DELAY_INPUT_PAN,"Delay input pan",-1,1,0,PARAMETER_CONTINUOUS},
+    {PARAM_DELAY_INPUT_GAIN,"Delay input volume",0,2,.35f,PARAMETER_CONTINUOUS},
+    {PARAM_DELAY_OFFSET,"Delay stereo offset",-1,1,0,PARAMETER_CONTINUOUS},
+    {PARAM_DELAY_DRY,"Delay dry volume",0,2,1,PARAMETER_CONTINUOUS},
     {PARAM_DELAY_TIME,"Delay time (ms)",1,4000,375,PARAMETER_LOGARITHMIC},
-    {PARAM_DELAY_FEEDBACK,"Delay feedback",0,.95f,.35f,PARAMETER_CONTINUOUS},
+    {PARAM_DELAY_FEEDBACK,"Delay feedback",0,1,.35f,PARAMETER_CONTINUOUS},
     {PARAM_DELAY_CUTOFF,"Delay tone (Hz)",100,20000,8000,PARAMETER_LOGARITHMIC},
     {PARAM_DELAY_STEREO,"Delay ping-pong",0,1,0,PARAMETER_CONTINUOUS},
     {PARAM_DELAY_OUTPUT,"Delay output",0,2,1,PARAMETER_CONTINUOUS},

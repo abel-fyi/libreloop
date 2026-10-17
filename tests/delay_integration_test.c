@@ -55,6 +55,36 @@ int main(void) {
     project.midi_bindings[0]=(MidiBinding){0,10,{PARAM_DELAY_TIME,0,0}};project.midi_binding_count=1;
     CHECK(effect_chain_move(&project,0,0,2) && project.effect_type[0][2]==EFFECT_DELAY && project.delay[0][2].feedback==.61f);
     CHECK(project.automations[a].target.slot==2 && project.midi_bindings[0].target.slot==2);
+    /* Compact settings and all seven visible controls survive project/preset I/O. */
+    project.delay[0][2]=delay_default();project.delay[0][2].input_pan=-.3f;project.delay[0][2].offset=.4f;project.delay[0][2].steps=2.f/3;project.delay[0][2].mode=DELAY_INVERT;
+    CHECK(project_save("compact-delay.llp",&project) && project_load("compact-delay.llp",&loaded));remove("compact-delay.llp");
+    CHECK(!memcmp(&project.delay[0][2],&loaded.delay[0][2],sizeof(DelaySettings)));
+    CHECK(project_save("extended-delay.llp",&project));
+    FILE *source=fopen("extended-delay.llp","rb"),*old=fopen("old-delay.llp","wb");CHECK(source && old);
+    char line[1024];int skip=0;
+    const char *extra[]={"x-delay.input_pan","x-delay.input_gain","x-delay.steps","x-delay.offset","x-delay.dry","x-delay.mode","x-delay.model"};
+    while(fgets(line,sizeof line,source)) {
+        if(line[0]>='a' && line[0]<='z') {skip=0;for(unsigned n=0;n<sizeof extra/sizeof *extra;n++)if(!strncmp(line,extra[n],strlen(extra[n])))skip=1;}
+        if(!skip)fputs(line,old);
+    }
+    fclose(source);fclose(old);CHECK(project_load("old-delay.llp",&loaded) && !loaded.delay[0][2].model && loaded.delay[0][2].steps==0);
+    remove("extended-delay.llp");remove("old-delay.llp");
+    for(unsigned id=PARAM_DELAY_STEPS;id<=PARAM_DELAY_LAST;id++) {
+        const float *value=device_parameter(effect_descriptor(EFFECT_DELAY),&project.delay[0][2],id);ParameterTarget target;
+        CHECK(value && parameter_from_pointer(&project,value,&target) && target.parameter==id && target.slot==2);
+    }
+    preset.delay=project.delay[0][2];CHECK(preset_save("compact-delay.llpreset",&preset) && preset_load("compact-delay.llpreset",&restored));remove("compact-delay.llpreset");
+    CHECK(!memcmp(&preset.delay,&restored.delay,sizeof(DelaySettings)));
+    /* The previous version-6 delay payload retains its original processing mode. */
+    f=fopen("old-delay.llpreset","wb");CHECK(f);fputs("LIBRELOOP_PRESET 6 5\n375 0.35 8000 0 1 1 5 0.35\n",f);fclose(f);
+    CHECK(preset_load("old-delay.llpreset",&restored) && !restored.delay.model && restored.delay.time_ms==375);remove("old-delay.llpreset");
+    project.effect_type[0][2]=EFFECT_EMPTY;project.effect_type[0][0]=EFFECT_DELAY;project.delay[0][0]=delay_default();
+    project.delay[0][0].steps=.125f;project.delay[0][0].dry=0;project.delay[0][0].input_gain=1;project.delay[0][0].cutoff=20000;project.effect_mix[0][0]=1;
+    project.automation_count=0;project.clips[1][0]=0;
+    a=automation_create(&project,(ParameterTarget){PARAM_DELAY_INPUT_GAIN,0,0},"Delay input",16);CHECK(a>=0);
+    project.automations[a].points[0].value=project.automations[a].points[1].value=0;project.clips[1][0]=AUTOMATION_SOURCE+a+1;
+    effects_reset(rack);player_reset(&player);player.song=1;player.effects=rack;float quiet[2048];render(&player,&project,samples,quiet,1024);
+    for(int i=0;i<2048;i++)CHECK(quiet[i]==0);
     effects_free(rack);project.delay[0][0].feedback=NAN;CHECK(!project_save("invalid-delay.llp",&project));
     puts("Delay registry, project/preset roundtrips, parameter targets, rack ownership/reset, bypass, automation and export passed.");return 0;
 }
