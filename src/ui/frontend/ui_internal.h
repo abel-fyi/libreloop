@@ -6,6 +6,7 @@
    single-threaded. Its sampler worker uses only the dedicated sampler_job. */
 #include "host.h"
 #include "grid.h"
+#include "control.h"
 #include "studio_layout.h"
 #include "icons.h"
 #include "audio.h"
@@ -62,7 +63,7 @@ typedef struct {
     double start,offset,frames_per_step;
     float origin,width,pixels_per_step;
 } WaveDisplay;
-enum { KNOB_NORMAL,KNOB_SWING,KNOB_PAN,KNOB_WIDTH,KNOB_CENTER,KNOB_VOLUME,KNOB_LOGARITHMIC,KNOB_FIXED_COARSE };
+enum { KNOB_NORMAL,KNOB_SWING,KNOB_PAN,KNOB_WIDTH,KNOB_CENTER,KNOB_VOLUME,KNOB_LOGARITHMIC,KNOB_FIXED_COARSE,KNOB_MAGNETIC };
 
 #define host_is_mouse_button_pressed mouse_pressed
 #define host_set_mouse_cursor request_cursor
@@ -179,8 +180,9 @@ typedef struct {
     DrawPoint sample_origin,sample_offset;
     float sample_drag_width,sample_text_offset;
     float *control_drag,control_low,control_high,control_bottom,control_range;
-    int control_horizontal,control_fader,control_reverse,control_integer,control_logarithmic,number_integer;
+    int control_horizontal,control_fader,control_reverse,control_integer,control_logarithmic,control_magnetic,number_integer;
     float control_raw;
+    ControlWheel control_wheel;
     Note *note_drag;
     int moving_note,piano_scroll_drag,piano_vdrag;
     int piano_top;

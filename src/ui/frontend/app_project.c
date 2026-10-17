@@ -408,7 +408,16 @@ int preset_commit(const char *chosen,int save) {
     }
     if(!preset_load(chosen,&preset) || preset.kind!=ui.preset_kind) { snprintf(ui.status,sizeof ui.status,"Invalid preset or wrong device type"); return 0; }
     if(ui.preset_kind==PRESET_FM) ui.project.fm[owner]=preset.fm;
-    else if(ui.preset_kind==PRESET_DELAY) { ui.project.delay[owner][slot]=preset.delay; ui.project.effect_mix[owner][slot]=preset.mix; ui.project.effect_bypass[owner][slot]=0; }
+    else if(ui.preset_kind==PRESET_DELAY) {
+        ui.project.delay[owner][slot]=preset.delay; ui.project.effect_mix[owner][slot]=preset.mix; ui.project.effect_bypass[owner][slot]=0;
+        if(ui.windows.workspace.enabled)for(int id=5;id<WINDOW_CAPACITY;id++)if(ui.windows.editors[id].visible && ui.effect_windows[id].bus==owner && ui.effect_windows[id].slot==slot) {
+            Editor *editor=&ui.windows.editors[id];
+            editor->minw=preset.delay.model?620:400;editor->minh=preset.delay.model?220:340;
+            editor->rect.w=fmaxf(editor->rect.w,editor->minw);editor->rect.h=fmaxf(editor->rect.h,editor->minh);
+            editor->rect.x=fmaxf(ui.windows.workspace.sidebar+6,fminf(editor->rect.x,ui.windows.workspace.width-editor->rect.w-6));
+            editor->rect.y=fmaxf(60,fminf(editor->rect.y,ui.windows.workspace.height-editor->rect.h-24));
+        }
+    }
     else if(ui.preset_kind==PRESET_EQ) { ui.project.eq[owner][slot]=preset.eq; ui.project.effect_mix[owner][slot]=preset.mix; ui.project.effect_bypass[owner][slot]=0; }
     else if(ui.preset_kind==PRESET_CHORUS) { ui.project.chorus[owner][slot]=preset.chorus; ui.project.effect_mix[owner][slot]=preset.mix; ui.project.effect_bypass[owner][slot]=0; }
     else {

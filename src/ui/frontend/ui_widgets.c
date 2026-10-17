@@ -429,19 +429,19 @@ int preset_directory(char *out,size_t capacity,int kind) {
 static ControlDrag desktop_control_state(void) {
     return (ControlDrag){ui.control_drag,ui.control_low,ui.control_high,ui.control_raw,
         ui.control_bottom,ui.control_range,ui.control_fader,ui.control_reverse,
-        ui.control_integer,ui.control_logarithmic};
+        ui.control_integer,ui.control_logarithmic,ui.control_magnetic};
 }
 static void desktop_control_commit(ControlDrag state) {
     ui.control_drag=state.value;ui.control_low=state.low;ui.control_high=state.high;ui.control_raw=state.raw;
     ui.control_bottom=state.bottom;ui.control_range=state.range;ui.control_fader=state.fader;
-    ui.control_reverse=state.reverse;ui.control_integer=state.integer;ui.control_logarithmic=state.logarithmic;
+    ui.control_reverse=state.reverse;ui.control_integer=state.integer;ui.control_logarithmic=state.logarithmic;ui.control_magnetic=state.magnetic;
 }
 void capture_control(float *value,float low,float high,int fader) {
     ControlDrag state=desktop_control_state();control_capture(&state,&ui.project,value,low,high,fader);
-    desktop_control_commit(state);ui.control_horizontal=0;ui.input_enabled=0;
+    desktop_control_commit(state);ui.control_wheel.value=NULL;ui.control_horizontal=0;ui.input_enabled=0;
 }
 void desktop_control_update(float dy,float scale,float y) {
-    ControlDrag state=desktop_control_state();control_drag_update(&state,&ui.project,dy,scale,y);desktop_control_commit(state);
+    ControlDrag state=desktop_control_state();control_drag_update_fine(&state,&ui.project,dy,scale,y,host_is_key_down(HOST_KEY_LEFT_CONTROL) || host_is_key_down(HOST_KEY_RIGHT_CONTROL));desktop_control_commit(state);
 }
 
 void knob_sized(int x,int y,float *value,float low,float high,float initial,const char *name,int style,float size) {
@@ -463,10 +463,10 @@ void knob_sized(int x,int y,float *value,float low,float high,float initial,cons
         if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)) control_menu(value,low,high,initial,name);
         if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)) { capture_control(value,low,high,0); ui.control_low=low; ui.control_high=high; ui.control_reverse=style==KNOB_WIDTH; }
         float wheel=host_get_mouse_wheel_move();
-        if(wheel)control_knob_wheel(&ui.project,value,low,high,style,wheel);
+        if(wheel)control_knob_wheel_fine(&ui.control_wheel,&ui.project,value,low,high,style,wheel,host_is_key_down(HOST_KEY_LEFT_CONTROL) || host_is_key_down(HOST_KEY_RIGHT_CONTROL));
     }
     float radius=size,fraction=(shown-low)/(high-low);
-    if(style==KNOB_LOGARITHMIC) fraction=logf(shown/low)/logf(high/low);
+    if(style==KNOB_LOGARITHMIC || style==KNOB_MAGNETIC) fraction=logf(shown/low)/logf(high/low);
     if(style==KNOB_CENTER) fraction=shown<initial?.5f*(shown-low)/(initial-low):.5f+.5f*(shown-initial)/(high-initial);
     if(style==KNOB_WIDTH) fraction=1-fraction;
     if(style==KNOB_VOLUME) fraction=shown<=1?.75f*(shown):.75f+.25f*(shown-1)/(high-1);

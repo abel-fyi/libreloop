@@ -1,80 +1,106 @@
 # Built-in Delay
 
-Add Delay from a mixer strip's `+` effect menu, on an insert or Master. Its
-floating editor uses the existing controls and can be stacked with other effect
-editors. It participates in the same nine-slot chains, bypass, drag reordering,
-project history, project saving and preset chooser as the other built-in effects.
-No dependency or external plugin format was added.
+Add Delay from a mixer strip's `+` menu. New instances use a compact horizontal
+editor inspired by the owner's local `fruity-delay.png` reference. Seven knobs
+are grouped into Input, Feedback, Time and Dry. The editor opens at 740×220 logical
+units, with a 620×220 minimum; resizing does not add a second row of controls.
+Existing shared knob drawing, value menus, automation, MIDI learn, presets and
+window behavior remain inside LibreLoop. A separate Luice library is not planned.
 
-## Controls
+## Controls and signal flow
 
-- Time: 1–4000 ms in free mode. Tempo sync replaces this knob with the effective
-  millisecond readout; the saved free time remains available when switching back.
-- Division: click to cycle through 1/32, 1/16 triplet, 1/16, 1/8 triplet, 1/8,
-  dotted 1/8, 1/4, dotted 1/4 and 1/2. Values are ordered by increasing duration.
-  Tempo sync uses `60000 / BPM * quarter-note beats`, bounded to 1–4000 ms.
-- Feedback: 0–95%. Tone: a one-pole low-pass at 100–20000 Hz in the wet/feedback
-  path; 20000 Hz bypasses filtering. Ping-pong blends independent stereo
-  feedback (0) into cross-channel feedback (1).
-- Mix: linear dry/wet, 0–100%. Output: wet gain, 0–2; bypass remains unity dry
-  regardless of this control. Default mix is 35%, feedback 35%, tone 8000 Hz,
-  independent stereo, unity wet output and tempo-synced dotted eighths.
+| Section | Control | LibreLoop behavior |
+|---|---|---|
+| Input | Pan | Centered stereo balance, −1 to +1; attenuates the other side when panning Left or Right. |
+| Input | Volume | Gain entering the delay line, 0–2. Default 35%; does not change dry level. |
+| Feedback | Normal / Invert / P.pong | Normal preserves sides. Invert swaps the wet output sides while keeping feedback independent. Ping-pong also crosses feedback, alternating successive echoes. |
+| Feedback | Volume | Recirculation, 0–100%, default 35%. At unity and with filtering bypassed, an isolated echo does not decay. Continuous input can accumulate and clip. |
+| Feedback | Cut | One-pole low-pass in the wet/feedback path, 100–20000 Hz; 20000 bypasses filtering. Default 8000 Hz. |
+| Time | Time | Continuous tempo-relative duration, ⅛–16 sixteenth-note steps; default 3 steps. |
+| Time | Offset | Centered stereo timing offset. Negative delays Left, positive delays Right. Magnitude adds up to 50% of base time to that side. |
+| Dry | Volume | Independent original-signal gain, 0–2, default unity. Set to zero for a wet send. |
 
-Free time, feedback, tone, ping-pong, wet output and the shared effect mix have
-stable automation/MIDI targets. Sync and division are saved mode choices.
-Targets follow FX reordering and delay automation is removed with its effect.
-As with existing effects, export keeps the song's current length rather than
-appending an extra effect tail.
+Input balance uses `min(1, 1-pan)` on Left and `min(1, 1+pan)` on Right.
+Base delay is `15000 / BPM * steps` milliseconds, bounded to 1–4000 ms. Each side,
+including stereo offset, is capped at four seconds. The status bar shows the
+Time knob's step value and its effective base milliseconds. Arbitrary fractions
+between rhythmic marks are available and remain relative to the project tempo.
 
-## Processing and ownership
+The new editor replaces the earlier sync/division buttons and wet/dry knob.
+Shared rack mix remains a saved/automatable control; new instances set it to 1.
+The processor interpolates from unity dry at rack mix 0 to the configured dry
+plus echoes at rack mix 1. Thus bypass is unity dry even with Dry Volume at zero.
+The former wet-output gain parameter remains available to existing automation.
+All seven visible continuous controls have stable automation/MIDI targets that
+follow FX reordering. The three feedback modes are saved discrete choices.
+Export retains the song's existing length, without appending an effect tail.
 
-The processor uses the engine's fixed 48000 Hz sample rate. Time changes crossfade
-between two fixed read taps over 20 ms; other continuous controls approach their
-new values with a 20 ms one-pole slew. Filter coefficients update every 32 samples.
-Changes received during a tap crossfade start a subsequent crossfade when the
-current transition finishes. Reset invalidates history with constant-size metadata
-work; it never clears the full PCM ring in the callback. Bypass/removal fades wet
-level toward zero using the same control smoothing.
+## Magnetic Time knob
 
-Each prepared delay position owns **1,536,096 bytes** on this macOS arm64 build,
-including a stereo four-second float ring. Allocation and page touching happen
-on the UI/control thread before its project snapshot is published, or on the
-export thread before rendering. A lock-free atomic pointer publishes initialized
-storage. The callback exclusively mutates DSP state and never allocates, frees,
-locks, waits, logs or reads files for this effect. Existing command acknowledgments
-and device shutdown protect rack destruction.
+Time uses the shared knob implementation with a small interaction-layer snapping
+policy, independent of SDL/drawing. Its logarithmic range gives small subdivisions
+usable space. Detents, in steps, are:
 
-Prepared buffers are cached per bus/slot until the rack is destroyed, including
-positions from which a delay was removed or moved. Repeated edits at that position
-reuse its buffer; moving through more positions reserves additional buffers.
-No delay buffers are allocated for a fresh project without delays. If allocation
-fails, startup/export fails; an already running app reports the shortage in its
-status line and an unprepared delay passes dry. This cache policy favors simple,
-nonblocking audio ownership over reclaiming removed buffers during playback.
+`⅛, ⅙, ¼, ⅓, ½, ⅔, ¾, 1, 4/3, 1½, 2, 8/3, 3, 4, 16/3, 6, 8, 32/3, 12, 16`.
 
-Project delay settings use optional `x-delay.*` fields, emitted only when a Delay
-exists. Loading projects without those fields initializes default delay settings;
-projects without Delay retain their prior serialized representation. Delay
-presets use the existing version-6 preset container with a new built-in device ID.
+A raw value snaps to the nearest mark within a log-distance of 0.035. Dragging
+keeps an unsnapped accumulator, so the pointer can leave a detent without getting
+stuck. A normal drag spans the logarithmic range in 160 logical pixels; holding
+Ctrl slows it tenfold and bypasses snapping. Wheel sensitivity spans the range in
+80 units, or 800 with Ctrl. Wheel motion also keeps an unsnapped accumulator,
+including sub-unit trackpad deltas. Other controls retain their existing interaction math.
+The right-click value menu accepts an exact step value without magnetic rounding.
+
+## Reference and implementation choices
+
+[Image-Line's Fruity Delay 2 manual](https://www.image-line.com/fl-studio-learning/fl-studio-online-manual/html/plugins/Fruity%20Delay%202.htm)
+documents the seven controls, stereo feedback modes, tempo-relative timing,
+fractions and fine adjustment. Its exact detent thresholds, parameter tapers,
+offset range and filter implementation are not established by the screenshot.
+LibreLoop's magnetic policy, balance law, one-pole filter and 50% offset range are
+explicit implementation choices, not measured reproductions of that processor.
+No source code, artwork, logo or font from the referenced plugin is bundled.
+The panel uses LibreLoop's existing bitmap font, gray surfaces and cyan selection.
+
+## Processing, storage and compatibility
+
+The processor runs at the engine's fixed 48000 Hz rate. Time/offset changes
+crossfade fixed read taps over 20 ms; continuous gains, balance and routing
+matrices use 20 ms one-pole smoothing. Filter coefficients update every 32 samples.
+A further time change waits until the active crossfade finishes. Reset invalidates
+history with constant-size metadata work, without clearing the PCM ring.
+
+Each prepared delay position occupies **1,536,128 bytes** on this macOS arm64
+build. Its four-second stereo ring is allocated/page-touched before publication
+on the UI/control thread, or before offline rendering on the export thread.
+A lock-free atomic pointer publishes initialized storage. The callback alone
+mutates DSP state; no allocation, freeing, locks, waits, logs or file I/O were
+added there. Cached buffers remain owned by their bus/slot until rack destruction;
+editing more positions reserves more buffers. Missing storage passes dry with a
+status warning during playback; startup/export fail if preparation fails.
+
+Optional `x-delay.*` project fields store the additional parameters and processing
+model. Projects without Delay retain their previous serialized representation.
+Earlier delay projects and version-6 presets retain their old DSP settings/editor.
+New Delay presets use container version 7; other preset kinds keep version 6.
+Loading a preset with a different editor layout grows the existing window to its
+required minimum so the controls remain accessible.
 
 ## Verification
 
-`delay_test` checks exact impulse/feedback/ping-pong timing, tempo divisions,
-reset without stale history, maximum ring wrap, finite maximum-feedback output,
-time-change continuity and exact determinism across 64/512-sample blocks.
-`delay_integration_test` checks registry/parameter ownership, project and preset
-roundtrips, repeated preparation without losing history, bus resets, unity bypass,
-automation, target reordering and PCM agreement with WAV export. `audio_test`
-checks exact echoes through the actual callback and preserves history across an
-unchanged project update. `mixer_slots_test` checks adding/opening/removing Delay,
-minimum editor geometry and automation cleanup.
+The macOS arm64 Release suite passes 149 cases, including the unchanged original
+comparisons under the existing approved Stretch contract. Focused tests cover
+exact routing/echo timing, full feedback, offset direction, input balance/gain,
+dry level, old/new settings and preset roundtrips, automation, callback echoes,
+block determinism through time/tempo/offset/mode changes, magnetic detents and
+escape/fine/wheel behavior. The core, integration, callback, mixer and magnetic
+knob tests are also checked with AddressSanitizer and UndefinedBehaviorSanitizer.
 
-The macOS arm64 Release build passes all 148 CTest cases, including the frozen
-reference comparisons under their existing approved Stretch contract. The delay
-core, integration, actual callback and mixer-slot tests also pass AddressSanitizer
-and UndefinedBehaviorSanitizer. The rebuilt app passes strict bundle signature
-verification.
+The Time ring adds 25 procedural dots per paint and no bitmap assets. Its isolated
+per-frame cost and binary-size delta have not been measured; the earlier build
+artifacts were removed during the requested cleanup.
 
-Software-rendered editor captures were inspected at 1448×1086. Real-device
-listening, native input, CPU/latency measurements and other platforms have not
-been verified for Delay yet.
+Software screenshots at 1448×1086 and 900×562 were inspected against the reference.
+The rebuilt app passes strict bundle signature verification. Native
+mouse/trackpad feel, real-device listening, comparisons against actual Fruity
+Delay 2 audio, CPU/latency measurements and other platforms remain unverified.

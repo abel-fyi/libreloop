@@ -10,8 +10,8 @@ LibreLoop's current development order is:
    deterministic render tests and explicit UI/parameter design.
 4. Refine instruments with measured reference behavior and openly licensed
    assets. Do not claim hardware-identical output without validation.
-5. Consider a separate reusable UI library only after the concrete shared
-   controls and interfaces have stabilized inside LibreLoop.
+5. Keep shared controls small and consistent inside LibreLoop. A separate Luice
+   UI library is no longer planned; refine concrete controls through the DAW.
 
 Shipping work continues alongside those priorities: verified vendored/static
 SDL builds, platform/toolchain coverage, and hands-on audio/MIDI, trackpad and

@@ -217,11 +217,11 @@ void mixer_effect_open(int bus,int slot,int toggle) {
     if(id>=5){if(toggle)studio_workspace_hide(&ui.windows,id);else windows_focus(&ui.windows,id);return;}
     for(id=5;id<WINDOW_CAPACITY && ui.windows.editors[id].visible;id++){}
     if(id==WINDOW_CAPACITY){snprintf(ui.status,sizeof ui.status,"Close an effect editor before opening another (16 open).");return;}
-    StudioWorkspace *s=&ui.windows.workspace;float width=type==EFFECT_DELAY?420:type==EFFECT_CHORUS?360:620,height=type==EFFECT_DELAY?340:type==EFFECT_CHORUS?280:380;
+    StudioWorkspace *s=&ui.windows.workspace;float width=type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?740:420):type==EFFECT_CHORUS?360:620,height=type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?220:340):type==EFFECT_CHORUS?280:380;
     width=fminf(width,s->width-s->sidebar-10);height=fminf(height,s->height-84);
     int count=0;for(int i=5;i<WINDOW_CAPACITY;i++)count+=ui.windows.editors[i].visible;
     ui.effect_windows[id].bus=bus;ui.effect_windows[id].slot=slot;ui.effect_windows[id].band=0;
-    ui.windows.editors[id].minw=type==EFFECT_DELAY?400:type==EFFECT_CHORUS?330:480;ui.windows.editors[id].minh=type==EFFECT_DELAY?340:type==EFFECT_CHORUS?280:330;
+    ui.windows.editors[id].minw=type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?620:400):type==EFFECT_CHORUS?330:480;ui.windows.editors[id].minh=type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?220:340):type==EFFECT_CHORUS?280:330;
     ui.windows.editors[id].rect=(Rect){fmaxf(s->sidebar+6,s->width-width-12-count*20),fminf(70+count*22,s->height-24-height),width,height};
     ui.windows.workspace.floating[id]=1;ui.windows.editors[id].maximized=0;
     windows_focus(&ui.windows,id);
@@ -230,7 +230,7 @@ void mixer_effect_add(int bus,int slot,int type) {
     if(bus<0 || bus>ui.project.insert_count || slot<0 || slot>=EFFECT_SLOTS || !effect_descriptor(type))return;
     ui.project.effect_type[bus][slot]=type;ui.project.effect_bypass[bus][slot]=0;
     if(type==EFFECT_CHORUS){ui.project.chorus[bus][slot]=chorus_default();ui.project.effect_mix[bus][slot]=.5f;}
-    else if(type==EFFECT_DELAY){ui.project.delay[bus][slot]=delay_default();ui.project.effect_mix[bus][slot]=.35f;}
+    else if(type==EFFECT_DELAY){ui.project.delay[bus][slot]=delay_default();ui.project.effect_mix[bus][slot]=1;}
     else{ui.project.eq[bus][slot]=equalizer_default();ui.project.effect_mix[bus][slot]=1;}
     if(ui.fx_add_pending && bus==ui.eq_bus && slot==ui.eq_slot) {
         ui.fx_add_pending=0;ui.mixer_fx_scroll[bus]=0;
@@ -254,13 +254,56 @@ void effect_slot_menu(int bus,int slot) {
     ui.eq_bus=bus;ui.eq_slot=slot;ui.effect_slot=slot;
     open_context(25,slot,(DrawPoint){ui.mouse.x+desktop_editor_rect(3).x,ui.mouse.y+desktop_editor_rect(3).y});
 }
+static void delay_editor_compact(float width,float height,int bus,int slot) {
+    DelaySettings *d=&ui.project.delay[bus][slot];
+    const float edges[]={0,.22f,.62f,.87f,1};
+    const char *groups[]={"INPUT","FEEDBACK","TIME","DRY"};
+    for(int i=0;i<4;i++) {
+        float x=edges[i]*width,w=(edges[i+1]-edges[i])*width;
+        host_draw_rectangle(x+1,24,w-2,154,i&1?cell:bg);
+        label(groups[i],x+8,30,13,muted);
+        if(i)host_draw_line(x,24,x,178,ui_theme.border);
+    }
+    const char *modes[]={"Normal","Invert","P.pong"};
+    for(unsigned i=0;i<3;i++) {
+        float x=width*.22f+8,y=66+i*30;
+        if(button(modes[i],x,y,width*.12f-8,24,d->mode==i))d->mode=i;
+    }
+    const float centers[]={.055f,.165f,.40f,.53f,.6825f,.8075f,.935f};
+    float *values[]={&d->input_pan,&d->input_gain,&d->feedback,&d->cutoff,&d->steps,&d->offset,&d->dry};
+    const unsigned ids[]={PARAM_DELAY_INPUT_PAN,PARAM_DELAY_INPUT_GAIN,PARAM_DELAY_FEEDBACK,PARAM_DELAY_CUTOFF,PARAM_DELAY_STEPS,PARAM_DELAY_OFFSET,PARAM_DELAY_DRY};
+    const int styles[]={KNOB_PAN,KNOB_NORMAL,KNOB_NORMAL,KNOB_LOGARITHMIC,KNOB_MAGNETIC,KNOB_PAN,KNOB_NORMAL};
+    const char *names[]={"PAN","VOL","VOL","CUT","TIME","OFS","VOL"};
+    for(int i=0;i<7;i++) {
+        float x=centers[i]*width,radius=fminf(26,width/28);
+        const ParameterDescriptor *info=parameter_descriptor(ids[i]);
+        if(i==4)for(int dot=0;dot<25;dot++) {
+            float angle=-PI*.5f+dot*(2*PI/25);
+            circle(x+cosf(angle)*(radius+7),99+sinf(angle)*(radius+7),1,muted);
+        }
+        knob_sized(x,99,values[i],info->low,info->high,info->initial,info->name,styles[i],radius);
+        label(names[i],x-text_width(names[i],12)/2,136,12,ink);
+        float shown=displayed_value(values[i],*values[i]);
+        const char *number=i==4?host_text_format("%.3g",shown):i==3?host_text_format("%.0f",shown):host_text_format("%.0f%%",shown*100);
+        label(number,x-text_width(number,11)/2,157,11,muted);
+        if(i==4 && (hover(x-radius-8,66,2*radius+16,65) || ui.control_drag==values[i]))
+            snprintf(ui.status,sizeof ui.status,"Delay time: %.5g steps / %.3f ms | magnetic rhythm marks; Ctrl = fine, unsnapped",shown,delay_time_ms((DelaySettings){.model=1,.steps=shown},ui.project.bpm));
+        if(i==5 && hover(x-radius,99-radius,2*radius,2*radius))
+            snprintf(ui.status,sizeof ui.status,"Stereo offset: negative delays Left, positive delays Right; center = equal times");
+    }
+    float bottom=height-30;
+    if(button("Bypass",8,bottom,92,24,ui.project.effect_bypass[bus][slot]))ui.project.effect_bypass[bus][slot]^=1;
+    if(button("Load",width-172,bottom,78,24,0))preset_action(PRESET_DELAY,bus,slot,0);
+    if(button("Save",width-88,bottom,80,24,0))preset_action(PRESET_DELAY,bus,slot,1);
+}
 void effect_editor(float width,float height) {
     int bus=ui.eq_bus,slot=ui.eq_slot;
     if(bus<0 || bus>ui.project.insert_count || slot<0 || slot>=EFFECT_SLOTS)return;
-    if(ui.windows.workspace.enabled)ui.windows.editors[ui.knob_context].minw=ui.project.effect_type[bus][slot]==EFFECT_DELAY?400:ui.project.effect_type[bus][slot]==EFFECT_CHORUS?330:480;
+    if(ui.windows.workspace.enabled)ui.windows.editors[ui.knob_context].minw=ui.project.effect_type[bus][slot]==EFFECT_DELAY?(ui.project.delay[bus][slot].model?620:400):ui.project.effect_type[bus][slot]==EFFECT_CHORUS?330:480;
     if(!ui.project.effect_type[bus][slot]){label("Select an effect slot in the Mixer.",16,40,13,muted);return;}
     if(ui.project.effect_type[bus][slot]==EFFECT_DELAY) {
         DelaySettings *d=&ui.project.delay[bus][slot];
+        if(d->model){delay_editor_compact(width,height,bus,slot);return;}
         label(fit_text(host_text_format("%s / Delay",mixer_name(bus)),width-24,13),12,32,13,ink);
         if(button(d->sync?"Tempo sync":"Milliseconds",12,60,(width-28)/2,24,d->sync))d->sync^=1;
         if(button(delay_division_name(d->division),16+(width-28)/2,60,(width-28)/2,24,d->sync))d->division=(d->division+1)%DELAY_DIVISIONS;

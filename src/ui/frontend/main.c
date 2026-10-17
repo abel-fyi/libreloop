@@ -53,7 +53,7 @@ static void smoke_showcase_prepare(void) {
 
 /* Development capture states use only existing instruments/effects. */
 static void smoke_scene_prepare(int scene) {
-    if(scene==15){ui.project.effect_type[1][0]=EFFECT_DELAY;ui.project.effect_mix[1][0]=.35f;ui.eq_bus=1;ui.eq_slot=0;return;}
+    if(scene==15){ui.project.effect_type[1][0]=EFFECT_DELAY;ui.project.effect_mix[1][0]=1;ui.eq_bus=1;ui.eq_slot=0;return;}
     if(scene==14){channel_replace_instrument(&ui.project,0,INSTRUMENT_FM);ui.project.fm[0].engine=1;ui.fm_dx_operator=6;ui.fm_dx_page=1;return;}
     if(scene==12){smoke_showcase_prepare();return;}
     if(scene==13){channel_replace_instrument(&ui.project,0,INSTRUMENT_FM);ui.project.fm[0].engine=0;ui.fm_tab=3;return;}
