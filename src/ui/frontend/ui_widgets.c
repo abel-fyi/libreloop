@@ -415,7 +415,7 @@ int preset_directory(char *out,size_t capacity,int kind) {
     if(!slash) return 0;
     char root[LL_PATH_CAPACITY];
     if(snprintf(root,sizeof root,"%.*s/presets",(int)(slash-ui.browser.config),ui.browser.config)>=(int)sizeof root || host_make_directory(root)) return 0;
-    const char *device=kind==PRESET_FM?"FM Synth":kind==PRESET_EQ?"Equalizer":kind==PRESET_CHORUS?"Chorus":"Sampler";
+    const char *device=kind==PRESET_DELAY?"Delay":kind==PRESET_FM?"FM Synth":kind==PRESET_EQ?"Equalizer":kind==PRESET_CHORUS?"Chorus":"Sampler";
     if(snprintf(out,capacity,"%s/%s",root,device)>=(int)capacity || host_make_directory(out)) return 0;
     if(kind==PRESET_FM) for(int i=0;i<FM_FACTORY_COUNT;i++) {
         char factory[LL_PATH_CAPACITY];

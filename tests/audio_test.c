@@ -294,6 +294,17 @@ int main(void) {
     for(int i=0;i<100;i++)test_callback(NULL,out,NULL,64);
     CHECK(!audio_note_activity(&preview_c,&preview_p));
     ready=0;ma_atomic_device_state_set(&device.state,ma_device_state_uninitialized);audio_stop();
+    /* The real callback consumes a control-thread-prepared delay rack. */
+    float impulse[1024]={.2f};setup((Sample){impulse,1024,1});
+    effects=effects_create(INSERTS+1);CHECK(effects);player.effects=live.effects=effects;
+    fixture.effect_type[0][0]=EFFECT_DELAY;fixture.delay[0][0]=(DelaySettings){1,.5f,20000,0,1,0,0};fixture.effect_mix[0][0]=1;
+    audio_update(&fixture,1,1,0,1,1,0,0,0);CHECK(!audio_effect_memory_failed());
+    ready=1;ma_atomic_device_state_set(&device.state,ma_device_state_started);
+    test_callback(NULL,out,NULL,64);CHECK(out[0]==0 && out[96]==.2f && out[97]==.2f);
+    test_callback(NULL,out,NULL,64);CHECK(out[64]==.1f && out[65]==.1f);
+    audio_update(&fixture,1,1,0,0,1,0,0,0);test_callback(NULL,out,NULL,64);CHECK(out[32]==.05f && out[33]==.05f);
+    ready=0;ma_atomic_device_state_set(&device.state,ma_device_state_uninitialized);audio_stop();
+    effects_free(effects);effects=NULL;player.effects=live.effects=NULL;
     puts("Transparent output, capture, post-fader recording, ring bounds, mixing and ordered controls passed.");
     return 0;
 }

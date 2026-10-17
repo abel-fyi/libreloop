@@ -217,19 +217,20 @@ void mixer_effect_open(int bus,int slot,int toggle) {
     if(id>=5){if(toggle)studio_workspace_hide(&ui.windows,id);else windows_focus(&ui.windows,id);return;}
     for(id=5;id<WINDOW_CAPACITY && ui.windows.editors[id].visible;id++){}
     if(id==WINDOW_CAPACITY){snprintf(ui.status,sizeof ui.status,"Close an effect editor before opening another (16 open).");return;}
-    StudioWorkspace *s=&ui.windows.workspace;float width=type==EFFECT_CHORUS?360:620,height=type==EFFECT_CHORUS?280:380;
+    StudioWorkspace *s=&ui.windows.workspace;float width=type==EFFECT_DELAY?420:type==EFFECT_CHORUS?360:620,height=type==EFFECT_DELAY?340:type==EFFECT_CHORUS?280:380;
     width=fminf(width,s->width-s->sidebar-10);height=fminf(height,s->height-84);
     int count=0;for(int i=5;i<WINDOW_CAPACITY;i++)count+=ui.windows.editors[i].visible;
     ui.effect_windows[id].bus=bus;ui.effect_windows[id].slot=slot;ui.effect_windows[id].band=0;
-    ui.windows.editors[id].minw=type==EFFECT_CHORUS?330:480;ui.windows.editors[id].minh=type==EFFECT_CHORUS?280:330;
+    ui.windows.editors[id].minw=type==EFFECT_DELAY?400:type==EFFECT_CHORUS?330:480;ui.windows.editors[id].minh=type==EFFECT_DELAY?340:type==EFFECT_CHORUS?280:330;
     ui.windows.editors[id].rect=(Rect){fmaxf(s->sidebar+6,s->width-width-12-count*20),fminf(70+count*22,s->height-24-height),width,height};
     ui.windows.workspace.floating[id]=1;ui.windows.editors[id].maximized=0;
     windows_focus(&ui.windows,id);
 }
 void mixer_effect_add(int bus,int slot,int type) {
-    if(bus<0 || bus>ui.project.insert_count || slot<0 || slot>=EFFECT_SLOTS || (type!=EFFECT_CHORUS && type!=EFFECT_EQ))return;
+    if(bus<0 || bus>ui.project.insert_count || slot<0 || slot>=EFFECT_SLOTS || !effect_descriptor(type))return;
     ui.project.effect_type[bus][slot]=type;ui.project.effect_bypass[bus][slot]=0;
     if(type==EFFECT_CHORUS){ui.project.chorus[bus][slot]=chorus_default();ui.project.effect_mix[bus][slot]=.5f;}
+    else if(type==EFFECT_DELAY){ui.project.delay[bus][slot]=delay_default();ui.project.effect_mix[bus][slot]=.35f;}
     else{ui.project.eq[bus][slot]=equalizer_default();ui.project.effect_mix[bus][slot]=1;}
     if(ui.fx_add_pending && bus==ui.eq_bus && slot==ui.eq_slot) {
         ui.fx_add_pending=0;ui.mixer_fx_scroll[bus]=0;
@@ -245,7 +246,7 @@ void mixer_effect_remove(int bus,int slot) {
     for(int id=5;id<WINDOW_CAPACITY;id++)if(ui.windows.workspace.enabled && ui.effect_windows[id].bus==bus && ui.effect_windows[id].slot==slot)studio_workspace_hide(&ui.windows,id);
     ui.project.effect_type[bus][slot]=EFFECT_EMPTY;
     for(int a=ui.project.automation_count-1;a>=0;a--){ParameterTarget t=ui.project.automations[a].target;
-        if(((t.parameter>=PARAM_CHORUS_RATE && t.parameter<=PARAM_EFFECT_MIX) || (t.parameter>=PARAM_EQ_FIRST && t.parameter<=PARAM_EQ_LAST)) && t.owner==(unsigned)bus && t.slot==(unsigned)slot)automation_delete(&ui.project,a);}
+        if(parameter_is_effect(t.parameter) && t.owner==(unsigned)bus && t.slot==(unsigned)slot)automation_delete(&ui.project,a);}
     ui.control_drag=NULL;ui.automation_selected=ui.automation_node=-1;ui.picker_drag=-1;ui.eq_drag=-1;
 }
 void effect_slot_menu(int bus,int slot) {
@@ -256,8 +257,31 @@ void effect_slot_menu(int bus,int slot) {
 void effect_editor(float width,float height) {
     int bus=ui.eq_bus,slot=ui.eq_slot;
     if(bus<0 || bus>ui.project.insert_count || slot<0 || slot>=EFFECT_SLOTS)return;
-    if(ui.windows.workspace.enabled)ui.windows.editors[ui.knob_context].minw=ui.project.effect_type[bus][slot]==EFFECT_CHORUS?330:480;
+    if(ui.windows.workspace.enabled)ui.windows.editors[ui.knob_context].minw=ui.project.effect_type[bus][slot]==EFFECT_DELAY?400:ui.project.effect_type[bus][slot]==EFFECT_CHORUS?330:480;
     if(!ui.project.effect_type[bus][slot]){label("Select an effect slot in the Mixer.",16,40,13,muted);return;}
+    if(ui.project.effect_type[bus][slot]==EFFECT_DELAY) {
+        DelaySettings *d=&ui.project.delay[bus][slot];
+        label(fit_text(host_text_format("%s / Delay",mixer_name(bus)),width-24,13),12,32,13,ink);
+        if(button(d->sync?"Tempo sync":"Milliseconds",12,60,(width-28)/2,24,d->sync))d->sync^=1;
+        if(button(delay_division_name(d->division),16+(width-28)/2,60,(width-28)/2,24,d->sync))d->division=(d->division+1)%DELAY_DIVISIONS;
+        if(hover(16+(width-28)/2,60,(width-28)/2,24))snprintf(ui.status,sizeof ui.status,"Delay division: click to cycle; T = triplet, D = dotted (maximum 4 seconds)");
+        float col=(width-32)/3;
+        float *values[]={&d->time_ms,&d->feedback,&d->cutoff,&d->stereo,&ui.project.effect_mix[bus][slot],&d->output};
+        const float lo[]={1,0,100,0,0,0},hi[]={4000,.95f,20000,1,1,2},initial[]={375,.35f,8000,0,.35f,1};
+        const char *names[]={"Time ms","Feedback","Tone Hz","Ping-pong","Mix","Output"};
+        const unsigned ids[]={PARAM_DELAY_TIME,PARAM_DELAY_FEEDBACK,PARAM_DELAY_CUTOFF,PARAM_DELAY_STEREO,PARAM_EFFECT_MIX,PARAM_DELAY_OUTPUT};
+        for(int i=0;i<6;i++) {
+            float x=16+col*(i%3+.5f),y=116+86*(i/3);
+            if(i!=0 || !d->sync)knob(x,y,values[i],lo[i],hi[i],initial[i],parameter_descriptor(ids[i])->name);
+            else {label(host_text_format("%.0f",delay_time_ms(*d,ui.project.bpm)),x-24,y-8,13,ink);}
+            label(names[i],x-text_width(names[i],12)/2,y+24,12,muted);
+            if(i)label(host_text_format(i==2?"%.0f":"%.2f",displayed_value(values[i],*values[i])),x-24,y+42,12,ink);
+        }
+        if(button("Bypass",12,270,width-24,24,ui.project.effect_bypass[bus][slot]))ui.project.effect_bypass[bus][slot]^=1;
+        if(button("Load",12,302,(width-28)/2,24,0))preset_action(PRESET_DELAY,bus,slot,0);
+        if(button("Save",16+(width-28)/2,302,(width-28)/2,24,0))preset_action(PRESET_DELAY,bus,slot,1);
+        return;
+    }
     if(ui.project.effect_type[bus][slot]!=EFFECT_CHORUS){eq_editor(width,height);return;}
     ChorusSettings *s=&ui.project.chorus[bus][slot];
     label(fit_text(host_text_format("%s / Slot %d",mixer_name(bus),slot+1),width-24,13),12,32,13,ink);
@@ -440,15 +464,18 @@ static void mixer_legacy(float width,float height) {
             ui.project.effect_type[bus][slot]=EFFECT_EQ; effect_descriptor(EFFECT_EQ)->defaults(&ui.project.eq[bus][slot]); ui.project.effect_mix[bus][slot]=1; ui.project.effect_bypass[bus][slot]=0;
             ui.eq_bus=bus; ui.eq_slot=slot; ui.eq_drag=-1; windows_focus(&ui.windows,5);
         }
+        if(button("+ Delay",fx+8,effect_button_y+27,MIXER_PANEL-16,24,0))mixer_effect_add(bus,slot,EFFECT_DELAY);
     } else {
         label(effect_descriptor(ui.project.effect_type[bus][slot])->name,fx+8,effect_y,12,ink);
         if(button("x",fx+MIXER_PANEL-28,ui.studio_style?effect_y-2:TITLE+144,20,ui.studio_style?20:22,0)) {
             ui.project.effect_type[bus][slot]=EFFECT_EMPTY;
             for(int a=ui.project.automation_count-1;a>=0;a--) {
                 ParameterTarget t=ui.project.automations[a].target;
-                if(((t.parameter>=PARAM_CHORUS_RATE && t.parameter<=PARAM_EFFECT_MIX) || (t.parameter>=PARAM_EQ_FIRST && t.parameter<=PARAM_EQ_LAST)) && t.owner==(unsigned)bus && t.slot==(unsigned)slot) automation_delete(&ui.project,a);
+                if(parameter_is_effect(t.parameter) && t.owner==(unsigned)bus && t.slot==(unsigned)slot) automation_delete(&ui.project,a);
             }
             ui.control_drag=NULL; ui.automation_selected=ui.automation_node=-1; ui.picker_drag=-1;
+        } else if(ui.project.effect_type[bus][slot]==EFFECT_DELAY) {
+            if(button("Open Delay",fx+8,effect_button_y,MIXER_PANEL-16,24,0))mixer_effect_open(bus,slot,0);
         } else if(ui.project.effect_type[bus][slot]==EFFECT_EQ) {
             if(button("Open Equalizer",fx+8,effect_button_y,MIXER_PANEL-16,ui.studio_style?20:25,0)) { ui.eq_bus=bus; ui.eq_slot=slot; ui.eq_drag=-1; windows_focus(&ui.windows,5); }
             if(button("Bypass",fx+8,bypass_y,MIXER_PANEL-16,small_h,ui.project.effect_bypass[bus][slot])) ui.project.effect_bypass[bus][slot]^=1;

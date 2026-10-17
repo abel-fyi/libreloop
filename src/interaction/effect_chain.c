@@ -8,7 +8,7 @@ int effect_slot_after_move(int slot,int from,int to) {
     return slot;
 }
 void effect_target_after_move(ParameterTarget *target,int bus,int from,int to) {
-    if(target->owner==(unsigned)bus && ((target->parameter>=PARAM_CHORUS_RATE && target->parameter<=PARAM_EFFECT_MIX) || (target->parameter>=PARAM_EQ_FIRST && target->parameter<=PARAM_EQ_LAST)))target->slot=effect_slot_after_move(target->slot,from,to);
+    if(target->owner==(unsigned)bus && parameter_is_effect(target->parameter))target->slot=effect_slot_after_move(target->slot,from,to);
 }
 int effect_chain_move(Project *p,int bus,int from,int to) {
     if(bus<0 || bus>p->insert_count || from<0 || from>=EFFECT_SLOTS || to<0 || to>=EFFECT_SLOTS || from==to || !p->effect_type[bus][from])return 0;
@@ -17,7 +17,7 @@ int effect_chain_move(Project *p,int bus,int from,int to) {
         int next=at+step;
 #define SWAP(field,type) do {type value=p->field[bus][at];p->field[bus][at]=p->field[bus][next];p->field[bus][next]=value;}while(0)
         SWAP(effect_type,uint8_t);SWAP(effect_bypass,uint8_t);SWAP(effect_mix,float);
-        SWAP(chorus,ChorusSettings);SWAP(eq,EQSettings);
+        SWAP(chorus,ChorusSettings);SWAP(eq,EQSettings);SWAP(delay,DelaySettings);
 #undef SWAP
     }
     for(int i=0;i<p->automation_count+p->midi_binding_count;i++) {

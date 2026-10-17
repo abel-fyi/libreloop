@@ -48,7 +48,7 @@ void create_automation(void) {
     float steps=ui.song_loop[1]>ui.song_loop[0]?ui.song_loop[1]-ui.song_loop[0]:fmaxf(STEPS,ui.project.pattern_steps[ui.pattern]);
     char name[PATTERN_NAME];
     unsigned id=ui.automation_target.parameter,owner=ui.automation_target.owner;
-    const char *prefix=((id>=PARAM_FM_RATIO && id<=PARAM_FM_LAST) || (id>=PARAM_DX7_FIRST && id<=PARAM_DX7_LAST))?ui.project.channel_names[owner]:id>=PARAM_CHORUS_RATE && id<=PARAM_EFFECT_MIX?(owner?ui.project.insert_names[owner-1]:"Master"):id<=PARAM_CHANNEL_PITCH || id==PARAM_CHANNEL_MUTE || id==PARAM_PITCH_RANGE?ui.project.channel_names[owner]:id<=PARAM_INSERT_WIDTH || id==PARAM_INSERT_MUTE?ui.project.insert_names[owner]:"Master";
+    const char *prefix=((id>=PARAM_FM_RATIO && id<=PARAM_FM_LAST) || (id>=PARAM_DX7_FIRST && id<=PARAM_DX7_LAST))?ui.project.channel_names[owner]:parameter_is_effect(id)?(owner?ui.project.insert_names[owner-1]:"Master"):id<=PARAM_CHANNEL_PITCH || id==PARAM_CHANNEL_MUTE || id==PARAM_PITCH_RANGE?ui.project.channel_names[owner]:id<=PARAM_INSERT_WIDTH || id==PARAM_INSERT_MUTE?ui.project.insert_names[owner]:"Master";
     const char *parameter=ui.menu_name;
     if(!strncmp(parameter,"Insert ",7)) parameter+=7;
     else if(!strncmp(parameter,"Channel ",8)) parameter+=8;
@@ -529,7 +529,7 @@ void draw_context_content(void) {
         for(int id=ui.context_kind==26?0:1;id<=ui.project.insert_count;id++)
             if(ui.context_kind==26?insert_has_send(&ui.project,ui.context_target,id):insert_has_send(&ui.project,id,ui.context_target))route_rows[route_count++]=id;
     }
-    int w=ui.context_kind==14 || ui.context_kind==16?160:(ui.context_kind==5 || ui.context_kind==8 || ui.context_kind==12)?304:228,h=(ui.context_kind==26 || ui.context_kind==27)?8+25*(int)fminf(8,route_count+1):ui.context_kind==25?(ui.project.effect_type[ui.eq_bus][ui.context_target]?133:58):ui.context_kind==24?8+25*GRID_CHOICES:ui.context_kind==9?133:ui.context_kind==21?8+25*FM_FACTORY_COUNT:ui.context_kind==22?83:ui.context_kind==23?108:ui.context_kind==19?108:ui.context_kind==20?58:ui.context_kind==17?8+25*(int)fminf(8,instrument_count):ui.context_kind==18?58:ui.context_kind==4?108:ui.context_kind==16?32:ui.context_kind==15?58:ui.context_kind==14?8+EQ_SHAPES*25:ui.context_kind==13?58:ui.context_kind==2?183:ui.context_kind==7?133:(ui.context_kind==5 || ui.context_kind==8 || ui.context_kind==12)?76:ui.context_kind==3 && !ui.context_target?32:82,x=fmaxf(0,fminf(host_get_screen_width()/scale-w,ui.context_position.x)),y=fmaxf(0,fminf(host_get_screen_height()/scale-h,ui.context_position.y));
+    int w=ui.context_kind==14 || ui.context_kind==16?160:(ui.context_kind==5 || ui.context_kind==8 || ui.context_kind==12)?304:228,h=(ui.context_kind==26 || ui.context_kind==27)?8+25*(int)fminf(8,route_count+1):ui.context_kind==25?(ui.project.effect_type[ui.eq_bus][ui.context_target]?133:83):ui.context_kind==24?8+25*GRID_CHOICES:ui.context_kind==9?133:ui.context_kind==21?8+25*FM_FACTORY_COUNT:ui.context_kind==22?83:ui.context_kind==23?108:ui.context_kind==19?108:ui.context_kind==20?58:ui.context_kind==17?8+25*(int)fminf(8,instrument_count):ui.context_kind==18?58:ui.context_kind==4?108:ui.context_kind==16?32:ui.context_kind==15?58:ui.context_kind==14?8+EQ_SHAPES*25:ui.context_kind==13?58:ui.context_kind==2?183:ui.context_kind==7?133:(ui.context_kind==5 || ui.context_kind==8 || ui.context_kind==12)?76:ui.context_kind==3 && !ui.context_target?32:82,x=fmaxf(0,fminf(host_get_screen_width()/scale-w,ui.context_position.x)),y=fmaxf(0,fminf(host_get_screen_height()/scale-h,ui.context_position.y));
     ui.input_enabled=1;
     if(host_is_key_pressed(HOST_KEY_ESCAPE) || (!ui.context_opened && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT) && !hover(x,y,w,h))) { ui.context_kind=0; return; }
     ui_frame(host_draw(),(DrawRect){x,y,w,h});
@@ -552,12 +552,13 @@ void draw_context_content(void) {
         if(!type){
             if(button("Add Chorus",x+4,y+4,w-8,24,0)){mixer_effect_add(bus,slot,EFFECT_CHORUS);ui.context_kind=0;}
             if(button("Add Equalizer",x+4,y+29,w-8,24,0)){mixer_effect_add(bus,slot,EFFECT_EQ);ui.context_kind=0;}
+            if(button("Add Delay",x+4,y+54,w-8,24,0)){mixer_effect_add(bus,slot,EFFECT_DELAY);ui.context_kind=0;}
         } else {
             if(button("Open effect",x+4,y+4,w-8,24,0)){mixer_effect_open(bus,slot,0);ui.context_kind=0;}
             if(button("Bypass",x+4,y+29,w-8,24,ui.project.effect_bypass[bus][slot])){ui.project.effect_bypass[bus][slot]^=1;ui.context_kind=0;}
             if(button("Remove effect",x+4,y+54,w-8,24,0)){mixer_effect_remove(bus,slot);ui.context_kind=0;}
-            if(button("Load preset",x+4,y+79,w-8,24,0)){preset_action(type==EFFECT_EQ?PRESET_EQ:PRESET_CHORUS,bus,slot,0);ui.context_kind=0;}
-            if(button("Save preset",x+4,y+104,w-8,24,0)){preset_action(type==EFFECT_EQ?PRESET_EQ:PRESET_CHORUS,bus,slot,1);ui.context_kind=0;}
+            if(button("Load preset",x+4,y+79,w-8,24,0)){preset_action(type==EFFECT_DELAY?PRESET_DELAY:type==EFFECT_EQ?PRESET_EQ:PRESET_CHORUS,bus,slot,0);ui.context_kind=0;}
+            if(button("Save preset",x+4,y+104,w-8,24,0)){preset_action(type==EFFECT_DELAY?PRESET_DELAY:type==EFFECT_EQ?PRESET_EQ:PRESET_CHORUS,bus,slot,1);ui.context_kind=0;}
         }
     } else if(kind==24) {
         int *choice=target==1?&ui.playlist_grid:&ui.piano_grid;

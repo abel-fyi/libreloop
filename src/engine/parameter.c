@@ -2,6 +2,11 @@
 #include "engine.h"
 #include <math.h>
 static const ParameterDescriptor descriptors[]={
+    {PARAM_DELAY_TIME,"Delay time (ms)",1,4000,375,PARAMETER_LOGARITHMIC},
+    {PARAM_DELAY_FEEDBACK,"Delay feedback",0,.95f,.35f,PARAMETER_CONTINUOUS},
+    {PARAM_DELAY_CUTOFF,"Delay tone (Hz)",100,20000,8000,PARAMETER_LOGARITHMIC},
+    {PARAM_DELAY_STEREO,"Delay ping-pong",0,1,0,PARAMETER_CONTINUOUS},
+    {PARAM_DELAY_OUTPUT,"Delay output",0,2,1,PARAMETER_CONTINUOUS},
     {PARAM_EQ_FIRST+0,"EQ 1 frequency",20,20000,60,PARAMETER_LOGARITHMIC},
     {PARAM_EQ_FIRST+1,"EQ 1 gain",-18,18,0,PARAMETER_CONTINUOUS},
     {PARAM_EQ_FIRST+2,"EQ 1 Q",0.2,10,0.707,PARAMETER_CONTINUOUS},
@@ -89,6 +94,10 @@ const ParameterDescriptor *parameter_descriptor(unsigned id) {
 static const float *parameter_pointer(const Project *p,ParameterTarget t,float *lo,float *hi) {
     const ParameterDescriptor *info=parameter_descriptor(t.parameter);
     *lo=info?info->low:0; *hi=info?info->high:1;
+    if(t.parameter>=PARAM_DELAY_FIRST && t.parameter<=PARAM_DELAY_LAST) {
+        if(t.owner>(unsigned)p->insert_count || t.slot>=EFFECT_SLOTS || p->effect_type[t.owner][t.slot]!=EFFECT_DELAY) return NULL;
+        return device_parameter(effect_descriptor(EFFECT_DELAY),&p->delay[t.owner][t.slot],t.parameter);
+    }
     if(t.parameter>=PARAM_EQ_FIRST && t.parameter<=PARAM_EQ_LAST) {
         if(t.owner>(unsigned)p->insert_count || t.slot>=EFFECT_SLOTS || p->effect_type[t.owner][t.slot]!=EFFECT_EQ) return NULL;
         return device_parameter(effect_descriptor(EFFECT_EQ),&p->eq[t.owner][t.slot],t.parameter);
@@ -168,6 +177,10 @@ int parameter_from_pointer(const Project *p,const void *ptr,ParameterTarget *t) 
         if(parameter_pointer(p,candidate,&lo,&hi)==ptr) { *t=candidate; return 1; }
     }
     for(unsigned id=PARAM_EQ_FIRST;id<=PARAM_EQ_LAST;id++) for(unsigned owner=0;owner<=(unsigned)p->insert_count;owner++) for(unsigned slot=0;slot<EFFECT_SLOTS;slot++) {
+        ParameterTarget candidate={id,owner,slot}; float lo,hi;
+        if(parameter_pointer(p,candidate,&lo,&hi)==ptr) { *t=candidate; return 1; }
+    }
+    for(unsigned id=PARAM_DELAY_FIRST;id<=PARAM_DELAY_LAST;id++) for(unsigned owner=0;owner<=(unsigned)p->insert_count;owner++) for(unsigned slot=0;slot<EFFECT_SLOTS;slot++) {
         ParameterTarget candidate={id,owner,slot}; float lo,hi;
         if(parameter_pointer(p,candidate,&lo,&hi)==ptr) { *t=candidate; return 1; }
     }

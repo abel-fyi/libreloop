@@ -6,13 +6,15 @@
 #include "fm_synth.h"
 #include "chorus.h"
 #include "equalizer.h"
-enum { PRESET_SAMPLER=DEVICE_SAMPLER, PRESET_FM=DEVICE_FM, PRESET_CHORUS=DEVICE_CHORUS, PRESET_EQ=DEVICE_EQ };
+#include "delay.h"
+enum { PRESET_SAMPLER=DEVICE_SAMPLER, PRESET_FM=DEVICE_FM, PRESET_CHORUS=DEVICE_CHORUS, PRESET_EQ=DEVICE_EQ, PRESET_DELAY=DEVICE_DELAY };
 typedef struct {
     int kind;
     Sampler sampler;
     FMSettings fm;
     ChorusSettings chorus;
     EQSettings eq;
+    DelaySettings delay;
     float mix;
     char sample_path[1024]; /* Original audio reference, not embedded PCM. */
 } DevicePreset;

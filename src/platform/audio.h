@@ -2,6 +2,8 @@
 #ifndef AUDIO_H
 #define AUDIO_H
 #include "engine.h"
+/* UI-thread status: any delay without prepared storage passes dry. */
+int audio_effect_memory_failed(void);
 int audio_start(const Project *p, const Sample s[CHANNELS]);
 /* A single UI producer submits controls at buffer boundaries. Callback owns
    rendering state; its path never allocates, locks, waits or does file I/O. */

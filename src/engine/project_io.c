@@ -21,7 +21,7 @@ static int project_valid(const Project *p) {
     for(int i=0;i<p->midi_binding_count;i++){MidiBinding b=p->midi_bindings[i];if(b.channel>15 || b.controller>119 || !parameter_descriptor(b.target.parameter) || b.target.owner>INSERTS || b.target.slot>=EFFECT_SLOTS)return 0;}
     for(int c=0;c<CHANNELS;c++) if(!instrument_descriptor(p->instrument[c]) || !device_descriptor(DEVICE_FM)->valid(&p->fm[c]) || (p->instrument[c]==INSTRUMENT_FM && p->channel_audio[c])) return 0;
     for(int bus=0;bus<=INSERTS;bus++) for(int slot=0;slot<EFFECT_SLOTS;slot++)
-        if((p->effect_type[bus][slot]!=EFFECT_EMPTY && !effect_descriptor(p->effect_type[bus][slot])) || !device_descriptor(DEVICE_CHORUS)->valid(&p->chorus[bus][slot]) || !device_descriptor(DEVICE_EQ)->valid(&p->eq[bus][slot])) return 0;
+        if((p->effect_type[bus][slot]!=EFFECT_EMPTY && !effect_descriptor(p->effect_type[bus][slot])) || !device_descriptor(DEVICE_CHORUS)->valid(&p->chorus[bus][slot]) || !device_descriptor(DEVICE_EQ)->valid(&p->eq[bus][slot]) || !delay_valid(p->delay[bus][slot])) return 0;
     if(p->channel_count<0 || p->channel_count>CHANNELS || p->insert_count<0 || p->insert_count>INSERTS) return 0;
     for(int c=0;c<CHANNELS;c++) if(!p->channel_names[c][0] || strchr(p->channel_names[c],'\n') || strchr(p->channel_names[c],'\r')) return 0;
     for(int c=0;c<CHANNELS;c++) if(strchr(p->paths[c],'\n') || strchr(p->paths[c],'\r')) return 0;
@@ -174,6 +174,13 @@ static const Field fields[]={
     SUB(fm,FMSettings,analog,AnalogSettings,filter_env,F32,CHANNELS),
     SUB(fm,FMSettings,analog,AnalogSettings,chorus,F32,CHANNELS),
     {"fm.dx7.value",F32,offsetof(Project,fm)+offsetof(FMSettings,dx7)+offsetof(DX7Settings,value),CHANNELS*DX7_PARAMETERS,DX7_PARAMETERS,sizeof(FMSettings),sizeof(float),sizeof(float)},
+    {"x-delay.time_ms",F32,offsetof(Project,delay)+offsetof(DelaySettings,time_ms),(INSERTS+1)*EFFECT_SLOTS,1,sizeof(DelaySettings),0,sizeof(((DelaySettings *)0)->time_ms)},
+    {"x-delay.feedback",F32,offsetof(Project,delay)+offsetof(DelaySettings,feedback),(INSERTS+1)*EFFECT_SLOTS,1,sizeof(DelaySettings),0,sizeof(((DelaySettings *)0)->feedback)},
+    {"x-delay.cutoff",F32,offsetof(Project,delay)+offsetof(DelaySettings,cutoff),(INSERTS+1)*EFFECT_SLOTS,1,sizeof(DelaySettings),0,sizeof(((DelaySettings *)0)->cutoff)},
+    {"x-delay.stereo",F32,offsetof(Project,delay)+offsetof(DelaySettings,stereo),(INSERTS+1)*EFFECT_SLOTS,1,sizeof(DelaySettings),0,sizeof(((DelaySettings *)0)->stereo)},
+    {"x-delay.output",F32,offsetof(Project,delay)+offsetof(DelaySettings,output),(INSERTS+1)*EFFECT_SLOTS,1,sizeof(DelaySettings),0,sizeof(((DelaySettings *)0)->output)},
+    {"x-delay.sync",U32,offsetof(Project,delay)+offsetof(DelaySettings,sync),(INSERTS+1)*EFFECT_SLOTS,1,sizeof(DelaySettings),0,sizeof(((DelaySettings *)0)->sync)},
+    {"x-delay.division",U32,offsetof(Project,delay)+offsetof(DelaySettings,division),(INSERTS+1)*EFFECT_SLOTS,1,sizeof(DelaySettings),0,sizeof(((DelaySettings *)0)->division)},
     MEMBER(chorus,ChorusSettings,rate,F32,(INSERTS+1)*EFFECT_SLOTS),
     MEMBER(chorus,ChorusSettings,depth,F32,(INSERTS+1)*EFFECT_SLOTS),
     {"eq.bands.frequency",F32,offsetof(Project,eq)+offsetof(EQSettings,bands)+offsetof(EQBand,frequency),(INSERTS+1)*EFFECT_SLOTS*EQ_BANDS,EQ_BANDS,sizeof(EQSettings),sizeof(EQBand),sizeof(((EQBand *)0)->frequency)},
@@ -226,6 +233,10 @@ int project_save(const char *path,const Project *p) {
     fprintf(file,PROJECT_FORMAT_MAGIC " %d\n",PROJECT_FORMAT_VERSION);
     for(size_t n=0;n<FIELD_COUNT;n++) {
         const Field *f=&fields[n];
+        if(!strncmp(f->name,"x-delay.",8)) {
+            int any=0;for(int bus=0;bus<=INSERTS;bus++)for(int slot=0;slot<EFFECT_SLOTS;slot++)any|=p->effect_type[bus][slot]==EFFECT_DELAY;
+            if(!any)continue;
+        }
         if(!strcmp(f->name,"x-insert-sends")) {
             int any=0;for(int source=0;source<INSERTS;source++)for(int dest=0;dest<=INSERTS;dest++)any|=p->insert_sends[source][dest];
             if(!any)continue;
@@ -317,6 +328,7 @@ int project_load(const char *path,Project *p) {
     int ok=p && line(file,text,sizeof text) && sscanf(text,"%63s %n",magic,&consumed)==1 &&
         !strcmp(magic,PROJECT_FORMAT_MAGIC) && count_token(text+consumed,&version,PROJECT_FORMAT_VERSION) && version==PROJECT_FORMAT_VERSION;
     Project *next=ok?calloc(1,sizeof *next):NULL;
+    if(next)for(int bus=0;bus<=INSERTS;bus++)for(int slot=0;slot<EFFECT_SLOTS;slot++)next->delay[bus][slot]=delay_default();
     char (*names)[64]=ok?calloc(MAX_FIELDS,sizeof *names):NULL;
     if(ok && (!next || !names)) ok=0;
     unsigned char seen[FIELD_COUNT]={0}; size_t records=0; int ended=0;
@@ -354,7 +366,7 @@ int export_wav(const char *path,const Project *pr,const Sample s[CHANNELS]) {
     fwrite("RIFF",1,4,f); le(f,36+frames*4,4); fwrite("WAVEfmt ",1,8,f); le(f,16,4); le(f,1,2); le(f,2,2); le(f,RATE,4); le(f,RATE*4,4); le(f,4,2); le(f,16,2); fwrite("data",1,4,f); le(f,frames*4,4);
     Player player; player_reset(&player); player.song=1; float block[1024];
     player.effects=effects_create(INSERTS+1);
-    if(!player.effects) { atomic_file_abort(&output); return 0; }
+    if(!player.effects || !effects_prepare(player.effects,&pr->effect_type[0][0],(INSERTS+1)*EFFECT_SLOTS)) { effects_free(player.effects); atomic_file_abort(&output); return 0; }
     PlaybackPlan plan; playback_plan_prepare(&plan,pr,1,NULL,1); player.plan=&plan;
     for(uint32_t i=0;i<frames;) {
         unsigned n=frames-i>512?512:frames-i; render(&player,pr,s,block,n);

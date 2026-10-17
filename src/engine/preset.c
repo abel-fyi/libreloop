@@ -10,7 +10,7 @@
 static int valid(const DevicePreset *p) {
     const DeviceDescriptor *device=device_descriptor(p->kind);
     if(!device) return 0;
-    const void *settings=p->kind==PRESET_SAMPLER?(const void *)&p->sampler:p->kind==PRESET_FM?(const void *)&p->fm:p->kind==PRESET_CHORUS?(const void *)&p->chorus:(const void *)&p->eq;
+    const void *settings=p->kind==PRESET_SAMPLER?(const void *)&p->sampler:p->kind==PRESET_FM?(const void *)&p->fm:p->kind==PRESET_CHORUS?(const void *)&p->chorus:p->kind==PRESET_DELAY?(const void *)&p->delay:(const void *)&p->eq;
     if(!device->valid(settings)) return 0;
     if(p->kind==PRESET_SAMPLER) return ll_strnlen(p->sample_path,sizeof p->sample_path)<sizeof p->sample_path && !strchr(p->sample_path,'\n') && !strchr(p->sample_path,'\r');
     return p->kind==PRESET_FM || (isfinite(p->mix) && p->mix>=0 && p->mix<=1);
@@ -34,6 +34,7 @@ int preset_save(const char *path,const DevicePreset *p) {
         for(int i=0;i<DX7_PARAMETERS;i++) fprintf(out.file,"%.9g ",s.dx7.value[i]);
         fputc('\n',out.file);
     } else if(p->kind==PRESET_CHORUS) fprintf(out.file,"%.9g %.9g %.9g\n",p->chorus.rate,p->chorus.depth,p->mix);
+    else if(p->kind==PRESET_DELAY) fprintf(out.file,"%.9g %.9g %.9g %.9g %.9g %u %u %.9g\n",p->delay.time_ms,p->delay.feedback,p->delay.cutoff,p->delay.stereo,p->delay.output,p->delay.sync,p->delay.division,p->mix);
     else if(p->kind==PRESET_EQ) {
         for(int b=0;b<EQ_BANDS;b++) { EQBand v=p->eq.bands[b]; fprintf(out.file,"%.9g %.9g %.9g %u\n",v.frequency,v.gain,v.q,v.shape); }
         fprintf(out.file,"%.9g\n",p->mix);
@@ -58,6 +59,7 @@ int preset_load(const char *path,DevicePreset *p) {
             if(version<6) dx7_legacy_tracking(&s->dx7);
         }
     } else if(ok && next.kind==PRESET_CHORUS) ok=fscanf(f,"%f %f %f",&next.chorus.rate,&next.chorus.depth,&next.mix)==3;
+    else if(ok && next.kind==PRESET_DELAY) ok=fscanf(f,"%f %f %f %f %f %u %u %f",&next.delay.time_ms,&next.delay.feedback,&next.delay.cutoff,&next.delay.stereo,&next.delay.output,&next.delay.sync,&next.delay.division,&next.mix)==8;
     else if(ok && next.kind==PRESET_EQ) {
         next.eq=version==1?equalizer_legacy():equalizer_default();
         for(int b=0;ok && b<(version==1?4:EQ_BANDS);b++) {

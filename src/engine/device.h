@@ -5,8 +5,8 @@
 #include "parameter.h"
 /* Stable saved IDs. Built-in registration is independent of Project and UI. */
 enum { INSTRUMENT_SAMPLER,INSTRUMENT_FM };
-enum { EFFECT_EMPTY,EFFECT_CHORUS,EFFECT_EQ };
-enum { DEVICE_SAMPLER=1,DEVICE_FM,DEVICE_CHORUS,DEVICE_EQ };
+enum { EFFECT_EMPTY,EFFECT_CHORUS,EFFECT_EQ,EFFECT_DELAY };
+enum { DEVICE_SAMPLER=1,DEVICE_FM,DEVICE_CHORUS,DEVICE_EQ,DEVICE_DELAY };
 typedef struct { unsigned first,last; } DeviceParameterRange;
 typedef struct {
     const char *name;

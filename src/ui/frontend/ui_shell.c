@@ -103,7 +103,7 @@ void draw_editor(int id,float scale) {
     int title_size=ui.windows.workspace.enabled?14:13,title_y=3;
     if(id==4 && ui.studio_style)label(fit_text(host_text_format("%s · %s",ui.project.instrument[ui.instrument_channel]==INSTRUMENT_FM?"FM Synth":"Sampler",ui.project.channel_names[ui.instrument_channel]),r.w-48,title_size),8,title_y,title_size,title_ink);
     else if(id==2 && ui.studio_style)label(fit_text(host_text_format("Pattern · %s / %s",ui.project.pattern_names[ui.pattern],ui.project.channel_names[ui.piano_channel]),r.w-16,title_size),8,title_y,title_size,title_ink);
-    else if(id>=5 && ui.windows.workspace.enabled)label(fit_text(host_text_format("%s · %s / %d",ui.project.effect_type[ui.eq_bus][ui.eq_slot]==EFFECT_CHORUS?"Chorus":"Equalizer",mixer_name(ui.eq_bus),ui.eq_slot+1),r.w-48,title_size),8,title_y,title_size,title_ink);
+    else if(id>=5 && ui.windows.workspace.enabled)label(fit_text(host_text_format("%s · %s / %d",effect_descriptor(ui.project.effect_type[ui.eq_bus][ui.eq_slot])?effect_descriptor(ui.project.effect_type[ui.eq_bus][ui.eq_slot])->name:"Effect",mixer_name(ui.eq_bus),ui.eq_slot+1),r.w-48,title_size),8,title_y,title_size,title_ink);
     else label(host_text_format("%s%s",id==4 && ui.project.instrument[ui.instrument_channel]==INSTRUMENT_FM?"FM Synth":titles[id],e->pinned?" (on top)":""),8,title_y,title_size,title_ink);
     int rack_title_knob=id==0 && ((ui.mouse.x>=r.x+r.w-72-SWING_RADIUS-1 && ui.mouse.x<r.x+r.w-72+SWING_RADIUS+1) || (ui.mouse.x>=r.x+124 && ui.mouse.x<r.x+180));
     if(ui.input_enabled && !rack_title_knob && windows_hit(&ui.windows,ui.mouse.x,ui.mouse.y)==id && ui.mouse.y<r.y+title && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)) open_context(1,id,ui.mouse);

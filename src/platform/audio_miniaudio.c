@@ -486,6 +486,7 @@ int audio_start(const Project *p,const Sample s[CHANNELS]) {
     project=*p; memcpy(samples,s,sizeof samples);
     player_reset(&player); player_reset(&live);
     effects=effects_create(INSERTS+1); if(!effects) return 0;
+    if(!effects_prepare(effects,&p->effect_type[0][0],(INSERTS+1)*EFFECT_SLOTS)){effects_free(effects);effects=NULL;return 0;}
     project_snapshot_update(&pending.snapshot,p,1,NULL); playback=pending.snapshot.plan;
     player.plan=live.plan=&playback;
     player.effects=live.effects=effects; playing=0;note_preview_channel=-1; preview=(Sample){0}; preview_end=preview_remaining=0; preview_channel=-1;
@@ -573,7 +574,10 @@ int audio_record_failed(void) {
     for(int i=0;i<recording.devices_count;i++) if(atomic_load(&recording.inputs[i].overflow)) return 1;
     return 0;
 }
+static int effect_memory_failed;
+int audio_effect_memory_failed(void) {return effect_memory_failed;}
 void audio_update(const Project *p,int run,int song,int pattern,int reset,float output,float start_step,float loop_start,float loop_end) {
+    if(effects)effect_memory_failed=!effects_prepare(effects,&p->effect_type[0][0],(INSERTS+1)*EFFECT_SLOTS);
     control_begin();
     pending.dirty|=project_snapshot_update(&pending.snapshot,p,effects!=NULL,recording.active?&recording.io:NULL);
     submit((AudioCommand){.kind=UPDATE,.run=run,.song=song,.pattern=pattern,.reset=reset,
@@ -588,6 +592,7 @@ void audio_sample(int c,Sample s) {
 }
 void audio_channels(const Project *p,const Sample s[CHANNELS]) {
     AudioCommand command={.kind=CHANNEL_SAMPLES}; memcpy(command.channels,s,sizeof command.channels);
+    if(effects)effect_memory_failed=!effects_prepare(effects,&p->effect_type[0][0],(INSERTS+1)*EFFECT_SLOTS);
     control_begin(); pending.dirty|=project_snapshot_update(&pending.snapshot,p,effects!=NULL,recording.active?&recording.io:NULL);
     uint64_t serial=submit(command);
     control_end(); wait_acknowledged(serial);

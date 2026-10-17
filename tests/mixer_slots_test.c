@@ -74,5 +74,11 @@ int main(void) {
     mixer_effect_add(3,1,EFFECT_EQ);
     CHECK(!ui.fx_add_pending && ui.mixer_fx_scroll[3]==0 && ui.project.effect_type[3][0]==EFFECT_EQ && ui.project.effect_type[3][1]==EFFECT_CHORUS);
     CHECK(ui.effect_windows[original].slot==1 && ui.midi_learn_target.slot==1 && mixer_effect_window(3,0)>=5);
+    mixer_effect_add(4,0,EFFECT_DELAY);int delay_window=mixer_effect_window(4,0);
+    CHECK(delay_window>=5 && ui.project.effect_type[4][0]==EFFECT_DELAY && delay_valid(ui.project.delay[4][0]));
+    CHECK(ui.windows.editors[delay_window].minw==400 && ui.windows.editors[delay_window].minh==340 && ui.project.effect_mix[4][0]==.35f);
+    int delay_automation=automation_create(&ui.project,(ParameterTarget){PARAM_DELAY_FEEDBACK,4,0},"Delay feedback",16);CHECK(delay_automation>=0);
+    int before_remove=ui.project.automation_count;mixer_effect_remove(4,0);
+    CHECK(!ui.windows.editors[delay_window].visible && !ui.project.effect_type[4][0] && ui.project.automation_count==before_remove-1);
     return 0;
 }
