@@ -23,3 +23,7 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# Local reference screenshots; keep the folder instructions in Git
+/references/screenshots/*
+!/references/screenshots/README.md

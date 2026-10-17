@@ -50,8 +50,10 @@ pixel-style materials, labeled action menus and five-dot divider grips.
 
 Engine, project format and interaction regression fixtures preserve the original
 LibreLoop reference. Retain the fixtures: they are test data, including binary
-render/audio results, rather than generated build debris. Original baseline
-builds, local measurements and history backups live outside this repository.
+render/audio results, rather than generated build debris. The old raylib source checkout, temporary
+baseline builds, local measurements, history backups and supplied screenshots
+were removed during workspace cleanup; committed fixtures and audit documents
+remain.
 
 The shipping desktop still needs a verified vendored/static SDL build. CMake
 never downloads dependencies; `tools/vendor_sdl.py` imports a locally supplied,
@@ -68,7 +70,9 @@ hardware and native trackpad/HiDPI acceptance remain incomplete. See
 - [Architecture](docs/architecture-proposal.md)
 - [Third-party licenses and provenance](docs/third-party.md)
 
-Local `notes.txt`, editor recovery files and build outputs are ignored. Earlier
+Put future visual references in [references/screenshots](references/screenshots/README.md);
+those files remain local and ignored. Local `notes.txt`, editor recovery files
+and build outputs are also ignored. Earlier
 design/audit documents remain as development history; the roadmap identifies
 current priorities. The project and CMake application target are **libreloop**;
 any local directory called `libreloop2` is only a historical workspace path.
