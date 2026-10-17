@@ -440,3 +440,8 @@ edge decoration were removed. Render tests verify both orientations and both
 states at five DPI scales, including deliberately different caption colors.
 Release build, four relevant theme/workspace/velocity tests and strict app
 signature verification passed. Capture: `../baseline-artifacts/shared-grips/uniform/`.
+
+Toolbar roadmap pass: labeled icon-first FILE/EDIT/VIEW/HELP controls, fitted
+transport sprites, and MM:SS:CS time with smaller bottom-aligned centiseconds.
+Compact clock/tempo wells reserve separate rows for digits and captions.
+See `toolbar-polish.md` for geometry changes, tests and screenshot locations.

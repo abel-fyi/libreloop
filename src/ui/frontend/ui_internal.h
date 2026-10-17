@@ -353,6 +353,8 @@ int text_width(const char *text,int size);
 float raster_position(float value,float origin);
 void label_key(const char *text,DrawRect bounds,DrawColor color);
 void label_moving(const char *text,float x,float y,int size,DrawColor color);
+void lcd_time(const char *text,float x,float y,float width,DrawColor color);
+void icon_in_button(int id,DrawRect button,DrawColor color);
 void lcd_number(const char *text,float x,float y,float width,float height,DrawColor color);
 void label(const char *text,float x,float y,int size,DrawColor color);
 void backspace(char *text);

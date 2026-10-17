@@ -26,13 +26,14 @@ int main(void) {
     for(unsigned n=0;n<sizeof widths/sizeof *widths;n++) {
         StudioToolbar t=studio_toolbar_layout(widths[n]);
         Rect all[24];int count=0;
-        for(int i=0;i<4;i++)all[count++]=t.menus[i];
+        for(int i=0;i<4;i++){all[count++]=t.menus[i];CHECK(t.menus[i].w>=64 && t.menus[i].h>=20); }
         all[count++]=t.pitch;all[count++]=t.volume;all[count++]=t.stop;all[count++]=t.play;all[count++]=t.record;
         for(int i=0;i<3;i++)all[count++]=t.record_types[i];
         all[count++]=t.metronome;all[count++]=t.position;all[count++]=t.tempo;all[count++]=t.mode;
         for(int i=0;i<4;i++)CHECK(t.editors[i].w==0 && t.editors[i].h==0);
         all[count++]=t.follow;all[count++]=t.typing;
         if(t.spectrum.w){all[count++]=t.spectrum;all[count++]=t.levels;}
+        CHECK(t.position.h>=42 && t.tempo.h>=42); /* Separate 16-unit digits and captions. */
         CHECK(t.stop.w==t.stop.h && t.play.w==t.play.h && t.record.w==t.record.h);
         CHECK(t.follow.w==t.follow.h && t.typing.w==t.typing.h);
         for(int i=0;i<count;i++) {

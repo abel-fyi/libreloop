@@ -101,12 +101,19 @@ void help_binding(int x,int *y,const char *keys,const char *action) {
     label(keys,x,*y,11,ink); label(action,x+126,*y,11,muted); *y+=23;
 }
 
+static void popup_menu_anchor(int menu,int *x,int *y) {
+    if(!ui.studio_style)return;
+    StudioToolbar toolbar=studio_toolbar_layout(host_get_screen_width()/ui_scale());
+    *x=toolbar.menus[menu].x;*y=toolbar.menus[menu].y+toolbar.menus[menu].h+2;
+}
+
 void draw_popup_content(void) {
     if(!ui.pattern_popup) { ui.popup_drag=0; return; }
     ui.input_enabled=1;
     if(ui.pattern_popup==10) {
         int count=ui.windows.focused==2 && ui.piano_tool==PENCIL?8:6;
         int x=52,y=34,w=210,h=8+count*26;
+        popup_menu_anchor(1,&x,&y);
         if(host_is_key_pressed(HOST_KEY_ESCAPE) || (!ui.popup_opened && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT) && !hover(x,y,w,h))) { ui.pattern_popup=0; return; }
         ui_frame(host_draw(),(DrawRect){x,y,w,h});
         const char *names[]={"Undo","Redo","Cut","Copy","Paste","Select all","Octave up","Octave down"};
@@ -115,6 +122,7 @@ void draw_popup_content(void) {
     }
     if(ui.pattern_popup==1 || ui.pattern_popup==9) {
         int file=ui.pattern_popup==1,x=file?8:140,y=34,w=ui.studio_style?(file?272:184):210,h=file?190:34;
+        popup_menu_anchor(file?0:3,&x,&y);
         if(host_is_key_pressed(HOST_KEY_ESCAPE) || (!ui.popup_opened && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT) && !hover(x,y,w,h))) { ui.pattern_popup=0; return; }
         ui_frame(host_draw(),(DrawRect){x,y,w,h});
         const char *items[]={"New","Demo","Save","Save As...","Open...","Export...","Collect samples and save..."};
@@ -150,6 +158,7 @@ void draw_popup_content(void) {
     }
     if(ui.pattern_popup==7) {
         int x=96,y=34,w=ui.studio_style?184:304,h=34;
+        popup_menu_anchor(2,&x,&y);
         if(host_is_key_pressed(HOST_KEY_ESCAPE) || (!ui.popup_opened && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT) && !hover(x,y,w,h))) { ui.pattern_popup=0; return; }
         ui_frame(host_draw(),(DrawRect){x,y,w,h});
         if(button("MIDI / Recording",x+4,y+4,w-8,25,0) && !ui.popup_opened){midi_refresh();open_popup(13);return;}

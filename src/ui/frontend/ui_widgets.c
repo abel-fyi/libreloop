@@ -32,11 +32,14 @@ void label(const char *text,float x,float y,int size,DrawColor color) {
 }
 
 /* Original procedural seven-segment numerals, only for numeric readouts. */
-void lcd_number(const char *text,float x,float y,float width,float height,DrawColor color) {
-    static const unsigned char digits[]={0x3f,0x06,0x5b,0x4f,0x66,0x6d,0x7d,0x07,0x7f,0x6f};
+static float lcd_units(const char *text) {
     float units=0;
     for(const char *p=text;*p;p++)units+=*p=='.' || *p==':'?.32f:.70f;
-    float h=ui.studio_style?UI_TEXT_SIZE:fminf(height,width/fmaxf(.1f,units)),w=h*.50f,t=fmaxf(1,roundf(h*.09f));
+    return units;
+}
+static void lcd_digits(const char *text,float x,float y,float h,DrawColor color) {
+    static const unsigned char digits[]={0x3f,0x06,0x5b,0x4f,0x66,0x6d,0x7d,0x07,0x7f,0x6f};
+    float w=h*.50f,t=fmaxf(1,roundf(h*.09f));
     for(const char *p=text;*p;p++) {
         if(*p==':' || *p=='.') {
             host_draw_rectangle_rec((DrawRect){x,y+(*p==':'?h*.25f:h-t),t,t},color);
@@ -52,6 +55,22 @@ void lcd_number(const char *text,float x,float y,float width,float height,DrawCo
         for(int i=0;i<7;i++)if(mask&(1u<<i))host_draw_rectangle_rec(segments[i],color);
         x+=h*.70f;
     }
+}
+
+void lcd_number(const char *text,float x,float y,float width,float height,DrawColor color) {
+    lcd_digits(text,x,y,ui.studio_style?UI_TEXT_SIZE:fminf(height,width/fmaxf(.1f,lcd_units(text))),color);
+}
+void lcd_time(const char *text,float x,float y,float width,DrawColor color) {
+    const char *last=strrchr(text,':');
+    if(!last){lcd_number(text,x,y,width,UI_TEXT_SIZE,color);return;}
+    char whole[32];size_t count=(size_t)(last-text)+1;
+    if(count>=sizeof whole)count=sizeof whole-1;
+    memcpy(whole,text,count);whole[count]=0;
+    float large=UI_TEXT_SIZE,small=11;
+    float used=lcd_units(whole)*large+lcd_units(last+1)*small;
+    float fit=fminf(1,width/fmaxf(1,used));large*=fit;small*=fit;
+    lcd_digits(whole,x,y,large,color);
+    lcd_digits(last+1,x+lcd_units(whole)*large,y+large-small,small,color);
 }
 
 void backspace(char *text) {
@@ -83,12 +102,23 @@ void icons_init(float scale) {
     ui.icon_large=icons.large;ui.icon_medium=icons.medium;ui.icon_small=icons.small;
 }
 
-void icon(int id,float x,float y,float size,DrawColor color) {
+static void paint_icon(int id,float x,float y,int variant,float size,DrawColor color) {
     if(ui.studio_style)color=(DrawColor){255,255,255,color.a};
-    int variant=size<=16?2:size<=20?1:0,pixels=variant==2?ui.icon_small:variant==1?ui.icon_medium:ui.icon_large;
-    float left=raster_position(x-pixels/ui.font_scale/2,ui.text_origin.x);
-    float top=raster_position(y-pixels/ui.font_scale/2,ui.text_origin.y);
-    host_draw_texture_pro(ui.icons,(DrawRect){id*ui.icon_large,variant==2?ui.icon_large+ui.icon_medium:variant==1?ui.icon_large:0,pixels,pixels},(DrawRect){left,top,pixels/ui.font_scale,pixels/ui.font_scale},(DrawPoint){0},0,color);
+    int pixels=variant==2?ui.icon_small:variant==1?ui.icon_medium:ui.icon_large;
+    if(size<=0)size=pixels/ui.font_scale;
+    float left=raster_position(x-size/2,ui.text_origin.x),top=raster_position(y-size/2,ui.text_origin.y);
+    host_draw_texture_pro(ui.icons,(DrawRect){id*ui.icon_large,variant==2?ui.icon_large+ui.icon_medium:variant==1?ui.icon_large:0,pixels,pixels},(DrawRect){left,top,size,size},(DrawPoint){0},0,color);
+}
+void icon(int id,float x,float y,float size,DrawColor color) {
+    paint_icon(id,x,y,size<=16?2:size<=20?1:0,0,color);
+}
+void icon_in_button(int id,DrawRect button,DrawColor color) {
+    /* Use the original 16px sprite directly: 32px transport icons stay a
+       clean 2x enlargement, without the padded large-atlas cell. */
+    if(button.width<=4 || button.height<=4)return;
+    float size=fminf(32,fminf(button.width,button.height)-4);
+    int pressed=hover(button.x,button.y,button.width,button.height) && host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT);
+    paint_icon(id,button.x+button.width/2+pressed,button.y+button.height/2+pressed,2,size,color);
 }
 
 void arcs_init(void) {
@@ -230,7 +260,7 @@ int button_color(const char *text,int x,int y,int w,int h,int active,DrawColor b
         const char *caption=fit_text(!strncmp(text,"+ ",2)?text+2:text,w-28,UI_TEXT_SIZE);
         label(caption,x+24+offset,y+(h-UI_TEXT_SIZE)/2+offset,UI_TEXT_SIZE,foreground);
     }
-    else if(action>=0)icon(action,x+w/2+offset,y+h/2+offset,h>=32?24:h>=26?20:16,foreground);
+    else if(action>=0)icon_in_button(action,(DrawRect){x,y,w,h},foreground);
     else if(w>52 || !symbol(text,x+w/2+offset,y+h/2+offset,foreground)) {
         int available=w-(w<=72?8:16);
         int size=ui.studio_style?UI_TEXT_SIZE:text_button_size(host_fonts(),text,available,h);

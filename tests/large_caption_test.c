@@ -39,6 +39,8 @@ int main(int argc,char **argv) {
         if(argc==3) {
             CHECK(fabsf(text_font_width(fonts,"MMMM",16)-32)<.001f);
             CHECK(text_font_width(fonts,"Save As...",16)<=272-36);
+            const char *menus[]={"FILE","EDIT","VIEW","HELP"};
+            for(int i=0;i<4;i++)CHECK(text_font_width(fonts,menus[i],16)<=68-28);
             CHECK(text_font_width(fonts,"Collect samples and save...",16)<=272-36);
         }
         CHECK(text_font_width(fonts,"Tracking",16)<((argc==3?480:376)-32)/6.f);

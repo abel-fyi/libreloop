@@ -24,7 +24,7 @@ void studio_windows_layout(Windows *w,float width,float height,float sidebar) {
 StudioToolbar studio_toolbar_layout(float width) {
     StudioToolbar t={0};t.compact=width<1180;
     float y=t.compact?12:8,size=t.compact?32:42,cy=y+size/2;
-    for(int i=0;i<4;i++)t.menus[i]=t.compact?(Rect){8+(i%2)*48,8+(i/2)*22,44,20}:(Rect){8+i*44,18,44,24};
+    for(int i=0;i<4;i++)t.menus[i]=(Rect){8+(i%2)*72,(t.compact?8:16)+(i/2)*22,68,20};
     t.pitch=(Rect){(t.compact?116:206)-11,cy-11,22,22};
     t.volume=(Rect){(t.compact?146:238)-11,cy-11,22,22};
     t.stop=(Rect){t.compact?168:266,y,size,size};
@@ -37,6 +37,16 @@ StudioToolbar studio_toolbar_layout(float width) {
     t.mode=(Rect){t.compact?600:812,y,t.compact?50:52,size};
     t.follow=(Rect){t.compact?662:876,cy-(t.compact?12:14),t.compact?24:28,t.compact?24:28};
     t.typing=t.follow;t.typing.x+=t.compact?26:32;
+    t.volume.x+=4;
+    /* Labeled two-column menus need 56 more units in the compact toolbar. */
+    if(t.compact) {
+        Rect *controls[]={&t.pitch,&t.volume,&t.stop,&t.play,&t.record,
+            &t.record_types[0],&t.record_types[1],&t.record_types[2],&t.metronome,
+            &t.position,&t.tempo,&t.mode,&t.follow,&t.typing};
+        for(unsigned i=0;i<sizeof controls/sizeof *controls;i++)controls[i]->x+=56;
+        t.volume.x+=4;
+        t.position.y=t.tempo.y=8;t.position.h=t.tempo.h=44;
+    }
     float available=width-952-64;
     if(!t.compact && available>=96) {
         float spectrum_width=fminf(120,width-952-112);

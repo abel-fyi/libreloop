@@ -478,13 +478,13 @@ int main(int argc,char **argv) {
         const int ty=ui.studio_style?toolbar.stop.y:8,th=ui.studio_style?toolbar.stop.h:22,tw=ui.studio_style?toolbar.stop.w:24;
         const int cy=ty+th/2;
         if(!ui.studio_style)ui_surface(host_draw(),(DrawRect){8,menu_y,176,menu_h},cell);
-        if(button("FILE",ui.studio_style?toolbar.menus[0].x:8,ui.studio_style?toolbar.menus[0].y:menu_y,44,menu_h,ui.pattern_popup==1)) open_popup(1);
-        if(hover(ui.studio_style?toolbar.menus[0].x:8,ui.studio_style?toolbar.menus[0].y:menu_y,44,menu_h)) snprintf(ui.status,sizeof ui.status,"File: New, Demo, Save, Open, Export or Collect samples");
-        if(button("EDIT",ui.studio_style?toolbar.menus[1].x:52,ui.studio_style?toolbar.menus[1].y:menu_y,44,menu_h,ui.pattern_popup==10)) open_popup(10);
-        if(hover(ui.studio_style?toolbar.menus[1].x:52,ui.studio_style?toolbar.menus[1].y:menu_y,44,menu_h)) snprintf(ui.status,sizeof ui.status,"Edit: Undo, Redo, Cut, Copy, Paste and Select all");
-        if(button("VIEW",ui.studio_style?toolbar.menus[2].x:96,ui.studio_style?toolbar.menus[2].y:menu_y,44,menu_h,ui.pattern_popup==7)) open_popup(7);
-        if(hover(ui.studio_style?toolbar.menus[2].x:96,ui.studio_style?toolbar.menus[2].y:menu_y,44,menu_h)) snprintf(ui.status,sizeof ui.status,"View: MIDI recording settings");
-        if(button("HELP",ui.studio_style?toolbar.menus[3].x:140,ui.studio_style?toolbar.menus[3].y:menu_y,44,menu_h,ui.pattern_popup==9)) open_popup(9);
+        if(button("FILE",ui.studio_style?toolbar.menus[0].x:8,ui.studio_style?toolbar.menus[0].y:menu_y,ui.studio_style?toolbar.menus[0].w:44,menu_h,ui.pattern_popup==1)) open_popup(1);
+        if(hover(ui.studio_style?toolbar.menus[0].x:8,ui.studio_style?toolbar.menus[0].y:menu_y,ui.studio_style?toolbar.menus[0].w:44,menu_h)) snprintf(ui.status,sizeof ui.status,"File: New, Demo, Save, Open, Export or Collect samples");
+        if(button("EDIT",ui.studio_style?toolbar.menus[1].x:52,ui.studio_style?toolbar.menus[1].y:menu_y,ui.studio_style?toolbar.menus[1].w:44,menu_h,ui.pattern_popup==10)) open_popup(10);
+        if(hover(ui.studio_style?toolbar.menus[1].x:52,ui.studio_style?toolbar.menus[1].y:menu_y,ui.studio_style?toolbar.menus[1].w:44,menu_h)) snprintf(ui.status,sizeof ui.status,"Edit: Undo, Redo, Cut, Copy, Paste and Select all");
+        if(button("VIEW",ui.studio_style?toolbar.menus[2].x:96,ui.studio_style?toolbar.menus[2].y:menu_y,ui.studio_style?toolbar.menus[2].w:44,menu_h,ui.pattern_popup==7)) open_popup(7);
+        if(hover(ui.studio_style?toolbar.menus[2].x:96,ui.studio_style?toolbar.menus[2].y:menu_y,ui.studio_style?toolbar.menus[2].w:44,menu_h)) snprintf(ui.status,sizeof ui.status,"View: MIDI recording settings");
+        if(button("HELP",ui.studio_style?toolbar.menus[3].x:140,ui.studio_style?toolbar.menus[3].y:menu_y,ui.studio_style?toolbar.menus[3].w:44,menu_h,ui.pattern_popup==9)) open_popup(9);
         label(fit_text(host_text_format("%s%s",host_get_file_name(ui.document.path),project_dirty()?" *":""),ui.studio_style?(compact_toolbar?width-836:176):176,ui.studio_style?9:11),ui.studio_style?(compact_toolbar?828:8):8,ui.studio_style?(compact_toolbar?20:0):29,ui.studio_style?9:11,muted);
         const int gap=4,pitch_x=ui.studio_style?toolbar.pitch.x+11:184+gap+KNOB_RADIUS;
         const int volume_x=ui.studio_style?toolbar.volume.x+11:pitch_x+KNOB_RADIUS*2+gap;
@@ -495,8 +495,10 @@ int main(int argc,char **argv) {
         const int metro_x=ui.studio_style?toolbar.metronome.x:record_x+24+3*22+gap;
         const int tempo_x=ui.studio_style?toolbar.tempo.x:metro_x+22+gap;
         const int tempo_w=ui.studio_style?toolbar.tempo.w:56;
+        const int tempo_y=ui.studio_style?toolbar.tempo.y:ty,tempo_h=ui.studio_style?toolbar.tempo.h:th;
         const int position_x=ui.studio_style?toolbar.position.x:tempo_x+56+12;
         const int position_w=ui.studio_style?toolbar.position.w:88;
+        const int position_y=ui.studio_style?toolbar.position.y:ty,position_h=ui.studio_style?toolbar.position.h:th;
         const int audio_x=ui.studio_style?toolbar.spectrum.x:position_x+88+12;
         const int analyzer_width=ui.studio_style?toolbar.spectrum.w:(int)fminf(108,fmaxf(0,width-audio_x-208));
         const int editors_x=ui.studio_style?toolbar.editors[0].x:audio_x+analyzer_width+gap+40+12;
@@ -526,21 +528,13 @@ int main(int argc,char **argv) {
         if(hover(mode_x,ty,mode_w,th)) snprintf(ui.status,sizeof ui.status,ui.windows.workspace.enabled?"PATT: pattern playback and Piano Roll; SONG: song playback and Arrangement":"Playback mode: click to switch Pattern (orange) / Song (green)");
         int transport_active=ui.playing || audio_preview_position(ui.audition)>=0 || audio_key_position(127,ui.instrument_channel)>=0;
         if(button(ui.studio_style?"":transport_active?"||":">",play_x,ty,tw,th,transport_active)) transport_toggle();
-        if(ui.studio_style) {
-            if(transport_active) {
-                host_draw_rectangle(play_x+tw/2-5,cy-7,3,14,ink);
-                host_draw_rectangle(play_x+tw/2+3,cy-7,3,14,ink);
-            } else {
-                host_draw_triangle((DrawPoint){play_x+tw/2-5,cy-9},(DrawPoint){play_x+tw/2-5,cy+9},(DrawPoint){play_x+tw/2+10,cy},(DrawColor){18,48,49,255});
-                host_draw_triangle((DrawPoint){play_x+tw/2-3,cy-6},(DrawPoint){play_x+tw/2-3,cy+6},(DrawPoint){play_x+tw/2+7,cy},(DrawColor){0,166,155,255});
-            }
-        }
+        if(ui.studio_style)icon_in_button(transport_active?ICON_PAUSE:ICON_PLAY,(DrawRect){play_x,ty,tw,th},ink);
         if(hover(play_x,ty,tw,th)) snprintf(ui.status,sizeof ui.status,"Play from ruler / stop all audio, including previews (Space)");
         if(button(ui.studio_style?"":"[]",stop_x,ty,tw,th,0)) transport_stop();
-        if(ui.studio_style)host_draw_rectangle(stop_x+tw/2-6,cy-6,12,12,ink);
+        if(ui.studio_style)icon_in_button(ICON_STOP,(DrawRect){stop_x,ty,tw,th},ink);
         if(hover(stop_x,ty,tw,th)) snprintf(ui.status,sizeof ui.status,"Stop all audio; press again while stopped to return the start marker to the beginning");
         if(button("",record_x,ty,tw,th,recording_active())) recording_start();
-        if(ui.studio_style)ui_lamp(host_draw(),(DrawPoint){record_x+tw/2,cy},10,(DrawColor){255,33,47,255});
+        if(ui.studio_style)ui_lamp(host_draw(),(DrawPoint){record_x+tw/2,cy},fminf(14,tw*.34f),(DrawColor){255,33,47,255});
         else circle(record_x+tw/2,cy,7,ui_theme.meter_high);
         if(hover(record_x,ty,tw,th) && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)){midi_refresh();open_popup(13);}
         const int record_icons[]={ICON_WAVE,ICON_PIANO,ICON_AUTOMATION};
@@ -549,7 +543,8 @@ int main(int argc,char **argv) {
         for(int i=0;i<3;i++){int xx=ui.studio_style?toolbar.record_types[i].x:record_x+24+i*22;
             int rw=ui.studio_style?toolbar.record_types[i].w:22;
             if(button("",xx,cy-rw/2,rw,rw,ui.record_mask&(1u<<i))){ui.record_mask^=1u<<i;midi_save_settings();}
-            icon(record_icons[i],xx+rw/2,cy,17,ui.record_mask&(1u<<i)?ui_theme.selected_text:muted);
+            if(ui.studio_style)icon_in_button(record_icons[i],(DrawRect){xx,cy-rw/2,rw,rw},ui.record_mask&(1u<<i)?ui_theme.selected_text:muted);
+            else icon(record_icons[i],xx+rw/2,cy,17,ui.record_mask&(1u<<i)?ui_theme.selected_text:muted);
             if(hover(xx,cy-rw/2,rw,rw))snprintf(ui.status,sizeof ui.status,"Record %s: %s",record_names[i],ui.record_mask&(1u<<i)?"enabled":"disabled");
         }ui.input_enabled=record_input;
         if(hover(record_x,ty,tw,th)) snprintf(ui.status,sizeof ui.status,recording_active()?"Recording: click to finish the takes":"Record enabled types; right-click for MIDI inputs and recording settings");
@@ -569,44 +564,47 @@ int main(int argc,char **argv) {
         int tempo_clicked;
         if(ui.studio_style) {
             /* Numeric display keeps its dark face during hover/capture. */
-            ui_surface(host_draw(),(DrawRect){tempo_x,ty,tempo_w,th},ui_skin.display);
-            if(!ui.profile_flat)ui_bevel(host_draw(),(DrawRect){tempo_x,ty,tempo_w,th},1);
-            int over=hover(tempo_x,ty,tempo_w,th);
+            ui_surface(host_draw(),(DrawRect){tempo_x,tempo_y,tempo_w,tempo_h},ui_skin.display);
+            if(!ui.profile_flat)ui_bevel(host_draw(),(DrawRect){tempo_x,tempo_y,tempo_w,tempo_h},1);
+            int over=hover(tempo_x,tempo_y,tempo_w,tempo_h);
             if(over || ui.control_drag==&ui.project.bpm) {
                 host_set_mouse_cursor(HOST_MOUSE_CURSOR_RESIZE_NS);
-                host_draw_rectangle_lines_ex((DrawRect){tempo_x,ty,tempo_w,th},1,ui_theme.signal);
+                host_draw_rectangle_lines_ex((DrawRect){tempo_x,tempo_y,tempo_w,tempo_h},1,ui_theme.signal);
             }
             tempo_clicked=over && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT);
-        } else tempo_clicked=drag_button(host_text_format("%.2f",ui.project.bpm),tempo_x,ty,tempo_w,th,ui.control_drag==&ui.project.bpm);
+        } else tempo_clicked=drag_button(host_text_format("%.2f",ui.project.bpm),tempo_x,tempo_y,tempo_w,tempo_h,ui.control_drag==&ui.project.bpm);
         if(tempo_clicked && !recording_active())capture_control(&ui.project.bpm,30,300,0);
-        if(hover(tempo_x,ty,tempo_w,th) && !recording_active()) {
+        if(hover(tempo_x,tempo_y,tempo_w,tempo_h) && !recording_active()) {
             ui.project.bpm=fmaxf(30,fminf(300,ui.project.bpm+host_get_mouse_wheel_move()));
             snprintf(ui.status,sizeof ui.status,"Tempo: drag up/down; right-click for Reset or Enter value");
             if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)) control_menu(&ui.project.bpm,30,300,120,"Tempo (BPM)");
         }
-        if(ui.studio_style)lcd_number(host_text_format("%.2f",ui.project.bpm),tempo_x+8,ty+4,tempo_w-16,ui.studio_style && compact_toolbar?14:18,ui_theme.signal);
+        if(ui.studio_style)lcd_number(host_text_format("%.2f",ui.project.bpm),tempo_x+8,tempo_y+4,tempo_w-16,ui.studio_style && compact_toolbar?14:18,ui_theme.signal);
         uint64_t position_frames=audio_position();
         uint64_t step=(uint64_t)(position_frames/(RATE*60.0/ui.project.bpm/4));
-        if(hover(position_x,ty,position_w,th) && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT))ui.position_seconds^=1;
-        ui_surface(host_draw(),(DrawRect){position_x,ty,position_w,th},ui.studio_style?ui_skin.display:bg);
-        if(ui.studio_style && !ui.profile_flat)ui_bevel(host_draw(),(DrawRect){position_x,ty,position_w,th},1);
+        if(hover(position_x,position_y,position_w,position_h) && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT))ui.position_seconds^=1;
+        ui_surface(host_draw(),(DrawRect){position_x,position_y,position_w,position_h},ui.studio_style?ui_skin.display:bg);
+        if(ui.studio_style && !ui.profile_flat)ui_bevel(host_draw(),(DrawRect){position_x,position_y,position_w,position_h},1);
         const char *position=host_text_format("%03llu:%02llu",(unsigned long long)(step/16+1),(unsigned long long)(step%16+1));
         char seconds_position[32];
-        if(ui.position_seconds){transport_seconds(seconds_position,sizeof seconds_position,position_frames,RATE);position=seconds_position;}
+        if(ui.position_seconds){if(ui.studio_style)transport_clock(seconds_position,sizeof seconds_position,position_frames,RATE);else transport_seconds(seconds_position,sizeof seconds_position,position_frames,RATE);position=seconds_position;}
         if(ui.record_count_in.active)position=host_text_format("%d",record_count_in_remaining(&ui.record_count_in,midi_input_time()));
-        if(ui.studio_style)lcd_number(position,position_x+10,ty+6,position_w-20,compact_toolbar?14:18,ui_theme.signal);
-        else label(position,position_x+10,ty+3,18,ui_theme.signal);
-        if(hover(position_x,ty,position_w,th)) snprintf(ui.status,sizeof ui.status,ui.position_seconds?"Playback position: seconds.milliseconds; click for bars and steps":ui.studio_style?"Playback position: bar and sixteenth-note step; click for seconds.milliseconds":"Playback position: bar and sixteenth-note step");
+        if(ui.studio_style && ui.position_seconds && !ui.record_count_in.active)lcd_time(position,position_x+10,position_y+6,position_w-20,ui_theme.signal);
+        else if(ui.studio_style)lcd_number(position,position_x+10,position_y+6,position_w-20,compact_toolbar?14:18,ui_theme.signal);
+        else label(position,position_x+10,position_y+3,18,ui_theme.signal);
+        if(hover(position_x,position_y,position_w,position_h)) snprintf(ui.status,sizeof ui.status,ui.position_seconds?(ui.studio_style?"Playback position: minutes:seconds:centiseconds; click for bars and steps":"Playback position: seconds.milliseconds; click for bars and steps"):ui.studio_style?"Playback position: bar and sixteenth-note step; click for minutes:seconds:centiseconds":"Playback position: bar and sixteenth-note step");
         if(ui.studio_style) {
-            label(ui.record_count_in.active?"COUNT-IN STEPS":ui.position_seconds?"SECONDS":"BAR : STEP",position_x+8,ty+th-UI_TEXT_SIZE-2,10,ui_theme.signal);
-            label("TEMPO",tempo_x+12,ty+th-UI_TEXT_SIZE-2,10,ui_theme.signal);
+            label(ui.record_count_in.active?"COUNT-IN STEPS":ui.position_seconds?"MIN:SEC:CS":"BAR : STEP",position_x+8,position_y+position_h-UI_TEXT_SIZE-2,10,ui_theme.signal);
+            label("TEMPO",tempo_x+12,tempo_y+tempo_h-UI_TEXT_SIZE-2,10,ui_theme.signal);
         }
         if(!ui.windows.workspace.enabled)for(int i=0;i<4;i++) { int id=i==1?2:i==2?1:i; editor_button(id,editors_x+i*editor_pitch); }
         if(button("",follow_x,small_y,small_w,small_h,ui.follow_playhead)) { ui.follow_playhead=!ui.follow_playhead; if(!ui.follow_playhead) { ui.arrangement.view_start=fmaxf(0,ui.arrangement.view_start); for(int p=0;p<PATTERNS;p++) ui.piano_pan[p]=fmaxf(0,ui.piano_pan[p]); } }
-        icon(ICON_FOLLOW,follow_x+small_w/2,cy,20,ui.follow_playhead?ui_theme.selected_text:ink);
+        if(ui.studio_style)icon_in_button(ICON_FOLLOW,(DrawRect){follow_x,small_y,small_w,small_h},ui.follow_playhead?ui_theme.selected_text:ink);
+        else icon(ICON_FOLLOW,follow_x+small_w/2,cy,20,ui.follow_playhead?ui_theme.selected_text:ink);
         if(hover(follow_x,small_y,small_w,small_h)) snprintf(ui.status,sizeof ui.status,"Follow playhead: center playback in the Playlist (Song) or Piano Roll (PAT)");
         if(button("",keys_x,small_y,small_w,small_h,ui.typing_keys)) ui.typing_keys=!ui.typing_keys;
-        icon(ICON_KEYS,keys_x+small_w/2,cy,20,ui.typing_keys?ui_theme.selected_text:ink);
+        if(ui.studio_style)icon_in_button(ICON_KEYS,(DrawRect){keys_x,small_y,small_w,small_h},ui.typing_keys?ui_theme.selected_text:ink);
+        else icon(ICON_KEYS,keys_x+small_w/2,cy,20,ui.typing_keys?ui_theme.selected_text:ink);
         if(hover(keys_x,small_y,small_w,small_h)) snprintf(ui.status,sizeof ui.status,"Typing piano: Z row C3, Q row C4; S/D/G/H/J and 2/3/5/6/7 sharps; disabled in Browser/text fields");
         if(ui.record_count_in.active && host_is_key_pressed(HOST_KEY_ESCAPE))recording_finish();
         recording_poll();midi_poll();
