@@ -157,7 +157,8 @@ void theme_studio(void) {
     ui_theme.piano_row[0]=(DrawColor){45,142,156,255};
     ui_theme.piano_row[1]=(DrawColor){34,125,141,255};
     ui_theme.piano_black=(DrawColor){7,10,14,255};
-    ui_theme.piano_c=ui_theme.piano_white=(DrawColor){195,201,204,255};
+    ui_theme.piano_white=(DrawColor){195,201,204,255};
+    ui_theme.piano_c=(DrawColor){182,188,191,255};
     ui_theme.grid_major=(DrawColor){74,136,145,255};
     ui_theme.grid_minor=(DrawColor){43,92,103,255};
     ui_theme.highlight=ui_theme.hover=ui_theme.note_drag=(DrawColor){45,187,239,255};
