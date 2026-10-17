@@ -513,7 +513,7 @@ int main(int argc,char **argv) {
         knob_style(volume_x,cy,&ui.output_volume,0,VOLUME_KNOB_MAX,1,"LibreLoop output volume",KNOB_VOLUME);
         if(hover(volume_x-11,cy-11,22,22) || ui.control_drag==&ui.output_volume) snprintf(ui.status,sizeof ui.status,"LibreLoop output volume: listening level; Master and WAV export unchanged");
         if(button("",mode_x,ty,mode_w,th,0) && !recording_active()) {
-            if(ui.windows.workspace.enabled)desktop_playback_page(ui.mouse.y>=ty+th/2);
+            if(ui.windows.workspace.enabled)desktop_playback_page(!ui.song);
             else {ui.song=!ui.song;ui.reset=1;}
         }
         host_draw_rectangle(mode_x,ty,mode_w,th/2,ui.song?cell:ui.studio_style?ui_theme.meter_mid:ui_theme.patt);
@@ -525,7 +525,7 @@ int main(int argc,char **argv) {
         }
         label("PATT",mode_x+(mode_w-text_width("PATT",10))/2,ty+(th/2-(ui.studio_style?UI_TEXT_SIZE:10))/2,10,ui.song?muted:ui_theme.selected_text);
         label("SONG",mode_x+(mode_w-text_width("SONG",10))/2,ty+th/2+(th/2-(ui.studio_style?UI_TEXT_SIZE:10))/2,10,ui.song?ui_theme.selected_text:muted);
-        if(hover(mode_x,ty,mode_w,th)) snprintf(ui.status,sizeof ui.status,ui.windows.workspace.enabled?"PATT: pattern playback and Piano Roll; SONG: song playback and Arrangement":"Playback mode: click to switch Pattern (orange) / Song (green)");
+        if(hover(mode_x,ty,mode_w,th)) snprintf(ui.status,sizeof ui.status,ui.windows.workspace.enabled?"Click either half to switch PATT / SONG and Piano Roll / Arrangement":"Playback mode: click to switch Pattern (orange) / Song (green)");
         int transport_active=ui.playing || audio_preview_position(ui.audition)>=0 || audio_key_position(127,ui.instrument_channel)>=0;
         if(button(ui.studio_style?"":transport_active?"||":">",play_x,ty,tw,th,transport_active)) transport_toggle();
         if(ui.studio_style)icon_in_button(transport_active?ICON_PAUSE:ICON_PLAY,(DrawRect){play_x,ty,tw,th},ink);

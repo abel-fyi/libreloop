@@ -41,3 +41,7 @@ Release executable: 3,778,256 bytes, 192 bytes above the preceding local build.
 This pass adds no textures/assets. Per-frame cost was not reliably measured;
 no CPU or GPU saving is claimed. The existing sample/tempo/audio logic is
 unchanged.
+
+PATT/SONG follow-up: clicking anywhere in the combined control toggles the
+mode/page, including its currently active half. Recording still blocks mode
+changes. Desktop rebuilt; existing Pattern-page and workspace tests passed.
