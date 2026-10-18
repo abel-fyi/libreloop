@@ -21,6 +21,7 @@ void theme_studio(void);
 /* Review preview only: original geometry/font/behavior and legacy default stay. */
 void theme_visual_preview(void);
 DrawColor theme_foreground(DrawColor background);
+DrawColor ui_source_palette_color(int index);
 void ui_level_fill(DrawContext *draw,DrawRect bar,float level,float amber,float red,int vertical);
 void ui_gradient(DrawContext *draw,DrawRect rect,DrawColor base,float strength,int horizontal);
 void ui_display_grid(DrawContext *draw,DrawRect rect,int columns,int rows);

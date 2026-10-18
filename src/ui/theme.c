@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "theme.h"
+#include "draw_palette.h"
 #include "signal_palette.h"
 #include <math.h>
 #include <stdlib.h>
@@ -397,6 +398,11 @@ void ui_frame(DrawContext *draw,DrawRect rect) {
     else draw_border(draw,rect,1,ui_theme.border);
 }
 
+/* Twenty-four distinct source swatches already inside Luice's paint palette. */
+DrawColor ui_source_palette_color(int index){
+    static const int family[8]={6,7,0,1,2,3,4,5},shade[3]={4,2,1};
+    index=((index%24)+24)%24;return luice_palette_color(16+family[index%8]*6+shade[index/8]);
+}
 DrawColor theme_foreground(DrawColor background) {
     float channels[]={background.r/255.f,background.g/255.f,background.b/255.f};
     for(int i=0;i<3;i++) channels[i]=channels[i]<=.04045f?channels[i]/12.92f:powf((channels[i]+.055f)/1.055f,2.4f);

@@ -185,6 +185,11 @@ static int check_material_density(void){
 static int check_luice_palette(void){
     unsigned char pixels[80*64*4];const float scales[]={.75f,1,1.25f,1.5f,2};
     theme_init();theme_studio();draw_palette_enable(draw,1);
+    for(int i=0;i<24;i++){
+        DrawColor color=ui_source_palette_color(i);
+        if(!same(color,luice_palette_map(color,0,0,0)))return 0;
+        for(int j=0;j<i;j++)if(same(color,ui_source_palette_color(j)))return 0;
+    }
     for(int row=0;row<2;row++){
         DrawColor bg=luice_palette_map(ui_theme.piano_row[row],0,0,0);
         DrawColor grid=luice_palette_map(ui_theme.grid_minor,0,0,0);

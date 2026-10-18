@@ -82,3 +82,19 @@ Additional covered areas submit cached texture tiles; their isolated GPU cost
 has not been measured. The executable is 5,739,648 bytes (+48 bytes). A software
 showcase screenshot was reviewed; native Retina appearance remains unverified.
 All 158 Release tests pass for the shared display-well revision.
+
+## Distinct source colors
+
+The 24 standard source swatches map explicitly to 24 distinct entries in Luice's
+fixed palette: eight hue families at three shades. Saved source RGB values stay
+unchanged; the studio presentation maps those standard swatches before the
+renderer sees them. This prevents two different automatic colors from collapsing
+to the same displayed shade, including patterns 3 and 4. New patterns cycle the
+24 automatic colors after all are used. The legacy rendering path retains its
+original color presentation. Arbitrary saved custom colors still use the normal
+palette conversion.
+
+Rendering checks assert all 24 source swatches are distinct after palette
+mapping. A twelve-pattern studio screenshot was reviewed, including the first
+four source colors. See [pattern capacity](pattern-capacity.md) for the separate
+engine limit expansion and file compatibility checks.
