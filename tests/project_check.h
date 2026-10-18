@@ -23,7 +23,7 @@ static int project_equal(const Project *a,const Project *b) {
         FIELD(sampler[c].pitch); FIELD(sampler[c].time); FIELD(sampler[c].start);
         FIELD(sampler[c].length); FIELD(sampler[c].trim); FIELD(sampler[c].flags); FIELD(sampler[c].stretch); FIELD(sampler[c].fit_bpm);
     }
-    FIELD(master_pitch); FIELD(insert_width); FIELD(master_width); FIELD(master_mute); FIELD(lane_mute);
+    FIELD(master_pitch); FIELD(master_pan); FIELD(insert_width); FIELD(master_width); FIELD(master_mute); FIELD(lane_mute);
     for(int i=0;i<=INSERTS;i++) for(int side=0;side<2;side++) STRING(audio_io[i][side]);
     FIELD(effect_mix); FIELD(effect_bypass);
     for(int l=0;l<LANES;l++) STRING(track_names[l]);

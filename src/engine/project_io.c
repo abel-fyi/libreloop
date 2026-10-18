@@ -16,7 +16,7 @@
 
 static int project_valid(const Project *p) {
     if(!isfinite(p->bpm) || p->bpm<30 || p->bpm>300 || p->pattern_count<1 || p->pattern_count>PATTERNS) return 0;
-    if(!isfinite(p->master_pitch) || fabsf(p->master_pitch)>12) return 0;
+    if(!isfinite(p->master_pan) || fabsf(p->master_pan)>1 || !isfinite(p->master_pitch) || fabsf(p->master_pitch)>12) return 0;
     if(!automation_valid(p) || p->midi_binding_count<0 || p->midi_binding_count>MIDI_BINDINGS) return 0;
     for(int i=0;i<p->midi_binding_count;i++){MidiBinding b=p->midi_bindings[i];if(b.channel>15 || b.controller>119 || !parameter_descriptor(b.target.parameter) || b.target.owner>INSERTS || b.target.slot>=EFFECT_SLOTS)return 0;}
     for(int c=0;c<CHANNELS;c++) if(!instrument_descriptor(p->instrument[c]) || !device_descriptor(DEVICE_FM)->valid(&p->fm[c]) || (p->instrument[c]==INSTRUMENT_FM && p->channel_audio[c])) return 0;
@@ -82,6 +82,7 @@ static const Field fields[]={
     SCALAR(master,float,F32),
     SCALAR(master_pitch,float,F32),
     SCALAR(master_width,float,F32),
+    {"x-master-pan",F32,offsetof(Project,master_pan),1,1,sizeof(float),0,sizeof(float)},
     SCALAR(swing,float,F32),
     SCALAR(pattern_count,int,I32),
     SCALAR(channel_count,int,I32),
@@ -272,6 +273,7 @@ int project_save(const char *path,const Project *p) {
     for(size_t n=0;n<FIELD_COUNT;n++) {
         Field stored=fields[n];if(version==1)stored.count=pattern_field_count(&stored,LEGACY_PATTERNS);
         const Field *f=&stored;
+        if(!strcmp(f->name,"x-master-pan") && p->master_pan==0)continue;
         if(!strncmp(f->name,"x-phaser.",9)){int any=0;for(int bus=0;bus<=INSERTS;bus++)for(int slot=0;slot<EFFECT_SLOTS;slot++)any|=p->effect_type[bus][slot]==EFFECT_PHASER;if(!any)continue;}
         if(!strncmp(f->name,"x-flanger.",10)){int any=0;for(int bus=0;bus<=INSERTS;bus++)for(int slot=0;slot<EFFECT_SLOTS;slot++)any|=p->effect_type[bus][slot]==EFFECT_FLANGER;if(!any)continue;}
         if(!strncmp(f->name,"x-dynamics.",11)){int any=0;for(int bus=0;bus<=INSERTS;bus++)for(int slot=0;slot<EFFECT_SLOTS;slot++)any|=p->effect_type[bus][slot]==EFFECT_DYNAMICS;if(!any)continue;}

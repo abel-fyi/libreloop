@@ -457,7 +457,8 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
         gain_left[c]=gain*fminf(1,1-pr->pan[c]); gain_right[c]=gain*fminf(1,1+pr->pan[c]);
     }
     float bus_left[INSERTS+1],bus_right[INSERTS+1],bus_width[INSERTS+1];
-    bus_left[0]=bus_right[0]=pr->master_mute?0:pr->master; bus_width[0]=pr->master_width;
+    float master_gain=pr->master_mute?0:pr->master;
+    bus_left[0]=master_gain*fminf(1,1-pr->master_pan);bus_right[0]=master_gain*fminf(1,1+pr->master_pan);bus_width[0]=pr->master_width;
     for(int id=1;id<=pr->insert_count;id++) {
         int i=id-1; float gain=(pr->insert_mute[i]&1)?0:pr->insert_volume[i],pan=pr->insert_pan[i];
         bus_left[id]=gain*fminf(1,1-pan); bus_right[id]=gain*fminf(1,1+pan); bus_width[id]=pr->insert_width[i];
@@ -466,7 +467,7 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
        no project copies, allocation, locks or sample rebuilding in this path. */
     struct { int automation; float start,end,offset; } automation_clips[LANES*CLIPS];
     int automation_clips_count=0;
-    float channel_controls[CHANNELS][5],insert_controls[INSERTS][4],master_controls[5]={pr->master,pr->master_width,pr->master_pitch,pr->master_mute,pr->swing};
+    float channel_controls[CHANNELS][5],insert_controls[INSERTS][4],master_controls[6]={pr->master,pr->master_width,pr->master_pitch,pr->master_mute,pr->swing,pr->master_pan};
     ChorusSettings effect_updates[INSERTS+1][EFFECT_SLOTS];
     ReverbSettings reverb_updates[INSERTS+1][EFFECT_SLOTS];
     DynamicsSettings dynamics_updates[AUTOMATIONS];
@@ -545,7 +546,7 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
             }
             else if(id<=PARAM_CHANNEL_PITCH || id==PARAM_CHANNEL_MUTE || id==PARAM_PITCH_RANGE) { bindings[a]=&channel_controls[c][id==PARAM_CHANNEL_MUTE?3:id==PARAM_PITCH_RANGE?4:id-PARAM_CHANNEL_VOLUME]; channel_changed[c]=1; if(id==PARAM_CHANNEL_PITCH || id==PARAM_PITCH_RANGE) channel_pitch_changed[c]=1; }
             else if(id<=PARAM_INSERT_WIDTH || id==PARAM_INSERT_MUTE) { bindings[a]=&insert_controls[c][id==PARAM_INSERT_MUTE?3:id-PARAM_INSERT_VOLUME]; insert_changed[c]=1; }
-            else { bindings[a]=&master_controls[id==PARAM_MASTER_MUTE?3:id==PARAM_SWING?4:id-PARAM_MASTER_VOLUME]; master_changed=1; if(id==PARAM_MASTER_PITCH) master_pitch_changed=1; }
+            else { bindings[a]=&master_controls[id==PARAM_MASTER_MUTE?3:id==PARAM_SWING?4:id==PARAM_MASTER_PAN?5:id-PARAM_MASTER_VOLUME]; master_changed=1; if(id==PARAM_MASTER_PITCH) master_pitch_changed=1; }
         }
         for(int l=0;l<LANES;l++) if(lane_enabled[l]) for(int b=0;b<CLIPS;b++) if(pr->clips[l][b]>AUTOMATION_SOURCE) {
             int a=pr->clips[l][b]-AUTOMATION_SOURCE-1;
@@ -590,7 +591,7 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
                 float gain=insert_controls[i][3]>=.5f?0:insert_controls[i][0],pan=insert_controls[i][1];
                 bus_left[i+1]=gain*fminf(1,1-pan); bus_right[i+1]=gain*fminf(1,1+pan); bus_width[i+1]=insert_controls[i][2];
             }
-            if(master_changed) { bus_left[0]=bus_right[0]=master_controls[3]>=.5f?0:master_controls[0]; bus_width[0]=master_controls[1]; if(master_pitch_changed) pitch_speed=pow(2,master_controls[2]/12); }
+            if(master_changed) { float gain=master_controls[3]>=.5f?0:master_controls[0];bus_left[0]=gain*fminf(1,1-master_controls[5]);bus_right[0]=gain*fminf(1,1+master_controls[5]); bus_width[0]=master_controls[1]; if(master_pitch_changed) pitch_speed=pow(2,master_controls[2]/12); }
         }
         if(sequence && (step!=p->last_step || resync || tempo_changed)) {
             int tick=step!=p->last_step,entered=p->last_step<0; p->last_step=step;

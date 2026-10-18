@@ -244,3 +244,18 @@ existing compact layout, with the same minimum waveform height guarantee.
 The sampler title identifies the channel; the repeated interior channel caption
 is omitted in the studio UI. The sample label above the waveform remains, as
 does the interior missing-sample warning when applicable.
+
+## Master balance
+
+Master has a pan knob in the same position as insert pan, alongside stereo
+width. It uses the existing insert stereo-balance law: center leaves both sides
+unchanged; turning toward one side attenuates the other. The parameter supports
+reset/value entry, automation and MIDI learning through the existing parameter
+path. No new allocation, queue or synchronization is introduced in rendering.
+
+A nonzero setting is saved as the optional `x-master-pan` project field. Older
+projects default to centered balance; centered projects omit the extension.
+Existing parameter IDs remain stable. Engine checks cover partial and full pan,
+parameter lookup/write, automation playback, project round trips and invalid
+values. All 158 Release checks, including frozen audio fixtures and real-time
+callback checks, pass.

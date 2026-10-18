@@ -167,6 +167,7 @@ static const ParameterDescriptor descriptors[]={
     {PARAM_MASTER_MUTE,"Master mute",0,1,0,PARAMETER_TOGGLE},
     {PARAM_SWING,"Swing",0,1,0,PARAMETER_CONTINUOUS},
     {PARAM_PITCH_RANGE,"Pitch range",1,48,2,PARAMETER_INTEGER},
+    {PARAM_MASTER_PAN,"Master pan",-1,1,0,PARAMETER_CONTINUOUS},
 };
 const ParameterDescriptor *parameter_descriptor(unsigned id) {
     if(id>=PARAM_DX7_FIRST && id<=PARAM_DX7_LAST) return dx7_parameter_descriptor(id-PARAM_DX7_FIRST);
@@ -227,6 +228,7 @@ static const float *parameter_pointer(const Project *p,ParameterTarget t,float *
     case PARAM_INSERT_PAN: return t.owner<(unsigned)p->insert_count?&p->insert_pan[t.owner]:NULL;
     case PARAM_INSERT_WIDTH: return t.owner<(unsigned)p->insert_count?&p->insert_width[t.owner]:NULL;
     case PARAM_MASTER_VOLUME: return &p->master;
+    case PARAM_MASTER_PAN: return t.owner==0?&p->master_pan:NULL;
     case PARAM_MASTER_WIDTH: return &p->master_width;
     case PARAM_MASTER_PITCH: return &p->master_pitch;
     case PARAM_SWING: return &p->swing;
@@ -276,7 +278,7 @@ int parameter_from_pointer(const Project *p,const void *ptr,ParameterTarget *t) 
         uintptr_t address=(uintptr_t)ptr,start=(uintptr_t)p->fm[c].dx7.value,end=start+sizeof p->fm[c].dx7.value;
         if(address>=start && address<end && (address-start)%sizeof(float)==0) { *t=(ParameterTarget){PARAM_DX7_FIRST+(address-start)/sizeof(float),c,0}; return 1; }
     }
-    for(unsigned id=1;id<=PARAM_PITCH_RANGE;id++) for(unsigned owner=0;owner<(id<=PARAM_CHANNEL_PITCH || id==PARAM_CHANNEL_MUTE || id==PARAM_PITCH_RANGE?CHANNELS:id<=PARAM_INSERT_WIDTH || id==PARAM_INSERT_MUTE?INSERTS:1);owner++) {
+    for(unsigned id=1;id<=PARAM_MASTER_PAN;id++) for(unsigned owner=0;owner<(id<=PARAM_CHANNEL_PITCH || id==PARAM_CHANNEL_MUTE || id==PARAM_PITCH_RANGE?CHANNELS:id<=PARAM_INSERT_WIDTH || id==PARAM_INSERT_MUTE?INSERTS:1);owner++) {
         ParameterTarget candidate={id,owner,0}; float lo,hi;
         const void *address=parameter_pointer(p,candidate,&lo,&hi);
         if(id==PARAM_CHANNEL_MUTE) address=&p->mute[owner];

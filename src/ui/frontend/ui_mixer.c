@@ -676,7 +676,7 @@ static void mixer_legacy(float width,float height) {
         if(over && ui.mouse.y<TITLE+24 && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)) { ui.mixer_selected=id; open_context(3,id,(DrawPoint){ui.mouse.x+desktop_editor_rect(3).x,ui.mouse.y+desktop_editor_rect(3).y}); }
         if(over && ui.mouse.y<TITLE+24) snprintf(ui.status,sizeof ui.status,"%s: right-click for mixer channel actions",mixer_name(id));
         mute_light(x+11,control_y,id?ui.project.insert_mute:&ui.project.master_mute,id?ui.project.insert_count:0,id?id-1:0,mixer_name(id));
-        if(id) knob_style(x+35,control_y,&ui.project.insert_pan[id-1],-1,1,0,"Insert pan",KNOB_PAN);
+        knob_style(x+35,control_y,id?&ui.project.insert_pan[id-1]:&ui.project.master_pan,-1,1,0,id?"Insert pan":"Master pan",KNOB_PAN);
         meter_draw(id,x+(ui.studio_style?65:8),fader_top,fader_bottom,ui.studio_style?6:3);
         if(ui.studio_style) {
             const int ticks[]={0,-6,-12,-24,-48};
@@ -936,7 +936,7 @@ static void studio_mixer_strip(MixerView v,int bus) {
         }
     }
     mute_solo_buttons(3,v.controls-10,bus?ui.project.insert_mute:&ui.project.master_mute,bus?ui.project.insert_count:0,bus?bus-1:0,mixer_name(bus));
-    if(bus)knob_style(55,v.controls,&ui.project.insert_pan[bus-1],-1,1,0,"Insert pan",KNOB_PAN);
+    knob_style(55,v.controls,bus?&ui.project.insert_pan[bus-1]:&ui.project.master_pan,-1,1,0,bus?"Insert pan":"Master pan",KNOB_PAN);
     knob_style(77,v.controls,bus?&ui.project.insert_width[bus-1]:&ui.project.master_width,0,2,1,"Stereo width (left wider, center unchanged, right mono)",KNOB_WIDTH);
     int arm=hover(91,v.controls-8,16,16);
     ui_check_face(host_draw(),(DrawRect){91,v.controls-8,16,16},ui.record_armed[bus],ui_theme.meter_high);

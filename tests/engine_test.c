@@ -114,6 +114,23 @@ int main(void) {
     bus.volume[0]=bus.volume[1]=bus.master=1; bus.insert_volume[0]=.5f; bus.insert_volume[1]=.25f; bus.insert_volume[2]=.4f; bus.insert_pan[2]=.5f;
     CHECK(insert_connect(&bus,1,3) && insert_connect(&bus,2,3)); CHECK(!insert_connect(&bus,3,1) && !insert_connect(&bus,1,1));
     player_reset(&rp); render(&rp,&bus,fixture,result,1); CHECK(fabsf(result[0]-.04f)<.00001f && fabsf(result[1]-.08f)<.00001f);
+    /* Master balance uses the insert law, persists, and is automatable. */
+    bus.master_pan=.5f;player_reset(&rp);render(&rp,&bus,fixture,result,1);
+    CHECK(fabsf(result[0]-.02f)<.00001f && fabsf(result[1]-.08f)<.00001f);
+    bus.master_pan=-1;player_reset(&rp);render(&rp,&bus,fixture,result,1);
+    CHECK(fabsf(result[0]-.04f)<.00001f && result[1]==0);
+    CHECK(project_save("master-pan.llp",&bus) && project_load("master-pan.llp",&q) && q.master_pan==-1);
+    ParameterTarget pan_target;CHECK(parameter_from_pointer(&bus,&bus.master_pan,&pan_target) && pan_target.parameter==PARAM_MASTER_PAN);
+    CHECK(parameter_write(&bus,pan_target,1) && bus.master_pan==1);
+    CHECK(automation_create(&bus,pan_target,"Master pan",16)==0);
+    bus.automations[0].points[0].value=bus.automations[0].points[1].value=1;
+    bus.clips[LANES-1][0]=AUTOMATION_SOURCE+1;bus.clip_steps[LANES-1][0]=16;
+    CHECK(project_save("master-pan-automation.llp",&bus) && project_load("master-pan-automation.llp",&q) && project_equal(&bus,&q));
+    bus.clips[0][0]=1;bus.clip_steps[0][0]=16;
+    bus.master_pan=0;player_reset(&rp);rp.song=1;render(&rp,&bus,fixture,result,1);
+    CHECK(result[0]==0 && result[1]>0 && bus.master_pan==0);
+    CHECK(automation_delete(&bus,0));bus.clips[0][0]=0;bus.clip_steps[0][0]=0;
+    bus.master_pan=2;CHECK(!project_save("bad-master-pan.llp",&bus));bus.master_pan=0;
     bus.insert_mute[0]=2; player_reset(&rp); render(&rp,&bus,fixture,result,1);
     CHECK(fabsf(result[0]-.02f)<.00001f); /* Solo one source, keep its bus audible. */
     bus.insert_mute[2]=2; player_reset(&rp); render(&rp,&bus,fixture,result,1);

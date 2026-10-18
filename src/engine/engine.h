@@ -66,6 +66,7 @@ typedef struct {
     uint8_t instrument[CHANNELS];
     FMSettings fm[CHANNELS];
     float master_pitch; /* semitones; sample speed, independent of tempo */
+    float master_pan; /* -1 left, 0 unchanged, +1 right; stereo balance */
     float insert_width[INSERTS],master_width; /* 0 mono, 1 unchanged, 2 wider */
     uint8_t master_mute,lane_mute[LANES]; /* lane bits: 1 mute, 2 solo */
     char audio_io[INSERTS+1][2][128]; /* input/output device choices; routing/recording reserved */
