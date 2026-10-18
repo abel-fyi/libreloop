@@ -396,9 +396,9 @@ failed:
 
 int preset_commit(const char *chosen,int save) {
     DevicePreset preset={.kind=ui.preset_kind}; int owner=ui.preset_owner,slot=ui.preset_slot;
-    if(ui.preset_kind==PRESET_CHORUS || ui.preset_kind==PRESET_EQ || ui.preset_kind==PRESET_DELAY || ui.preset_kind==PRESET_TUBE || ui.preset_kind==PRESET_REVERB || ui.preset_kind==PRESET_DYNAMICS) {
-        if(owner<0 || owner>ui.project.insert_count || slot<0 || slot>=EFFECT_SLOTS || ui.project.effect_type[owner][slot]!=(ui.preset_kind==PRESET_DYNAMICS?EFFECT_DYNAMICS:ui.preset_kind==PRESET_REVERB?EFFECT_REVERB:ui.preset_kind==PRESET_TUBE?EFFECT_TUBE:ui.preset_kind==PRESET_DELAY?EFFECT_DELAY:ui.preset_kind==PRESET_EQ?EFFECT_EQ:EFFECT_CHORUS)) return 0;
-        preset.dynamics=ui.project.dynamics[owner][slot]; preset.reverb=ui.project.reverb[owner][slot]; preset.tube=ui.project.tube[owner][slot]; preset.delay=ui.project.delay[owner][slot]; preset.eq=ui.project.eq[owner][slot]; preset.chorus=ui.project.chorus[owner][slot]; preset.mix=ui.project.effect_mix[owner][slot];
+    if(ui.preset_kind==PRESET_CHORUS || ui.preset_kind==PRESET_EQ || ui.preset_kind==PRESET_DELAY || ui.preset_kind==PRESET_TUBE || ui.preset_kind==PRESET_REVERB || ui.preset_kind==PRESET_DYNAMICS || ui.preset_kind==PRESET_PHASER || ui.preset_kind==PRESET_FLANGER) {
+        if(owner<0 || owner>ui.project.insert_count || slot<0 || slot>=EFFECT_SLOTS || ui.project.effect_type[owner][slot]!=(ui.preset_kind==PRESET_PHASER?EFFECT_PHASER:ui.preset_kind==PRESET_FLANGER?EFFECT_FLANGER:ui.preset_kind==PRESET_DYNAMICS?EFFECT_DYNAMICS:ui.preset_kind==PRESET_REVERB?EFFECT_REVERB:ui.preset_kind==PRESET_TUBE?EFFECT_TUBE:ui.preset_kind==PRESET_DELAY?EFFECT_DELAY:ui.preset_kind==PRESET_EQ?EFFECT_EQ:EFFECT_CHORUS)) return 0;
+        preset.phaser=ui.project.phaser[owner][slot];preset.flanger=ui.project.flanger[owner][slot];preset.dynamics=ui.project.dynamics[owner][slot]; preset.reverb=ui.project.reverb[owner][slot]; preset.tube=ui.project.tube[owner][slot]; preset.delay=ui.project.delay[owner][slot]; preset.eq=ui.project.eq[owner][slot]; preset.chorus=ui.project.chorus[owner][slot]; preset.mix=ui.project.effect_mix[owner][slot];
     } else {
         if(owner<0 || owner>=ui.project.channel_count || (ui.preset_kind==PRESET_FM)!=(ui.project.instrument[owner]==INSTRUMENT_FM)) return 0;
         preset.fm=ui.project.fm[owner]; preset.sampler=ui.project.sampler[owner];
@@ -409,6 +409,8 @@ int preset_commit(const char *chosen,int save) {
     }
     if(!preset_load(chosen,&preset) || preset.kind!=ui.preset_kind) { snprintf(ui.status,sizeof ui.status,"Invalid preset or wrong device type"); return 0; }
     if(ui.preset_kind==PRESET_FM) ui.project.fm[owner]=preset.fm;
+    else if(ui.preset_kind==PRESET_PHASER){ui.project.phaser[owner][slot]=preset.phaser;ui.project.effect_mix[owner][slot]=preset.mix;ui.project.effect_bypass[owner][slot]=0;}
+    else if(ui.preset_kind==PRESET_FLANGER){ui.project.flanger[owner][slot]=preset.flanger;ui.project.effect_mix[owner][slot]=preset.mix;ui.project.effect_bypass[owner][slot]=0;}
     else if(ui.preset_kind==PRESET_DYNAMICS){ui.project.dynamics[owner][slot]=preset.dynamics;ui.project.effect_mix[owner][slot]=preset.mix;ui.project.effect_bypass[owner][slot]=0;}
     else if(ui.preset_kind==PRESET_REVERB) {ui.project.reverb[owner][slot]=preset.reverb;ui.project.effect_mix[owner][slot]=preset.mix;ui.project.effect_bypass[owner][slot]=0;}
     else if(ui.preset_kind==PRESET_TUBE) {ui.project.tube[owner][slot]=preset.tube;ui.project.effect_mix[owner][slot]=preset.mix;ui.project.effect_bypass[owner][slot]=0;}

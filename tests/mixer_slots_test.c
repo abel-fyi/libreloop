@@ -92,5 +92,15 @@ int main(void) {
     int reverb_automation=automation_create(&ui.project,(ParameterTarget){PARAM_REVERB_SIZE,4,0},"Reverb size",16);CHECK(reverb_automation>=0);
     before_remove=ui.project.automation_count;mixer_effect_remove(4,0);
     CHECK(!ui.windows.editors[reverb_window].visible && !ui.project.effect_type[4][0] && ui.project.automation_count==before_remove-1);
+    for(int effect=0;effect<2;effect++){
+        int type=effect?EFFECT_FLANGER:EFFECT_PHASER;unsigned parameter=effect?PARAM_FLANGER_FEEDBACK:PARAM_PHASER_FEEDBACK;
+        mixer_effect_add(4,0,type);int window=mixer_effect_window(4,0);
+        CHECK(window>=5 && ui.project.effect_type[4][0]==type && ui.project.effect_mix[4][0]==.5f);
+        CHECK(ui.windows.editors[window].minw==600 && ui.windows.editors[window].minh==220);
+        CHECK(effect?flanger_valid(ui.project.flanger[4][0]):phaser_valid(ui.project.phaser[4][0]));
+        CHECK(automation_create(&ui.project,(ParameterTarget){parameter,4,0},"Modulation feedback",16)>=0);
+        before_remove=ui.project.automation_count;mixer_effect_remove(4,0);
+        CHECK(!ui.windows.editors[window].visible && !ui.project.effect_type[4][0] && ui.project.automation_count==before_remove-1);
+    }
     return 0;
 }

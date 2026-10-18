@@ -3,12 +3,12 @@
 #include <stdlib.h>
 #include <stdatomic.h>
 _Static_assert(ATOMIC_POINTER_LOCK_FREE==2,"Effect preparation needs lock-free pointer publication");
-struct EffectSlot { union { Chorus chorus; Equalizer eq; Tube tube; }; _Atomic(Delay *) delay; _Atomic(Reverb *) reverb; _Atomic(Dynamics *) dynamics; DelaySettings delay_settings; TubeSettings tube_settings; ReverbSettings reverb_settings; unsigned generation; uint8_t type; };
+struct EffectSlot { union { Chorus chorus; Equalizer eq; Tube tube; Phaser phaser; }; _Atomic(Delay *) delay; _Atomic(Reverb *) reverb; _Atomic(Dynamics *) dynamics; _Atomic(Flanger *) flanger; PhaserSettings phaser_settings;FlangerSettings flanger_settings; DelaySettings delay_settings; TubeSettings tube_settings; ReverbSettings reverb_settings; unsigned generation; uint8_t type; };
 struct EffectRack { unsigned buses,generation; struct EffectSlot slots[]; };
 EffectRack *effects_create(unsigned buses) {
     if(!buses || buses>101) return NULL;
     EffectRack *rack=calloc(1,sizeof *rack+buses*EFFECT_SLOTS*sizeof *rack->slots);
-    if(rack) { rack->buses=buses; rack->generation=1; for(unsigned i=0;i<buses*EFFECT_SLOTS;i++){atomic_init(&rack->slots[i].delay,NULL);atomic_init(&rack->slots[i].reverb,NULL);atomic_init(&rack->slots[i].dynamics,NULL);} } return rack;
+    if(rack) { rack->buses=buses; rack->generation=1; for(unsigned i=0;i<buses*EFFECT_SLOTS;i++){atomic_init(&rack->slots[i].delay,NULL);atomic_init(&rack->slots[i].reverb,NULL);atomic_init(&rack->slots[i].dynamics,NULL);atomic_init(&rack->slots[i].flanger,NULL);} } return rack;
 }
 int effects_prepare(EffectRack *rack,const uint8_t *types,unsigned count) {
     if(!rack || !types || count>rack->buses*EFFECT_SLOTS)return 0;
@@ -21,17 +21,18 @@ int effects_prepare(EffectRack *rack,const uint8_t *types,unsigned count) {
         atomic_store_explicit(&rack->slots[i].reverb,r,memory_order_release);
     }
     for(unsigned i=0;i<count;i++)if(types[i]==EFFECT_DYNAMICS && !atomic_load_explicit(&rack->slots[i].dynamics,memory_order_acquire)){Dynamics *d=dynamics_create();if(!d)return 0;atomic_store_explicit(&rack->slots[i].dynamics,d,memory_order_release);}
+    for(unsigned i=0;i<count;i++)if(types[i]==EFFECT_FLANGER && !atomic_load_explicit(&rack->slots[i].flanger,memory_order_acquire)){Flanger *f=flanger_create();if(!f)return 0;atomic_store_explicit(&rack->slots[i].flanger,f,memory_order_release);}
     return 1;
 }
 void effects_free(EffectRack *rack) {
-    if(rack)for(unsigned i=0;i<rack->buses*EFFECT_SLOTS;i++){delay_free(atomic_load_explicit(&rack->slots[i].delay,memory_order_relaxed));reverb_free(atomic_load_explicit(&rack->slots[i].reverb,memory_order_relaxed));dynamics_free(atomic_load_explicit(&rack->slots[i].dynamics,memory_order_relaxed));}
+    if(rack)for(unsigned i=0;i<rack->buses*EFFECT_SLOTS;i++){delay_free(atomic_load_explicit(&rack->slots[i].delay,memory_order_relaxed));reverb_free(atomic_load_explicit(&rack->slots[i].reverb,memory_order_relaxed));dynamics_free(atomic_load_explicit(&rack->slots[i].dynamics,memory_order_relaxed));flanger_free(atomic_load_explicit(&rack->slots[i].flanger,memory_order_relaxed));}
     free(rack);
 }
 void effects_reset(EffectRack *rack) { if(rack) rack->generation++; }
 void effects_reset_bus(EffectRack *rack,unsigned bus) {
     if(rack && bus<rack->buses)for(int slot=0;slot<EFFECT_SLOTS;slot++)rack->slots[bus*EFFECT_SLOTS+slot].generation=0;
 }
-void effects_process_all(EffectRack *rack,unsigned bus,const uint8_t types[EFFECT_SLOTS],const ChorusSettings settings[EFFECT_SLOTS],const EQSettings eq[EFFECT_SLOTS],const DelaySettings delays[EFFECT_SLOTS],const TubeSettings tubes[EFFECT_SLOTS],const ReverbSettings reverbs[EFFECT_SLOTS],const DynamicsSettings *const dynamics[EFFECT_SLOTS],float bpm,const float mixes[EFFECT_SLOTS],const uint8_t bypass[EFFECT_SLOTS],float stereo[2]) {
+void effects_process_all(EffectRack *rack,unsigned bus,const uint8_t types[EFFECT_SLOTS],const ChorusSettings settings[EFFECT_SLOTS],const EQSettings eq[EFFECT_SLOTS],const DelaySettings delays[EFFECT_SLOTS],const TubeSettings tubes[EFFECT_SLOTS],const ReverbSettings reverbs[EFFECT_SLOTS],const DynamicsSettings *const dynamics[EFFECT_SLOTS],const PhaserSettings *const phasers[EFFECT_SLOTS],const FlangerSettings *const flangers[EFFECT_SLOTS],float bpm,const float mixes[EFFECT_SLOTS],const uint8_t bypass[EFFECT_SLOTS],float stereo[2]) {
     if(!rack || bus>=rack->buses) return;
     for(int i=0;i<EFFECT_SLOTS;i++) {
         struct EffectSlot *slot=&rack->slots[bus*EFFECT_SLOTS+i];
@@ -46,16 +47,22 @@ void effects_process_all(EffectRack *rack,unsigned bus,const uint8_t types[EFFEC
                 tube_process(&slot->tube,slot->tube_settings,0,stereo);
             else if(slot->type==EFFECT_REVERB && slot->generation==rack->generation && reverb_audible(atomic_load_explicit(&slot->reverb,memory_order_acquire)))
                 reverb_process(atomic_load_explicit(&slot->reverb,memory_order_acquire),slot->reverb_settings,0,stereo);
+            else if(slot->type==EFFECT_PHASER && slot->generation==rack->generation && slot->phaser.wet>.00001f)phaser_process(&slot->phaser,slot->phaser_settings,0,stereo);
+            else if(slot->type==EFFECT_FLANGER && slot->generation==rack->generation && flanger_audible(atomic_load_explicit(&slot->flanger,memory_order_acquire)))flanger_process(atomic_load_explicit(&slot->flanger,memory_order_acquire),slot->flanger_settings,0,stereo);
             else slot->type=0;
             continue;
         }
         if(slot->type!=types[i] || slot->generation!=rack->generation) {
-            if(types[i]==EFFECT_DYNAMICS)dynamics_reset(atomic_load_explicit(&slot->dynamics,memory_order_acquire));
+            if(types[i]==EFFECT_PHASER)phaser_reset(&slot->phaser);
+            else if(types[i]==EFFECT_FLANGER)flanger_reset(atomic_load_explicit(&slot->flanger,memory_order_acquire));
+            else if(types[i]==EFFECT_DYNAMICS)dynamics_reset(atomic_load_explicit(&slot->dynamics,memory_order_acquire));
             else if(types[i]==EFFECT_REVERB)reverb_reset(atomic_load_explicit(&slot->reverb,memory_order_acquire));
             else if(types[i]==EFFECT_TUBE)tube_reset(&slot->tube);
             else if(types[i]==EFFECT_DELAY) delay_reset(atomic_load_explicit(&slot->delay,memory_order_acquire));
             else if(types[i]==EFFECT_EQ) equalizer_reset(&slot->eq); else chorus_reset(&slot->chorus); slot->type=types[i]; slot->generation=rack->generation;
         }
+        if(types[i]==EFFECT_PHASER && phasers){slot->phaser_settings=*phasers[i];phaser_process(&slot->phaser,*phasers[i],bypass[i]?0:mixes[i],stereo);}
+        if(types[i]==EFFECT_FLANGER && flangers){slot->flanger_settings=*flangers[i];flanger_process(atomic_load_explicit(&slot->flanger,memory_order_acquire),*flangers[i],bypass[i]?0:mixes[i],stereo);}
         if(types[i]==EFFECT_DYNAMICS && dynamics)dynamics_process(atomic_load_explicit(&slot->dynamics,memory_order_acquire),dynamics[i],bypass[i]?0:mixes[i],stereo);
         if(types[i]==EFFECT_REVERB && reverbs){slot->reverb_settings=reverbs[i];reverb_process(atomic_load_explicit(&slot->reverb,memory_order_acquire),reverbs[i],bypass[i]?0:mixes[i],stereo);}
         if(types[i]==EFFECT_TUBE && tubes){slot->tube_settings=tubes[i];tube_process(&slot->tube,tubes[i],bypass[i]?0:mixes[i],stereo);}
@@ -73,7 +80,7 @@ void effects_process(EffectRack *rack,unsigned bus,const uint8_t types[EFFECT_SL
 }
 
 void effects_process_eq(EffectRack *rack,unsigned bus,const uint8_t types[EFFECT_SLOTS],const ChorusSettings settings[EFFECT_SLOTS],const EQSettings eq[EFFECT_SLOTS],const float mixes[EFFECT_SLOTS],const uint8_t bypass[EFFECT_SLOTS],float stereo[2]) {
-    effects_process_all(rack,bus,types,settings,eq,NULL,NULL,NULL,NULL,120,mixes,bypass,stereo);
+    effects_process_all(rack,bus,types,settings,eq,NULL,NULL,NULL,NULL,NULL,NULL,120,mixes,bypass,stereo);
 }
 
 void effects_dynamics_monitor(const EffectRack *rack,unsigned bus,unsigned slot,DynamicsMonitor *monitor){const Dynamics *d=rack && bus<rack->buses && slot<EFFECT_SLOTS?atomic_load_explicit(&rack->slots[bus*EFFECT_SLOTS+slot].dynamics,memory_order_acquire):NULL;dynamics_monitor(d,monitor);}

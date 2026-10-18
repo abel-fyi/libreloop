@@ -2,6 +2,19 @@
 #include "engine.h"
 #include <math.h>
 static const ParameterDescriptor descriptors[]={
+    {PARAM_PHASER_RATE,"Phaser rate (Hz)",.01f,10,.35f,PARAMETER_LOGARITHMIC},
+    {PARAM_PHASER_CENTER,"Phaser center (Hz)",80,8000,900,PARAMETER_LOGARITHMIC},
+    {PARAM_PHASER_DEPTH,"Phaser sweep (octaves)",0,4,2,PARAMETER_CONTINUOUS},
+    {PARAM_PHASER_FEEDBACK,"Phaser feedback",-.9f,.9f,.35f,PARAMETER_CONTINUOUS},
+    {PARAM_PHASER_STEREO,"Phaser stereo LFO spread",0,1,.5f,PARAMETER_CONTINUOUS},
+    {PARAM_PHASER_STAGES,"Phaser stages",2,12,6,PARAMETER_INTEGER},
+    {PARAM_FLANGER_RATE,"Flanger rate (Hz)",.01f,10,.25f,PARAMETER_LOGARITHMIC},
+    {PARAM_FLANGER_DELAY,"Flanger delay (ms)",.2f,12,2.5f,PARAMETER_LOGARITHMIC},
+    {PARAM_FLANGER_DEPTH,"Flanger sweep depth",0,1,.8f,PARAMETER_CONTINUOUS},
+    {PARAM_FLANGER_FEEDBACK,"Flanger feedback",-.95f,.95f,.55f,PARAMETER_CONTINUOUS},
+    {PARAM_FLANGER_STEREO,"Flanger stereo LFO spread",0,1,.25f,PARAMETER_CONTINUOUS},
+    {PARAM_FLANGER_INVERT,"Flanger invert wet",0,1,0,PARAMETER_TOGGLE},
+
     {PARAM_DYNAMICS_FIRST+0,"Low crossover (Hz)",40,1000,200,PARAMETER_LOGARITHMIC},
     {PARAM_DYNAMICS_FIRST+1,"High crossover (Hz)",1000,16000,2500,PARAMETER_LOGARITHMIC},
     {PARAM_DYNAMICS_FIRST+2,"Low cut (Hz / Off)",0,200,0,PARAMETER_CONTINUOUS},
@@ -162,6 +175,14 @@ const ParameterDescriptor *parameter_descriptor(unsigned id) {
 static const float *parameter_pointer(const Project *p,ParameterTarget t,float *lo,float *hi) {
     const ParameterDescriptor *info=parameter_descriptor(t.parameter);
     *lo=info?info->low:0; *hi=info?info->high:1;
+    if(t.parameter>=PARAM_PHASER_FIRST && t.parameter<=PARAM_PHASER_LAST) {
+        if(t.owner>(unsigned)p->insert_count || t.slot>=EFFECT_SLOTS || p->effect_type[t.owner][t.slot]!=EFFECT_PHASER)return NULL;
+        return phaser_parameter(&p->phaser[t.owner][t.slot],t.parameter-PARAM_PHASER_FIRST);
+    }
+    if(t.parameter>=PARAM_FLANGER_FIRST && t.parameter<=PARAM_FLANGER_LAST) {
+        if(t.owner>(unsigned)p->insert_count || t.slot>=EFFECT_SLOTS || p->effect_type[t.owner][t.slot]!=EFFECT_FLANGER)return NULL;
+        return flanger_parameter(&p->flanger[t.owner][t.slot],t.parameter-PARAM_FLANGER_FIRST);
+    }
     if(t.parameter>=PARAM_DYNAMICS_FIRST && t.parameter<=PARAM_DYNAMICS_LAST) {
         if(t.owner>(unsigned)p->insert_count || t.slot>=EFFECT_SLOTS || p->effect_type[t.owner][t.slot]!=EFFECT_DYNAMICS)return NULL;
         return dynamics_parameter(&p->dynamics[t.owner][t.slot],t.parameter-PARAM_DYNAMICS_FIRST);
@@ -236,6 +257,10 @@ int parameter_write(Project *p,ParameterTarget t,float normalized) {
     }return 1;
 }
 int parameter_from_pointer(const Project *p,const void *ptr,ParameterTarget *t) {
+    {uintptr_t a=(uintptr_t)ptr,base=(uintptr_t)&p->flanger[0][0];if(a>=base && a<base+sizeof p->flanger){unsigned index=(unsigned)((a-base)/sizeof(FlangerSettings)),owner=index/EFFECT_SLOTS,slot=index%EFFECT_SLOTS;if(owner>(unsigned)p->insert_count || p->effect_type[owner][slot]!=EFFECT_FLANGER)return 0;for(unsigned n=0;n<6;n++)if(flanger_parameter(&p->flanger[owner][slot],n)==ptr){*t=(ParameterTarget){PARAM_FLANGER_FIRST+n,owner,slot};return 1;}return 0;}}
+
+    {uintptr_t a=(uintptr_t)ptr,base=(uintptr_t)&p->phaser[0][0];if(a>=base && a<base+sizeof p->phaser){unsigned index=(unsigned)((a-base)/sizeof(PhaserSettings)),owner=index/EFFECT_SLOTS,slot=index%EFFECT_SLOTS;if(owner>(unsigned)p->insert_count || p->effect_type[owner][slot]!=EFFECT_PHASER)return 0;for(unsigned n=0;n<6;n++)if(phaser_parameter(&p->phaser[owner][slot],n)==ptr){*t=(ParameterTarget){PARAM_PHASER_FIRST+n,owner,slot};return 1;}return 0;}}
+
     /* The new large settings array has a concrete address mapping; avoid a
        full bus/slot/parameter search for every knob value drawn each frame. */
     uintptr_t address=(uintptr_t)ptr,start=(uintptr_t)&p->dynamics[0][0];

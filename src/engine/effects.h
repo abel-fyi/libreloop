@@ -8,6 +8,8 @@
 #include "tube.h"
 #include "reverb.h"
 #include "dynamics.h"
+#include "phaser.h"
+#include "flanger.h"
 #include <stdint.h>
 #define EFFECT_SLOTS 10
 
@@ -16,7 +18,7 @@ typedef struct EffectRack EffectRack;
 EffectRack *effects_create(unsigned buses);
 /* Control thread only: publish once; cached storage lives until rack destruction. */
 int effects_prepare(EffectRack *rack,const uint8_t *types,unsigned count);
-void effects_process_all(EffectRack *rack,unsigned bus,const uint8_t types[EFFECT_SLOTS],const ChorusSettings chorus[EFFECT_SLOTS],const EQSettings eq[EFFECT_SLOTS],const DelaySettings delay[EFFECT_SLOTS],const TubeSettings tube[EFFECT_SLOTS],const ReverbSettings reverb[EFFECT_SLOTS],const DynamicsSettings *const dynamics[EFFECT_SLOTS],float bpm,const float mixes[EFFECT_SLOTS],const uint8_t bypass[EFFECT_SLOTS],float stereo[2]);
+void effects_process_all(EffectRack *rack,unsigned bus,const uint8_t types[EFFECT_SLOTS],const ChorusSettings chorus[EFFECT_SLOTS],const EQSettings eq[EFFECT_SLOTS],const DelaySettings delay[EFFECT_SLOTS],const TubeSettings tube[EFFECT_SLOTS],const ReverbSettings reverb[EFFECT_SLOTS],const DynamicsSettings *const dynamics[EFFECT_SLOTS],const PhaserSettings *const phasers[EFFECT_SLOTS],const FlangerSettings *const flangers[EFFECT_SLOTS],float bpm,const float mixes[EFFECT_SLOTS],const uint8_t bypass[EFFECT_SLOTS],float stereo[2]);
 void effects_free(EffectRack *rack);
 void effects_dynamics_monitor(const EffectRack *rack,unsigned bus,unsigned slot,DynamicsMonitor *monitor);
 /* Increment generation; individual used slots reset lazily during processing. */

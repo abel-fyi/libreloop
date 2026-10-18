@@ -348,6 +348,23 @@ int main(void) {
         for(int i=0;i<64;i++){float frame[2]={!block && !i?.2f:0,!block && !i?.2f:0};dynamics_process(dynamics_expected,&fixture.dynamics[0][0],1,frame);CHECK(!memcmp(frame,&out[i*2],sizeof frame));}
     }
     ready=0;ma_atomic_device_state_set(&device.state,ma_device_state_uninitialized);audio_stop();dynamics_free(dynamics_expected);
+    for(int effect=0;effect<2;effect++){
+        fixture.effect_type[0][0]=effect?EFFECT_FLANGER:EFFECT_PHASER;fixture.effect_mix[0][0]=.5f;
+        audio_update(&fixture,1,1,0,1,1,0,0,0);CHECK(!audio_effect_memory_failed());
+        Phaser phaser_expected;phaser_reset(&phaser_expected);Flanger *flanger_expected=flanger_create();CHECK(flanger_expected);
+        ready=1;ma_atomic_device_state_set(&device.state,ma_device_state_started);
+        for(int block=0;block<32;block++){
+            test_callback(NULL,out,NULL,64);
+            for(int i=0;i<64;i++){float frame[2]={!block && !i?.2f:0,!block && !i?.2f:0};if(effect)flanger_process(flanger_expected,fixture.flanger[0][0],.5f,frame);else phaser_process(&phaser_expected,fixture.phaser[0][0],.5f,frame);CHECK(!memcmp(frame,&out[i*2],sizeof frame));}
+        }
+        ready=0;ma_atomic_device_state_set(&device.state,ma_device_state_uninitialized);CHECK(audio_transport_stop());
+        audio_update(&fixture,0,1,0,1,1,0,0,0);
+        ready=1;ma_atomic_device_state_set(&device.state,ma_device_state_started);test_callback(NULL,out,NULL,64);
+        for(int i=0;i<64;i++){float frame[2]={0};if(effect)flanger_process(flanger_expected,fixture.flanger[0][0],.5f,frame);else phaser_process(&phaser_expected,fixture.phaser[0][0],.5f,frame);CHECK(!memcmp(frame,&out[i*2],sizeof frame));}
+        ready=0;ma_atomic_device_state_set(&device.state,ma_device_state_uninitialized);audio_stop();
+        ready=1;ma_atomic_device_state_set(&device.state,ma_device_state_started);test_callback(NULL,out,NULL,64);for(int i=0;i<128;i++)CHECK(out[i]==0);
+        ready=0;ma_atomic_device_state_set(&device.state,ma_device_state_uninitialized);audio_stop();flanger_free(flanger_expected);
+    }
     effects_free(effects);effects=NULL;player.effects=live.effects=NULL;
     puts("Transparent output, capture, post-fader recording, ring bounds, mixing and ordered controls passed.");
     return 0;

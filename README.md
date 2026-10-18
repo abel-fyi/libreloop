@@ -82,3 +82,5 @@ current priorities. The project and CMake application target are **libreloop**;
 any local directory called `libreloop2` is only a historical workspace path.
 
 The built-in [Dynamics multiband compressor](docs/dynamics.md) provides editable per-band transfer curves and live gain monitoring.
+
+Built-in [Phaser and Flanger](docs/modulation.md) provide stereo modulation, signed feedback and factory presets.

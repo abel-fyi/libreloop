@@ -218,12 +218,12 @@ void mixer_effect_open(int bus,int slot,int toggle) {
     if(id>=5){if(toggle)studio_workspace_hide(&ui.windows,id);else windows_focus(&ui.windows,id);return;}
     for(id=5;id<WINDOW_CAPACITY && ui.windows.editors[id].visible;id++){}
     if(id==WINDOW_CAPACITY){snprintf(ui.status,sizeof ui.status,"Close an effect editor before opening another (16 open).");return;}
-    StudioWorkspace *s=&ui.windows.workspace;float width=type==EFFECT_DYNAMICS?960:type==EFFECT_REVERB?760:type==EFFECT_TUBE?480:type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?740:420):type==EFFECT_CHORUS?360:620,height=type==EFFECT_DYNAMICS?570:type==EFFECT_REVERB?220:type==EFFECT_TUBE?220:type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?220:340):type==EFFECT_CHORUS?280:380;
+    StudioWorkspace *s=&ui.windows.workspace;float width=type==EFFECT_PHASER?680:type==EFFECT_FLANGER?680:type==EFFECT_DYNAMICS?960:type==EFFECT_REVERB?760:type==EFFECT_TUBE?480:type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?740:420):type==EFFECT_CHORUS?360:620,height=type==EFFECT_FLANGER?220:type==EFFECT_PHASER?220:type==EFFECT_DYNAMICS?570:type==EFFECT_REVERB?220:type==EFFECT_TUBE?220:type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?220:340):type==EFFECT_CHORUS?280:380;
     width=fminf(width,s->width-s->sidebar-10);height=fminf(height,s->height-84);
     int count=0;for(int i=5;i<WINDOW_CAPACITY;i++)count+=ui.windows.editors[i].visible;
     ui.effect_windows[id].bus=bus;ui.effect_windows[id].slot=slot;ui.effect_windows[id].band=0;
     if(type==EFFECT_DYNAMICS)ui.dynamics_band[id]=3;
-    ui.windows.editors[id].minw=type==EFFECT_DYNAMICS?640:type==EFFECT_REVERB?640:type==EFFECT_TUBE?440:type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?620:400):type==EFFECT_CHORUS?330:480;ui.windows.editors[id].minh=type==EFFECT_DYNAMICS?480:type==EFFECT_REVERB?220:type==EFFECT_TUBE?220:type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?220:340):type==EFFECT_CHORUS?280:330;
+    ui.windows.editors[id].minw=type==EFFECT_FLANGER?600:type==EFFECT_PHASER?600:type==EFFECT_DYNAMICS?640:type==EFFECT_REVERB?640:type==EFFECT_TUBE?440:type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?620:400):type==EFFECT_CHORUS?330:480;ui.windows.editors[id].minh=type==EFFECT_FLANGER?220:type==EFFECT_PHASER?220:type==EFFECT_DYNAMICS?480:type==EFFECT_REVERB?220:type==EFFECT_TUBE?220:type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?220:340):type==EFFECT_CHORUS?280:330;
     ui.windows.editors[id].rect=(Rect){fmaxf(s->sidebar+6,s->width-width-12-count*20),fminf(70+count*22,s->height-24-height),width,height};
     ui.windows.workspace.floating[id]=1;ui.windows.editors[id].maximized=0;
     windows_focus(&ui.windows,id);
@@ -232,6 +232,8 @@ void mixer_effect_add(int bus,int slot,int type) {
     if(bus<0 || bus>ui.project.insert_count || slot<0 || slot>=EFFECT_SLOTS || !effect_descriptor(type))return;
     ui.project.effect_type[bus][slot]=type;ui.project.effect_bypass[bus][slot]=0;
     if(type==EFFECT_CHORUS){ui.project.chorus[bus][slot]=chorus_default();ui.project.effect_mix[bus][slot]=.5f;}
+    else if(type==EFFECT_PHASER){ui.project.phaser[bus][slot]=phaser_default();ui.project.effect_mix[bus][slot]=.5f;}
+    else if(type==EFFECT_FLANGER){ui.project.flanger[bus][slot]=flanger_default();ui.project.effect_mix[bus][slot]=.5f;}
     else if(type==EFFECT_DYNAMICS){ui.project.dynamics[bus][slot]=dynamics_default();ui.project.effect_mix[bus][slot]=1;}
     else if(type==EFFECT_REVERB){ui.project.reverb[bus][slot]=reverb_default();ui.project.effect_mix[bus][slot]=.25f;}
     else if(type==EFFECT_TUBE){ui.project.tube[bus][slot]=tube_default();ui.project.effect_mix[bus][slot]=1;}
@@ -415,11 +417,38 @@ static void dynamics_editor(float width,float height,int bus,int slot){
     if(button("Save",width-88,footer,80,24,0))preset_action(PRESET_DYNAMICS,bus,slot,1);
 }
 
+static void modulation_editor(float width,float height,int bus,int slot){
+    int phaser=ui.project.effect_type[bus][slot]==EFFECT_PHASER;
+    PhaserSettings *p=&ui.project.phaser[bus][slot];FlangerSettings *f=&ui.project.flanger[bus][slot];
+    label(phaser?"Phaser / swept allpass":"Flanger / short-delay sweep",12,32,13,ink);
+    if(!phaser && button("Invert wet",width-126,28,114,24,f->invert))f->invert=!f->invert;
+    const char *phaser_names[]={"RATE","CENTER","DEPTH","FEEDBACK","STEREO","STAGES","MIX"};
+    const char *flanger_names[]={"RATE","DELAY","DEPTH","FEEDBACK","STEREO","MIX"};
+    int count=phaser?7:6;
+    for(int i=0;i<count;i++){
+        unsigned id=i==count-1?PARAM_EFFECT_MIX:(phaser?PARAM_PHASER_FIRST:PARAM_FLANGER_FIRST)+i;
+        float *value=i==count-1?&ui.project.effect_mix[bus][slot]:(float *)(phaser?phaser_parameter(p,i):flanger_parameter(f,i));
+        const ParameterDescriptor *info=parameter_descriptor(id);const char *name=phaser?phaser_names[i]:flanger_names[i];
+        float x=width*(i+.5f)/count;
+        knob_sized(x,95,value,info->low,info->high,i==count-1?.5f:info->initial,info->name,info->kind==PARAMETER_LOGARITHMIC?KNOB_LOGARITHMIC:i==3?KNOB_PAN:KNOB_NORMAL,22);
+        label(name,x-text_width(name,12)/2,132,12,ink);
+        float shown=displayed_value(value,*value);
+        const char *number=i==0?host_text_format("%.2f Hz",shown):i==1?(phaser?host_text_format("%.0f Hz",shown):host_text_format("%.2f ms",shown)):phaser && i==2?host_text_format("%.2f oct",shown):phaser && i==5?host_text_format("%.0f",shown):i==3?host_text_format("%+.0f%%",shown*100):host_text_format("%.0f%%",shown*100);
+        label(number,x-text_width(number,12)/2,153,12,muted);
+        if(i==4 && (hover(x-23,72,46,46) || ui.control_drag==value))snprintf(ui.status,sizeof ui.status,"Stereo spread: LFO phase offset, 0%% keeps a centered source centered; 100%% = 180 degrees");
+    }
+    float bottom=height-30;
+    if(button("Bypass",8,bottom,92,24,ui.project.effect_bypass[bus][slot]))ui.project.effect_bypass[bus][slot]^=1;
+    if(button("Load",width-172,bottom,78,24,0))preset_action(phaser?PRESET_PHASER:PRESET_FLANGER,bus,slot,0);
+    if(button("Save",width-88,bottom,80,24,0))preset_action(phaser?PRESET_PHASER:PRESET_FLANGER,bus,slot,1);
+}
+
 void effect_editor(float width,float height) {
     int bus=ui.eq_bus,slot=ui.eq_slot;
     if(bus<0 || bus>ui.project.insert_count || slot<0 || slot>=EFFECT_SLOTS)return;
-    if(ui.windows.workspace.enabled)ui.windows.editors[ui.knob_context].minw=ui.project.effect_type[bus][slot]==EFFECT_DYNAMICS?820:ui.project.effect_type[bus][slot]==EFFECT_REVERB?640:ui.project.effect_type[bus][slot]==EFFECT_TUBE?440:ui.project.effect_type[bus][slot]==EFFECT_DELAY?(ui.project.delay[bus][slot].model?620:400):ui.project.effect_type[bus][slot]==EFFECT_CHORUS?330:480;
+    if(ui.windows.workspace.enabled)ui.windows.editors[ui.knob_context].minw=ui.project.effect_type[bus][slot]==EFFECT_FLANGER?600:ui.project.effect_type[bus][slot]==EFFECT_PHASER?600:ui.project.effect_type[bus][slot]==EFFECT_DYNAMICS?820:ui.project.effect_type[bus][slot]==EFFECT_REVERB?640:ui.project.effect_type[bus][slot]==EFFECT_TUBE?440:ui.project.effect_type[bus][slot]==EFFECT_DELAY?(ui.project.delay[bus][slot].model?620:400):ui.project.effect_type[bus][slot]==EFFECT_CHORUS?330:480;
     if(!ui.project.effect_type[bus][slot]){label("Select an effect slot in the Mixer.",16,40,13,muted);return;}
+    if(ui.project.effect_type[bus][slot]==EFFECT_PHASER || ui.project.effect_type[bus][slot]==EFFECT_FLANGER){modulation_editor(width,height,bus,slot);return;}
     if(ui.project.effect_type[bus][slot]==EFFECT_DYNAMICS){dynamics_editor(width,height,bus,slot);return;}
     if(ui.project.effect_type[bus][slot]==EFFECT_REVERB) {
         ReverbSettings *r=&ui.project.reverb[bus][slot];
@@ -672,6 +701,8 @@ static void mixer_legacy(float width,float height) {
         }
         if(button("+ Delay",fx+8,effect_button_y+27,MIXER_PANEL-16,24,0))mixer_effect_add(bus,slot,EFFECT_DELAY);
         if(button("+ Tube",fx+8,effect_button_y+54,MIXER_PANEL-16,24,0))mixer_effect_add(bus,slot,EFFECT_TUBE);
+        if(button("+ Phaser",fx+8,effect_button_y+135,MIXER_PANEL-16,24,0))mixer_effect_add(bus,slot,EFFECT_PHASER);
+        if(button("+ Flanger",fx+8,effect_button_y+162,MIXER_PANEL-16,24,0))mixer_effect_add(bus,slot,EFFECT_FLANGER);
         if(button("+ Dynamics",fx+8,effect_button_y+108,MIXER_PANEL-16,24,0))mixer_effect_add(bus,slot,EFFECT_DYNAMICS);
         if(button("+ Reverb",fx+8,effect_button_y+81,MIXER_PANEL-16,24,0))mixer_effect_add(bus,slot,EFFECT_REVERB);
     } else {
@@ -683,6 +714,8 @@ static void mixer_legacy(float width,float height) {
                 if(parameter_is_effect(t.parameter) && t.owner==(unsigned)bus && t.slot==(unsigned)slot) automation_delete(&ui.project,a);
             }
             ui.control_drag=NULL; ui.automation_selected=ui.automation_node=-1; ui.picker_drag=-1;
+        } else if(ui.project.effect_type[bus][slot]==EFFECT_PHASER) {if(button("Open Phaser",fx+8,effect_button_y,MIXER_PANEL-16,24,0))mixer_effect_open(bus,slot,0);
+        } else if(ui.project.effect_type[bus][slot]==EFFECT_FLANGER) {if(button("Open Flanger",fx+8,effect_button_y,MIXER_PANEL-16,24,0))mixer_effect_open(bus,slot,0);
         } else if(ui.project.effect_type[bus][slot]==EFFECT_DYNAMICS) { if(button("Open Dynamics",fx+8,effect_button_y,MIXER_PANEL-16,24,0))mixer_effect_open(bus,slot,0);
         } else if(ui.project.effect_type[bus][slot]==EFFECT_REVERB) {
             if(button("Open Reverb",fx+8,effect_button_y,MIXER_PANEL-16,24,0))mixer_effect_open(bus,slot,0);
