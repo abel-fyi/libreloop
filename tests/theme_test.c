@@ -109,13 +109,16 @@ static int check_skin(float scale) {
     /* A real curve is drawn above the paper, never clipped into dot cells. */
     draw_line(draw,(DrawPoint){3,50},(DrawPoint){48,50},2,ui_skin.graph_line);
     unsigned char pixels[240*192*4];if(!draw_read_rgba(draw,pixels,w,h))return 0;
-    DrawColor top=skin_pixel(pixels,w,scale,10,7),bottom=skin_pixel(pixels,w,scale,10,19);
+    DrawColor top=skin_pixel(pixels,w,scale,10,7);
+    /* Compare gradient brightness at the same physical Bayer phase. */
+    int tx=(int)(10.5f*scale),ty=(int)(7.5f*scale),by=(int)(19.5f*scale);
+    by-=(by-ty)%4;const unsigned char *bp=pixels+(by*w+tx)*4;
+    DrawColor bottom={bp[0],bp[1],bp[2],bp[3]};
     DrawColor raised=skin_pixel(pixels,w,scale,2,10),sunken=skin_pixel(pixels,w,scale,28,10);
     DrawColor title=skin_pixel(pixels,w,scale,12,32),center=skin_pixel(pixels,w,scale,65,16),edge=skin_pixel(pixels,w,scale,72,21);
-    /* Fractional nearest sampling chooses different physical pixels within a
-       dot cell. Inspect a complete cell, not an assumed centre pixel. */
+    /* Paper dots have a fixed four-physical-pixel period at every UI scale. */
     int dot=0,empty=255;
-    for(int y=(int)(44*scale);y<(int)(48*scale);y++)for(int x=(int)(4*scale);x<(int)(8*scale);x++) {
+    for(int y=(int)ceilf(44*scale);y<(int)ceilf(44*scale)+4;y++)for(int x=(int)ceilf(4*scale);x<(int)ceilf(4*scale)+4;x++) {
         int blue=pixels[(y*w+x)*4+2];if(blue>dot)dot=blue;if(blue<empty)empty=blue;
     }
     const unsigned char *line=pixels+((int)(50*scale)*w+(int)(6*scale))*4;
@@ -135,9 +138,29 @@ static int check_skin(float scale) {
     if(!ok)fprintf(stderr,"Skin scale %.2f: gradient %d/%d, bevel %d/%d, title %d/%d, dots %d/%d, curve %d/%d, knob %d/%d\n",scale,top.r,bottom.r,raised.r,sunken.r,title.r,title.b,dot,empty,curve.g,curve.b,center.r,edge.r);
     draw_transform(draw,1,0,0);draw_target(draw,NULL);draw_texture_destroy(target);theme_draw_close();return ok;
 }
+/* A pattern texel must stay on the same output pixel across scale/translation. */
+static int check_pixel_pattern(void) {
+    DrawColor tile[64];for(int y=0;y<8;y++)for(int x=0;x<8;x++)tile[y*8+x]=(DrawColor){20+x*20,30+y*20,80,255};
+    DrawTexture *texture=draw_texture_create(draw,8,8,tile,0);if(!texture)return 0;
+    const float scales[]={.75f,1,1.25f,1.5f,2,2.5f};unsigned char actual[80*64*4];
+    for(unsigned i=0;i<sizeof scales/sizeof *scales;i++)for(int moved=0;moved<3;moved++) {
+        draw_transform(draw,scales[i],moved==2?-7.37f:moved?.37f:0,moved==2?-3.83f:moved?.83f:0);
+        draw_clear(draw,(DrawColor){0,0,0,255});DrawRect clip={8,8,56,48};draw_clip(draw,&clip);
+        draw_texture_tiled_pixels(draw,texture,(DrawRect){0,0,8,8},(DrawRect){0,0,100,100},(DrawColor){255,255,255,255});
+        draw_clip(draw,NULL);draw_flush(draw);
+        if(!draw_read_rgba(draw,actual,80,64)){draw_texture_destroy(texture);return 0;}
+        for(int y=10;y<54;y++)for(int x=10;x<62;x++) {
+            DrawColor expected=tile[(y%8)*8+x%8];unsigned char *p=actual+(y*80+x)*4;
+            if(p[0]!=expected.r || p[1]!=expected.g || p[2]!=expected.b){draw_texture_destroy(texture);return 0;}
+        }
+        if(actual[0] || actual[1]){draw_texture_destroy(texture);return 0;}
+    }
+    draw_transform(draw,1,0,0);draw_texture_destroy(texture);return 1;
+}
 int main(int argc,char **argv) {
     int render=argc>1 && !strcmp(argv[1],"--render");
     if(render) { CHECK(SDL_Init(0));surface=SDL_CreateSurface(80,64,SDL_PIXELFORMAT_RGBA32);CHECK(surface);renderer=SDL_CreateSoftwareRenderer(surface);CHECK(renderer);draw=draw_create(renderer);CHECK(draw); }
+    if(render)CHECK(check_pixel_pattern());
     theme_init();
     CHECK(same(ui_theme.background,(DrawColor){9,7,15,255}));
     CHECK(contrast(ui_theme.selected_text,ui_theme.highlight)>=4.5f);

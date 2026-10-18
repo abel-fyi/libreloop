@@ -26,6 +26,8 @@ DrawTexture *draw_texture_create(DrawContext *draw,int width,int height,const vo
 void draw_texture_destroy(DrawTexture *texture);
 void draw_texture_filter(DrawTexture *texture,int linear);
 void draw_texture(DrawContext *draw,DrawTexture *texture,DrawRect source,DrawRect destination,DrawColor color);
+/* Fixed physical-pixel size and target-origin phase, independent of UI transform. */
+void draw_texture_tiled_pixels(DrawContext *draw,DrawTexture *texture,DrawRect source,DrawRect destination,DrawColor color);
 void draw_texture_pro(DrawContext *draw,DrawTexture *texture,DrawRect source,DrawRect destination,DrawPoint origin,float rotation,DrawColor color);
 void draw_triangles(DrawContext *draw,DrawTexture *texture,const DrawVertex *vertices,int count);
 void draw_target(DrawContext *draw,DrawTexture *texture);

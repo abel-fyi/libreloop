@@ -142,3 +142,21 @@ void draw_texture_pro(DrawContext *d,DrawTexture *t,DrawRect source,DrawRect des
 void draw_texture(DrawContext *d,DrawTexture *t,DrawRect source,DrawRect dest,DrawColor color){draw_texture_pro(d,t,source,dest,(DrawPoint){0},0,color);}
 
 DrawCpuStats draw_cpu_stats(const DrawContext *draw){return draw->stats;}
+
+void draw_texture_tiled_pixels(DrawContext *d,DrawTexture *texture,DrawRect source,DrawRect destination,DrawColor color){
+    if(!d || !texture || source.width<1 || source.height<1 || destination.width<=0 || destination.height<=0)return;
+    float scale=d->scale,ox=d->x,oy=d->y;
+    int left=(int)ceilf(destination.x*scale+ox),top=(int)ceilf(destination.y*scale+oy);
+    int right=(int)ceilf((destination.x+destination.width)*scale+ox),bottom=(int)ceilf((destination.y+destination.height)*scale+oy);
+    int tile_w=(int)source.width,tile_h=(int)source.height;
+    d->scale=1;d->x=d->y=0;
+    for(int y=top;y<bottom;){
+        int sy=((y%tile_h)+tile_h)%tile_h,h=bottom-y;if(h>tile_h-sy)h=tile_h-sy;
+        for(int x=left;x<right;){
+            int sx=((x%tile_w)+tile_w)%tile_w,w=right-x;if(w>tile_w-sx)w=tile_w-sx;
+            draw_texture(d,texture,(DrawRect){source.x+sx,source.y+sy,w,h},(DrawRect){x,y,w,h},color);
+            x+=w;
+        }y+=h;
+    }
+    d->scale=scale;d->x=ox;d->y=oy;
+}

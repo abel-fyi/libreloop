@@ -12,7 +12,7 @@ static const int skin_knob_radii[]={8,9,10,12};
 int theme_draw_init(DrawContext *draw) {
     if(skin_patterns && skin_knobs)return 1;
     /* Left tile: ordered two-tone face dither. Right: cyan one-pixel dots.
-       Generated once, nearest filtered, reused at logical UI scale. */
+       Generated once, nearest filtered, tiled at physical-pixel size with target-origin phase. */
     DrawColor pixels[128*64]={0},knobs[128*32]={0};
     for(int y=0;y<64;y++)for(int x=0;x<128;x++) {
         int order=skin_bayer[y&3][x&3];
@@ -43,10 +43,7 @@ int theme_draw_init(DrawContext *draw) {
 void theme_draw_close(void) { draw_texture_destroy(skin_patterns);draw_texture_destroy(skin_knobs);skin_patterns=skin_knobs=NULL; }
 static void skin_pattern(DrawContext *draw,DrawRect r,int dots) {
     if(!skin_patterns || r.width<=0 || r.height<=0)return;
-    for(float y=0;y<r.height;y+=64)for(float x=0;x<r.width;x+=64) {
-        float w=fminf(64,r.width-x),h=fminf(64,r.height-y);
-        draw_texture(draw,skin_patterns,(DrawRect){dots?64:0,0,w,h},(DrawRect){r.x+x,r.y+y,w,h},(DrawColor){255,255,255,255});
-    }
+    draw_texture_tiled_pixels(draw,skin_patterns,(DrawRect){dots?64:0,0,64,64},r,(DrawColor){255,255,255,255});
 }
 void ui_graph_paper(DrawContext *draw,DrawRect r) {
     draw_rect(draw,r,ui_skin.graph);
@@ -207,6 +204,7 @@ void ui_gradient(DrawContext *draw,DrawRect r,DrawColor base,float strength,int 
         {{r.x,r.y},0,0,light},{{r.x,r.y+r.height},0,0,bl},{{r.x+r.width,r.y+r.height},0,0,dark},
         {{r.x,r.y},0,0,light},{{r.x+r.width,r.y+r.height},0,0,dark},{{r.x+r.width,r.y},0,0,tr}};
     draw_triangles(draw,NULL,vertices,6);
+    if(classic_style)skin_pattern(draw,r,0);
 }
 /* Explicit endpoints for the skin: unlike source-colour clip gradients these
    are not contrast-clamped. Text is chosen against the darkest endpoint. */
@@ -380,7 +378,7 @@ void ui_scrollbar(DrawContext *draw,DrawRect rail,DrawRect thumb,int active) {
     if(classic_style)ui_button_face(draw,thumb,ui_theme.control,active);
     else draw_rect(draw,thumb,active?ui_theme.highlight:ui_theme.secondary);
 }
-void ui_surface(DrawContext *draw,DrawRect rect,DrawColor color) { draw_rect(draw,rect,color); }
+void ui_surface(DrawContext *draw,DrawRect rect,DrawColor color) { draw_rect(draw,rect,color);if(classic_style)skin_pattern(draw,rect,0); }
 void ui_frame(DrawContext *draw,DrawRect rect) {
     ui_panel(draw,rect,ui_theme.surface);
     if(classic_style)draw_border(draw,rect,1,ui_theme.border);

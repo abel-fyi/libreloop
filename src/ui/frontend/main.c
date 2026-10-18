@@ -770,7 +770,7 @@ int main(int argc,char **argv) {
         if(ui.windows.workspace.enabled){ui.input_enabled=!modal && !ui.pattern_popup && !ui.context_kind && !dragging && !captured();workspace_dividers();}
         for(int i=0;i<windows_count(&ui.windows);i++) { ui.input_enabled=!modal && !ui.pattern_popup && !ui.context_kind && !dragging && !ui.sample_drag[0] && !captured(); draw_editor(order[i],scale); }
 
-        host_begin_mode2_d((HostCamera){.zoom=scale}); host_draw_rectangle(0,height-22,width,22,panel); label(fit_text(ui.status,width-16,11),8,height-17,11,ink);
+        host_begin_mode2_d((HostCamera){.zoom=scale}); ui_surface(host_draw(),(DrawRect){0,height-22,width,22},panel); label(fit_text(ui.status,width-16,11),8,height-17,11,ink);
         draw_browser_drag();
         draw_picker_drag();
         draw_popup(); draw_context(); host_end_mode2_d();

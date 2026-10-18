@@ -246,12 +246,11 @@ int button_color(const char *text,int x,int y,int w,int h,int active,DrawColor b
     /* Desktop push buttons retain their neutral face on hover. Selection is
        sunken; only menu choices use the selection fill. Hit bounds unchanged. */
     if(ui.studio_style && menu_item<0)surface=active?ui_theme.highlight:base;
-    ui_surface(host_draw(),(DrawRect){x,y,w,h},surface);
     int list_row=ui.studio_style &&
         ((!memcmp(&base,&ui_theme.browser,sizeof base)) || (!memcmp(&base,&ui_skin.field,sizeof base)));
     if(ui.studio_style && !ui.profile_flat && menu_item<0 && !list_row) {
         ui_button_face(host_draw(),(DrawRect){x,y,w,h},surface,pressed);
-    }
+    } else ui_surface(host_draw(),(DrawRect){x,y,w,h},surface);
     DrawColor foreground=(menu_item>=0?focused:active || highlighted)?theme_foreground(surface):ui.studio_style?theme_foreground(surface):ink;
     int offset=ui.studio_style && pressed?1:0;
     int action=ui.studio_style && !list_row?icon_action(text):-1;
