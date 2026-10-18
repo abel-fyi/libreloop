@@ -8,6 +8,7 @@ typedef struct {
     Rect position,tempo,mode,editors[4],follow,typing,spectrum,levels;
     int compact;
 } StudioToolbar;
+float studio_ui_scale(float width,float height,float preference);
 void studio_workspace_init(Windows *w,float width,float height,float sidebar);
 void studio_workspace_layout(Windows *w,float width,float height,float sidebar);
 void studio_workspace_open(Windows *w,int id);

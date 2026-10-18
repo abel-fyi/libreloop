@@ -80,8 +80,9 @@ static void smoke_scene_prepare(int scene) {
 }
 
 int main(int argc,char **argv) {
-    int smoke_playing=0,smoke_piano_maximized=0;
+    int smoke_playing=0,smoke_piano_maximized=0,smoke_new_project=0;
     float smoke_velocity=0,smoke_mixer_offset=0,smoke_fx_scroll=0;int smoke_seconds=0,smoke_fx_hidden=0,smoke_inserts=0,smoke_routing=0,smoke_fx_count=0;
+    float smoke_ui_scale=0;
     float smoke_rack_zoom=0;int smoke_grid_menu=0,smoke_grid=-1,smoke_workspace=0,smoke_fill=0,smoke_count=0;
     int smoke=0,visual_preview=0,legacy_ui=0,smoke_scene=0,smoke_width=0,smoke_height=0,smoke_popup=0,profile_frames=0,profile_motion=0;
     for(int i=1;i<argc;i++) {
@@ -106,6 +107,8 @@ int main(int argc,char **argv) {
         else if(!strcmp(argv[i],"--profile-flat"))ui.profile_flat=1;
         else if(!strcmp(argv[i],"--profile-motion"))profile_motion=1;
         else if(!strcmp(argv[i],"--smoke-size") && i+1<argc){if(sscanf(argv[++i],"%dx%d",&smoke_width,&smoke_height)!=2)return 1;}
+        else if(!strcmp(argv[i],"--smoke-new-project"))smoke_new_project=1;
+        else if(!strcmp(argv[i],"--smoke-ui-scale") && i+1<argc)smoke_ui_scale=atof(argv[++i]);
         else if(!strcmp(argv[i],"--smoke-popup") && i+1<argc)smoke_popup=atoi(argv[++i]);
         else if(!strcmp(argv[i],"--smoke-scene") && i+1<argc)smoke_scene=atoi(argv[++i]);
         else if(!strcmp(argv[i],"--visual-preview"))visual_preview=1;
@@ -123,7 +126,10 @@ int main(int argc,char **argv) {
     if(smoke_grid_menu<0 || smoke_grid_menu>2 || smoke_grid>=GRID_CHOICES)return 1;
     if(smoke_scene<0 || smoke_scene>24 || (smoke_scene && !smoke))return 1;
     if(smoke_width && (!smoke || smoke_width<900 || smoke_height<562 || smoke_width>3840 || smoke_height>2160))return 1;
-    if(smoke_popup<0 || smoke_popup>13 || (smoke_popup && !smoke))return 1;
+    if(smoke_new_project && !smoke)return 1;
+    if(!isfinite(smoke_ui_scale) || (smoke_ui_scale && (!smoke || smoke_ui_scale<75 || smoke_ui_scale>200)))return 1;
+    if(smoke)ui.ui_scale_preference=smoke_ui_scale/100;
+    if(smoke_popup<0 || smoke_popup>14 || (smoke_popup && !smoke))return 1;
     if(profile_frames && (!smoke || profile_frames<100 || profile_frames>10000))return 1;
     if(ui.profile_flat && !profile_frames)return 1;
     double *profile_times=profile_frames?calloc(profile_frames,sizeof *profile_times):NULL;
@@ -146,7 +152,7 @@ int main(int argc,char **argv) {
         }
     }
 #endif
-    project_new(&ui.project);if(ui.studio_style)ui.project.insert_count=STUDIO_INSERTS; project_document_saved(&ui.document,&ui.project,NULL); history_checkpoint();
+    project_new(&ui.project); project_document_saved(&ui.document,&ui.project,NULL); history_checkpoint();
     for(int c=0;c<CHANNELS;c++) ui.sampler_applied[c]=ui.project.sampler[c];
     unsigned flags=HOST_FLAG_WINDOW_RESIZABLE;
 #ifdef __APPLE__
@@ -168,8 +174,8 @@ int main(int argc,char **argv) {
     int audio_ok=audio_start(&ui.project,ui.samples);
     if(!audio_ok) snprintf(ui.status,sizeof ui.status,"Audio device unavailable. Editing and WAV export are available.");
     ui.app_window=host_window();
-    browser_init(&ui.browser,ui.samples_path); midi_initialize(); theme_init(); if(ui.studio_style){theme_studio();ui.browser_width=238;ui.last_sidebar=238;} file_chooser_locations(ui.browser.config); if(smoke){new_project(1);smoke_scene_prepare(smoke_scene);if(smoke_playing){ui.playing=1;ui.reset=1;}} int frames=0,initialized=0;
-    float studio_piano_width=0,studio_arrangement_width=0;
+    browser_init(&ui.browser,ui.samples_path);if(!smoke && ui.studio_style)ui_scale_load(); midi_initialize(); theme_init(); if(ui.studio_style){theme_studio();ui.browser_width=238;ui.last_sidebar=238;} file_chooser_locations(ui.browser.config); if(smoke){new_project(smoke_new_project?0:1);smoke_scene_prepare(smoke_scene);if(smoke_playing){ui.playing=1;ui.reset=1;}} int frames=0,initialized=0;
+    float studio_piano_width=0,studio_arrangement_width=0,last_ui_scale=0;
     double last_activity=host_get_time();
     while(!ui.document.quit) {
         if(host_window_should_close()) {
@@ -192,6 +198,7 @@ int main(int argc,char **argv) {
         for(int key=32;key<=HOST_KEY_KB_MENU;key++) if(host_is_key_pressed(key) || host_is_key_released(key) || host_is_key_pressed_repeat(key)) last_activity=host_get_time();
         for(int b=0;b<8;b++) { ui.frame_clicks[b]=input_click(host_input(),b); if(ui.frame_clicks[b] || host_is_mouse_button_released(b))last_activity=host_get_time(); }
         float scale=ui_scale();
+        if(scale!=last_ui_scale){studio_piano_width=studio_arrangement_width=0;last_ui_scale=scale;}
         int framebuffer_width,framebuffer_height,window_width,window_height;
         host_framebuffer_size(ui.app_window,&framebuffer_width,&framebuffer_height);
         host_window_size(ui.app_window,&window_width,&window_height);

@@ -2,9 +2,20 @@
 #include "studio_layout.h"
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 #define CHECK(x) do{if(!(x)){fprintf(stderr,"Failed line %d: %s\n",__LINE__,#x);return 1;}}while(0)
 static int overlap(Rect a,Rect b){return a.x<b.x+b.w && b.x<a.x+a.w && a.y<b.y+b.h && b.y<a.y+a.h;}
 int main(void) {
+    CHECK(studio_ui_scale(1448,1086,0)==1);
+    CHECK(studio_ui_scale(3840,2160,2)==2);
+    CHECK(studio_ui_scale(900,562,.75f)==.75f);
+    CHECK(studio_ui_scale(900,562,2)==1);
+    CHECK(studio_ui_scale(1448,1086,1.5f)==1.5f);
+    CHECK(studio_ui_scale(1448,1086,NAN)==1);
+    for(int w=900;w<=3840;w+=73)for(int h=562;h<=2160;h+=67)for(float preference=.75f;preference<=2;preference+=.25f){
+        float scale=studio_ui_scale(w,h,preference);CHECK(w/scale>=899.99f && h/scale>=561.99f && scale<=preference);
+    }
+
     const int sizes[][2]={{900,562},{1024,768},{1200,675},{1280,800},{1448,1086},{1920,1080}};
     for(unsigned n=0;n<sizeof sizes/sizeof *sizes;n++) {
         Windows w;windows_init(&w,sizes[n][0],sizes[n][1]);

@@ -163,11 +163,37 @@ void draw_popup_content(void) {
         return;
     }
     if(ui.pattern_popup==7) {
-        int x=96,y=34,w=ui.studio_style?184:304,h=34;
+        int x=96,y=34,w=ui.studio_style?208:304,h=ui.studio_style?60:34;
         popup_menu_anchor(2,&x,&y);
         if(host_is_key_pressed(HOST_KEY_ESCAPE) || (!ui.popup_opened && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT) && !hover(x,y,w,h))) { ui.pattern_popup=0; return; }
         ui_frame(host_draw(),(DrawRect){x,y,w,h});
         if(button("MIDI / Recording",x+4,y+4,w-8,25,0) && !ui.popup_opened){midi_refresh();open_popup(13);return;}
+        if(ui.studio_style && button("UI Scale...",x+4,y+30,w-8,25,0) && !ui.popup_opened){open_popup(14);return;}
+        return;
+    }
+    if(ui.pattern_popup==14) {
+        float scale=ui_scale(),screen_w=host_get_screen_width()/scale,screen_h=host_get_screen_height()/scale;
+        int w=400,h=208,x=(screen_w-w)/2,y=(screen_h-h)/2;
+        ui_frame(host_draw(),(DrawRect){x,y,w,h});
+        if(ui.studio_style)ui_titlebar(host_draw(),(DrawRect){x,y,w,STUDIO_TITLE},1);
+        label("UI Scale",x+8,y+3,14,ink);
+        if(host_is_key_pressed(HOST_KEY_ESCAPE) || button("x",x+w-24,y+3,18,18,0) ||
+           (!ui.popup_opened && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT) && !hover(x,y,w,h))){ui.pattern_popup=0;return;}
+        float requested=ui.ui_scale_preference>0?ui.ui_scale_preference:scale,next=ui.ui_scale_preference;
+        label(ui.ui_scale_preference==0?host_text_format("Automatic (%.0f%%)",scale*100):(requested>scale+.005f?host_text_format("%.0f%% (using %.0f%%)",requested*100,scale*100):host_text_format("%.0f%%",requested*100)),x+100,y+50,14,ink);
+        if(button("",x+16,y+44,56,28,0))next=fminf(2,fmaxf(.75f,(ceilf(requested*4-.001f)-1)/4));
+        if(button("",x+w-72,y+44,56,28,0))next=fminf(2,(floorf(requested*4+.001f)+1)/4);
+        host_draw_line_ex((DrawPoint){x+38,y+58},(DrawPoint){x+50,y+58},2,ink);
+        host_draw_line_ex((DrawPoint){x+w-50,y+58},(DrawPoint){x+w-38,y+58},2,ink);
+        host_draw_line_ex((DrawPoint){x+w-44,y+52},(DrawPoint){x+w-44,y+64},2,ink);
+        if(hover(x+16,y+44,56,28))snprintf(ui.status,sizeof ui.status,"Smaller interface (minimum 75%%)");
+        if(hover(x+w-72,y+44,56,28))snprintf(ui.status,sizeof ui.status,"Larger interface (maximum 200%%; limited to fit this window)");
+        if(button("Automatic",x+16,y+88,174,28,ui.ui_scale_preference==0))next=0;
+        if(button("100%",x+204,y+88,180,28,ui.ui_scale_preference==1))next=1;
+        label("Whole interface; project zoom is unchanged.",x+16,y+132,12,muted);
+        label(requested>scale+.005f?"Scale limited to fit this window.":"System HiDPI is handled automatically.",x+16,y+154,12,muted);
+        if(button("Close",x+w-100,y+h-34,84,26,0))ui.pattern_popup=0;
+        if(next!=ui.ui_scale_preference){ui.ui_scale_preference=next;if(!ui_scale_save())snprintf(ui.status,sizeof ui.status,"UI scale changed; could not save preference.");}
         return;
     }
     if(ui.pattern_popup==12) {

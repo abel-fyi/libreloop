@@ -2,7 +2,7 @@
 #ifndef LIBRELOOP_MIXER_VIEW_H
 #define LIBRELOOP_MIXER_VIEW_H
 #include <math.h>
-enum { STUDIO_INSERTS=99, STUDIO_FX_SLOTS=9, MIXER_STRIDE=112 };
+enum { STUDIO_FX_SLOTS=9, MIXER_STRIDE=112 };
 typedef struct {
     float width,height,master_x,insert_x,viewport,maximum,offset;
     float fx_top,fx_height,header,controls,fader_top,fader_bottom,route,cable_space;

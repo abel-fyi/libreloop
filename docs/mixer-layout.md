@@ -179,3 +179,33 @@ where serialized project bytes or high bus IDs are compared. Reference fixtures
 and comparison assertions are unchanged. Separate tests cover the eight-insert
 default, batch addition, limits, initialized state, preservation of existing
 settings and save/load of the resulting count.
+
+## UI scale
+
+**View → UI Scale...** provides −/+ in 25% increments (75–200%), an explicit
+100% size and Automatic. Automatic is the default and retains window-based
+scaling, capped at 200%. Requested enlargement is limited to leave at least
+900×562 logical UI units available; the dialog reports the effective percentage
+when limited. Enlarging the window can therefore honor a previously limited
+request. This limit keeps menus and compact editors reachable on small windows.
+
+OS HiDPI density remains independent: the existing framebuffer-to-window ratio
+still controls font rasterization. Manual scale affects drawing, text, pointer
+coordinates, clipping and layout together. On a scale change the workspace's
+viewport-width reference is refreshed, preserving the current arrangement zoom
+and piano span rather than treating the change as a timeline zoom gesture.
+Ordinary window/divider resize behavior remains in place.
+
+The preference is stored atomically in `ui-scale.txt` beside Browser/workspace
+settings, outside projects. Automatic is encoded as zero. Unsupported versions,
+non-finite values and values outside the range are ignored. Changes apply
+immediately without restart. Software captures cover 75%, 150% and a 200%
+request limited by a small window. LCD segments retain a minimum thickness so
+transport numbers remain visible at 75%. Tests check fit bounds, preference persistence
+and invalid input, and verify scaling leaves project bytes unchanged. Native
+mixed-DPI display transitions and physical pointer checks remain unverified.
+
+The old frontend override forcing 99 inserts was removed from startup and
+File → New. The smoke startup test now exercises the actual New workflow and
+asserts eight inserts. Demo/reference rendering comparisons retain an explicit
+100-insert input to preserve their frozen project comparison.

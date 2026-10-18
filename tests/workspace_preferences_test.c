@@ -10,6 +10,13 @@ UiState ui;
 int main(void) {
     snprintf(ui.browser.config,sizeof ui.browser.config,"workspace-prefs/browser.txt");
     windows_init(&ui.windows,1448,1086);studio_workspace_init(&ui.windows,1448,1086,238);
+    ui.ui_scale_preference=1.5f;CHECK(ui_scale_save());ui.ui_scale_preference=0;ui_scale_load();CHECK(ui.ui_scale_preference==1.5f);
+    FILE *scale_file=fopen("workspace-prefs/ui-scale.txt","w");CHECK(scale_file);fputs("1 nan\n",scale_file);fclose(scale_file);
+    ui_scale_load();CHECK(ui.ui_scale_preference==1.5f);
+    scale_file=fopen("workspace-prefs/ui-scale.txt","w");CHECK(scale_file);fputs("1 9\n",scale_file);fclose(scale_file);
+    ui_scale_load();CHECK(ui.ui_scale_preference==1.5f);
+    ui.ui_scale_preference=0;CHECK(ui_scale_save());ui.ui_scale_preference=1;ui_scale_load();CHECK(ui.ui_scale_preference==0);
+    remove("workspace-prefs/ui-scale.txt");
     ui.windows.workspace.editor_right=1;ui.windows.workspace.editor_width=.57f;ui.windows.workspace.mixer=.31f;ui.windows.workspace.piano=.4f;workspace_save();
     ui.windows.workspace.mixer=.2f;ui.windows.workspace.piano=.3f;workspace_load();
     CHECK(ui.windows.workspace.mixer==.31f && ui.windows.workspace.piano==.4f && ui.windows.workspace.editor_right && ui.windows.workspace.editor_width==.57f);

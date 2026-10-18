@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "studio_layout.h"
 #include <math.h>
+float studio_ui_scale(float width,float height,float preference) {
+    float automatic=fminf(2,fmaxf(1,fminf(width/1448.f,height/1086.f)));
+    float requested=isfinite(preference) && preference>=.75f && preference<=2?preference:automatic;
+    return fminf(requested,fminf(width/900.f,height/562.f));
+}
 void studio_windows_layout(Windows *w,float width,float height,float sidebar) {
     float left=sidebar+6,top=60,available=height-top-24;
     int inspector=width-left-346>=440;

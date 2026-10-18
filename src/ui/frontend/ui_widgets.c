@@ -39,7 +39,7 @@ static float lcd_units(const char *text) {
 }
 static void lcd_digits(const char *text,float x,float y,float h,DrawColor color) {
     static const unsigned char digits[]={0x3f,0x06,0x5b,0x4f,0x66,0x6d,0x7d,0x07,0x7f,0x6f};
-    float w=h*.50f,t=fmaxf(1,roundf(h*.09f));
+    float w=h*.50f,t=fmaxf(1/fmaxf(.01f,ui_scale()),roundf(h*.09f));
     for(const char *p=text;*p;p++) {
         if(*p==':' || *p=='.') {
             host_draw_rectangle_rec((DrawRect){x,y+(*p==':'?h*.25f:h-t),t,t},color);

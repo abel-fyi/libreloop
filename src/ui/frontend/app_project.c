@@ -306,7 +306,7 @@ void new_project(int demo) {
     Project next; Sample fresh[CHANNELS]={0},processed[CHANNELS]={0};
     if(demo) { project_demo(&next); samples_default(fresh); }
     else project_new(&next);
-    if(ui.studio_style)next.insert_count=STUDIO_INSERTS;
+
     for(int c=0;c<CHANNELS;c++) {
         if((demo && c<4 && !fresh[c].data) || !sample_process(fresh[c],next.sampler[c],&processed[c])) {
             for(int i=0;i<CHANNELS;i++) { sample_free(fresh[i]); sample_free(processed[i]); }
@@ -470,6 +470,22 @@ int project_file_commit(const char *chosen) {
 static int workspace_path(char path[LL_PATH_CAPACITY]) {
     const char *slash=strrchr(ui.browser.config,'/');if(!slash)return 0;
     return snprintf(path,LL_PATH_CAPACITY,"%.*s/workspace.txt",(int)(slash-ui.browser.config),ui.browser.config)<LL_PATH_CAPACITY;
+}
+static int ui_scale_path(char path[LL_PATH_CAPACITY]) {
+    const char *slash=strrchr(ui.browser.config,'/');if(!slash)return 0;
+    return snprintf(path,LL_PATH_CAPACITY,"%.*s/ui-scale.txt",(int)(slash-ui.browser.config),ui.browser.config)<LL_PATH_CAPACITY;
+}
+void ui_scale_load(void) {
+    char path[LL_PATH_CAPACITY];if(!ui_scale_path(path))return;
+    FILE *f=platform_file_open(path,"r");if(!f)return;
+    int version;float value;char extra;
+    int count=fscanf(f,"%d%f %c",&version,&value,&extra);fclose(f);
+    if(count==2 && version==1 && isfinite(value) && (value==0 || (value>=.75f && value<=2)))ui.ui_scale_preference=value;
+}
+int ui_scale_save(void) {
+    char path[LL_PATH_CAPACITY];if(!ui_scale_path(path))return 0;
+    AtomicFile out;if(!atomic_file_open(&out,path))return 0;
+    fprintf(out.file,"1 %.9g\n",ui.ui_scale_preference);return atomic_file_commit(&out);
 }
 void workspace_load(void) {
     char path[LL_PATH_CAPACITY];if(!workspace_path(path))return;

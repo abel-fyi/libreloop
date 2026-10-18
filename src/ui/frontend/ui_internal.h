@@ -159,7 +159,8 @@ typedef struct {
     int rack_scroll,context_kind,context_target,context_opened,instrument_replace_scroll;
     DrawPoint context_position;
     int pattern_popup,popup_opened,rename_pattern,rename_select_all,popup_drag;
-    DrawPoint popup_position[14],popup_offset;
+    DrawPoint popup_position[15],popup_offset;
+    float ui_scale_preference;
     char rename_text[PATTERN_NAME],folder_text[LL_PATH_CAPACITY],number_text[64];
     float *number_target,number_low,number_high,number_default;
     const char *number_name;
@@ -362,6 +363,8 @@ void transport_stop(void);
 void workspace_view_scale(float *arrangement_width,float *piano_width);
 void workspace_dividers(void);
 void workspace_load(void);
+void ui_scale_load(void);
+int ui_scale_save(void);
 void workspace_save(void);
 void effect_editor(float width,float height);
 void effect_slot_menu(int bus,int slot);
