@@ -210,6 +210,18 @@ int mixer_effect_window(int bus,int slot) {
     for(int id=5;id<WINDOW_CAPACITY;id++)if(ui.windows.editors[id].visible && ui.effect_windows[id].bus==bus && ui.effect_windows[id].slot==slot)return id;
     return -1;
 }
+/* Effect panels share the instrument knob size; displays retain their space. */
+static Rect effect_panel_size(int type,int modern_delay) {
+    switch(type) {
+    case EFFECT_CHORUS:return (Rect){330,164,330,164};
+    case EFFECT_PHASER:case EFFECT_FLANGER:return (Rect){600,176,600,176};
+    case EFFECT_REVERB:return (Rect){640,176,640,176};
+    case EFFECT_TUBE:return (Rect){440,176,440,176};
+    case EFFECT_DYNAMICS:return (Rect){960,570,820,480};
+    case EFFECT_DELAY:return modern_delay?(Rect){680,184,620,184}:(Rect){420,340,400,340};
+    default:return (Rect){620,380,480,330};
+    }
+}
 void mixer_effect_open(int bus,int slot,int toggle) {
     int type=ui.project.effect_type[bus][slot];if(!type)return;
     ui.eq_bus=bus;ui.eq_slot=slot;ui.effect_slot=slot;
@@ -218,12 +230,13 @@ void mixer_effect_open(int bus,int slot,int toggle) {
     if(id>=5){if(toggle)studio_workspace_hide(&ui.windows,id);else windows_focus(&ui.windows,id);return;}
     for(id=5;id<WINDOW_CAPACITY && ui.windows.editors[id].visible;id++){}
     if(id==WINDOW_CAPACITY){snprintf(ui.status,sizeof ui.status,"Close an effect editor before opening another (16 open).");return;}
-    StudioWorkspace *s=&ui.windows.workspace;float width=type==EFFECT_PHASER?680:type==EFFECT_FLANGER?680:type==EFFECT_DYNAMICS?960:type==EFFECT_REVERB?760:type==EFFECT_TUBE?480:type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?740:420):type==EFFECT_CHORUS?360:620,height=type==EFFECT_FLANGER?220:type==EFFECT_PHASER?220:type==EFFECT_DYNAMICS?570:type==EFFECT_REVERB?220:type==EFFECT_TUBE?220:type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?220:340):type==EFFECT_CHORUS?280:380;
+    Rect size=effect_panel_size(type,ui.project.delay[bus][slot].model);
+    StudioWorkspace *s=&ui.windows.workspace;float width=size.x,height=size.y;
     width=fminf(width,s->width-s->sidebar-10);height=fminf(height,s->height-84);
     int count=0;for(int i=5;i<WINDOW_CAPACITY;i++)count+=ui.windows.editors[i].visible;
     ui.effect_windows[id].bus=bus;ui.effect_windows[id].slot=slot;ui.effect_windows[id].band=0;
     if(type==EFFECT_DYNAMICS)ui.dynamics_band[id]=3;
-    ui.windows.editors[id].minw=type==EFFECT_FLANGER?600:type==EFFECT_PHASER?600:type==EFFECT_DYNAMICS?640:type==EFFECT_REVERB?640:type==EFFECT_TUBE?440:type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?620:400):type==EFFECT_CHORUS?330:480;ui.windows.editors[id].minh=type==EFFECT_FLANGER?220:type==EFFECT_PHASER?220:type==EFFECT_DYNAMICS?480:type==EFFECT_REVERB?220:type==EFFECT_TUBE?220:type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?220:340):type==EFFECT_CHORUS?280:330;
+    ui.windows.editors[id].minw=size.w;ui.windows.editors[id].minh=size.h;
     ui.windows.editors[id].rect=(Rect){fmaxf(s->sidebar+6,s->width-width-12-count*20),fminf(70+count*22,s->height-24-height),width,height};
     ui.windows.workspace.floating[id]=1;ui.windows.editors[id].maximized=0;
     windows_focus(&ui.windows,id);
@@ -278,13 +291,13 @@ static void delay_editor_compact(float width,float height,int bus,int slot) {
     const char *groups[]={"INPUT","FEEDBACK","TIME","DRY"};
     for(int i=0;i<4;i++) {
         float x=edges[i]*width,w=(edges[i+1]-edges[i])*width;
-        host_draw_rectangle(x+1,24,w-2,154,i&1?cell:bg);
+        host_draw_rectangle(x+1,24,w-2,124,i&1?cell:bg);
         label(groups[i],x+8,30,13,muted);
-        if(i)host_draw_line(x,24,x,178,ui_theme.border);
+        if(i)host_draw_line(x,24,x,148,ui_theme.border);
     }
     const char *modes[]={"Normal","Invert","P.pong"};
     for(unsigned i=0;i<3;i++) {
-        float x=width*.22f+8,y=66+i*30;
+        float x=width*.22f+8,y=54+i*30;
         if(button(modes[i],x,y,width*.12f-8,24,d->mode==i))d->mode=i;
     }
     const float centers[]={.055f,.165f,.40f,.53f,.6825f,.8075f,.935f};
@@ -293,7 +306,7 @@ static void delay_editor_compact(float width,float height,int bus,int slot) {
     const int styles[]={KNOB_PAN,KNOB_NORMAL,KNOB_NORMAL,KNOB_LOGARITHMIC,KNOB_MAGNETIC,KNOB_PAN,KNOB_NORMAL};
     const char *names[]={"PAN","VOL","VOL","CUT","TIME","OFS","VOL"};
     for(int i=0;i<7;i++) {
-        float x=centers[i]*width,radius=fminf(26,width/28);
+        float x=centers[i]*width,radius=i==4?18:PANEL_KNOB_RADIUS;
         const ParameterDescriptor *info=parameter_descriptor(ids[i]);
         if(i==4) {
             unsigned count;const float *marks=control_step_marks(&count);
@@ -306,19 +319,19 @@ static void delay_editor_compact(float width,float height,int bus,int slot) {
                 /* Endpoints share the knob's existing full-turn position. */
                 if((next-fraction)*2*PI*ring>8) {
                     float sub=-PI*.5f+(fraction+next)*PI;
-                    circle(x+cosf(sub)*ring,99+sinf(sub)*ring,.7f,muted);
+                    circle(x+cosf(sub)*ring,85+sinf(sub)*ring,.7f,muted);
                 }
-                circle(x+cosf(angle)*ring,99+sinf(angle)*ring,active?2.3f:1.7f,active?accent:muted);
+                circle(x+cosf(angle)*ring,85+sinf(angle)*ring,active?2.3f:1.7f,active?accent:muted);
             }
         }
-        knob_sized(x,99,values[i],info->low,info->high,info->initial,info->name,styles[i],radius);
-        label(names[i],x-text_width(names[i],12)/2,136,12,ink);
+        knob_sized(x,85,values[i],info->low,info->high,info->initial,info->name,styles[i],radius);
+        label(names[i],x-text_width(names[i],12)/2,116,12,ink);
         float shown=displayed_value(values[i],*values[i]);
         const char *number=i==4?host_text_format("%.3g",shown):i==3?host_text_format("%.0f",shown):host_text_format("%.0f%%",shown*100);
-        label(number,x-text_width(number,11)/2,157,11,muted);
-        if(i==4 && (hover(x-radius-8,66,2*radius+16,65) || ui.control_drag==values[i]))
+        label(number,x-text_width(number,11)/2,134,11,muted);
+        if(i==4 && (hover(x-radius-8,59,2*radius+16,52) || ui.control_drag==values[i]))
             snprintf(ui.status,sizeof ui.status,"Delay time: %.5g steps / %.3f ms | magnetic rhythm marks; Ctrl = fine, unsnapped",shown,delay_time_ms((DelaySettings){.model=1,.steps=shown},ui.project.bpm));
-        if(i==5 && hover(x-radius,99-radius,2*radius,2*radius))
+        if(i==5 && hover(x-radius,85-radius,2*radius,2*radius))
             snprintf(ui.status,sizeof ui.status,"Stereo offset: negative delays Left, positive delays Right; center = equal times");
     }
     float bottom=height-30;
@@ -415,11 +428,11 @@ static void dynamics_editor(float width,float height,int bus,int slot){
     const char *names[]={"PRE","POST","ATT","REL","REL 2","SUSTAIN","WIDTH","SAT","CEIL","LOW","HIGH","CUT","LMH MIX","MIX"};
     for(int i=0;i<14;i++){
         int off=offsets[i];const ParameterDescriptor *info=parameter_descriptor(off==-5?PARAM_EFFECT_MIX:PARAM_DYNAMICS_FIRST+(off<0?off+4:4+selected*12+off));
-        float x=204+(width-212)*((i%7)+.5f)/7,ky=tabs+50+(i/7)*76;
-        knob_sized(x,ky,values[i],info->low,info->high,info->initial,info->name,i==6?KNOB_WIDTH:info->kind==PARAMETER_LOGARITHMIC?KNOB_LOGARITHMIC:KNOB_NORMAL,17);
-        label(names[i],x-text_width(names[i],12)/2,ky+26,12,ink);
+        float x=204+(width-212)*((i%7)+.5f)/7,ky=tabs+46+(i/7)*66;
+        knob_sized(x,ky,values[i],info->low,info->high,info->initial,info->name,i==6?KNOB_WIDTH:info->kind==PARAMETER_LOGARITHMIC?KNOB_LOGARITHMIC:KNOB_NORMAL,PANEL_KNOB_RADIUS);
+        label(names[i],x-text_width(names[i],12)/2,ky+22,12,ink);
         float shown=displayed_value(values[i],*values[i]);const char *number=i==0 || i==1 || i==8?host_text_format("%+.1f",shown):i>=2 && i<=5?host_text_format("%.0fms",shown):i==9 || i==10 || i==11?host_text_format("%.0fHz",shown):host_text_format("%.0f%%",shown*100);
-        label(number,x-text_width(number,12)/2,ky+44,12,muted);
+        label(number,x-text_width(number,12)/2,ky+38,12,muted);
     }
     float footer=height-30;
     if(button("Bypass",8,footer,92,24,ui.project.effect_bypass[bus][slot]))ui.project.effect_bypass[bus][slot]^=1;
@@ -441,12 +454,12 @@ static void modulation_editor(float width,float height,int bus,int slot){
         float *value=i==count-1?&ui.project.effect_mix[bus][slot]:(float *)(phaser?phaser_parameter(p,i):flanger_parameter(f,i));
         const ParameterDescriptor *info=parameter_descriptor(id);const char *name=phaser?phaser_names[i]:flanger_names[i];
         float x=width*(i+.5f)/count;
-        knob_sized(x,95,value,info->low,info->high,i==count-1?.5f:info->initial,info->name,info->kind==PARAMETER_LOGARITHMIC?KNOB_LOGARITHMIC:i==3?KNOB_PAN:KNOB_NORMAL,22);
-        label(name,x-text_width(name,12)/2,132,12,ink);
+        knob_sized(x,82,value,info->low,info->high,i==count-1?.5f:info->initial,info->name,info->kind==PARAMETER_LOGARITHMIC?KNOB_LOGARITHMIC:i==3?KNOB_PAN:KNOB_NORMAL,PANEL_KNOB_RADIUS);
+        label(name,x-text_width(name,12)/2,106,12,ink);
         float shown=displayed_value(value,*value);
         const char *number=i==0?host_text_format("%.2f Hz",shown):i==1?(phaser?host_text_format("%.0f Hz",shown):host_text_format("%.2f ms",shown)):phaser && i==2?host_text_format("%.2f oct",shown):phaser && i==5?host_text_format("%.0f",shown):i==3?host_text_format("%+.0f%%",shown*100):host_text_format("%.0f%%",shown*100);
-        label(number,x-text_width(number,12)/2,153,12,muted);
-        if(i==4 && (hover(x-23,72,46,46) || ui.control_drag==value))snprintf(ui.status,sizeof ui.status,"Stereo spread: LFO phase offset, 0%% keeps a centered source centered; 100%% = 180 degrees");
+        label(number,x-text_width(number,12)/2,126,12,muted);
+        if(i==4 && (hover(x-13,69,26,26) || ui.control_drag==value))snprintf(ui.status,sizeof ui.status,"Stereo spread: LFO phase offset, 0%% keeps a centered source centered; 100%% = 180 degrees");
     }
     float bottom=height-30;
     if(button("Bypass",8,bottom,92,24,ui.project.effect_bypass[bus][slot]))ui.project.effect_bypass[bus][slot]^=1;
@@ -457,7 +470,7 @@ static void modulation_editor(float width,float height,int bus,int slot){
 void effect_editor(float width,float height) {
     int bus=ui.eq_bus,slot=ui.eq_slot;
     if(bus<0 || bus>ui.project.insert_count || slot<0 || slot>=EFFECT_SLOTS)return;
-    if(ui.windows.workspace.enabled)ui.windows.editors[ui.knob_context].minw=ui.project.effect_type[bus][slot]==EFFECT_FLANGER?600:ui.project.effect_type[bus][slot]==EFFECT_PHASER?600:ui.project.effect_type[bus][slot]==EFFECT_DYNAMICS?820:ui.project.effect_type[bus][slot]==EFFECT_REVERB?640:ui.project.effect_type[bus][slot]==EFFECT_TUBE?440:ui.project.effect_type[bus][slot]==EFFECT_DELAY?(ui.project.delay[bus][slot].model?620:400):ui.project.effect_type[bus][slot]==EFFECT_CHORUS?330:480;
+    if(ui.windows.workspace.enabled){Rect size=effect_panel_size(ui.project.effect_type[bus][slot],ui.project.delay[bus][slot].model);ui.windows.editors[ui.knob_context].minw=size.w;ui.windows.editors[ui.knob_context].minh=size.h;}
     if(!ui.project.effect_type[bus][slot]){label("Select an effect slot in the Mixer.",16,40,13,muted);return;}
     if(ui.project.effect_type[bus][slot]==EFFECT_PHASER || ui.project.effect_type[bus][slot]==EFFECT_FLANGER){modulation_editor(width,height,bus,slot);return;}
     if(ui.project.effect_type[bus][slot]==EFFECT_DYNAMICS){dynamics_editor(width,height,bus,slot);return;}
@@ -470,12 +483,12 @@ void effect_editor(float width,float height) {
         for(int i=0;i<8;i++) {
             const ParameterDescriptor *info=parameter_descriptor(ids[i]);float x=width*(i+.5f)/8;
             int style=i==1 || i==2?KNOB_LOGARITHMIC:i==4?KNOB_WIDTH:KNOB_NORMAL;
-            knob_sized(x,95,values[i],info->low,info->high,i==7?.25f:info->initial,info->name,style,22);
-            label(names[i],x-text_width(names[i],12)/2,132,12,ink);
+            knob_sized(x,82,values[i],info->low,info->high,i==7?.25f:info->initial,info->name,style,PANEL_KNOB_RADIUS);
+            label(names[i],x-text_width(names[i],12)/2,106,12,ink);
             float shown=displayed_value(values[i],*values[i]);
             const char *number=i==1?host_text_format("%.2f s",shown):i==2?(shown>=19999?"Open":host_text_format("%.0f Hz",shown)):i==3 || i==6?(i==6 && shown==0?"Off":host_text_format("%.0f ms",shown)):host_text_format("%.0f%%",shown*100);
-            label(number,x-text_width(number,12)/2,153,12,muted);
-            if(i==6 && (hover(x-23,72,46,46) || ui.control_drag==values[i]))snprintf(ui.status,sizeof ui.status,"Reverb gate: wet-only hold after input above -48 dBFS; Off = natural decay");
+            label(number,x-text_width(number,12)/2,126,12,muted);
+            if(i==6 && (hover(x-13,69,26,26) || ui.control_drag==values[i]))snprintf(ui.status,sizeof ui.status,"Reverb gate: wet-only hold after input above -48 dBFS; Off = natural decay");
         }
         float bottom=height-30;
         if(button("Bypass",8,bottom,92,24,ui.project.effect_bypass[bus][slot]))ui.project.effect_bypass[bus][slot]^=1;
@@ -498,12 +511,12 @@ void effect_editor(float width,float height) {
         const char *names[]={"DRIVE","TONE","MIX","OUTPUT"};
         for(int i=0;i<4;i++) {
             const ParameterDescriptor *info=parameter_descriptor(ids[i]);float x=width*(i+.5f)/4;
-            knob_sized(x,95,values[i],info->low,info->high,i==2?1:info->initial,info->name,i==1?KNOB_LOGARITHMIC:KNOB_NORMAL,24);
-            label(names[i],x-text_width(names[i],12)/2,132,12,ink);
+            knob_sized(x,82,values[i],info->low,info->high,i==2?1:info->initial,info->name,i==1?KNOB_LOGARITHMIC:KNOB_NORMAL,PANEL_KNOB_RADIUS);
+            label(names[i],x-text_width(names[i],12)/2,106,12,ink);
             float shown=displayed_value(values[i],*values[i]);
             const char *number=i==1?(shown>TUBE_TONE_MAX?"None":host_text_format("%.0f Hz",shown)):i==2?host_text_format("%.0f%%",shown*100):host_text_format("%.1f dB",shown);
-            label(number,x-text_width(number,12)/2,153,12,muted);
-            if(i==1 && (hover(x-25,70,50,50) || ui.control_drag==values[i]))snprintf(ui.status,sizeof ui.status,shown>TUBE_TONE_MAX?"Tube Tone: None | Tone low-pass bypassed":"Tube Tone: %.0f Hz | turn past 20000 Hz for None",shown);
+            label(number,x-text_width(number,12)/2,126,12,muted);
+            if(i==1 && (hover(x-13,69,26,26) || ui.control_drag==values[i]))snprintf(ui.status,sizeof ui.status,shown>TUBE_TONE_MAX?"Tube Tone: None | Tone low-pass bypassed":"Tube Tone: %.0f Hz | turn past 20000 Hz for None",shown);
         }
         float bottom=height-30;
         if(button("Bypass",8,bottom,92,24,ui.project.effect_bypass[bus][slot]))ui.project.effect_bypass[bus][slot]^=1;
@@ -537,17 +550,23 @@ void effect_editor(float width,float height) {
     }
     if(ui.project.effect_type[bus][slot]!=EFFECT_CHORUS){eq_editor(width,height);return;}
     ChorusSettings *s=&ui.project.chorus[bus][slot];
-    label(fit_text(host_text_format("%s / Slot %d",mixer_name(bus),slot+1),width-24,13),12,32,13,ink);
-    float col=(width-32)/3;
-    knob(20+col*.5f,100,&s->rate,.05f,5,.513f,"Chorus rate (Hz)");
-    knob(20+col*1.5f,100,&s->depth,0,8,1.85f,"Chorus depth (ms)");
-    knob(20+col*2.5f,100,&ui.project.effect_mix[bus][slot],0,1,.5f,"Chorus mix");
-    const char *names[]={"Rate","Depth","Mix"};for(int i=0;i<3;i++)label(names[i],20+col*(i+.5f)-16,125,12,muted);
-    label(host_text_format("%.2f Hz",displayed_value(&s->rate,s->rate)),20,153,12,muted);
-    label(host_text_format("%.2f ms",displayed_value(&s->depth,s->depth)),20+col,153,12,muted);
-    if(button("Bypass",12,190,width-24,26,ui.project.effect_bypass[bus][slot]))ui.project.effect_bypass[bus][slot]^=1;
-    if(button("Load",12,228,(width-28)/2,26,0))preset_action(PRESET_CHORUS,bus,slot,0);
-    if(button("Save",16+(width-28)/2,228,(width-28)/2,26,0))preset_action(PRESET_CHORUS,bus,slot,1);
+    label("Chorus / stereo modulation",12,32,13,ink);
+    float *values[]={&s->rate,&s->depth,&ui.project.effect_mix[bus][slot]};
+    const unsigned ids[]={PARAM_CHORUS_RATE,PARAM_CHORUS_DEPTH,PARAM_EFFECT_MIX};
+    const char *names[]={"RATE","DEPTH","MIX"};
+    for(int i=0;i<3;i++) {
+        const ParameterDescriptor *info=parameter_descriptor(ids[i]);float x=width*(i+.5f)/3;
+        knob_sized(x,72,values[i],info->low,info->high,i==2?.5f:info->initial,info->name,KNOB_NORMAL,PANEL_KNOB_RADIUS);
+        label(names[i],x-text_width(names[i],12)/2,94,12,ink);
+        float shown=displayed_value(values[i],*values[i]);
+        const char *number=host_text_format(i==0?"%.2f Hz":i==1?"%.2f ms":"%.0f%%",i==2?shown*100:shown);
+        label(number,x-text_width(number,12)/2,114,12,muted);
+    }
+    float bottom=height-30;
+    if(button("Bypass",8,bottom,92,24,ui.project.effect_bypass[bus][slot]))ui.project.effect_bypass[bus][slot]^=1;
+    if(button("Load",width-172,bottom,78,24,0))preset_action(PRESET_CHORUS,bus,slot,0);
+    if(button("Save",width-88,bottom,80,24,0))preset_action(PRESET_CHORUS,bus,slot,1);
+
 }
 static void mixer_slots(float fx,float height) {
     int bus=ui.mixer_selected;device_button(0,fx+8,TITLE+4,MIXER_PANEL-16);

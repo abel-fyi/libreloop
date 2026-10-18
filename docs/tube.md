@@ -2,7 +2,7 @@
 
 Tube is a built-in stereo, tube-inspired saturator. Add it through a mixer
 strip's `+` menu, then choose **Add Tube**. It uses four existing shared knobs
-in a 480×220 logical-unit floating editor (minimum 440×220):
+in a compact 440×176 logical-unit floating editor:
 
 | Control | Range | Default |
 |---|---|---|

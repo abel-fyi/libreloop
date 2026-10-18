@@ -2,8 +2,8 @@
 
 Add Delay from a mixer strip's `+` menu. New instances use a compact horizontal
 editor inspired by the owner's local `fruity-delay.png` reference. Seven knobs
-are grouped into Input, Feedback, Time and Dry. The editor opens at 740×220 logical
-units, with a 620×220 minimum; resizing does not add a second row of controls.
+are grouped into Input, Feedback, Time and Dry. The editor opens at 680×184 logical
+units, with a 620×184 minimum; resizing does not add a second row of controls.
 Existing shared knob drawing, value menus, automation, MIDI learn, presets and
 window behavior remain inside LibreLoop. A separate Luice library is not planned.
 

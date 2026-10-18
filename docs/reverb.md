@@ -2,7 +2,7 @@
 
 Add **Reverb** through a mixer strip's `+` menu. It is an original algorithmic
 stereo reverb, voiced for a dense, moving tail and bright percussion. The single
-row of shared knobs opens at 760×220 logical units, with a 640×220 minimum.
+row of shared instrument-sized knobs opens at 640×176 logical units.
 
 Space stops the transport and source voices while allowing effect tails to decay.
 The explicit Stop All Audio button clears voices and effect history immediately.

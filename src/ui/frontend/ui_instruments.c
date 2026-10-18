@@ -131,7 +131,7 @@ static void fm_control_spaced(FMSettings *s,unsigned id,const char *caption,int 
     int fixed_coarse=id>=PARAM_DX7_FIRST && id<PARAM_DX7_FIRST+126 &&
         (id-PARAM_DX7_FIRST)%21==18 && s->dx7.value[id-PARAM_DX7_FIRST-1];
     int style=fixed_coarse?KNOB_FIXED_COARSE:logarithmic?KNOB_LOGARITHMIC:info->low<0?KNOB_CENTER:KNOB_NORMAL;
-    if(spacious)knob_sized(x,y,value,info->low,info->high,info->initial,info->name,style,12);
+    if(spacious)knob_sized(x,y,value,info->low,info->high,info->initial,info->name,style,PANEL_KNOB_RADIUS);
     else knob_style(x,y,value,info->low,info->high,info->initial,info->name,style);
     if(ui.control_drag==value && logarithmic) ui.control_logarithmic=1;
     int caption_font=spacious?14:ui.studio_style?10:11,value_font=spacious?13:ui.studio_style?9:10;

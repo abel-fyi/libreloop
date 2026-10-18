@@ -74,7 +74,7 @@ static void smoke_scene_prepare(int scene) {
         if(type==EFFECT_CHORUS)effect_descriptor(type)->defaults(&ui.project.chorus[1][0]);
         else effect_descriptor(type)->defaults(&ui.project.eq[1][0]);
         ui.project.effect_mix[1][0]=type==EFFECT_CHORUS?.5f:1;
-        if(scene==11){ui.eq_bus=1;ui.eq_slot=0;}
+        if(scene==9 || scene==11){ui.eq_bus=1;ui.eq_slot=0;}
     }
 }
 
@@ -213,7 +213,7 @@ int main(int argc,char **argv) {
                 if(piano_visible_rows()<13)ui.piano_top=fmaxf(piano_min_top(),60+piano_visible_rows()*.5f);
             }
             if(smoke_scene && !ui.studio_style)windows_focus(&ui.windows,smoke_scene>=9 && smoke_scene<=11?3:4);
-            if(smoke_scene==11 || smoke_scene==15 || smoke_scene==16 || smoke_scene==17 || smoke_scene==18 || smoke_scene==19 || smoke_scene==20 || smoke_scene==21 || smoke_scene==22 || smoke_scene==23){if(ui.windows.workspace.enabled)mixer_effect_open(ui.eq_bus,ui.eq_slot,0);else windows_focus(&ui.windows,5);}
+            if(smoke_scene==9 || smoke_scene==11 || smoke_scene==15 || smoke_scene==16 || smoke_scene==17 || smoke_scene==18 || smoke_scene==19 || smoke_scene==20 || smoke_scene==21 || smoke_scene==22 || smoke_scene==23){if(ui.windows.workspace.enabled)mixer_effect_open(ui.eq_bus,ui.eq_slot,0);else windows_focus(&ui.windows,5);}
             if(profile_frames && !ui.studio_style){ui.windows.editors[0].visible=0;windows_focus(&ui.windows,2);windows_focus(&ui.windows,3);windows_focus(&ui.windows,4);}
             if(smoke_popup==11)project_file_action(4);
             else if(smoke_popup==2)begin_rename();

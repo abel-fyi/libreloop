@@ -122,3 +122,25 @@ All 146 tests passed; five focused Mixer tests also passed after the compact
 lane-spacing correction. Release build and strict signature checks passed.
 Normal/compact software captures: `../baseline-artifacts/cable-lanes/`.
 Native display quality, hands-on routing feel and performance remain unverified.
+
+## Compact effect editors
+
+Effect panels use the same shared 12-unit-radius knob as the spacious FM and
+sampler controls. Delay TIME retains an 18-unit radius for its snapping ring;
+the compressor monitor speed stays at 10. Drawing, drag sensitivity, fine
+control, reset, automation and MIDI handling use the existing knob implementation.
+
+Default logical window sizes: Chorus 330×164; Tube 440×176; Phaser/Flanger
+600×176; Reverb 640×176; current Delay 680×184 (minimum width 620). Chorus now
+has a single footer row and readouts for all three parameters. Other single-row
+effects share tighter knob/label/readout spacing. EQ already uses small knobs
+and retains its graph. The compressor retains its graph and history dimensions,
+with smaller knobs and tighter spacing between its two control rows.
+
+These are approved geometry changes: control centers and knob hit areas move
+and resize with their panels. Parameter ranges, drag scaling and DSP are
+unchanged. Geometry assertions were updated to the new sizes; behavioral
+assertions remain intact. Software captures cover Chorus, Delay, Tube, Reverb,
+Dynamics, Phaser and Flanger at 900×562. Native pointer use and HiDPI appearance
+remain hands-on checks. No new assets or drawing effects were added; rendering
+cost has not been measured.
