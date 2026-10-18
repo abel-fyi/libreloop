@@ -14,7 +14,7 @@ static const int skin_knob_radii[]={8,9,10,12};
 static DrawColor graph_pixel(int x,int y){return !(x%4) && !(y%4)?(DrawColor){0,146,207,48}:(DrawColor){0,0,0,0};}
 int theme_draw_init(DrawContext *draw) {
     if(skin_patterns && skin_knobs)return 1;
-    /* One shared dotted material across graph paper and UI surfaces, below text. */
+    /* Graph paper is separate from palette-limited material shading. */
     DrawColor pixels[64*64]={0},knobs[128*32]={0};
     for(int y=0;y<64;y++)for(int x=0;x<64;x++)pixels[y*64+x]=graph_pixel(x,y);
     /* Small pixel-shaded faces use their own compact atlas. Angle/pointer and
@@ -201,24 +201,26 @@ void ui_bevel(DrawContext *draw,DrawRect r,int inset) {
     draw_hairline(draw,(DrawPoint){inner.x,inner.y+inner.height-1},(DrawPoint){inner.x+inner.width-1,inner.y+inner.height-1},bottom);
     draw_hairline(draw,(DrawPoint){inner.x+inner.width-1,inner.y},(DrawPoint){inner.x+inner.width-1,inner.y+inner.height-1},bottom);
 }
-/* Two interpolated triangles, independent of pixel size: no bitmap or strip loop. */
+/* Shared source-color material. Luice dithers native-pixel palette shades;
+   the legacy reference path retains its interpolated triangles. */
 void ui_gradient(DrawContext *draw,DrawRect r,DrawColor base,float strength,int horizontal) {
     if(r.width<=0 || r.height<=0)return;
     DrawColor light={(int)(base.r+(255-base.r)*strength),(int)(base.g+(255-base.g)*strength),(int)(base.b+(255-base.b)*strength),base.a};
     DrawColor dark={(int)(base.r*(1-strength)),(int)(base.g*(1-strength)),(int)(base.b*(1-strength)),base.a};
     /* Keep the original foreground contrast throughout dynamic source colors. */
     if(theme_foreground(base).r==0)dark=base;else light=base;
+    if(classic_style && draw_palette_enabled(draw)){draw_material_gradient(draw,r,light,dark,horizontal);return;}
     DrawColor tr=horizontal?dark:light,bl=horizontal?light:dark;
     DrawVertex vertices[]={
         {{r.x,r.y},0,0,light},{{r.x,r.y+r.height},0,0,bl},{{r.x+r.width,r.y+r.height},0,0,dark},
         {{r.x,r.y},0,0,light},{{r.x+r.width,r.y+r.height},0,0,dark},{{r.x+r.width,r.y},0,0,tr}};
     draw_triangles(draw,NULL,vertices,6);
-    if(classic_style)skin_pattern(draw,r);
 }
 /* Explicit endpoints for the skin: unlike source-colour clip gradients these
    are not contrast-clamped. Text is chosen against the darkest endpoint. */
 static void skin_gradient(DrawContext *draw,DrawRect r,DrawColor a,DrawColor b) {
     if(r.width<=0 || r.height<=0)return;
+    if(classic_style && draw_palette_enabled(draw)){draw_material_gradient(draw,r,a,b,0);return;}
     DrawVertex v[]={{{r.x,r.y},0,0,a},{{r.x,r.y+r.height},0,0,b},{{r.x+r.width,r.y+r.height},0,0,b},
         {{r.x,r.y},0,0,a},{{r.x+r.width,r.y+r.height},0,0,b},{{r.x+r.width,r.y},0,0,a}};
     draw_triangles(draw,NULL,v,6);
@@ -229,7 +231,6 @@ static DrawColor skin_offset(DrawColor c,int amount) {
 void ui_panel(DrawContext *draw,DrawRect r,DrawColor color) {
     if(!classic_style){draw_rect(draw,r,color);return;}
     skin_gradient(draw,r,skin_offset(color,9),skin_offset(color,-12));
-    skin_pattern(draw,r);
 }
 void ui_button_face(DrawContext *draw,DrawRect r,DrawColor color,int pressed) {
     if(!classic_style){draw_rect(draw,r,color);return;}
@@ -239,7 +240,6 @@ void ui_button_face(DrawContext *draw,DrawRect r,DrawColor color,int pressed) {
         draw_rect(draw,(DrawRect){r.x+r.width,r.y+2,2,r.height-2},shadow);
     }
     skin_gradient(draw,r,skin_offset(color,pressed?-13:23),skin_offset(color,pressed?4:-22));
-    skin_pattern(draw,r);
     ui_bevel(draw,r,pressed);
     if(r.width>8 && r.height>8 && !pressed)
         draw_hairline(draw,(DrawPoint){r.x+3,r.y+3},(DrawPoint){r.x+r.width-4,r.y+3},skin_offset(color,40));
@@ -301,7 +301,6 @@ void ui_titlebar(DrawContext *draw,DrawRect r,int focused) {
     DrawColor c=focused?ui_theme.title_focus:ui_theme.title;
     if(!classic_style){draw_rect(draw,r,c);return;}
     skin_gradient(draw,r,skin_offset(c,23),skin_offset(c,-10));
-    skin_pattern(draw,r);
     draw_hairline(draw,(DrawPoint){r.x+2,r.y+1},(DrawPoint){r.x+r.width-3,r.y+1},(DrawColor){184,189,195,255});
     draw_hairline(draw,(DrawPoint){r.x,r.y+r.height-1},(DrawPoint){r.x+r.width-1,r.y+r.height-1},(DrawColor){44,48,53,255});
 }
@@ -387,7 +386,7 @@ void ui_scrollbar(DrawContext *draw,DrawRect rail,DrawRect thumb,int active) {
     if(classic_style)ui_button_face(draw,thumb,ui_theme.control,active);
     else draw_rect(draw,thumb,active?ui_theme.highlight:ui_theme.secondary);
 }
-void ui_surface(DrawContext *draw,DrawRect rect,DrawColor color) { draw_rect(draw,rect,color);if(classic_style)skin_pattern(draw,rect); }
+void ui_surface(DrawContext *draw,DrawRect rect,DrawColor color) { draw_rect(draw,rect,color); }
 void ui_frame(DrawContext *draw,DrawRect rect) {
     ui_panel(draw,rect,ui_theme.surface);
     if(classic_style)draw_border(draw,rect,1,ui_theme.border);

@@ -178,3 +178,12 @@ Native Retina appearance and compositor/display transitions remain unverified.
 All 158 Release tests pass across the full run and targeted theme rerun. The
 initial theme check sampled a new cyan dot when checking gray title color;
 it now samples between dots, preserving the original neutrality assertion.
+
+## Palette-limited Luice materials
+
+The decorative surface-dot treatment above is superseded by Luice's fixed
+64-color paint palette and native-pixel ordered gradients. Flat fills remain
+flat; dithering represents intermediate material shades instead of adding grain
+to every surface. Graph dots remain a separate affordance. See
+[Luice](luice.md) for the enforced paint/material rules, compositor limitations,
+cache budget and current verification and measurements.

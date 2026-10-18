@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "theme.h"
+#include "draw_palette.h"
 #include <SDL3/SDL.h>
 #include <stdio.h>
 #include <string.h>
@@ -170,7 +171,7 @@ static int check_material_density(void){
         if(graph)ui_graph_paper(draw,(DrawRect){0,0,100,100});else ui_surface(draw,(DrawRect){0,0,100,100},(DrawColor){128,128,128,255});draw_flush(draw);
         if(!draw_read_rgba(draw,reference,80,64))return 0;
         int low=255,high=0;for(int i=0;i<80*64;i++){int c=reference[i*4+(graph?2:0)];if(c<low)low=c;if(c>high)high=c;}
-        if(high-low<8)return 0;
+        if(graph?high-low<8:high!=low)return 0;
         for(int density=1;density<=3;density++)for(unsigned i=0;i<sizeof scales/sizeof *scales;i++)for(int moved=0;moved<2;moved++){
             draw_pattern_density(draw,density);draw_transform(draw,scales[i],moved?.37f:0,moved?.83f:0);draw_clear(draw,(DrawColor){0,0,0,255});
             if(graph)ui_graph_paper(draw,(DrawRect){0,0,100,100});else ui_surface(draw,(DrawRect){0,0,100,100},(DrawColor){128,128,128,255});draw_flush(draw);
@@ -181,10 +182,29 @@ static int check_material_density(void){
     }
     draw_pattern_density(draw,1);draw_transform(draw,1,0,0);return 1;
 }
+static int check_luice_palette(void){
+    unsigned char pixels[80*64*4];const float scales[]={.75f,1,1.25f,1.5f,2};
+    draw_palette_enable(draw,1);
+    for(unsigned k=0;k<sizeof scales/sizeof *scales;k++)for(int horizontal=0;horizontal<2;horizontal++){
+        draw_transform(draw,scales[k],.37f,.83f);draw_clear(draw,(DrawColor){13,29,57,255});
+        draw_material_gradient(draw,(DrawRect){0,0,120,120},(DrawColor){52,58,66,255},(DrawColor){211,217,223,255},horizontal);
+        draw_rect(draw,(DrawRect){4,4,10,10},(DrawColor){124,127,130,255});draw_flush(draw);
+        if(!draw_read_rgba(draw,pixels,80,64))return 0;
+        int seen[64]={0},count=0;
+        for(int i=0;i<80*64;i++){
+            DrawColor c={pixels[i*4],pixels[i*4+1],pixels[i*4+2],255};int found=-1;
+            for(int j=0;j<64;j++)if(same(c,luice_palette_color(j))){found=j;break;}
+            if(found<0)return 0;if(!seen[found]){seen[found]=1;count++;}
+        }
+        if(count<3)return 0;
+    }
+    for(int i=0;i<64;i++)for(int y=0;y<4;y++)for(int x=0;x<4;x++)if(!same(luice_palette_color(i),luice_palette_map(luice_palette_color(i),x,y,1)))return 0;
+    draw_palette_enable(draw,0);draw_transform(draw,1,0,0);return 1;
+}
 int main(int argc,char **argv) {
     int render=argc>1 && !strcmp(argv[1],"--render");
     if(render) { CHECK(SDL_Init(0));surface=SDL_CreateSurface(80,64,SDL_PIXELFORMAT_RGBA32);CHECK(surface);renderer=SDL_CreateSoftwareRenderer(surface);CHECK(renderer);draw=draw_create(renderer);CHECK(draw); }
-    if(render)CHECK(check_pixel_pattern());
+    if(render){CHECK(check_pixel_pattern());CHECK(check_luice_palette());}
     theme_init();
     CHECK(same(ui_theme.background,(DrawColor){9,7,15,255}));
     CHECK(contrast(ui_theme.selected_text,ui_theme.highlight)>=4.5f);

@@ -167,6 +167,7 @@ int main(int argc,char **argv) {
         host_set_window_icon(logo_image); host_unload_image(logo_image);
     }
     circles_init(); arcs_init(); cables_init();
+    draw_palette_enable(host_draw(),ui.studio_style);
     if(ui.studio_style && !theme_draw_init(host_draw()))fprintf(stderr,"Desktop skin texture unavailable.\n");
     host_set_window_min_size(900,ui.studio_style?562:506);
     if(ui.studio_style && !smoke)platform_window_fit_display(host_window());

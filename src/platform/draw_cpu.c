@@ -2,6 +2,7 @@
 /* Phase5 experiment only: immediate CPU RGBA rasterization, SDL final blit.
    Sampling/raster fidelity is evaluated, not assumed equal to hardware SDL. */
 #include "draw.h"
+#include "draw_palette.h"
 #include "draw_cpu_stats.h"
 #include <SDL3/SDL.h>
 #include <math.h>
@@ -11,7 +12,7 @@ struct DrawTexture {DrawColor *pixels;int width,height,linear;};
 struct DrawContext {
     SDL_Renderer *renderer;SDL_Texture *present;
     DrawColor *frame,*previous;int width,height,have_previous;
-    DrawTexture *target;float scale,x,y;int pattern_step;
+    DrawTexture *target;float scale,x,y;int pattern_step,palette;
     int left,top,right,bottom,clipped;
     DrawCpuStats stats;
 };
@@ -43,12 +44,15 @@ static DrawColor blend(DrawColor dst,DrawColor src) {
 }
 DrawContext *draw_create(void *native){if(!native)return NULL;DrawContext *d=calloc(1,sizeof *d);if(!d)return NULL;d->renderer=native;d->scale=1;if(!dimensions(d)){draw_destroy(d);return NULL;}return d;}
 void draw_destroy(DrawContext *d){if(d){free(d->frame);free(d->previous);if(d->present)SDL_DestroyTexture(d->present);free(d);}}
+void draw_palette_enable(DrawContext *d,int enabled){d->palette=enabled;}
+int draw_palette_enabled(const DrawContext *d){return d->palette;}
 void draw_pattern_density(DrawContext *d,float density){d->pattern_step=isfinite(density)?(int)roundf(fmaxf(1,fminf(8,density))):1;}
 int draw_pattern_pixel_size(const DrawContext *d){return d->pattern_step>0?d->pattern_step:1;}
 void draw_transform(DrawContext *d,float scale,float x,float y){d->scale=scale;d->x=x;d->y=y;}
-void draw_clear(DrawContext *d,DrawColor c){if(!dimensions(d))return;int w,h;DrawColor *p=pixels(d,&w,&h);if(p)for(size_t i=0;i<(size_t)w*h;i++)p[i]=c;}
+void draw_clear(DrawContext *d,DrawColor c){if(d->palette)c=luice_palette_map(c,0,0,0);if(!dimensions(d))return;int w,h;DrawColor *p=pixels(d,&w,&h);if(p)for(size_t i=0;i<(size_t)w*h;i++)p[i]=c;}
 void draw_clip(DrawContext *d,const DrawRect *r){d->clipped=r!=NULL;if(r){d->left=(int)r->x;d->top=(int)r->y;d->right=d->left+(int)r->width;d->bottom=d->top+(int)r->height;}}
 void draw_rect(DrawContext *d,DrawRect rect,DrawColor c) {
+    if(d->palette)c=luice_palette_map(c,0,0,0);
     int w,h,l,t,r,b;DrawColor *p=pixels(d,&w,&h);if(!p || rect.width<=0 || rect.height<=0)return;
     bounds(d,w,h,&l,&t,&r,&b);DrawPoint a=point(d,(DrawPoint){rect.x,rect.y}),z=point(d,(DrawPoint){rect.x+rect.width,rect.y+rect.height});
     int left=(int)ceilf(a.x-.5f),top=(int)ceilf(a.y-.5f),right=(int)ceilf(z.x-.5f),bottom=(int)ceilf(z.y-.5f);
@@ -92,6 +96,7 @@ void draw_triangles(DrawContext *d,DrawTexture *texture,const DrawVertex *vertic
             if(e0<0 || (e0==0 && !top_left(v.point,c.point)) || e1<0 || (e1==0 && !top_left(c.point,a.point)) || e2<0 || (e2==0 && !top_left(a.point,v.point)))continue;
             float f0=e0/area,f1=e1/area,f2=e2/area;DrawColor tex=sample(texture,a.u*f0+v.u*f1+c.u*f2,a.v*f0+v.v*f1+c.v*f2);
             DrawColor color={byte((a.color.r*f0+v.color.r*f1+c.color.r*f2)*tex.r/255),byte((a.color.g*f0+v.color.g*f1+c.color.g*f2)*tex.g/255),byte((a.color.b*f0+v.color.b*f1+c.color.b*f2)*tex.b/255),byte((a.color.a*f0+v.color.a*f1+c.color.a*f2)*tex.a/255)};
+            if(d->palette)color=luice_palette_map(color,x,y,1);
             p[(size_t)y*w+x]=blend(p[(size_t)y*w+x],color);
         }
     }
@@ -100,7 +105,7 @@ void draw_line(DrawContext *d,DrawPoint a,DrawPoint b,float width,DrawColor c) {
     float dx=b.x-a.x,dy=b.y-a.y,length=sqrtf(dx*dx+dy*dy);if(length<=0 || width<=0)return;float k=width/(2*length);DrawPoint n={-k*dy,k*dx};
     DrawVertex v[]={{{a.x+n.x,a.y+n.y},0,0,c},{{a.x-n.x,a.y-n.y},0,0,c},{{b.x+n.x,b.y+n.y},0,0,c},{{b.x+n.x,b.y+n.y},0,0,c},{{a.x-n.x,a.y-n.y},0,0,c},{{b.x-n.x,b.y-n.y},0,0,c}};draw_triangles(d,NULL,v,6);
 }
-DrawTexture *draw_texture_create(DrawContext *d,int w,int h,const void *rgba,int target){(void)d;(void)target;if(w<1 || h<1)return NULL;DrawTexture *t=calloc(1,sizeof *t);if(!t)return NULL;t->pixels=calloc((size_t)w*h,sizeof *t->pixels);if(!t->pixels){free(t);return NULL;}t->width=w;t->height=h;if(rgba)memcpy(t->pixels,rgba,(size_t)w*h*4);return t;}
+DrawTexture *draw_texture_create(DrawContext *d,int w,int h,const void *rgba,int target){(void)d;(void)target;if(w<1 || h<1)return NULL;DrawTexture *t=calloc(1,sizeof *t);if(!t)return NULL;t->pixels=calloc((size_t)w*h,sizeof *t->pixels);if(!t->pixels){free(t);return NULL;}t->width=w;t->height=h;if(rgba){memcpy(t->pixels,rgba,(size_t)w*h*4);if(d->palette)for(int y=0;y<h;y++)for(int x=0;x<w;x++)t->pixels[y*w+x]=luice_palette_map(t->pixels[y*w+x],x,y,1);}return t;}
 void draw_texture_destroy(DrawTexture *t){if(t){free(t->pixels);free(t);}}
 void draw_texture_filter(DrawTexture *t,int linear){if(t)t->linear=linear;}
 void draw_target(DrawContext *d,DrawTexture *t){d->target=t;d->clipped=0;}
@@ -161,4 +166,16 @@ void draw_texture_tiled_pixels(DrawContext *d,DrawTexture *texture,DrawRect sour
         }y+=h;
     }
     d->scale=scale;d->x=ox;d->y=oy;
+}
+
+void draw_material_gradient(DrawContext *d,DrawRect area,DrawColor a,DrawColor b,int horizontal){
+    int w,h,l,t,r,bottom;DrawColor *p=pixels(d,&w,&h);if(!p)return;
+    DrawPoint from=point(d,(DrawPoint){area.x,area.y}),to=point(d,(DrawPoint){area.x+area.width,area.y+area.height});
+    int left=(int)ceilf(from.x),top=(int)ceilf(from.y),right=(int)ceilf(to.x),end=(int)ceilf(to.y);
+    bounds(d,w,h,&l,&t,&r,&bottom);
+    for(int y=top>t?top:t;y<end && y<bottom;y++)for(int x=left>l?left:l;x<right && x<r;x++){
+        int length=horizontal?right-left:end-top;float f=length>1?(horizontal?x-left:y-top)/(float)(length-1):0;
+        DrawColor c={a.r+(b.r-a.r)*f,a.g+(b.g-a.g)*f,a.b+(b.b-a.b)*f,a.a+(b.a-a.a)*f};
+        p[(size_t)y*w+x]=blend(p[(size_t)y*w+x],luice_palette_map(c,x,y,1));
+    }
 }
