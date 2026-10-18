@@ -9,7 +9,17 @@ int main(void){
     for(int db=-72;db<=12;db++)CHECK(fabsf(dynamics_level_db(dynamics_level_position(db))-db)<.001f);
     CHECK(dynamics_level_position(0)>.49f && dynamics_level_position(0)<.51f);
     DynamicsSettings s=dynamics_default();CHECK(dynamics_valid(s));for(int i=0;i<3;i++)CHECK(dynamics_valid(dynamics_factory(i)));
-    for(int i=-90;i<=12;i++)CHECK(fabsf(dynamics_curve(&s.band[0],i)-i)<.0001f);
+    for(int i=-90;i<=12;i++)CHECK(fabsf(dynamics_curve(&s.band[0],i)-fminf(i,0))<.0001f);
+    for(int band=0;band<4;band++)for(int db=-72;db<=24;db++)CHECK(fabsf(dynamics_curve(&s.band[band],db)-fminf(db,0))<.0001f);
+    for(int segment=0;segment<2;segment++){
+        DynamicsBand copy=s.band[0];float x=dynamics_curve_handle_input(&copy,segment);
+        float lo=dynamics_level_position(copy.points[segment].x),hi=dynamics_level_position(copy.points[segment+1].x);
+        CHECK(fabsf(dynamics_level_position(x)-(lo+hi)*.5f)<1e-6f);
+        float straight=dynamics_curve(&copy,x);dynamics_curve_bend(&copy,segment,.5f);CHECK(dynamics_curve(&copy,x)>straight);
+        dynamics_curve_bend(&copy,segment,-.5f);CHECK(dynamics_curve(&copy,x)<straight);
+        CHECK(dynamics_curve(&copy,copy.points[segment].x)==copy.points[segment].y);
+        CHECK(dynamics_curve(&copy,copy.points[segment+1].x)==copy.points[segment+1].y);
+    }
     DynamicsBand *b=&s.band[0];int p=dynamics_curve_insert(b,-18,-18);CHECK(p==1);dynamics_curve_move(b,p,-18,-18,0,0);dynamics_curve_bend(b,p,.5f);CHECK(dynamics_valid(s));CHECK(dynamics_curve_delete(b,p));CHECK(!dynamics_curve_delete(b,0));
     for(int i=0;i<8;i++)dynamics_curve_insert(b,-60+i*8,-60+i*8);CHECK(b->count==8);CHECK(dynamics_curve_insert(b,-10,-10)<0);CHECK(dynamics_valid(s));
     s=dynamics_default();s.band[3].points[1]=(DynamicsPoint){-12,-12,0,0};s.band[3].points[2].y=-6;CHECK(fabsf(dynamics_curve(&s.band[3],0)+9)<.001f);

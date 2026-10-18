@@ -343,7 +343,7 @@ static void dynamics_editor(float width,float height,int bus,int slot){
     for(int i=0;i<(int)b->count;i++){
         DrawPoint p={dyn_x(b->points[i].x,curve),dyn_y(b->points[i].y,curve)};circle(p.x,p.y,4,color);
         if(hover(p.x-8,p.y-8,16,16))point_hit=i;
-        if(i<(int)b->count-1){float x=(b->points[i].x+b->points[i+1].x)*.5f;DrawPoint h={dyn_x(x,curve),dyn_y(dynamics_curve(b,x),curve)};circle(h.x,h.y,4,color);circle(h.x,h.y,2,(DrawColor){32,40,40,255});if(hover(h.x-7,h.y-7,14,14))bend_hit=i;}
+        if(i<(int)b->count-1){float x=dynamics_curve_handle_input(b,i);DrawPoint h={dyn_x(x,curve),dyn_y(dynamics_curve(b,x),curve)};circle(h.x,h.y,4,color);circle(h.x,h.y,2,(DrawColor){32,40,40,255});if(hover(h.x-7,h.y-7,14,14))bend_hit=i;}
     }
     int in_curve=hover(curve.x-8,curve.y-8,curve.width+16,curve.height+16);
     float input=dynamics_level_db((ui.mouse.x-curve.x)/curve.width),output=dynamics_level_db(1-(ui.mouse.y-curve.y)/curve.height);
@@ -357,7 +357,7 @@ static void dynamics_editor(float width,float height,int bus,int slot){
     }
     if(ui.dynamics_drag && ui.dynamics_drag_window==window){
         if(!host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT) || ui.dynamics_drag_band!=selected)ui.dynamics_drag=0;
-        else if(ui.dynamics_drag_kind)dynamics_curve_bend(b,ui.dynamics_drag-1,ui.dynamics_drag_x+(ui.mouse.y-ui.dynamics_drag_y)/(host_is_key_down(HOST_KEY_LEFT_CONTROL)?600:120));
+        else if(ui.dynamics_drag_kind)dynamics_curve_bend(b,ui.dynamics_drag-1,ui.dynamics_drag_x+(ui.dynamics_drag_y-ui.mouse.y)/(host_is_key_down(HOST_KEY_LEFT_CONTROL)?600:120));
         else dynamics_curve_move(b,ui.dynamics_drag-1,input,output,host_is_key_down(HOST_KEY_LEFT_CONTROL),host_is_key_down(HOST_KEY_LEFT_SHIFT));
     }
     if(ui.dynamics_view[window]){

@@ -23,10 +23,13 @@ let peaks pass; this version does not promise an absolute output ceiling.
 - Drag filled points freely; endpoints keep their input position. Shift locks
   output, Ctrl locks input. Input points cannot cross or approach within 0.25 dB.
 - Drag hollow segment handles vertically to bend; Ctrl makes bending finer.
-  Right-click a bend to reset tension. Wheel over it cycles Single, S, Hold,
+  Right-click a bend to reset tension. Handles sit halfway along each segment
+  in displayed coordinates. Positive/negative bows work on horizontal segments
+  too; dragging up raises the curve, dragging down lowers it. Wheel over it cycles Single, S, Hold,
   Stairs and Smooth Stairs. The status bar reports this interaction.
 - Copy/Paste copies the selected band's curve between bands or instances.
-  Reset Curve restores the unity diagonal. Existing undo/redo groups a drag.
+  Reset Curve restores a unity diagonal up to 0 dB and a horizontal 0 dB ceiling
+  above it, the default for all four bands. Existing undo/redo groups a drag.
 - Each band remembers its own curve, pre/post gains, attack, release, second
   release, sustain, stereo width, Peak/RMS mode and optional soft saturation.
 - Mode cycles On, Comp Off (width, pre/post and saturation still work), Muted
@@ -60,9 +63,10 @@ faster spreads transients out; the newest data stays at the right edge. Speed
 is a per-editor display preference and does not alter audio or presets. Bands
 view shows the actual split.
 
-Load opens the existing file chooser and creates Neutral, Drum Punch and Gentle
-Glue factory presets if absent. Neutral is a unity curve, without saturation or
-low cut. Drum Punch narrows bass to mono, uses firmer curves and 65% LMH Mix.
+Load opens the existing file chooser and creates 0 dB Ceiling, Drum Punch and
+Gentle Glue factory presets if absent. 0 dB Ceiling is the default for all bands:
+a unity diagonal up to 0 dB, horizontal above, without saturation or low cut.
+Previously generated Neutral presets and saved project curves are preserved. Drum Punch narrows bass to mono, uses firmer curves and 65% LMH Mix.
 Gentle Glue uses milder curves and wider highs. Save persists all four curves
 and settings. The 52 numeric parameters support existing automation/MIDI mapping;
 curve topology itself is edited and saved, not automated.
@@ -83,7 +87,7 @@ power with a one-pole Sustain averaging time for RMS. Attack/release smooth the
 amplitude envelope with exp(−1/(sample_rate*time)). The dB transfer curve sets
 linked gain; Release 2 optionally smooths its recovery. Sustain is an exponential
 averaging time, not an exact sliding RMS window. Gain changes are bounded to
-−72…+24 dB per dynamics stage. The curve uses power bends, optional S interpolation,
+−72…+24 dB per dynamics stage. The curve uses signed quadratic bows, optional S interpolation,
 hold, and stepped variants. It is not claimed to reproduce Maximus's proprietary
 curve law or detector response exactly.
 
@@ -140,7 +144,7 @@ of left) in 0.101 / 0.104 / 0.101 process CPU seconds for Neutral / Drum Punch /
 Gentle Glue. That corresponds to approximately 1.01 / 1.04 / 1.01% of one core
 for this controlled probe; it is not a live callback deadline or whole-app CPU
 measurement. Runtime storage is **18,888 bytes per prepared instance** on this
-ABI. The complete app executable is **5,589,392 bytes**; its size delta and the
+ABI. The complete app executable is **5,589,472 bytes**; its size delta and the
 per-frame UI rendering cost have not been isolated. No image assets were added.
 
 Display regression checks cover the centered ¼×/1×/4× speed mapping, a fixed

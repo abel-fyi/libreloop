@@ -13,6 +13,10 @@ float dynamics_meter_height(const DynamicsBand *band,float input_db,float positi
     if(input_db<=-71.5f || position<0 || position>dynamics_level_position(input_db))return 0;
     return dynamics_level_position(dynamics_curve(band,dynamics_level_db(position)));
 }
+float dynamics_curve_handle_input(const DynamicsBand *band,int segment){
+    if(segment<0 || segment>=(int)band->count-1)return -72;
+    return dynamics_level_db((dynamics_level_position(band->points[segment].x)+dynamics_level_position(band->points[segment+1].x))*.5f);
+}
 int dynamics_curve_insert(DynamicsBand *b,float x,float y){int n=(int)b->count;if(n>=DYNAMICS_POINTS || !isfinite(x) || !isfinite(y) || x<=-72 || x>=12)return -1;int at=1;while(at<n && b->points[at].x<x)at++;if(x-b->points[at-1].x<.25f || b->points[at].x-x<.25f)return -1;memmove(&b->points[at+1],&b->points[at],(n-at)*sizeof *b->points);b->points[at]=(DynamicsPoint){x,clamp(y,-72,12),0,0};b->count++;return at;}
 int dynamics_curve_delete(DynamicsBand *b,int p){int n=(int)b->count;if(p<=0 || p>=n-1)return 0;memmove(&b->points[p],&b->points[p+1],(n-p-1)*sizeof *b->points);b->points[n-1]=(DynamicsPoint){0};b->count--;return 1;}
 void dynamics_curve_move(DynamicsBand *b,int p,float x,float y,int lock_x,int lock_y){int n=(int)b->count;if(p<0 || p>=n || !isfinite(x) || !isfinite(y))return;if(!lock_x && p>0 && p<n-1)b->points[p].x=clamp(x,b->points[p-1].x+.25f,b->points[p+1].x-.25f);if(!lock_y)b->points[p].y=clamp(y,-72,12);}

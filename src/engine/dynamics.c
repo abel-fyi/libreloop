@@ -25,7 +25,7 @@ static float amp(float x){return powf(10,x*.05f);}
 static float time_coefficient(float ms){return ms<=0?0:expf(-1/(RATE*ms*.001f));}
 DynamicsSettings dynamics_default(void){
     DynamicsSettings s={.low=200,.high=2500,.lowcut=0,.blend=1};
-    for(int b=0;b<4;b++) {DynamicsBand *p=&s.band[b];p->attack=10;p->release=150;p->sustain=10;p->width=1;p->ceiling=0;p->count=3;p->points[0]=(DynamicsPoint){-72,-72,0,0};p->points[1]=(DynamicsPoint){0,0,0,0};p->points[2]=(DynamicsPoint){12,12,0,0};}
+    for(int b=0;b<4;b++) {DynamicsBand *p=&s.band[b];p->attack=10;p->release=150;p->sustain=10;p->width=1;p->ceiling=0;p->count=3;p->points[0]=(DynamicsPoint){-72,-72,0,0};p->points[1]=(DynamicsPoint){0,0,0,0};p->points[2]=(DynamicsPoint){12,0,0,0};}
     return s;
 }
 DynamicsSettings dynamics_factory(unsigned index){DynamicsSettings s=dynamics_default();
@@ -33,7 +33,7 @@ DynamicsSettings dynamics_factory(unsigned index){DynamicsSettings s=dynamics_de
     if(index==2){s.band[0].width=0;s.band[2].width=1.3f;for(int b=0;b<4;b++){s.band[b].points[1]=(DynamicsPoint){-12,-12,.2f,0};s.band[b].points[2].y=0;s.band[b].attack=25;s.band[b].release=250;}}
     return s;
 }
-const char *dynamics_factory_name(unsigned i){static const char *names[]={"Neutral","Drum Punch","Gentle Glue"};return names[i<3?i:0];}
+const char *dynamics_factory_name(unsigned i){static const char *names[]={"0 dB Ceiling","Drum Punch","Gentle Glue"};return names[i<3?i:0];}
 const float *dynamics_parameter(const DynamicsSettings *s,unsigned n){if(n<4){switch(n){case 0:return &s->low;case 1:return &s->high;case 2:return &s->lowcut;default:return &s->blend;}}n-=4;if(n>=48)return NULL;const DynamicsBand *b=&s->band[n/12];switch(n%12){case 0:return &b->pre;case 1:return &b->post;case 2:return &b->attack;case 3:return &b->release;case 4:return &b->release2;case 5:return &b->sustain;case 6:return &b->width;case 7:return &b->mode;case 8:return &b->solo;case 9:return &b->rms;case 10:return &b->ceiling;default:return &b->saturation;}}
 int dynamics_valid(DynamicsSettings s){
     for(unsigned i=0;i<DYNAMICS_PARAMETERS;i++){float v=*dynamics_parameter(&s,i);if(!isfinite(v))return 0;}
@@ -50,7 +50,13 @@ float dynamics_curve(const DynamicsBand *b,float x){
     DynamicsPoint a=b->points[i],z=b->points[i+1];float t=(x-a.x)/(z.x-a.x),k=a.bend;
     if(a.shape==2)t=0;
     else if(a.shape>=3){float steps=2+floorf((k+1)*15);float q=t*steps;t=(floorf(q)+(a.shape==4?(q-floorf(q))*(q-floorf(q))*(3-2*(q-floorf(q))):0))/steps;}
-    else {if(a.shape==1)t=t*t*(3-2*t);if(k>=0)t=powf(t,1+4*k);else t=1-powf(1-t,1-4*k);}
+    else {
+        if(a.shape==1)t=t*t*(3-2*t);
+        /* Bend the segment itself, including horizontal segments. Endpoint-only
+           easing cannot bend a flat line because both endpoint values match. */
+        float span=fmaxf(fabsf(z.y-a.y),z.x-a.x);
+        return clamp(a.y+(z.y-a.y)*t+2*k*span*t*(1-t),-72,12);
+    }
     return a.y+(z.y-a.y)*t;
 }
 static void filter(Biquad *f,float hz,int high){
