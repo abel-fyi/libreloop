@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: GPL-3.0-only
+#include "dynamics.h"
+#include "dynamics_curve.h"
+#include <math.h>
+#include <stdio.h>
+#include <string.h>
+#define CHECK(x) do{if(!(x)){fprintf(stderr,"line %d: %s\n",__LINE__,#x);return 1;}}while(0)
+int main(void){
+    for(int db=-72;db<=12;db++)CHECK(fabsf(dynamics_level_db(dynamics_level_position(db))-db)<.001f);
+    CHECK(dynamics_level_position(0)>.49f && dynamics_level_position(0)<.51f);
+    DynamicsSettings s=dynamics_default();CHECK(dynamics_valid(s));for(int i=0;i<3;i++)CHECK(dynamics_valid(dynamics_factory(i)));
+    for(int i=-90;i<=12;i++)CHECK(fabsf(dynamics_curve(&s.band[0],i)-i)<.0001f);
+    DynamicsBand *b=&s.band[0];int p=dynamics_curve_insert(b,-18,-18);CHECK(p==1);dynamics_curve_move(b,p,-18,-18,0,0);dynamics_curve_bend(b,p,.5f);CHECK(dynamics_valid(s));CHECK(dynamics_curve_delete(b,p));CHECK(!dynamics_curve_delete(b,0));
+    for(int i=0;i<8;i++)dynamics_curve_insert(b,-60+i*8,-60+i*8);CHECK(b->count==8);CHECK(dynamics_curve_insert(b,-10,-10)<0);CHECK(dynamics_valid(s));
+    s=dynamics_default();s.band[3].points[1]=(DynamicsPoint){-12,-12,0,0};s.band[3].points[2].y=-6;CHECK(fabsf(dynamics_curve(&s.band[3],0)+9)<.001f);
+    s.band[3].points[1].x=NAN;CHECK(!dynamics_valid(s));s=dynamics_default();
+    Dynamics *d=dynamics_create(),*other=dynamics_create();CHECK(d && other);float reference[4096][2];
+    for(int i=0;i<48000;i++){float f[2]={0};dynamics_process(d,&s,1,f);CHECK(f[0]==0 && f[1]==0);}
+    /* LR4 complementary split: unity magnitude across the spectrum. */
+    const float frequencies[]={30,100,200,500,1000,2500,5000,15000};
+    for(unsigned k=0;k<sizeof frequencies/sizeof *frequencies;k++){dynamics_reset(d);double in=0,out=0;for(int i=0;i<48000;i++){float x=.1f*sinf(i*6.28318530718f*frequencies[k]/48000);float f[2]={x,x};dynamics_process(d,&s,1,f);CHECK(f[0]==f[1] && isfinite(f[0]));if(i>24000){in+=x*x;out+=f[0]*f[0];}}CHECK(fabs(10*log10(out/in))<.05);}
+    /* Exact bypass and stereo-linked gain, including unbalanced stereo input. */
+    dynamics_reset(d);for(int i=0;i<1000;i++){float f[2]={.2f,-.1f};dynamics_process(d,&s,0,f);CHECK(f[0]==.2f && f[1]==-.1f);}
+    s=dynamics_default();s.band[3].points[1]=(DynamicsPoint){-18,-18,0,0};s.band[3].points[2].y=-18;s.band[3].attack=0;s.band[3].release=100;
+    dynamics_reset(d);double compressed=0;for(int i=0;i<48000;i++){float x=.8f*sinf(i*.1f);float f[2]={x,x*.5f};dynamics_process(d,&s,1,f);CHECK(fabsf(f[1]*2-f[0])<1e-6f);if(i>24000)compressed=fmax(compressed,fabsf(f[0]));}CHECK(compressed<.14);
+    DynamicsMonitor m;dynamics_monitor(d,&m);CHECK(m.count==187 && m.gain[3][m.count-1]<-10 && m.output[3][m.count-1]<m.input[3][m.count-1]);
+    /* Block-independent changes and fresh state isolation. */
+    for(int pass=0;pass<2;pass++){Dynamics *r=pass?other:d;dynamics_reset(r);s=dynamics_factory(1);for(int i=0;i<4096;i++){if(i==1024)s.band[0].width=.5f;if(i==2048)s.band[3].attack=2;if(i==3072)s.band[3].points[1].y=-30;float f[2]={.1f*sinf(i*.1f),.2f*cosf(i*.07f)};dynamics_process(r,&s,1,f);CHECK(isfinite(f[0]) && isfinite(f[1]));if(!pass)memcpy(reference[i],f,sizeof f);else CHECK(!memcmp(reference[i],f,sizeof f));}}
+    s=dynamics_default();s.band[0].width=0;s.band[0].solo=1;dynamics_reset(d);for(int i=0;i<4800;i++){float f[2]={sinf(i*.01f),0};dynamics_process(d,&s,1,f);CHECK(f[0]==f[1]);}
+    dynamics_reset(d);dynamics_monitor(d,&m);CHECK(!m.count);float silence[2]={0};dynamics_process(d,&s,1,silence);CHECK(!silence[0] && !silence[1]);
+    /* RMS/dual-release response and repeated crossover sweeps stay finite. */
+    s=dynamics_factory(1);s.band[3].rms=1;s.band[3].release2=450;dynamics_reset(d);
+    for(int i=0;i<48000;i++){if(!(i%127)){s.low=40+(i%960);s.high=1100+(i%14000);}float x=i<24000?.5f*sinf(i*.17f):0;float f[2]={x,x};dynamics_process(d,&s,1,f);CHECK(isfinite(f[0]) && isfinite(f[1]) && fabsf(f[0])<4 && f[0]==f[1]);}
+    s=dynamics_default();s.band[3].saturation=1;s.band[3].ceiling=-6;dynamics_reset(d);
+    for(int i=0;i<1000;i++){float f[2]={2*sinf(i*.13f),2*sinf(i*.13f)};dynamics_process(d,&s,1,f);CHECK(fabsf(f[0])<=powf(10,-6.f/20)+1e-6f);}
+    s=dynamics_default();s.band[3].mode=2;dynamics_reset(d);for(int i=0;i<1000;i++){float f[2]={.3f,.3f};dynamics_process(d,&s,1,f);CHECK(f[0]==0 && f[1]==0);}
+    dynamics_free(d);dynamics_free(other);printf("Dynamics: curve editing, unity crossovers, compression, stereo linking, meters, bypass, mono bass and deterministic replay passed (%zu bytes).\n",dynamics_storage_bytes());return 0;
+}

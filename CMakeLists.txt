@@ -21,7 +21,7 @@ add_library(engine STATIC
   ${ENGINE_DIR}/audio_timing.c ${ENGINE_DIR}/automation.c ${ENGINE_DIR}/parameter.c
   ${ENGINE_DIR}/sampler.c ${ENGINE_DIR}/sampler_voice.c ${ENGINE_DIR}/fm_synth.c
   ${ENGINE_DIR}/dx7.c ${ENGINE_DIR}/analog.c ${ENGINE_DIR}/chorus.c
-  ${ENGINE_DIR}/reverb.c ${ENGINE_DIR}/tube.c ${ENGINE_DIR}/delay.c ${ENGINE_DIR}/equalizer.c ${ENGINE_DIR}/spectrum.c ${ENGINE_DIR}/effects.c ${ENGINE_DIR}/waveform.c)
+  ${ENGINE_DIR}/dynamics.c ${ENGINE_DIR}/reverb.c ${ENGINE_DIR}/tube.c ${ENGINE_DIR}/delay.c ${ENGINE_DIR}/equalizer.c ${ENGINE_DIR}/spectrum.c ${ENGINE_DIR}/effects.c ${ENGINE_DIR}/waveform.c)
 set(NATIVE_FILES ${PLATFORM_DIR}/files_posix.c ${PLATFORM_DIR}/browser_files_posix.c ${PLATFORM_DIR}/atomic_file.c)
 if(WIN32)
   set(NATIVE_FILES ${PLATFORM_DIR}/files_windows.c ${PLATFORM_DIR}/windows_path_math.c ${PLATFORM_DIR}/browser_files_windows.c ${PLATFORM_DIR}/file_io_windows.c ${PLATFORM_DIR}/atomic_file_windows.c)
@@ -32,7 +32,7 @@ add_library(utf8 STATIC ${INTERACTION_DIR}/utf8.c)
 target_include_directories(utf8 PUBLIC ${INTERACTION_DIR})
 add_library(interaction STATIC
   ${INTERACTION_DIR}/browser.c ${INTERACTION_DIR}/arrangement.c ${INTERACTION_DIR}/edit_clipboard.c ${INTERACTION_DIR}/piano.c ${INTERACTION_DIR}/piano_frame.c ${INTERACTION_DIR}/midi_session.c ${INTERACTION_DIR}/record_count_in.c ${INTERACTION_DIR}/text_edit.c ${INTERACTION_DIR}/text_legacy.c ${INTERACTION_DIR}/menu_navigation.c ${INTERACTION_DIR}/shortcuts.c ${INTERACTION_DIR}/ruler.c ${INTERACTION_DIR}/grid.c ${INTERACTION_DIR}/rack.c ${INTERACTION_DIR}/control.c ${INTERACTION_DIR}/automation_view.c ${INTERACTION_DIR}/editor_navigation.c ${INTERACTION_DIR}/scroll_input.c ${INTERACTION_DIR}/input.c
-  ${INTERACTION_DIR}/effect_chain.c ${INTERACTION_DIR}/navigation.c ${INTERACTION_DIR}/history.c ${INTERACTION_DIR}/file_chooser.c)
+  ${INTERACTION_DIR}/dynamics_curve.c ${INTERACTION_DIR}/effect_chain.c ${INTERACTION_DIR}/navigation.c ${INTERACTION_DIR}/history.c ${INTERACTION_DIR}/file_chooser.c)
 add_library(windows STATIC ${INTERACTION_DIR}/windows.c ${INTERACTION_DIR}/studio_layout.c ${INTERACTION_DIR}/studio_workspace.c)
 foreach(target engine platform_files interaction windows)
   target_include_directories(${target} PUBLIC ${ENGINE_DIR} ${INTERACTION_DIR} ${PLATFORM_DIR})
@@ -71,7 +71,7 @@ function(libreloop_test name library)
     add_test(NAME ${name} COMMAND ${name}_test)
   endif()
 endfunction()
-foreach(name reverb reverb_integration tube tube_integration magnetic_knob delay delay_integration engine midi instrument_replace automation pitch_automation audio_clip clip_trim sampler device_baseline chorus equalizer spectrum fm_synth fm_layers dx7 analog preset tempo stereo recording atomic_file project_assets project_document project_format playback_plan device_contract recording_writer waveform)
+foreach(name dynamics reverb reverb_integration tube tube_integration magnetic_knob delay delay_integration engine midi instrument_replace automation pitch_automation audio_clip clip_trim sampler device_baseline chorus equalizer spectrum fm_synth fm_layers dx7 analog preset tempo stereo recording atomic_file project_assets project_document project_format playback_plan device_contract recording_writer waveform)
   libreloop_test(${name} interaction)
 endforeach()
 foreach(name arrangement edit_clipboard navigation history file_chooser)
