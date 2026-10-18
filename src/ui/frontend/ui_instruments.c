@@ -614,7 +614,7 @@ static void analog_modern_editor(float width,float height) {
 void fm_editor(float width,float height) {
     FMSettings *s=&ui.project.fm[ui.instrument_channel];
     if(s->engine==1) fm_dx_editor(width,height); else if(s->engine==2 && s->analog.model && ui.studio_style)analog_modern_editor(width,height);else if(s->engine==2) fm_analog_editor(width,height); else fm_legacy_editor(width,height);
-    if(ui.studio_style){label(s->engine==1?"6 operators":s->engine==2?(s->analog.model?"3 oscillators":"Legacy voice"):"3 operators",16,55,10,muted);return;}
+    if(ui.studio_style)return;
     const char *engines[]={"Custom FM","Six-op FM","Analog"};
     SixOpLayout layout=sixop_layout(width,height,ui.studio_style);
     int compact=ui.studio_style && !(s->engine==1 && layout.spacious);
@@ -643,7 +643,7 @@ void sampler(float width,float height) {
         instrument_group(right,76,groupw,compact?124:100," ");
         instrument_group(right,compact?204:178,groupw,compact?68:66," ");
     }
-    label(fit_text(!ui.originals[c].frames?"Drop a sample from the Browser":ui.project.paths[c][0]?host_get_file_name(ui.project.paths[c]):"Built-in sample",compact?width-24:width-298,12),12,compact?wave_y-14:54,12,muted);
+    label(fit_text(!ui.originals[c].frames?"Drop a sample from the Browser":ui.project.paths[c][0]?host_get_file_name(ui.project.paths[c]):"Built-in sample",compact?width-24:width-298,12),12,ui.studio_style?wave_y-14:54,12,muted);
     label("Sample effects",20,82,12,muted);
     sampler_switch(20,100,groupw-16,"Normalize",&settings->flags,SAMPLE_NORMALIZE);
     sampler_switch(20,128,groupw-16,"Reverse",&settings->flags,SAMPLE_REVERSE);
@@ -701,4 +701,41 @@ void sampler(float width,float height) {
     if(live_preview && hover(12,wave_y,width-24,area)) snprintf(ui.status,sizeof ui.status,"Live envelope preview; processed pitch/stretch detail appears when ready; audio changes after release");
     if(ui.sample_drag[0] && ui.sample_moved) host_draw_rectangle_lines(12,wave_y,width-24,area,ui_theme.signal);
 
+}
+
+/* One channel-owned page shared by every instrument; synthesis pages remain separate. */
+void instrument_voice_editor(float width,float height) {
+    int c=ui.instrument_channel;VoiceSettings *v=&ui.project.voice[c];
+    channel_controls(c,width);
+    label("Voice",16,31,12,ink);
+    float half=(width-36)/2,right=24+half;
+    instrument_group(12,80,half,146,"Levels");
+    instrument_group(right,80,half,146,"Polyphony");
+    knob_style(12+half*.28f,139,&ui.project.pan[c],-1,1,0,"Channel pan",KNOB_PAN);
+    knob_style(12+half*.72f,139,&ui.project.volume[c],0,VOLUME_KNOB_MAX,1,"Channel volume",KNOB_VOLUME);
+    label("Pan",12+half*.28f-12,164,12,muted);label("Volume",12+half*.72f-24,164,12,muted);
+    label("Max",right+12,112,12,muted);
+    if(drag_button(v->limit?host_text_format("%.0f",v->limit):"All",right+56,108,54,24,ui.control_drag==&v->limit)){capture_control(&v->limit,0,128,0);ui.control_integer=1;}
+    if(hover(right+56,108,54,24)){
+        v->limit=fmaxf(0,fminf(128,v->limit+roundf(host_get_mouse_wheel_move())));
+        if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)){begin_number(&v->limit,0,128,0,"Voice limit (0 = all)");ui.number_integer=1;}
+        snprintf(ui.status,sizeof ui.status,"Maximum simultaneous voices: 0 = all; oldest voices are replaced first. Mono uses last-note priority.");
+    }
+    if(sampler_toggle(right+12,151,half-24,"Mono",v->mono))v->mono=!v->mono;
+    if(sampler_toggle(right+12,181,half-24,"Legato",v->legato))v->legato=!v->legato;
+    if(hover(right+12,151,half-24,52))snprintf(ui.status,sizeof ui.status,"Mono: last held note wins; releasing it returns to the previous held note. Legato keeps envelopes running across overlapping notes in Mono mode.");
+    instrument_group(12,238,half,148,"Pitch");
+    instrument_group(right,238,half,148,"Portamento");
+    knob_style(12+half*.28f,294,&ui.project.channel_pitch[c],-1,1,0,"Playback pitch",KNOB_CENTER);
+    label("Pitch",12+half*.28f-20,319,12,muted);
+    label("Range",12+half*.72f-20,265,12,muted);
+    if(drag_button(host_text_format("%.0f",ui.project.pitch_range[c]),12+half*.72f-22,290,44,24,ui.control_drag==&ui.project.pitch_range[c])){capture_control(&ui.project.pitch_range[c],1,48,0);ui.control_integer=1;}
+    label("semitones",12+half*.72f-36,321,10,muted);
+    knob_style(right+half*.5f,294,&v->glide,0,2,0,"Glide time (seconds)",KNOB_NORMAL);
+    label("Glide",right+half*.5f-20,319,12,muted);
+    const char *time=v->glide?host_text_format("%.0f ms",v->glide*1000):"Off";
+    label(time,right+(half-text_width(time,12))/2,345,12,ink);
+    if(hover(right+12,260,half-24,114))snprintf(ui.status,sizeof ui.status,"Glide: constant time between overlapping Mono notes, 0–2000 ms. Zero changes pitch immediately; Legato separately controls envelope retriggering.");
+    instrument_hint(ui.project.channel_audio[c]?"Audio clips keep their arrangement timing.":"Mono: last held note wins. Legato keeps envelopes running.",width,397,11);
+    (void)height;
 }

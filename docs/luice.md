@@ -280,3 +280,14 @@ and routing while clearing incompatible synth-only automation/MIDI links. The
 shared synth window keeps its established compact dimensions. See
 [Analog design and verification](analog-synth.md) for DSP, persistence, audio
 fixtures, sanitizer results, CPU measurements and listening limitations.
+
+Instrument envelope plots share their background/grid, white stage guides and
+frame helpers in `ui_instruments.c`, as well as the existing graph fill and
+handle primitives. DX7 retains its four rate/level segments; Analog retains its
+curved ADSR contour. Shared materials do not impose one instrument's envelope
+model or drag geometry on another.
+
+The channel-owned Voice page is shared by Sampler, DX7, Analog and Custom FM;
+see [instrument voices](instrument-voices.md). It reuses the existing grouped
+panels, knobs, checkboxes and numeric controls rather than defining another
+window or widget system.

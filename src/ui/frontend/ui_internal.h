@@ -217,6 +217,7 @@ typedef struct {
     float piano_scroll_remainder;
     int eq_drag;
     int fm_dx_operator,fm_dx_page,fm_analog_tab,fm_dx_drag_base;
+    uint8_t instrument_voice_page[CHANNELS];
     int fm_tab,fm_motion_target,fm_graph_drag,fm_graph_channel,fm_graph_tab;
     DrawRect fm_graph_area;
     char status[256];
@@ -559,6 +560,7 @@ void sampler_switch(int x,int y,int width,const char *name,uint8_t *flags,int bi
 void fm_graph_update_at(float x,float y);
 void fm_graph_update(void);
 void fm_control(FMSettings *s,unsigned id,const char *caption,int x,int y);
+void instrument_voice_editor(float width,float height);
 void fm_envelope_graph(FMSettings *s,DrawRect plot);
 void fm_legacy_editor(float width,float height);
 const char *fm_sound_name(const FMSettings *s);

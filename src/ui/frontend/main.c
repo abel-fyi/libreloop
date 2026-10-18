@@ -53,6 +53,7 @@ static void smoke_showcase_prepare(void) {
 
 /* Development capture states use only existing instruments/effects. */
 static void smoke_scene_prepare(int scene) {
+    if(scene>=29 && scene<=32){channel_replace_choice(&ui.project,0,scene==29?CHOICE_ANALOG:scene==30?CHOICE_DX7:scene==31?CHOICE_SAMPLER:CHOICE_CUSTOM_FM);ui.instrument_voice_page[0]=1;return;}
     if(scene>=25 && scene<=28){channel_replace_choice(&ui.project,0,CHOICE_ANALOG);ui.fm_analog_tab=scene-25;return;}
     if(scene==24){ui.project.effect_type[1][0]=EFFECT_DYNAMICS;ui.project.dynamics[1][0]=dynamics_default();ui.project.dynamics[1][0].lowcut=80;ui.project.effect_mix[1][0]=1;ui.eq_bus=1;ui.eq_slot=0;return;}
     if(scene==23){ui.project.effect_type[1][0]=EFFECT_TUBE;ui.project.tube[1][0]=tube_default();ui.project.tube[1][0].natural=1;ui.project.effect_mix[1][0]=1;ui.eq_bus=1;ui.eq_slot=0;return;}
@@ -129,7 +130,7 @@ int main(int argc,char **argv) {
     if(smoke_count<0 || smoke_count>4096)return 1;
     if(smoke_workspace<0 || smoke_workspace>9)return 1;
     if(smoke_grid_menu<0 || smoke_grid_menu>2 || smoke_grid>=GRID_CHOICES)return 1;
-    if(smoke_scene<0 || smoke_scene>28 || (smoke_scene && !smoke))return 1;
+    if(smoke_scene<0 || smoke_scene>32 || (smoke_scene && !smoke))return 1;
     if(smoke_width && (!smoke || smoke_width<900 || smoke_height<562 || smoke_width>3840 || smoke_height>2160))return 1;
     if(smoke_new_project && !smoke)return 1;
     if(!isfinite(smoke_ui_scale) || (smoke_ui_scale && (!smoke || smoke_ui_scale<75 || smoke_ui_scale>200)))return 1;
@@ -228,6 +229,7 @@ int main(int argc,char **argv) {
             }
             if(smoke_scene && !ui.studio_style)windows_focus(&ui.windows,smoke_scene>=9 && smoke_scene<=11?3:4);
             if(smoke_scene==9 || smoke_scene==11 || smoke_scene==15 || smoke_scene==16 || smoke_scene==17 || smoke_scene==18 || smoke_scene==19 || smoke_scene==20 || smoke_scene==21 || smoke_scene==22 || smoke_scene==23 || smoke_scene==24){if(ui.windows.workspace.enabled)mixer_effect_open(ui.eq_bus,ui.eq_slot,0);else windows_focus(&ui.windows,5);}
+            if(smoke_scene>=29){studio_workspace_float(&ui.windows,4);windows_focus(&ui.windows,4);}
             if(smoke_scene==24){int id=mixer_effect_window(ui.eq_bus,ui.eq_slot);if(id>=5)ui.dynamics_view[id]=1;}
             if(profile_frames && !ui.studio_style){ui.windows.editors[0].visible=0;windows_focus(&ui.windows,2);windows_focus(&ui.windows,3);windows_focus(&ui.windows,4);}
             if(smoke_popup==11)project_file_action(4);

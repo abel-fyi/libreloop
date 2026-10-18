@@ -205,6 +205,7 @@ int icon_action(const char *caption) {
         {"Fill X...",ICON_RACK},
         {"Fill every X steps...",ICON_RACK},
         {"Factory",ICON_LIBRARY},
+        {"Voice",ICON_SETTINGS},
         {"Envelope",ICON_AUTOMATION},
         {"Sound",ICON_SPEAKER},{"Body",ICON_WAVE},{"Attack",ICON_PENCIL},
         {"Amplitude",ICON_AUTOMATION},{"Filter",ICON_MIXER},

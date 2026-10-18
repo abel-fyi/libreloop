@@ -19,6 +19,7 @@ void channel_route(int c,int x,int y) {
 }
 
 void channel_controls(int c,float width) {
+    if(ui.studio_style && button(ui.instrument_voice_page[c]?"Sound":"Voice",12,52,110,22,ui.instrument_voice_page[c]))ui.instrument_voice_page[c]^=1;
     int x=width-276;
     mute_light(x,36,ui.project.mute,ui.project.channel_count,c,ui.project.channel_names[c]);
     knob_style(x+28,36,&ui.project.pan[c],-1,1,0,"Channel pan",KNOB_PAN);
