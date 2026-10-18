@@ -196,3 +196,24 @@ and update cadence. There are no segmented gaps or decorative textures. Software
 pixel checks cover marker placement and the active/inactive lamp colors; a
 playing showcase capture was reviewed. Native display appearance and hardware
 rendering cost remain unmeasured.
+
+## Button state consistency
+
+Push buttons retain neutral raised faces while idle or hovered, and selected
+buttons use the shared accent with an inset bevel. Toolbar icons now follow the
+same one-unit content offset as pressed captions, including latched Play,
+Follow, typing-keyboard, metronome and record-type buttons. Editor tool buttons,
+the record lamp and window-close icons use matching press feedback. Hit bounds,
+actions and mouse/key handling are unchanged.
+
+Explicitly unavailable controls have a neutral raised face, muted captions and
+40%-opacity icons: record-type/count-in controls during recording, the insert
+adder at capacity and the FX adder when all slots are occupied. This state is
+passed explicitly; temporary input suppression for occlusion, dragging or click
+consumption does not dim otherwise available controls. Existing colored icon
+sprites and knob faces are retained.
+
+Draw-command checks cover selected and mouse-held icon offsets, disabled icon
+opacity and absence of a depressed disabled state. Software captures cover
+playback and full insert/FX capacity. Native display appearance remains a
+hands-on check.

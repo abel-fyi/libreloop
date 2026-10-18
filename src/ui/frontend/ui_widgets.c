@@ -154,13 +154,16 @@ static void paint_icon(int id,float x,float y,int variant,float size,DrawColor c
 void icon(int id,float x,float y,float size,DrawColor color) {
     paint_icon(id,x,y,size<=16?2:size<=20?1:0,0,color);
 }
-void icon_in_button(int id,DrawRect button,DrawColor color) {
-    /* Use the original 16px sprite directly: 32px transport icons stay a
-       clean 2x enlargement, without the padded large-atlas cell. */
+void icon_button_state(int id,DrawRect button,DrawColor color,int active,int enabled) {
+    /* Keep the original 16px sprite and the same inset at every button size. */
     if(button.width<=4 || button.height<=4)return;
     float size=fminf(32,fminf(button.width,button.height)-4);
-    int pressed=hover(button.x,button.y,button.width,button.height) && host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT);
+    int pressed=enabled && (active || (hover(button.x,button.y,button.width,button.height) && host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT)));
+    if(!enabled)color.a=color.a*.4f;
     paint_icon(id,button.x+button.width/2+pressed,button.y+button.height/2+pressed,2,size,color);
+}
+void icon_in_button(int id,DrawRect button,DrawColor color) {
+    icon_button_state(id,button,color,0,1);
 }
 
 void arcs_init(void) {
@@ -247,9 +250,9 @@ int symbol(const char *text,int x,int y,DrawColor c) {
     return 1;
 }
 
-int button_color(const char *text,int x,int y,int w,int h,int active,DrawColor base) {
-    int over=hover(x,y,w,h);
-    int menu_item=ui.menu_keys.active && ui.input_enabled && strcmp(text,"x")?ui.menu_keys.items++:-1;
+static int button_color_state(const char *text,int x,int y,int w,int h,int active,DrawColor base,int enabled) {
+    int over=enabled && hover(x,y,w,h);
+    int menu_item=enabled && ui.menu_keys.active && ui.input_enabled && strcmp(text,"x")?ui.menu_keys.items++:-1;
     if(menu_item>=0 && menu_item<128) ui.menu_keys.bounds[menu_item]=(MenuBounds){x,y,w,h};
     int focused=menu_item>=0 && menu_item==ui.menu_keys.selected;
     int activate=focused && ui.menu_keys.enter;
@@ -284,24 +287,25 @@ int button_color(const char *text,int x,int y,int w,int h,int active,DrawColor b
     int highlighted=menu_item>=0?focused:over && !ui.menu_keys.active;
     DrawColor surface=menu_item>=0?(focused?ui_theme.hover:base):
         active?(highlighted?ui_theme.active_hover:accent):highlighted?ui_theme.hover:base;
-    int pressed=active || (over && host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT));
+    int pressed=enabled && (active || (over && host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT)));
     /* Desktop push buttons retain their neutral face on hover. Selection is
        sunken; only menu choices use the selection fill. Hit bounds unchanged. */
-    if(ui.studio_style && menu_item<0)surface=active?ui_theme.highlight:base;
+    if(ui.studio_style && menu_item<0)surface=enabled && active?ui_theme.highlight:base;
     int list_row=ui.studio_style &&
         ((!memcmp(&base,&ui_theme.browser,sizeof base)) || (!memcmp(&base,&ui_skin.field,sizeof base)));
     if(ui.studio_style && !ui.profile_flat && menu_item<0 && !list_row) {
         ui_button_face(host_draw(),(DrawRect){x,y,w,h},surface,pressed);
     } else ui_surface(host_draw(),(DrawRect){x,y,w,h},surface);
     DrawColor foreground=(menu_item>=0?focused:active || highlighted)?theme_foreground(surface):ui.studio_style?theme_foreground(surface):ink;
+    if(!enabled)foreground=ui_theme.secondary;
     int offset=ui.studio_style && pressed?1:0;
     int action=ui.studio_style && !list_row?icon_action(text):-1;
     if(action>=0 && w>=56) {
-        icon(action,x+12+offset,y+h/2+offset,16,foreground);
+        icon(action,x+12+offset,y+h/2+offset,16,enabled?foreground:host_fade(foreground,.4f));
         const char *caption=fit_text(!strncmp(text,"+ ",2)?text+2:text,w-28,UI_TEXT_SIZE);
         label(caption,x+24+offset,y+(h-UI_TEXT_SIZE)/2+offset,UI_TEXT_SIZE,foreground);
     }
-    else if(action>=0)icon_in_button(action,(DrawRect){x,y,w,h},foreground);
+    else if(action>=0)icon_button_state(action,(DrawRect){x,y,w,h},foreground,active,enabled);
     else if(w>52 || !symbol(text,x+w/2+offset,y+h/2+offset,foreground)) {
         int available=w-(w<=72?8:16);
         int size=ui.studio_style?UI_TEXT_SIZE:text_button_size(host_fonts(),text,available,h);
@@ -310,6 +314,13 @@ int button_color(const char *text,int x,int y,int w,int h,int active,DrawColor b
     }
     if(menu_item>=0 && over && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)) ui.menu_keys.selected=menu_item;
     return activate || (over && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT));
+}
+
+int button_color(const char *text,int x,int y,int w,int h,int active,DrawColor base) {
+    return button_color_state(text,x,y,w,h,active,base,1);
+}
+int button_available(const char *text,int x,int y,int w,int h,int active,int enabled) {
+    return button_color_state(text,x,y,w,h,active,cell,enabled);
 }
 
 int button(const char *text,int x,int y,int w,int h,int active) {

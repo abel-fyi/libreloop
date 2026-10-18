@@ -125,7 +125,8 @@ void draw_editor(int id,float scale) {
     if(ui.windows.workspace.enabled) {}
     else if(e->maximized) { host_draw_rectangle_lines(mx-2,4,7,7,maximize_ink); host_draw_rectangle(mx-4,6,7,7,hover_slot==1?ui_theme.hover:cell); host_draw_rectangle_lines(mx-4,6,7,7,maximize_ink); }
     else host_draw_rectangle_lines(mx-4,5,8,8,maximize_ink);
-    if(!ui.windows.workspace.enabled || id>=4)symbol("x",r.w-(ui.windows.workspace.enabled?12:9),title/2,ui.windows.workspace.enabled?ink:hover_slot==2?hover_ink:ink);
+    int close_pressed=ui.studio_style && hover_slot==2 && host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT);
+    if(!ui.windows.workspace.enabled || id>=4)symbol("x",r.w-(ui.windows.workspace.enabled?12:9)+close_pressed,title/2+close_pressed,ui.windows.workspace.enabled?ink:hover_slot==2?hover_ink:ink);
     ui.input_enabled=ui.input_enabled && ui.windows.owner==id && ui.windows.grab<0 && !ui.velocity_lane.dragging;
     r=desktop_editor_rect(id);
     ui.text_origin=(DrawPoint){r.x*scale,r.y*scale};

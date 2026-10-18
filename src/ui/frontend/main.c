@@ -566,13 +566,14 @@ int main(int argc,char **argv) {
         if(hover(mode_x,ty,mode_w,th)) snprintf(ui.status,sizeof ui.status,ui.windows.workspace.enabled?"Click either half to switch PATT / SONG and Piano Roll / Arrangement":"Playback mode: click to switch Pattern (orange) / Song (green)");
         int transport_active=ui.playing || audio_preview_position(ui.audition)>=0 || audio_key_position(127,ui.instrument_channel)>=0;
         if(button(ui.studio_style?"":transport_active?"||":">",play_x,ty,tw,th,transport_active)) transport_toggle();
-        if(ui.studio_style)icon_in_button(transport_active?ICON_PAUSE:ICON_PLAY,(DrawRect){play_x,ty,tw,th},ink);
+        if(ui.studio_style)icon_button_state(transport_active?ICON_PAUSE:ICON_PLAY,(DrawRect){play_x,ty,tw,th},ink,transport_active,1);
         if(hover(play_x,ty,tw,th)) snprintf(ui.status,sizeof ui.status,"Play from ruler / stop sources, preserving effect tails (Space)");
         if(button(ui.studio_style?"":"[]",stop_x,ty,tw,th,0)) transport_stop();
         if(ui.studio_style)icon_in_button(ICON_STOP,(DrawRect){stop_x,ty,tw,th},ink);
         if(hover(stop_x,ty,tw,th)) snprintf(ui.status,sizeof ui.status,"Stop all audio; press again while stopped to return the start marker to the beginning");
         if(button("",record_x,ty,tw,th,recording_active())) recording_start();
-        if(ui.studio_style)ui_lamp(host_draw(),(DrawPoint){record_x+tw/2,cy},fminf(14,tw*.34f),(DrawColor){255,33,47,255});
+        int record_pressed=recording_active() || (hover(record_x,ty,tw,th) && host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT));
+        if(ui.studio_style)ui_lamp(host_draw(),(DrawPoint){record_x+tw/2+record_pressed,cy+record_pressed},fminf(14,tw*.34f),(DrawColor){255,33,47,255});
         else circle(record_x+tw/2,cy,7,ui_theme.meter_high);
         if(hover(record_x,ty,tw,th) && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)){midi_refresh();open_popup(13);}
         const int record_icons[]={ICON_WAVE,ICON_PIANO,ICON_AUTOMATION};
@@ -580,18 +581,19 @@ int main(int argc,char **argv) {
         int record_input=ui.input_enabled;if(recording_active())ui.input_enabled=0;
         for(int i=0;i<3;i++){int xx=ui.studio_style?toolbar.record_types[i].x:record_x+24+i*22;
             int rw=ui.studio_style?toolbar.record_types[i].w:22;
-            if(button("",xx,cy-rw/2,rw,rw,ui.record_mask&(1u<<i))){ui.record_mask^=1u<<i;midi_save_settings();}
-            if(ui.studio_style)icon_in_button(record_icons[i],(DrawRect){xx,cy-rw/2,rw,rw},ui.record_mask&(1u<<i)?ui_theme.selected_text:muted);
+            if(button_available("",xx,cy-rw/2,rw,rw,ui.record_mask&(1u<<i),!recording_active())){ui.record_mask^=1u<<i;midi_save_settings();}
+            if(ui.studio_style)icon_button_state(record_icons[i],(DrawRect){xx,cy-rw/2,rw,rw},ui.record_mask&(1u<<i)?ui_theme.selected_text:muted,ui.record_mask&(1u<<i),!recording_active());
             else icon(record_icons[i],xx+rw/2,cy,17,ui.record_mask&(1u<<i)?ui_theme.selected_text:muted);
             if(hover(xx,cy-rw/2,rw,rw))snprintf(ui.status,sizeof ui.status,"Record %s: %s",record_names[i],ui.record_mask&(1u<<i)?"enabled":"disabled");
         }ui.input_enabled=record_input;
         if(hover(record_x,ty,tw,th)) snprintf(ui.status,sizeof ui.status,recording_active()?"Recording: click to finish the takes":"Record enabled types; right-click for MIDI inputs and recording settings");
         int metro_h=ui.studio_style?(th-2)/2:th;
         if(button("",metro_x,ty,ui.studio_style?tw:22,metro_h,ui.metronome)) { ui.metronome=!ui.metronome; audio_metronome(ui.metronome); }
-        icon(ICON_METRO,metro_x+(ui.studio_style?tw/2:11),ty+metro_h/2,ui.studio_style?16:20,ui.metronome?ui_theme.selected_text:ink);
+        if(ui.studio_style)icon_button_state(ICON_METRO,(DrawRect){metro_x,ty,tw,metro_h},ui.metronome?ui_theme.selected_text:ink,ui.metronome,1);
+        else icon(ICON_METRO,metro_x+11,ty+metro_h/2,20,ui.metronome?ui_theme.selected_text:ink);
         if(ui.studio_style) {
             int input=ui.input_enabled;if(recording_active())ui.input_enabled=0;
-            if(button(host_text_format("IN %.0f",ui.record_count_steps),metro_x,ty+metro_h+2,tw,th-metro_h-2,ui.record_count_enabled)){ui.record_count_enabled^=1;midi_save_settings();}
+            if(button_available(host_text_format("IN %.0f",ui.record_count_steps),metro_x,ty+metro_h+2,tw,th-metro_h-2,ui.record_count_enabled,!recording_active())){ui.record_count_enabled^=1;midi_save_settings();}
             if(hover(metro_x,ty+metro_h+2,tw,th-metro_h-2)) {
                 snprintf(ui.status,sizeof ui.status,"Count-in %s: %.0f sixteenth steps before recording; right-click to set steps",ui.record_count_enabled?"on":"off",ui.record_count_steps);
                 if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)){begin_number(&ui.record_count_steps,1,4096,16,"Count-in steps (sixteenth notes)");ui.number_integer=1;}
@@ -638,11 +640,11 @@ int main(int argc,char **argv) {
         }
         if(!ui.windows.workspace.enabled)for(int i=0;i<4;i++) { int id=i==1?2:i==2?1:i; editor_button(id,editors_x+i*editor_pitch); }
         if(button("",follow_x,small_y,small_w,small_h,ui.follow_playhead)) { ui.follow_playhead=!ui.follow_playhead; if(!ui.follow_playhead) { ui.arrangement.view_start=fmaxf(0,ui.arrangement.view_start); for(int p=0;p<PATTERNS;p++) ui.piano_pan[p]=fmaxf(0,ui.piano_pan[p]); } }
-        if(ui.studio_style)icon_in_button(ICON_FOLLOW,(DrawRect){follow_x,small_y,small_w,small_h},ui.follow_playhead?ui_theme.selected_text:ink);
+        if(ui.studio_style)icon_button_state(ICON_FOLLOW,(DrawRect){follow_x,small_y,small_w,small_h},ui.follow_playhead?ui_theme.selected_text:ink,ui.follow_playhead,1);
         else icon(ICON_FOLLOW,follow_x+small_w/2,cy,20,ui.follow_playhead?ui_theme.selected_text:ink);
         if(hover(follow_x,small_y,small_w,small_h)) snprintf(ui.status,sizeof ui.status,"Follow playhead: center playback in the Playlist (Song) or Piano Roll (PAT)");
         if(button("",keys_x,small_y,small_w,small_h,ui.typing_keys)) ui.typing_keys=!ui.typing_keys;
-        if(ui.studio_style)icon_in_button(ICON_KEYS,(DrawRect){keys_x,small_y,small_w,small_h},ui.typing_keys?ui_theme.selected_text:ink);
+        if(ui.studio_style)icon_button_state(ICON_KEYS,(DrawRect){keys_x,small_y,small_w,small_h},ui.typing_keys?ui_theme.selected_text:ink,ui.typing_keys,1);
         else icon(ICON_KEYS,keys_x+small_w/2,cy,20,ui.typing_keys?ui_theme.selected_text:ink);
         if(hover(keys_x,small_y,small_w,small_h)) snprintf(ui.status,sizeof ui.status,"Typing piano: Z row C3, Q row C4; S/D/G/H/J and 2/3/5/6/7 sharps; disabled in Browser/text fields");
         if(ui.record_count_in.active && host_is_key_pressed(HOST_KEY_ESCAPE))recording_finish();

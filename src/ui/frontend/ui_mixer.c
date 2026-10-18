@@ -887,7 +887,7 @@ static void studio_mixer_strip(MixerView v,int bus) {
         int body_input=ui.input_enabled;
         float add_y=mixer_fx_adder_top(v,chain.count),top=mixer_fx_top(v,chain.count),list_height=mixer_fx_list_height(v,chain.count);
         int can_add=chain.add_slot>=0;ui.input_enabled=body_input && can_add;
-        if(button("",2,add_y,104,21,0)){effect_slot_menu(bus,chain.add_slot);ui.fx_add_pending=1;ui.input_enabled=0;}
+        if(button_available("",2,add_y,104,21,0,can_add)){effect_slot_menu(bus,chain.add_slot);ui.fx_add_pending=1;ui.input_enabled=0;}
         icon(ICON_ADD,54,add_y+10,16,can_add?WHITE:host_fade(WHITE,.4f));
         int consumed=can_add && body_input && !ui.input_enabled;
         ui.input_enabled=body_input && !consumed;
@@ -994,7 +994,7 @@ static void mixer_studio(float width,float height) {
     label(fit_text(mixer_name(ui.mixer_selected),112,UI_TEXT_SIZE),72,TITLE+7,UI_TEXT_SIZE,ink);
     device_button(0,196,TITLE+4,170);device_button(1,374,TITLE+4,170);
     int add_enabled=ui.input_enabled;ui.input_enabled=add_enabled && ui.project.insert_count<INSERTS;
-    if(button("+",width-32,TITLE+4,24,22,0)){mixer_add_inserts(1);v=desktop_mixer_view(width,height);}
+    if(button_available("+",width-32,TITLE+4,24,22,0,ui.project.insert_count<INSERTS)){mixer_add_inserts(1);v=desktop_mixer_view(width,height);}
     if(hover(width-32,TITLE+4,24,22)){
         snprintf(ui.status,sizeof ui.status,"%d / %d inserts | Click to add one; right-click to add multiple",ui.project.insert_count,INSERTS);
         if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT))open_context(29,0,(DrawPoint){ui.mouse.x+root.x,ui.mouse.y+root.y});

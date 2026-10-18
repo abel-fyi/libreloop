@@ -157,8 +157,9 @@ int tool_button(int tool,int active,int x,const char *tip) {
     DrawColor surface=active==tool?accent:over?ui_theme.hover:cell;
     DrawColor c=active==tool || over?theme_foreground(surface):ink;
     ui_surface(host_draw(),(DrawRect){x,y,20,20},surface);
-    if(ui.studio_style && !ui.profile_flat)ui_button_face(host_draw(),(DrawRect){x,y,20,20},surface,active==tool);
-    icon(tool==PENCIL?ICON_PENCIL:tool==BRUSH?ICON_BRUSH:tool==CUT?ICON_CUT:tool==STRETCH?ICON_STRETCH:ICON_SELECT,x+10,y+10,20,c);
+    int pressed=active==tool || (over && host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT));
+    if(ui.studio_style && !ui.profile_flat)ui_button_face(host_draw(),(DrawRect){x,y,20,20},active==tool?ui_theme.highlight:cell,pressed);
+    icon(tool==PENCIL?ICON_PENCIL:tool==BRUSH?ICON_BRUSH:tool==CUT?ICON_CUT:tool==STRETCH?ICON_STRETCH:ICON_SELECT,x+10+(ui.studio_style && pressed),y+10+(ui.studio_style && pressed),20,c);
     if(over) snprintf(ui.status,sizeof ui.status,"%s",tip);
     return over && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT);
 }
