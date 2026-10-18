@@ -7,8 +7,8 @@
 #define CHECK(x) do { if(!(x)) { fprintf(stderr,"Failed line %d: %s\n",__LINE__,#x); return 1; } } while(0)
 int main(void) {
     DevicePreset p={0};
-    void *settings[]={&p.sampler,&p.fm,&p.chorus,&p.eq,&p.delay,&p.tube,&p.reverb};
-    for(unsigned id=DEVICE_SAMPLER;id<=DEVICE_REVERB;id++) {
+    void *settings[]={&p.sampler,&p.fm,&p.chorus,&p.eq,&p.delay,&p.tube,&p.reverb,&p.dynamics};
+    for(unsigned id=DEVICE_SAMPLER;id<=DEVICE_DYNAMICS;id++) {
         const DeviceDescriptor *d=device_descriptor(id); CHECK(d && d->name && d->settings_size);
         d->defaults(settings[id-1]); CHECK(d->valid(settings[id-1]) && !d->valid(NULL));
     }

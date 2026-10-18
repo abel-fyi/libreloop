@@ -340,6 +340,14 @@ int main(void) {
     ready=1;ma_atomic_device_state_set(&device.state,ma_device_state_started);
     test_callback(NULL,out,NULL,64);for(int i=0;i<128;i++)CHECK(out[i]==0);
     ready=0;ma_atomic_device_state_set(&device.state,ma_device_state_uninitialized);audio_stop();reverb_free(reverb_expected);
+    fixture.effect_type[0][0]=EFFECT_DYNAMICS;fixture.dynamics[0][0]=dynamics_factory(1);fixture.effect_mix[0][0]=1;
+    audio_update(&fixture,1,1,0,1,1,0,0,0);CHECK(!audio_effect_memory_failed());Dynamics *dynamics_expected=dynamics_create();CHECK(dynamics_expected);
+    ready=1;ma_atomic_device_state_set(&device.state,ma_device_state_started);
+    for(int block=0;block<32;block++){
+        test_callback(NULL,out,NULL,64);
+        for(int i=0;i<64;i++){float frame[2]={!block && !i?.2f:0,!block && !i?.2f:0};dynamics_process(dynamics_expected,&fixture.dynamics[0][0],1,frame);CHECK(!memcmp(frame,&out[i*2],sizeof frame));}
+    }
+    ready=0;ma_atomic_device_state_set(&device.state,ma_device_state_uninitialized);audio_stop();dynamics_free(dynamics_expected);
     effects_free(effects);effects=NULL;player.effects=live.effects=NULL;
     puts("Transparent output, capture, post-fader recording, ring bounds, mixing and ordered controls passed.");
     return 0;

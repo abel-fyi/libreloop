@@ -2,6 +2,7 @@
 #include "ui_internal.h"
 #include "signal_palette.h"
 #include "mixer_cables.h"
+#include "dynamics_curve.h"
 
 int mixer_input_at(DrawPoint point) {
     Rect r=desktop_editor_rect(3); if(!ui.windows.editors[3].visible) return -1;
@@ -217,11 +218,12 @@ void mixer_effect_open(int bus,int slot,int toggle) {
     if(id>=5){if(toggle)studio_workspace_hide(&ui.windows,id);else windows_focus(&ui.windows,id);return;}
     for(id=5;id<WINDOW_CAPACITY && ui.windows.editors[id].visible;id++){}
     if(id==WINDOW_CAPACITY){snprintf(ui.status,sizeof ui.status,"Close an effect editor before opening another (16 open).");return;}
-    StudioWorkspace *s=&ui.windows.workspace;float width=type==EFFECT_REVERB?760:type==EFFECT_TUBE?480:type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?740:420):type==EFFECT_CHORUS?360:620,height=type==EFFECT_REVERB?220:type==EFFECT_TUBE?220:type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?220:340):type==EFFECT_CHORUS?280:380;
+    StudioWorkspace *s=&ui.windows.workspace;float width=type==EFFECT_DYNAMICS?960:type==EFFECT_REVERB?760:type==EFFECT_TUBE?480:type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?740:420):type==EFFECT_CHORUS?360:620,height=type==EFFECT_DYNAMICS?570:type==EFFECT_REVERB?220:type==EFFECT_TUBE?220:type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?220:340):type==EFFECT_CHORUS?280:380;
     width=fminf(width,s->width-s->sidebar-10);height=fminf(height,s->height-84);
     int count=0;for(int i=5;i<WINDOW_CAPACITY;i++)count+=ui.windows.editors[i].visible;
     ui.effect_windows[id].bus=bus;ui.effect_windows[id].slot=slot;ui.effect_windows[id].band=0;
-    ui.windows.editors[id].minw=type==EFFECT_REVERB?640:type==EFFECT_TUBE?440:type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?620:400):type==EFFECT_CHORUS?330:480;ui.windows.editors[id].minh=type==EFFECT_REVERB?220:type==EFFECT_TUBE?220:type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?220:340):type==EFFECT_CHORUS?280:330;
+    if(type==EFFECT_DYNAMICS)ui.dynamics_band[id]=3;
+    ui.windows.editors[id].minw=type==EFFECT_DYNAMICS?640:type==EFFECT_REVERB?640:type==EFFECT_TUBE?440:type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?620:400):type==EFFECT_CHORUS?330:480;ui.windows.editors[id].minh=type==EFFECT_DYNAMICS?480:type==EFFECT_REVERB?220:type==EFFECT_TUBE?220:type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?220:340):type==EFFECT_CHORUS?280:330;
     ui.windows.editors[id].rect=(Rect){fmaxf(s->sidebar+6,s->width-width-12-count*20),fminf(70+count*22,s->height-24-height),width,height};
     ui.windows.workspace.floating[id]=1;ui.windows.editors[id].maximized=0;
     windows_focus(&ui.windows,id);
@@ -230,6 +232,7 @@ void mixer_effect_add(int bus,int slot,int type) {
     if(bus<0 || bus>ui.project.insert_count || slot<0 || slot>=EFFECT_SLOTS || !effect_descriptor(type))return;
     ui.project.effect_type[bus][slot]=type;ui.project.effect_bypass[bus][slot]=0;
     if(type==EFFECT_CHORUS){ui.project.chorus[bus][slot]=chorus_default();ui.project.effect_mix[bus][slot]=.5f;}
+    else if(type==EFFECT_DYNAMICS){ui.project.dynamics[bus][slot]=dynamics_default();ui.project.effect_mix[bus][slot]=1;}
     else if(type==EFFECT_REVERB){ui.project.reverb[bus][slot]=reverb_default();ui.project.effect_mix[bus][slot]=.25f;}
     else if(type==EFFECT_TUBE){ui.project.tube[bus][slot]=tube_default();ui.project.effect_mix[bus][slot]=1;}
     else if(type==EFFECT_DELAY){ui.project.delay[bus][slot]=delay_default();ui.project.effect_mix[bus][slot]=1;}
@@ -310,11 +313,103 @@ static void delay_editor_compact(float width,float height,int bus,int slot) {
     if(button("Load",width-172,bottom,78,24,0))preset_action(PRESET_DELAY,bus,slot,0);
     if(button("Save",width-88,bottom,80,24,0))preset_action(PRESET_DELAY,bus,slot,1);
 }
+/* The transfer curve is level-in -> level-out, not a frequency response. */
+static float dyn_x(float db,DrawRect r){return r.x+dynamics_level_position(db)*r.width;}
+static float dyn_y(float db,DrawRect r){return r.y+r.height-dynamics_level_position(db)*r.height;}
+static void dynamics_editor(float width,float height,int bus,int slot){
+    static DynamicsMonitor monitor[WINDOW_CAPACITY];
+    static const DrawColor colors[4]={{223,103,96,255},{219,168,85,255},{211,207,111,255},{142,204,113,255}};
+    static const char *bands[]={"LOW","MID","HIGH","MASTER"};
+    int window=ui.knob_context,selected=ui.dynamics_band[window];if(selected<0 || selected>3)selected=3;
+    DynamicsSettings *s=&ui.project.dynamics[bus][slot];DynamicsBand *b=&s->band[selected];DrawColor color=colors[selected],graph_ink={151,167,162,255};int compact=width<820;
+    DynamicsMonitor *m=&monitor[window];if(!ui.dynamics_pause[window])audio_dynamics_monitor(bus,slot,m);
+    float graph_h=fmaxf(180,height-320),left_w=width*.36f;
+    DrawRect curve={32,49,left_w-42,graph_h},history={left_w+8,49,width-left_w-40,graph_h};
+    host_draw_rectangle(8,29,width-16,graph_h+48,(DrawColor){32,40,40,255});
+    const int ticks[]={-18,-12,-9,-6,-3,0,3,6,9,12};
+    for(unsigned ti=0;ti<sizeof ticks/sizeof *ticks;ti++){int db=ticks[ti];float y=dyn_y(db,curve);host_draw_line(curve.x,y,curve.x+curve.width,y,ui_theme.grid_minor);host_draw_line(dyn_x(db,curve),curve.y,dyn_x(db,curve),curve.y+curve.height,ui_theme.grid_minor);label(host_text_format("%d",db),9,y-6,12,graph_ink);host_draw_line(history.x,y,history.x+history.width,y,ui_theme.grid_minor);}
+    label("OUT",curve.x,32,12,graph_ink);label("IN",curve.x+curve.width-20,curve.y+curve.height+3,12,graph_ink);
+    host_draw_line_ex((DrawPoint){curve.x,curve.y+curve.height},(DrawPoint){curve.x+curve.width,curve.y},1,graph_ink);
+    /* Real input-level occupancy behind the curve: no fabricated waveform. */
+    unsigned bins[42]={0},max_bin=1;
+    for(unsigned i=0;i<m->count;i++){int bin=(int)(dynamics_level_position(m->input[selected][i])*42);if(m->input[selected][i]>-71.5f && bin>=0 && bin<42){bins[bin]++;if(bins[bin]>max_bin)max_bin=bins[bin];}}
+    for(int i=0;i<42;i++)if(bins[i])host_draw_rectangle(curve.x+i*curve.width/42,curve.y+curve.height*(1-.45f*bins[i]/max_bin),curve.width/42,curve.height*.45f*bins[i]/max_bin,(DrawColor){66,76,75,255});
+    DrawPoint previous={dyn_x(-72,curve),dyn_y(dynamics_curve(b,-72),curve)};
+    for(int i=1;i<=256;i++){float x=-72+84*i/256.f;DrawPoint next={dyn_x(x,curve),dyn_y(dynamics_curve(b,x),curve)};host_draw_line_ex(previous,next,2,color);previous=next;}
+    int point_hit=-1,bend_hit=-1;
+    for(int i=0;i<(int)b->count;i++){
+        DrawPoint p={dyn_x(b->points[i].x,curve),dyn_y(b->points[i].y,curve)};circle(p.x,p.y,4,color);
+        if(hover(p.x-8,p.y-8,16,16))point_hit=i;
+        if(i<(int)b->count-1){float x=(b->points[i].x+b->points[i+1].x)*.5f;DrawPoint h={dyn_x(x,curve),dyn_y(dynamics_curve(b,x),curve)};circle(h.x,h.y,4,color);circle(h.x,h.y,2,(DrawColor){32,40,40,255});if(hover(h.x-7,h.y-7,14,14))bend_hit=i;}
+    }
+    int in_curve=hover(curve.x-8,curve.y-8,curve.width+16,curve.height+16);
+    float input=dynamics_level_db((ui.mouse.x-curve.x)/curve.width),output=dynamics_level_db(1-(ui.mouse.y-curve.y)/curve.height);
+    if(in_curve){
+        snprintf(ui.status,sizeof ui.status,"Curve: right-click adds/deletes a point; drag hollow handles to bend; Shift locks Y, Ctrl locks X; wheel on a bend changes its shape");
+        if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)){if(point_hit>=0)dynamics_curve_delete(b,point_hit);else if(bend_hit>=0)dynamics_curve_bend(b,bend_hit,0);else dynamics_curve_insert(b,roundf(input),roundf(output));}
+        if(bend_hit>=0 && point_hit<0){float wheel=host_get_mouse_wheel_move();if(wheel)b->points[bend_hit].shape=fmodf(b->points[bend_hit].shape+(wheel>0?1:4),5);}
+        if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT) && (point_hit>=0 || bend_hit>=0)){
+            ui.dynamics_drag=1+(point_hit>=0?point_hit:bend_hit);ui.dynamics_drag_kind=point_hit<0;ui.dynamics_drag_window=window;ui.dynamics_drag_band=selected;ui.dynamics_drag_y=ui.mouse.y;ui.dynamics_drag_x=point_hit>=0?0:b->points[bend_hit].bend;
+        }
+    }
+    if(ui.dynamics_drag && ui.dynamics_drag_window==window){
+        if(!host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT) || ui.dynamics_drag_band!=selected)ui.dynamics_drag=0;
+        else if(ui.dynamics_drag_kind)dynamics_curve_bend(b,ui.dynamics_drag-1,ui.dynamics_drag_x+(ui.mouse.y-ui.dynamics_drag_y)/(host_is_key_down(HOST_KEY_LEFT_CONTROL)?600:120));
+        else dynamics_curve_move(b,ui.dynamics_drag-1,input,output,host_is_key_down(HOST_KEY_LEFT_CONTROL),host_is_key_down(HOST_KEY_LEFT_SHIFT));
+    }
+    if(ui.dynamics_view[window]){
+        float lo=logf(s->low/20)/logf(1000),hi=logf(s->high/20)/logf(1000);
+        const float bounds[]={0,lo,hi,1};
+        for(int i=0;i<3;i++){DrawColor fill=colors[i];fill.a=90;host_draw_rectangle(history.x+history.width*bounds[i],history.y,history.width*(bounds[i+1]-bounds[i]),history.height,fill);label(bands[i],history.x+history.width*bounds[i]+6,history.y+8,12,colors[i]);}
+        for(int i=0;i<2;i++){float x=history.x+history.width*(i?hi:lo);host_draw_line(x,history.y,x,history.y+history.height,ink);if(hover(x-8,history.y,16,history.height) && host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT)){float hz=20*powf(1000,(ui.mouse.x-history.x)/history.width);if(i)s->high=fmaxf(fmaxf(1000,s->low+1),fminf(16000,hz));else s->low=fmaxf(40,fminf(fminf(1000,s->high-1),hz));}}
+        label("20 Hz",history.x,history.y+history.height+3,12,graph_ink);label("20 kHz",history.x+history.width-54,history.y+history.height+3,12,graph_ink);
+    }else{
+        if(hover(history.x,history.y,history.width,history.height) && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT))ui.dynamics_pause[window]^=1;
+        for(unsigned i=1;i<m->count;i++){
+            float x0=history.x+(i-1)*history.width/(DYNAMICS_HISTORY-1),x1=history.x+i*history.width/(DYNAMICS_HISTORY-1);
+            host_draw_line(x1,dyn_y(m->input[selected][i],history),x1,history.y+history.height,(DrawColor){72,80,79,255});
+            host_draw_line_ex((DrawPoint){x0,dyn_y(m->output[selected][i-1],history)},(DrawPoint){x1,dyn_y(m->output[selected][i],history)},1,color);
+            host_draw_line_ex((DrawPoint){x0,dyn_y(m->gain[selected][i-1],history)},(DrawPoint){x1,dyn_y(m->gain[selected][i],history)},1.5f,(DrawColor){128,204,220,255});
+        }
+        label("INPUT / OUTPUT / GAIN",history.x+5,32,12,graph_ink);
+        float gain=m->count?m->gain[selected][m->count-1]:0;label(host_text_format("Gain %+.1f dB",fabsf(gain)<.25f?0:gain),history.x+history.width-128,32,12,accent);
+    }
+    float tabs=graph_h+81;
+    for(int i=0;i<4;i++)if(button(bands[i],8,tabs+i*29,78,25,i==selected)){ui.dynamics_band[window]=i;ui.dynamics_drag=0;}
+    if(button("Monitor",width-264,tabs,84,23,!ui.dynamics_view[window]))ui.dynamics_view[window]=0;
+    if(button("Bands",width-176,tabs,78,23,ui.dynamics_view[window]))ui.dynamics_view[window]=1;
+    if(button(ui.dynamics_pause[window]?"Resume":"Pause",width-94,tabs,86,23,ui.dynamics_pause[window]))ui.dynamics_pause[window]^=1;
+    const char *modes[]={"ON","COMP OFF","MUTED","OFF"};
+    if(button(modes[(int)b->mode],92,tabs,100,25,0))b->mode=fmodf(b->mode+1,4);
+    if(button("SOLO",92,tabs+29,100,25,b->solo))b->solo=!b->solo;
+    if(button(b->rms?"RMS":"PEAK",92,tabs+58,100,25,b->rms))b->rms=!b->rms;
+    if(button("Reset curve",204,tabs,112,23,0)){DynamicsSettings reset=dynamics_default();memcpy(b->points,reset.band[selected].points,sizeof b->points);b->count=3;}
+    if(button("Copy",compact?108:322,compact?height-30:tabs,64,23,0)){ui.dynamics_copy=*b;ui.dynamics_has_copy=1;}
+    if(button("Paste",compact?178:392,compact?height-30:tabs,68,23,0) && ui.dynamics_has_copy){memcpy(b->points,ui.dynamics_copy.points,sizeof b->points);b->count=ui.dynamics_copy.count;}
+    float *values[]={&b->pre,&b->post,&b->attack,&b->release,&b->release2,&b->sustain,&b->width,&b->saturation,&b->ceiling,&s->low,&s->high,&s->lowcut,&s->blend,&ui.project.effect_mix[bus][slot]};
+    const int offsets[]={0,1,2,3,4,5,6,11,10,-4,-3,-2,-1,-5};
+    const char *names[]={"PRE","POST","ATT","REL","REL 2","SUSTAIN","WIDTH","SAT","CEIL","LOW","HIGH","CUT","LMH MIX","MIX"};
+    for(int i=0;i<14;i++){
+        int off=offsets[i];const ParameterDescriptor *info=parameter_descriptor(off==-5?PARAM_EFFECT_MIX:PARAM_DYNAMICS_FIRST+(off<0?off+4:4+selected*12+off));
+        float x=204+(width-212)*((i%7)+.5f)/7,ky=tabs+50+(i/7)*76;
+        knob_sized(x,ky,values[i],info->low,info->high,info->initial,info->name,i==6?KNOB_WIDTH:info->kind==PARAMETER_LOGARITHMIC?KNOB_LOGARITHMIC:KNOB_NORMAL,17);
+        label(names[i],x-text_width(names[i],12)/2,ky+26,12,ink);
+        float shown=displayed_value(values[i],*values[i]);const char *number=i==0 || i==1 || i==8?host_text_format("%+.1f",shown):i>=2 && i<=5?host_text_format("%.0fms",shown):i==9 || i==10 || i==11?host_text_format("%.0fHz",shown):host_text_format("%.0f%%",shown*100);
+        label(number,x-text_width(number,12)/2,ky+44,12,muted);
+    }
+    float footer=height-30;
+    if(button("Bypass",8,footer,92,24,ui.project.effect_bypass[bus][slot]))ui.project.effect_bypass[bus][slot]^=1;
+    if(!compact)label("Right-click curve: add/delete | hollow handles: bend",110,footer+5,12,muted);
+    if(button("Load",width-172,footer,78,24,0))preset_action(PRESET_DYNAMICS,bus,slot,0);
+    if(button("Save",width-88,footer,80,24,0))preset_action(PRESET_DYNAMICS,bus,slot,1);
+}
+
 void effect_editor(float width,float height) {
     int bus=ui.eq_bus,slot=ui.eq_slot;
     if(bus<0 || bus>ui.project.insert_count || slot<0 || slot>=EFFECT_SLOTS)return;
-    if(ui.windows.workspace.enabled)ui.windows.editors[ui.knob_context].minw=ui.project.effect_type[bus][slot]==EFFECT_REVERB?640:ui.project.effect_type[bus][slot]==EFFECT_TUBE?440:ui.project.effect_type[bus][slot]==EFFECT_DELAY?(ui.project.delay[bus][slot].model?620:400):ui.project.effect_type[bus][slot]==EFFECT_CHORUS?330:480;
+    if(ui.windows.workspace.enabled)ui.windows.editors[ui.knob_context].minw=ui.project.effect_type[bus][slot]==EFFECT_DYNAMICS?820:ui.project.effect_type[bus][slot]==EFFECT_REVERB?640:ui.project.effect_type[bus][slot]==EFFECT_TUBE?440:ui.project.effect_type[bus][slot]==EFFECT_DELAY?(ui.project.delay[bus][slot].model?620:400):ui.project.effect_type[bus][slot]==EFFECT_CHORUS?330:480;
     if(!ui.project.effect_type[bus][slot]){label("Select an effect slot in the Mixer.",16,40,13,muted);return;}
+    if(ui.project.effect_type[bus][slot]==EFFECT_DYNAMICS){dynamics_editor(width,height,bus,slot);return;}
     if(ui.project.effect_type[bus][slot]==EFFECT_REVERB) {
         ReverbSettings *r=&ui.project.reverb[bus][slot];
         label("Reverb / diffuse stereo",12,32,13,ink);
@@ -566,6 +661,7 @@ static void mixer_legacy(float width,float height) {
         }
         if(button("+ Delay",fx+8,effect_button_y+27,MIXER_PANEL-16,24,0))mixer_effect_add(bus,slot,EFFECT_DELAY);
         if(button("+ Tube",fx+8,effect_button_y+54,MIXER_PANEL-16,24,0))mixer_effect_add(bus,slot,EFFECT_TUBE);
+        if(button("+ Dynamics",fx+8,effect_button_y+108,MIXER_PANEL-16,24,0))mixer_effect_add(bus,slot,EFFECT_DYNAMICS);
         if(button("+ Reverb",fx+8,effect_button_y+81,MIXER_PANEL-16,24,0))mixer_effect_add(bus,slot,EFFECT_REVERB);
     } else {
         label(effect_descriptor(ui.project.effect_type[bus][slot])->name,fx+8,effect_y,12,ink);
@@ -576,6 +672,7 @@ static void mixer_legacy(float width,float height) {
                 if(parameter_is_effect(t.parameter) && t.owner==(unsigned)bus && t.slot==(unsigned)slot) automation_delete(&ui.project,a);
             }
             ui.control_drag=NULL; ui.automation_selected=ui.automation_node=-1; ui.picker_drag=-1;
+        } else if(ui.project.effect_type[bus][slot]==EFFECT_DYNAMICS) { if(button("Open Dynamics",fx+8,effect_button_y,MIXER_PANEL-16,24,0))mixer_effect_open(bus,slot,0);
         } else if(ui.project.effect_type[bus][slot]==EFFECT_REVERB) {
             if(button("Open Reverb",fx+8,effect_button_y,MIXER_PANEL-16,24,0))mixer_effect_open(bus,slot,0);
         } else if(ui.project.effect_type[bus][slot]==EFFECT_TUBE) {

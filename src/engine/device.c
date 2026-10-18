@@ -7,6 +7,7 @@
 #include "delay.h"
 #include "tube.h"
 #include "reverb.h"
+#include "dynamics.h"
 static void sampler_defaults(void *s) { *(Sampler *)s=(Sampler){.time=1,.length=1}; }
 static void fm_defaults(void *s) { *(FMSettings *)s=fm_default(); }
 static void chorus_defaults(void *s) { *(ChorusSettings *)s=chorus_default(); }
@@ -39,6 +40,9 @@ static int reverb_check(const void *s) {return s && reverb_valid(*(const ReverbS
 static const float *reverb_parameter(const void *s,unsigned id) {
     const ReverbSettings *r=s;switch(id) {case PARAM_REVERB_SIZE:return &r->size;case PARAM_REVERB_DECAY:return &r->decay;case PARAM_REVERB_DAMPING:return &r->damping;case PARAM_REVERB_PREDELAY:return &r->predelay;case PARAM_REVERB_WIDTH:return &r->width;case PARAM_REVERB_MOD:return &r->mod;case PARAM_REVERB_GATE:return &r->gate;default:return NULL;}
 }
+static void dynamics_defaults(void *s){*(DynamicsSettings *)s=dynamics_default();}
+static int dynamics_check(const void *s){return s && dynamics_valid(*(const DynamicsSettings *)s);}
+static const float *dynamics_device_parameter(const void *s,unsigned id){return id>=PARAM_DYNAMICS_FIRST && id<=PARAM_DYNAMICS_LAST?dynamics_parameter(s,id-PARAM_DYNAMICS_FIRST):NULL;}
 static const DeviceDescriptor devices[]={
     {"Sampler",sizeof(Sampler),sampler_defaults,sampler_check,NULL,{{0,0},{0,0}}},
     {"FM Synth",sizeof(FMSettings),fm_defaults,fm_check,fm_parameter,{{PARAM_FM_RATIO,PARAM_FM_LAST},{PARAM_DX7_FIRST,PARAM_DX7_LAST}}},
@@ -47,15 +51,16 @@ static const DeviceDescriptor devices[]={
     {"Delay",sizeof(DelaySettings),delay_defaults,delay_check,delay_parameter,{{PARAM_DELAY_FIRST,PARAM_DELAY_LAST},{PARAM_EFFECT_MIX,PARAM_EFFECT_MIX}}},
     {"Tube",sizeof(TubeSettings),tube_defaults,tube_check,tube_parameter,{{PARAM_TUBE_FIRST,PARAM_TUBE_LAST},{PARAM_EFFECT_MIX,PARAM_EFFECT_MIX}}},
     {"Reverb",sizeof(ReverbSettings),reverb_defaults,reverb_check,reverb_parameter,{{PARAM_REVERB_FIRST,PARAM_REVERB_LAST},{PARAM_EFFECT_MIX,PARAM_EFFECT_MIX}}},
+    {"Dynamics",sizeof(DynamicsSettings),dynamics_defaults,dynamics_check,dynamics_device_parameter,{{PARAM_DYNAMICS_FIRST,PARAM_DYNAMICS_LAST},{PARAM_EFFECT_MIX,PARAM_EFFECT_MIX}}},
 };
 const DeviceDescriptor *device_descriptor(unsigned kind) {
-    return kind>=DEVICE_SAMPLER && kind<=DEVICE_REVERB?&devices[kind-1]:NULL;
+    return kind>=DEVICE_SAMPLER && kind<=DEVICE_DYNAMICS?&devices[kind-1]:NULL;
 }
 const DeviceDescriptor *instrument_descriptor(unsigned type) {
     return type==INSTRUMENT_SAMPLER?device_descriptor(DEVICE_SAMPLER):type==INSTRUMENT_FM?device_descriptor(DEVICE_FM):NULL;
 }
 const DeviceDescriptor *effect_descriptor(unsigned type) {
-    return type==EFFECT_CHORUS?device_descriptor(DEVICE_CHORUS):type==EFFECT_EQ?device_descriptor(DEVICE_EQ):type==EFFECT_DELAY?device_descriptor(DEVICE_DELAY):type==EFFECT_TUBE?device_descriptor(DEVICE_TUBE):type==EFFECT_REVERB?device_descriptor(DEVICE_REVERB):NULL;
+    return type==EFFECT_CHORUS?device_descriptor(DEVICE_CHORUS):type==EFFECT_EQ?device_descriptor(DEVICE_EQ):type==EFFECT_DELAY?device_descriptor(DEVICE_DELAY):type==EFFECT_TUBE?device_descriptor(DEVICE_TUBE):type==EFFECT_REVERB?device_descriptor(DEVICE_REVERB):type==EFFECT_DYNAMICS?device_descriptor(DEVICE_DYNAMICS):NULL;
 }
 int device_has_parameter(const DeviceDescriptor *device,unsigned id) {
     if(!device || !id) return 0;

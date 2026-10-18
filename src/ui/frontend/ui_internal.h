@@ -254,6 +254,9 @@ typedef struct {
     uint8_t record_armed[INSERTS+1];
     int mixer_decay_active,effect_slot,effect_list_scroll;
     int eq_bus,eq_slot,eq_band;
+    DynamicsBand dynamics_copy;int dynamics_has_copy;
+    int dynamics_band[32],dynamics_view[32],dynamics_pause[32],dynamics_drag,dynamics_drag_window,dynamics_drag_band,dynamics_drag_kind;
+    float dynamics_drag_x,dynamics_drag_y;
     Spectrum master_spectrum,eq_spectrum;
     int spectrum_active;
     const unsigned fm_envelope_ids[3][4];
@@ -437,7 +440,7 @@ void audio_waveform_at(int c,float x,float y,float left,float right,float pixels
 void audio_waveform(int c,float x,float y,float left,float right,float pixels_per_step,float height);
 void drop_sample(const char *path);
 void delete_channel(int c);
-void install_project(Project next,Sample fresh[CHANNELS],Sample processed[CHANNELS],const char *filename);
+void install_project(Project *next,Sample fresh[CHANNELS],Sample processed[CHANNELS],const char *filename);
 void new_project(int demo);
 int load_project(const char *path);
 void replace_project(int action);

@@ -2,6 +2,59 @@
 #include "engine.h"
 #include <math.h>
 static const ParameterDescriptor descriptors[]={
+    {PARAM_DYNAMICS_FIRST+0,"Low crossover (Hz)",40,1000,200,PARAMETER_LOGARITHMIC},
+    {PARAM_DYNAMICS_FIRST+1,"High crossover (Hz)",1000,16000,2500,PARAMETER_LOGARITHMIC},
+    {PARAM_DYNAMICS_FIRST+2,"Low cut (Hz / Off)",0,200,0,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+3,"Band mix",0,1,1,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+4,"Low Pre gain (dB)",-24,24,0,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+5,"Low Post gain (dB)",-24,24,0,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+6,"Low Attack (ms)",0,200,10,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+7,"Low Release (ms)",0,2000,150,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+8,"Low Release 2 (ms)",0,2000,0,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+9,"Low Sustain (ms)",0,1000,10,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+10,"Low Stereo width",0,2,1,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+11,"Low Mode",0,3,0,PARAMETER_INTEGER},
+    {PARAM_DYNAMICS_FIRST+12,"Low Solo",0,1,0,PARAMETER_TOGGLE},
+    {PARAM_DYNAMICS_FIRST+13,"Low RMS",0,1,0,PARAMETER_TOGGLE},
+    {PARAM_DYNAMICS_FIRST+14,"Low Saturation ceiling (dB)",-24,12,0,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+15,"Low Saturation",0,1,0,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+16,"Mid Pre gain (dB)",-24,24,0,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+17,"Mid Post gain (dB)",-24,24,0,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+18,"Mid Attack (ms)",0,200,10,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+19,"Mid Release (ms)",0,2000,150,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+20,"Mid Release 2 (ms)",0,2000,0,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+21,"Mid Sustain (ms)",0,1000,10,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+22,"Mid Stereo width",0,2,1,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+23,"Mid Mode",0,3,0,PARAMETER_INTEGER},
+    {PARAM_DYNAMICS_FIRST+24,"Mid Solo",0,1,0,PARAMETER_TOGGLE},
+    {PARAM_DYNAMICS_FIRST+25,"Mid RMS",0,1,0,PARAMETER_TOGGLE},
+    {PARAM_DYNAMICS_FIRST+26,"Mid Saturation ceiling (dB)",-24,12,0,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+27,"Mid Saturation",0,1,0,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+28,"High Pre gain (dB)",-24,24,0,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+29,"High Post gain (dB)",-24,24,0,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+30,"High Attack (ms)",0,200,10,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+31,"High Release (ms)",0,2000,150,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+32,"High Release 2 (ms)",0,2000,0,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+33,"High Sustain (ms)",0,1000,10,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+34,"High Stereo width",0,2,1,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+35,"High Mode",0,3,0,PARAMETER_INTEGER},
+    {PARAM_DYNAMICS_FIRST+36,"High Solo",0,1,0,PARAMETER_TOGGLE},
+    {PARAM_DYNAMICS_FIRST+37,"High RMS",0,1,0,PARAMETER_TOGGLE},
+    {PARAM_DYNAMICS_FIRST+38,"High Saturation ceiling (dB)",-24,12,0,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+39,"High Saturation",0,1,0,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+40,"Master Pre gain (dB)",-24,24,0,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+41,"Master Post gain (dB)",-24,24,0,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+42,"Master Attack (ms)",0,200,10,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+43,"Master Release (ms)",0,2000,150,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+44,"Master Release 2 (ms)",0,2000,0,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+45,"Master Sustain (ms)",0,1000,10,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+46,"Master Stereo width",0,2,1,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+47,"Master Mode",0,3,0,PARAMETER_INTEGER},
+    {PARAM_DYNAMICS_FIRST+48,"Master Solo",0,1,0,PARAMETER_TOGGLE},
+    {PARAM_DYNAMICS_FIRST+49,"Master RMS",0,1,0,PARAMETER_TOGGLE},
+    {PARAM_DYNAMICS_FIRST+50,"Master Saturation ceiling (dB)",-24,12,0,PARAMETER_CONTINUOUS},
+    {PARAM_DYNAMICS_FIRST+51,"Master Saturation",0,1,0,PARAMETER_CONTINUOUS},
+
     {PARAM_REVERB_SIZE,"Reverb size",0,1,.55f,PARAMETER_CONTINUOUS},
     {PARAM_REVERB_DECAY,"Reverb decay (s)",.15f,20,2.4f,PARAMETER_LOGARITHMIC},
     {PARAM_REVERB_DAMPING,"Reverb damping (Hz)",500,20000,18000,PARAMETER_LOGARITHMIC},
@@ -109,6 +162,10 @@ const ParameterDescriptor *parameter_descriptor(unsigned id) {
 static const float *parameter_pointer(const Project *p,ParameterTarget t,float *lo,float *hi) {
     const ParameterDescriptor *info=parameter_descriptor(t.parameter);
     *lo=info?info->low:0; *hi=info?info->high:1;
+    if(t.parameter>=PARAM_DYNAMICS_FIRST && t.parameter<=PARAM_DYNAMICS_LAST) {
+        if(t.owner>(unsigned)p->insert_count || t.slot>=EFFECT_SLOTS || p->effect_type[t.owner][t.slot]!=EFFECT_DYNAMICS)return NULL;
+        return dynamics_parameter(&p->dynamics[t.owner][t.slot],t.parameter-PARAM_DYNAMICS_FIRST);
+    }
     if(t.parameter>=PARAM_REVERB_FIRST && t.parameter<=PARAM_REVERB_LAST) {
         if(t.owner>(unsigned)p->insert_count || t.slot>=EFFECT_SLOTS || p->effect_type[t.owner][t.slot]!=EFFECT_REVERB) return NULL;
         return device_parameter(effect_descriptor(EFFECT_REVERB),&p->reverb[t.owner][t.slot],t.parameter);
@@ -179,6 +236,16 @@ int parameter_write(Project *p,ParameterTarget t,float normalized) {
     }return 1;
 }
 int parameter_from_pointer(const Project *p,const void *ptr,ParameterTarget *t) {
+    /* The new large settings array has a concrete address mapping; avoid a
+       full bus/slot/parameter search for every knob value drawn each frame. */
+    uintptr_t address=(uintptr_t)ptr,start=(uintptr_t)&p->dynamics[0][0];
+    if(address>=start && address<start+sizeof p->dynamics){
+        unsigned index=(unsigned)((address-start)/sizeof(DynamicsSettings)),owner=index/EFFECT_SLOTS,slot=index%EFFECT_SLOTS;
+        if(owner>(unsigned)p->insert_count || p->effect_type[owner][slot]!=EFFECT_DYNAMICS)return 0;
+        for(unsigned n=0;n<DYNAMICS_PARAMETERS;n++)if(dynamics_parameter(&p->dynamics[owner][slot],n)==ptr){*t=(ParameterTarget){PARAM_DYNAMICS_FIRST+n,owner,slot};return 1;}
+        return 0;
+    }
+
     for(unsigned c=0;c<(unsigned)p->channel_count;c++) if(p->instrument[c]==INSTRUMENT_FM && p->fm[c].engine==1) {
         uintptr_t address=(uintptr_t)ptr,start=(uintptr_t)p->fm[c].dx7.value,end=start+sizeof p->fm[c].dx7.value;
         if(address>=start && address<end && (address-start)%sizeof(float)==0) { *t=(ParameterTarget){PARAM_DX7_FIRST+(address-start)/sizeof(float),c,0}; return 1; }

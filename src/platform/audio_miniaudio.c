@@ -115,6 +115,7 @@ static void analyzer_push(int stream,float l,float r) {
     ring->pcm[w%ANALYZER_FRAMES][0]=isfinite(l)?l:0; ring->pcm[w%ANALYZER_FRAMES][1]=isfinite(r)?r:0;
     atomic_store_explicit(&ring->write,w+1,memory_order_release);
 }
+void audio_dynamics_monitor(unsigned bus,unsigned slot,DynamicsMonitor *monitor){effects_dynamics_monitor(effects,bus,slot,monitor);}
 void audio_spectrum_bus(int bus) { atomic_store_explicit(&analyzer_bus,bus,memory_order_relaxed); }
 unsigned audio_spectrum_read(int stream,float *pcm,unsigned capacity) {
     if(stream<0 || stream>1) return 0;

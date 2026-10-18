@@ -26,6 +26,7 @@ uint64_t audio_position(void);
 double audio_visual_position(void);
 void audio_meters(float peaks[INSERTS+1][2]);
 /* UI drains bounded stereo taps; FFT work stays outside the callback. */
+void audio_dynamics_monitor(unsigned bus,unsigned slot,DynamicsMonitor *monitor);
 void audio_spectrum_bus(int bus);
 unsigned audio_spectrum_read(int selected,float *stereo,unsigned capacity);
 int audio_active(void);

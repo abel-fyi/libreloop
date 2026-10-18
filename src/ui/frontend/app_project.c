@@ -269,10 +269,10 @@ void delete_channel(int c) {
     audio_channels(&ui.project,ui.samples); sample_free(old); sample_free(raw); ui.reset=1;
 }
 
-void install_project(Project next,Sample fresh[CHANNELS],Sample processed[CHANNELS],const char *filename) {
+void install_project(Project *next,Sample fresh[CHANNELS],Sample processed[CHANNELS],const char *filename) {
     recording_finish();midi_panic();ui.midi_learning=0;
     if(ui.windows.workspace.enabled)for(int i=5;i<WINDOW_CAPACITY;i++)studio_workspace_hide(&ui.windows,i);
-    ui.sample_epoch++; audio_stop(); ui.fm_graph_drag=-1;
+    ui.sample_epoch++; audio_stop(); ui.fm_graph_drag=-1;ui.dynamics_drag=0;
     sample_free(ui.audition); free(ui.audition_wave.tree); ui.audition_wave=(Waveform){0}; ui.audition=(Sample){0}; ui.audition_path[0]=0; ui.browser_progress=-1;
     memset(ui.keyboard_notes,0,sizeof ui.keyboard_notes); ui.piano_note_length=2; if(ui.edit_clipboard.kind==COPY_CLIPS) ui.edit_clipboard.kind=COPY_EMPTY;
     ui.picker_tab=ui.picker_scroll=0; ui.picker_drag=-1; ui.automation_selected=ui.automation_node=ui.automation_lane=ui.automation_clip=-1; ui.sample_drag[0]=0;
@@ -281,17 +281,17 @@ void install_project(Project next,Sample fresh[CHANNELS],Sample processed[CHANNE
     ui.navigation_active=0; ui.navigation_drag=-1; ui.track_resize=-1; ui.selected_track=-1; ui.ruler_loop_drag=0; ui.stop_armed=0; ui.ruler_last_id=-1;
     ui.pattern_hit_active=0;ui.pattern_channel_scroll=0;memset(ui.pattern_hits,0,sizeof ui.pattern_hits);
     ui.visual_step=0;
-    ui.playing=0; ui.pattern=(int)fminf(ui.pattern,next.pattern_count-1); audio_update(&next,0,ui.song,ui.pattern,1,ui.output_volume,0,0,0);
-    for(int c=0;c<CHANNELS;c++) sample_duration(&next,c,processed[c],fresh[c]);
-    audio_channels(&next,processed);
+    ui.playing=0; ui.pattern=(int)fminf(ui.pattern,next->pattern_count-1); audio_update(next,0,ui.song,ui.pattern,1,ui.output_volume,0,0,0);
+    for(int c=0;c<CHANNELS;c++) sample_duration(next,c,processed[c],fresh[c]);
+    audio_channels(next,processed);
     for(int c=0;c<CHANNELS;c++) {
         Sample old=ui.samples[c],raw=ui.originals[c]; ui.samples[c]=processed[c]; ui.originals[c]=fresh[c]; sample_free(old); sample_free(raw);
-        ui.sample_generation[c]++; ui.sampler_generation[c]=ui.sample_generation[c]; ui.sampler_applied[c]=next.sampler[c];
+        ui.sample_generation[c]++; ui.sampler_generation[c]=ui.sample_generation[c]; ui.sampler_applied[c]=next->sampler[c];
     }
-    ui.project=next; project_document_saved(&ui.document,&ui.project,filename);
-    ui.project.insert_count=ui.studio_style?next.insert_count:INSERTS; ui.rack_scroll=0; ui.rack_scroll_remainder=0; ui.rack_filter=0; ui.channel=fmaxf(0,fminf(ui.channel,ui.project.channel_count-1));
+    ui.project=*next; project_document_saved(&ui.document,&ui.project,filename);
+    ui.project.insert_count=ui.studio_style?next->insert_count:INSERTS; ui.rack_scroll=0; ui.rack_scroll_remainder=0; ui.rack_filter=0; ui.channel=fmaxf(0,fminf(ui.channel,ui.project.channel_count-1));
     ui.piano_channel=ui.instrument_channel=ui.channel;
-    for(int i=0;i<PATTERNS;i++) { ui.piano_span[i]=fmaxf(STEPS,next.pattern_steps[i]); ui.piano_pan[i]=0; ui.piano_range[i]=0; }
+    for(int i=0;i<PATTERNS;i++) { ui.piano_span[i]=fmaxf(STEPS,next->pattern_steps[i]); ui.piano_pan[i]=0; ui.piano_range[i]=0; }
     memset(ui.note_selected,0,sizeof ui.note_selected); ui.piano_gesture=PIANO_IDLE; ui.playlist_start=0; memset(ui.piano_start,0,sizeof ui.piano_start); memset(ui.song_loop,0,sizeof ui.song_loop); memset(ui.pattern_loop,0,sizeof ui.pattern_loop); ui.marker_drag=-1;
     memset(ui.piano_channels,0,sizeof ui.piano_channels); ui.mixer_selected=ui.project.route[ui.channel]; ui.mixer_scroll=0;ui.mixer_offset=0;ui.fx_press=ui.fx_dragging=ui.fx_add_pending=0;memset(ui.mixer_fx_scroll,0,sizeof ui.mixer_fx_scroll);
     ui.piano_key_drag=0; ui.piano_key=-1;
@@ -313,7 +313,7 @@ void new_project(int demo) {
             snprintf(ui.status,sizeof ui.status,"Project unchanged: could not prepare samples."); return;
         }
     }
-    ui.pattern=ui.channel=0; ui.song=1; install_project(next,fresh,processed,demo?"demo" PROJECT_FILE_SUFFIX:"project" PROJECT_FILE_SUFFIX); ui.document.saved_on_disk=0;
+    ui.pattern=ui.channel=0; ui.song=1; install_project(&next,fresh,processed,demo?"demo" PROJECT_FILE_SUFFIX:"project" PROJECT_FILE_SUFFIX); ui.document.saved_on_disk=0;
     if(ui.windows.workspace.enabled)windows_focus(&ui.windows,1);
     snprintf(ui.status,sizeof ui.status,demo?"Demo loaded: press Play to hear the eight-bar groove.":"New project: load a sample to get started.");
 }
@@ -324,7 +324,7 @@ int load_project(const char *path) {
         snprintf(ui.status,sizeof ui.status,"Project unchanged: invalid project, sample path too long or processing failed: %.100s",path); return 0;
     }
     char filename[LL_PATH_CAPACITY]; snprintf(filename,sizeof filename,"%s",path);
-    install_project(next,fresh,processed,filename);
+    install_project(&next,fresh,processed,filename);
     if(missing) snprintf(ui.status,sizeof ui.status,"Loaded with %d missing samples. Right-click a channel and choose Relink sample, or drop its file onto the channel.",missing);
     return 1;
 }
@@ -396,9 +396,9 @@ failed:
 
 int preset_commit(const char *chosen,int save) {
     DevicePreset preset={.kind=ui.preset_kind}; int owner=ui.preset_owner,slot=ui.preset_slot;
-    if(ui.preset_kind==PRESET_CHORUS || ui.preset_kind==PRESET_EQ || ui.preset_kind==PRESET_DELAY || ui.preset_kind==PRESET_TUBE || ui.preset_kind==PRESET_REVERB) {
-        if(owner<0 || owner>ui.project.insert_count || slot<0 || slot>=EFFECT_SLOTS || ui.project.effect_type[owner][slot]!=(ui.preset_kind==PRESET_REVERB?EFFECT_REVERB:ui.preset_kind==PRESET_TUBE?EFFECT_TUBE:ui.preset_kind==PRESET_DELAY?EFFECT_DELAY:ui.preset_kind==PRESET_EQ?EFFECT_EQ:EFFECT_CHORUS)) return 0;
-        preset.reverb=ui.project.reverb[owner][slot]; preset.tube=ui.project.tube[owner][slot]; preset.delay=ui.project.delay[owner][slot]; preset.eq=ui.project.eq[owner][slot]; preset.chorus=ui.project.chorus[owner][slot]; preset.mix=ui.project.effect_mix[owner][slot];
+    if(ui.preset_kind==PRESET_CHORUS || ui.preset_kind==PRESET_EQ || ui.preset_kind==PRESET_DELAY || ui.preset_kind==PRESET_TUBE || ui.preset_kind==PRESET_REVERB || ui.preset_kind==PRESET_DYNAMICS) {
+        if(owner<0 || owner>ui.project.insert_count || slot<0 || slot>=EFFECT_SLOTS || ui.project.effect_type[owner][slot]!=(ui.preset_kind==PRESET_DYNAMICS?EFFECT_DYNAMICS:ui.preset_kind==PRESET_REVERB?EFFECT_REVERB:ui.preset_kind==PRESET_TUBE?EFFECT_TUBE:ui.preset_kind==PRESET_DELAY?EFFECT_DELAY:ui.preset_kind==PRESET_EQ?EFFECT_EQ:EFFECT_CHORUS)) return 0;
+        preset.dynamics=ui.project.dynamics[owner][slot]; preset.reverb=ui.project.reverb[owner][slot]; preset.tube=ui.project.tube[owner][slot]; preset.delay=ui.project.delay[owner][slot]; preset.eq=ui.project.eq[owner][slot]; preset.chorus=ui.project.chorus[owner][slot]; preset.mix=ui.project.effect_mix[owner][slot];
     } else {
         if(owner<0 || owner>=ui.project.channel_count || (ui.preset_kind==PRESET_FM)!=(ui.project.instrument[owner]==INSTRUMENT_FM)) return 0;
         preset.fm=ui.project.fm[owner]; preset.sampler=ui.project.sampler[owner];
@@ -409,6 +409,7 @@ int preset_commit(const char *chosen,int save) {
     }
     if(!preset_load(chosen,&preset) || preset.kind!=ui.preset_kind) { snprintf(ui.status,sizeof ui.status,"Invalid preset or wrong device type"); return 0; }
     if(ui.preset_kind==PRESET_FM) ui.project.fm[owner]=preset.fm;
+    else if(ui.preset_kind==PRESET_DYNAMICS){ui.project.dynamics[owner][slot]=preset.dynamics;ui.project.effect_mix[owner][slot]=preset.mix;ui.project.effect_bypass[owner][slot]=0;}
     else if(ui.preset_kind==PRESET_REVERB) {ui.project.reverb[owner][slot]=preset.reverb;ui.project.effect_mix[owner][slot]=preset.mix;ui.project.effect_bypass[owner][slot]=0;}
     else if(ui.preset_kind==PRESET_TUBE) {ui.project.tube[owner][slot]=preset.tube;ui.project.effect_mix[owner][slot]=preset.mix;ui.project.effect_bypass[owner][slot]=0;}
     else if(ui.preset_kind==PRESET_DELAY) {

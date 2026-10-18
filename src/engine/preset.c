@@ -10,7 +10,7 @@
 static int valid(const DevicePreset *p) {
     const DeviceDescriptor *device=device_descriptor(p->kind);
     if(!device) return 0;
-    const void *settings=p->kind==PRESET_SAMPLER?(const void *)&p->sampler:p->kind==PRESET_FM?(const void *)&p->fm:p->kind==PRESET_CHORUS?(const void *)&p->chorus:p->kind==PRESET_REVERB?(const void *)&p->reverb:p->kind==PRESET_TUBE?(const void *)&p->tube:p->kind==PRESET_DELAY?(const void *)&p->delay:(const void *)&p->eq;
+    const void *settings=p->kind==PRESET_SAMPLER?(const void *)&p->sampler:p->kind==PRESET_FM?(const void *)&p->fm:p->kind==PRESET_CHORUS?(const void *)&p->chorus:p->kind==PRESET_DYNAMICS?(const void *)&p->dynamics:p->kind==PRESET_REVERB?(const void *)&p->reverb:p->kind==PRESET_TUBE?(const void *)&p->tube:p->kind==PRESET_DELAY?(const void *)&p->delay:(const void *)&p->eq;
     if(!device->valid(settings)) return 0;
     if(p->kind==PRESET_SAMPLER) return ll_strnlen(p->sample_path,sizeof p->sample_path)<sizeof p->sample_path && !strchr(p->sample_path,'\n') && !strchr(p->sample_path,'\r');
     return p->kind==PRESET_FM || (isfinite(p->mix) && p->mix>=0 && p->mix<=1);
@@ -34,6 +34,7 @@ int preset_save(const char *path,const DevicePreset *p) {
         for(int i=0;i<DX7_PARAMETERS;i++) fprintf(out.file,"%.9g ",s.dx7.value[i]);
         fputc('\n',out.file);
     } else if(p->kind==PRESET_CHORUS) fprintf(out.file,"%.9g %.9g %.9g\n",p->chorus.rate,p->chorus.depth,p->mix);
+    else if(p->kind==PRESET_DYNAMICS){float v[sizeof(DynamicsSettings)/sizeof(float)];memcpy(v,&p->dynamics,sizeof v);for(unsigned i=0;i<sizeof v/sizeof *v;i++)fprintf(out.file,"%.9g ",v[i]);fprintf(out.file,"%.9g\n",p->mix);}
     else if(p->kind==PRESET_REVERB)fprintf(out.file,"%.9g %.9g %.9g %.9g %.9g %.9g %.9g %.9g\n",p->reverb.size,p->reverb.decay,p->reverb.damping,p->reverb.predelay,p->reverb.width,p->reverb.mod,p->reverb.gate,p->mix);
     else if(p->kind==PRESET_TUBE)fprintf(out.file,"%.9g %.9g %.9g %.9g\n",p->tube.drive,p->tube.tone,p->tube.output,p->mix);
     else if(p->kind==PRESET_DELAY) { fprintf(out.file,"%.9g %.9g %.9g %.9g %.9g %u %u %.9g\n",p->delay.time_ms,p->delay.feedback,p->delay.cutoff,p->delay.stereo,p->delay.output,p->delay.sync,p->delay.division,p->mix);
@@ -63,6 +64,7 @@ int preset_load(const char *path,DevicePreset *p) {
             if(version<6) dx7_legacy_tracking(&s->dx7);
         }
     } else if(ok && next.kind==PRESET_CHORUS) ok=fscanf(f,"%f %f %f",&next.chorus.rate,&next.chorus.depth,&next.mix)==3;
+    else if(ok && next.kind==PRESET_DYNAMICS){float v[sizeof(DynamicsSettings)/sizeof(float)]={0};for(unsigned i=0;ok && i<sizeof v/sizeof *v;i++)ok=fscanf(f,"%f",&v[i])==1;memcpy(&next.dynamics,v,sizeof v);ok=ok && fscanf(f,"%f",&next.mix)==1;}
     else if(ok && next.kind==PRESET_REVERB)ok=fscanf(f,"%f %f %f %f %f %f %f %f",&next.reverb.size,&next.reverb.decay,&next.reverb.damping,&next.reverb.predelay,&next.reverb.width,&next.reverb.mod,&next.reverb.gate,&next.mix)==8;
     else if(ok && next.kind==PRESET_TUBE)ok=fscanf(f,"%f %f %f %f",&next.tube.drive,&next.tube.tone,&next.tube.output,&next.mix)==4;
     else if(ok && next.kind==PRESET_DELAY) { next.delay=delay_legacy();ok=fscanf(f,"%f %f %f %f %f %u %u %f",&next.delay.time_ms,&next.delay.feedback,&next.delay.cutoff,&next.delay.stereo,&next.delay.output,&next.delay.sync,&next.delay.division,&next.mix)==8;

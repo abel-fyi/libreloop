@@ -56,7 +56,7 @@ void flush_cursor(void) { platform_window_cursor(ui.app_window,ui.requested_curs
 
 float *playback_loop(void) { return ui.song?ui.song_loop:ui.pattern_loop[ui.pattern]; }
 
-int captured(void) { return ui.fx_press || ui.velocity_lane.dragging || (ui.windows.workspace.enabled && ui.windows.workspace.drag>=0) || ui.fm_graph_drag>=0 || ui.row_zoom_drag>=0 || ui.eq_drag>=0 || ui.automation_node>=0 || ui.picker_drag>=0 || ui.navigation_drag>=0 || ui.track_resize>=0 || ui.rack_hdrag || ui.rack_vdrag || ui.piano_key_drag || ui.control_drag || ui.route_drag>=0 || ui.note_drag || ui.velocity_drag>=0 || ui.arrangement.gesture || ui.playlist_pan || ui.browser_resize || ui.rack_paint>=0 || ui.cable_drag>0 || ui.playlist_vpan || ui.mixer_pan || ui.piano_scroll_drag || ui.piano_vdrag || ui.piano_gesture || ui.marker_drag>=0 || ui.pattern_hit_active; }
+int captured(void) { return ui.dynamics_drag || ui.fx_press || ui.velocity_lane.dragging || (ui.windows.workspace.enabled && ui.windows.workspace.drag>=0) || ui.fm_graph_drag>=0 || ui.row_zoom_drag>=0 || ui.eq_drag>=0 || ui.automation_node>=0 || ui.picker_drag>=0 || ui.navigation_drag>=0 || ui.track_resize>=0 || ui.rack_hdrag || ui.rack_vdrag || ui.piano_key_drag || ui.control_drag || ui.route_drag>=0 || ui.note_drag || ui.velocity_drag>=0 || ui.arrangement.gesture || ui.playlist_pan || ui.browser_resize || ui.rack_paint>=0 || ui.cable_drag>0 || ui.playlist_vpan || ui.mixer_pan || ui.piano_scroll_drag || ui.piano_vdrag || ui.piano_gesture || ui.marker_drag>=0 || ui.pattern_hit_active; }
 
 float ui_scale(void) { return fmaxf(1,fminf(host_get_screen_width()/(ui.studio_style?1448.f:1200.f),host_get_screen_height()/(ui.studio_style?1086.f:675.f))); }
 

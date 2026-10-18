@@ -64,7 +64,7 @@ float fader_gain(float position) {
 void project_default(Project *p) {
     memset(p, 0, sizeof *p); p->bpm=120; p->master=1; p->master_width=1; p->pattern_count=1; p->channel_count=4; snprintf(p->audio_io[0][1],128,"@default");
     for(int pat=0;pat<PATTERNS;pat++) { p->pattern_colors[pat]=pattern_palette[pat]; p->pattern_steps[pat]=STEPS; snprintf(p->pattern_names[pat],PATTERN_NAME,"Pattern %d",pat+1); }
-    for(int id=0;id<=INSERTS;id++) for(int slot=0;slot<10;slot++) { p->effect_mix[id][slot]=1; device_descriptor(DEVICE_CHORUS)->defaults(&p->chorus[id][slot]); device_descriptor(DEVICE_EQ)->defaults(&p->eq[id][slot]); p->delay[id][slot]=delay_default(); p->tube[id][slot]=tube_default(); p->reverb[id][slot]=reverb_default(); }
+    for(int id=0;id<=INSERTS;id++) for(int slot=0;slot<10;slot++) { p->effect_mix[id][slot]=1; device_descriptor(DEVICE_CHORUS)->defaults(&p->chorus[id][slot]); device_descriptor(DEVICE_EQ)->defaults(&p->eq[id][slot]); p->delay[id][slot]=delay_default(); p->tube[id][slot]=tube_default(); p->reverb[id][slot]=reverb_default(); p->dynamics[id][slot]=dynamics_default(); }
     for(int l=0;l<LANES;l++) snprintf(p->track_names[l],PATTERN_NAME,"Track %d",l+1);
     const char *names[]={"Kick","Snare","Hat","Tone"};
     for(int c=0;c<CHANNELS;c++) { device_descriptor(DEVICE_FM)->defaults(&p->fm[c]); p->pitch_range[c]=2; p->volume[c]=1; p->sampler[c].time=p->sampler[c].length=1; if(c<4) snprintf(p->channel_names[c],PATTERN_NAME,"%s",names[c]); else snprintf(p->channel_names[c],PATTERN_NAME,"Channel %d",c+1); }
@@ -172,7 +172,7 @@ int insert_reset(Project *p,int id) {
     p->insert_volume[id-1]=p->insert_width[id-1]=1; p->insert_pan[id-1]=0; p->insert_mute[id-1]=0; p->insert_output[id-1]=0;
     memset(p->insert_sends[id-1],0,sizeof p->insert_sends[id-1]);
     memset(p->audio_io[id],0,sizeof p->audio_io[id]);
-    for(int slot=0;slot<EFFECT_SLOTS;slot++) { p->effect_type[id][slot]=EFFECT_EMPTY; p->effect_mix[id][slot]=1; device_descriptor(DEVICE_CHORUS)->defaults(&p->chorus[id][slot]); device_descriptor(DEVICE_EQ)->defaults(&p->eq[id][slot]); p->delay[id][slot]=delay_default(); p->tube[id][slot]=tube_default(); p->reverb[id][slot]=reverb_default(); p->effect_bypass[id][slot]=0; }
+    for(int slot=0;slot<EFFECT_SLOTS;slot++) { p->effect_type[id][slot]=EFFECT_EMPTY; p->effect_mix[id][slot]=1; device_descriptor(DEVICE_CHORUS)->defaults(&p->chorus[id][slot]); device_descriptor(DEVICE_EQ)->defaults(&p->eq[id][slot]); p->delay[id][slot]=delay_default(); p->tube[id][slot]=tube_default(); p->reverb[id][slot]=reverb_default(); p->dynamics[id][slot]=dynamics_default(); p->effect_bypass[id][slot]=0; }
     for(int a=p->automation_count-1;a>=0;a--) {
         ParameterTarget t=p->automations[a].target;
         if(t.owner==(unsigned)id && parameter_is_effect(t.parameter)) automation_delete(p,a);
@@ -438,6 +438,10 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
     float channel_controls[CHANNELS][5],insert_controls[INSERTS][4],master_controls[5]={pr->master,pr->master_width,pr->master_pitch,pr->master_mute,pr->swing};
     ChorusSettings effect_updates[INSERTS+1][EFFECT_SLOTS];
     ReverbSettings reverb_updates[INSERTS+1][EFFECT_SLOTS];
+    DynamicsSettings dynamics_updates[AUTOMATIONS];
+    const DynamicsSettings *dynamics_controls[INSERTS+1][EFFECT_SLOTS];
+    for(int bus=0;bus<=INSERTS;bus++)for(int slot=0;slot<EFFECT_SLOTS;slot++)dynamics_controls[bus][slot]=&pr->dynamics[bus][slot];
+    unsigned dynamics_used=0;
     TubeSettings tube_updates[INSERTS+1][EFFECT_SLOTS];
     DelaySettings delay_updates[INSERTS+1][EFFECT_SLOTS];
     EQSettings eq_updates[INSERTS+1][EFFECT_SLOTS];
@@ -478,6 +482,13 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
             if((id>=PARAM_FM_RATIO && id<=PARAM_FM_LAST) || (id>=PARAM_DX7_FIRST && id<=PARAM_DX7_LAST)) {
                 FMSettings *settings=&fm_updates[c];
                 bindings[a]=(float *)fm_parameter_pointer(settings,id);
+            }
+            else if(id>=PARAM_DYNAMICS_FIRST && id<=PARAM_DYNAMICS_LAST) {
+                if(dynamics_controls[c][t.slot]==&pr->dynamics[c][t.slot]) {
+                    dynamics_updates[dynamics_used]=pr->dynamics[c][t.slot];
+                    dynamics_controls[c][t.slot]=&dynamics_updates[dynamics_used++];
+                }
+                bindings[a]=(float *)dynamics_parameter(dynamics_controls[c][t.slot],id-PARAM_DYNAMICS_FIRST);
             }
             else if(id>=PARAM_REVERB_FIRST && id<=PARAM_REVERB_LAST) bindings[a]=(float *)device_parameter(effect_descriptor(EFFECT_REVERB),&reverb_updates[c][t.slot],id);
             else if(id>=PARAM_TUBE_FIRST && id<=PARAM_TUBE_LAST) bindings[a]=(float *)device_parameter(effect_descriptor(EFFECT_TUBE),&tube_updates[c][t.slot],id);
@@ -600,7 +611,7 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
         }
         for(int at=0;at<buses_count;at++) {
             int id=order[at]; float stereo[2]={buses[id][0],buses[id][1]};
-            effects_process_all(p->effects,id,pr->effect_type[id],effect_controls[id],eq_controls[id],delay_controls[id],tube_controls[id],reverb_controls[id],pr->bpm,effect_mixes[id],pr->effect_bypass[id],stereo);
+            effects_process_all(p->effects,id,pr->effect_type[id],effect_controls[id],eq_controls[id],delay_controls[id],tube_controls[id],reverb_controls[id],dynamics_controls[id],pr->bpm,effect_mixes[id],pr->effect_bypass[id],stereo);
             float l=effect_audible[id]?stereo[0]*bus_left[id]:0,r=effect_audible[id]?stereo[1]*bus_right[id]:0;
             if(bus_width[id]!=1) { float mid=(l+r)*.5f,side=(l-r)*.5f*bus_width[id]; l=mid+side; r=mid-side; }
             if(io && io->output) io->output(io->context,id,l,r);
