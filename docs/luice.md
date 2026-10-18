@@ -15,12 +15,11 @@ uploaded icon and knob pixels. Alpha is retained. Neutral colors use the gray
 ramp; chromatic colors select a hue family before shade selection, preserving
 track identities and avoiding cross-hue dithering.
 
-Shared panel, button, title-bar and clip gradients use ordered 4×4 Bayer
-selection between palette shades. Every opaque material pixel belongs to the
-palette. Exact palette colors remain unchanged. Flat fills stay flat: there is
-no decorative grain overlay. Graph-paper dots are a separate graph affordance.
-Do not add a new per-window texture, smooth material gradient or local color
-ramp; extend the shared material implementation when a real need arises.
+Shared panels, buttons, title bars, clips and graph-area fills use flat palette
+colors. Meter zones use discrete color bands while preserving continuous level
+length. There are no material gradients or decorative grain overlays. Knob/icon
+pixel shading and graph-paper dots remain separate details. Do not introduce a
+per-window gradient or local palette; use the shared flat surface helpers.
 
 This is a paint/material constraint, not an indexed framebuffer. SDL still
 composites transparency, texture modulation and interpolated data geometry;
@@ -32,14 +31,17 @@ there is no CPU framebuffer readback or full-screen postfilter.
 
 ## Rendering and scaling
 
-The SDL renderer caches native-pixel gradient strips and repeats them across
-the short axis. The Bayer phase follows physical target coordinates, not manual
-UI zoom. Resizing regenerates affected strips; stable geometry reuses textures.
-The cache holds up to 128 strips with an 8 MiB pixel-storage budget. This budget
-excludes driver bookkeeping, graph/knob atlases and other app textures. Temporary
-construction buffers and an upload in progress can exceed the retained budget.
-Oversize strips or allocation failures fall back to a palette-mapped flat fill.
-No animation or idle wakeup was added. Audio and interaction logic are unchanged.
+Flat materials use ordinary renderer fills; there is no gradient texture cache
+or material generation/upload step. The graph and knob atlases occupy 32 KiB of
+RGBA storage, plus a graph-density variant (64 KiB at 2×, 144 KiB at 3×). The
+previous 8 MiB gradient cache has been removed. Audio and interaction logic are
+unchanged except for the explicitly requested FM window height increase of 32 UI
+units, assigned to its envelope display.
+
+Piano rows use distinct palette grays (34 and 51), with minor grid 85 and major
+grid 153. These keep the rows and grid distinct after palette mapping. Horizontal
+piano row lines are opaque in the studio UI. Grid timing and snapping are
+unchanged.
 
 The legacy rendering path leaves palette mapping disabled so original-behavior
 fixtures retain their rendering semantics. The CPU renderer experiment implements
@@ -47,13 +49,16 @@ the material API too, but is not adopted or visually validated by this change.
 
 ## Verification
 
-Rendering tests assert that opaque gradient output uses only the fixed palette
-at 75%, 100%, 125%, 150% and 200% UI scale, both gradient directions and fractional
-placement. Every palette entry is unchanged by dithering. Existing graph-density
-checks remain; flat shared surfaces now assert uniformity instead of decorative
-noise. Software-rendered showcase screenshots were inspected at 150% scale.
-Native Retina appearance, mixed-DPI transitions and hardware rendering cost
-remain unverified.
+Rendering tests assert that flat material output uses only the fixed palette
+at 75%, 100%, 125%, 150% and 200% UI scale, both legacy gradient-helper directions
+and fractional placement, without intermediate shading. Every palette entry
+is unchanged by dithering. Piano minor lines must retain at least 1.5:1 contrast
+against both mapped row colors. Existing graph-density checks remain. Native
+Retina appearance, mixed-DPI transitions and hardware rendering cost remain
+unverified.
+
+The following measurements describe the preceding gradient revision, not the
+current flat-material implementation.
 
 All 158 Release tests pass. The experimental CPU backend passes a C11 syntax
 check only. The executable is 5,739,664 bytes, +368 bytes from the preceding

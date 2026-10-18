@@ -80,7 +80,7 @@ void draw_editor(int id,float scale) {
     int saved_bus=ui.eq_bus,saved_slot=ui.eq_slot,saved_band=ui.eq_band;
     if(ui.windows.workspace.enabled && id>=5){ui.eq_bus=ui.effect_windows[id].bus;ui.eq_slot=ui.effect_windows[id].slot;ui.eq_band=ui.effect_windows[id].band;}
     ui.knob_context=id;
-    if(id==4 && (!ui.windows.workspace.enabled || ui.windows.workspace.floating[id])) { e->minh=ui.project.instrument[ui.instrument_channel]==INSTRUMENT_FM?420:sampler_min_height(ui.studio_style); e->rect.h=fmaxf(e->minh,e->rect.h); }
+    if(id==4 && (!ui.windows.workspace.enabled || ui.windows.workspace.floating[id])) { e->minh=ui.project.instrument[ui.instrument_channel]==INSTRUMENT_FM?(ui.studio_style?452:420):sampler_min_height(ui.studio_style); e->rect.h=fmaxf(e->minh,e->rect.h); }
     Rect r=e->rect,frame=r;int title=windows_title_height(&ui.windows); int top=windows_count(&ui.windows)-1;
     while(top>0 && !ui.windows.editors[ui.windows.order[top]].visible) top--;
     int focused=(ui.windows.editors[ui.windows.focused].visible?ui.windows.focused:ui.windows.order[top])==id;

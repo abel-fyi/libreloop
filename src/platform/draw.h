@@ -18,7 +18,6 @@ void draw_destroy(DrawContext *draw);
 /* Luice paint constraint; legacy reference rendering leaves this disabled. */
 void draw_palette_enable(DrawContext *draw,int enabled);
 int draw_palette_enabled(const DrawContext *draw);
-void draw_material_gradient(DrawContext *draw,DrawRect rect,DrawColor from,DrawColor to,int horizontal);
 void draw_transform(DrawContext *draw,float scale,float x,float y);
 void draw_pattern_density(DrawContext *draw,float framebuffer_density);
 int draw_pattern_pixel_size(const DrawContext *draw);

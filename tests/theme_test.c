@@ -184,10 +184,15 @@ static int check_material_density(void){
 }
 static int check_luice_palette(void){
     unsigned char pixels[80*64*4];const float scales[]={.75f,1,1.25f,1.5f,2};
-    draw_palette_enable(draw,1);
+    theme_init();theme_studio();draw_palette_enable(draw,1);
+    for(int row=0;row<2;row++){
+        DrawColor bg=luice_palette_map(ui_theme.piano_row[row],0,0,0);
+        DrawColor grid=luice_palette_map(ui_theme.grid_minor,0,0,0);
+        if(contrast(bg,grid)<1.5f)return 0;
+    }
     for(unsigned k=0;k<sizeof scales/sizeof *scales;k++)for(int horizontal=0;horizontal<2;horizontal++){
         draw_transform(draw,scales[k],.37f,.83f);draw_clear(draw,(DrawColor){13,29,57,255});
-        draw_material_gradient(draw,(DrawRect){0,0,120,120},(DrawColor){52,58,66,255},(DrawColor){211,217,223,255},horizontal);
+        ui_gradient(draw,(DrawRect){0,0,120,120},(DrawColor){52,58,66,255},.45f,horizontal);
         draw_rect(draw,(DrawRect){4,4,10,10},(DrawColor){124,127,130,255});draw_flush(draw);
         if(!draw_read_rgba(draw,pixels,80,64))return 0;
         int seen[64]={0},count=0;
@@ -196,7 +201,7 @@ static int check_luice_palette(void){
             for(int j=0;j<64;j++)if(same(c,luice_palette_color(j))){found=j;break;}
             if(found<0)return 0;if(!seen[found]){seen[found]=1;count++;}
         }
-        if(count<3)return 0;
+        if(count!=2)return 0;
     }
     for(int i=0;i<64;i++)for(int y=0;y<4;y++)for(int x=0;x<4;x++)if(!same(luice_palette_color(i),luice_palette_map(luice_palette_color(i),x,y,1)))return 0;
     draw_palette_enable(draw,0);draw_transform(draw,1,0,0);return 1;

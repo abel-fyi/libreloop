@@ -167,15 +167,3 @@ void draw_texture_tiled_pixels(DrawContext *d,DrawTexture *texture,DrawRect sour
     }
     d->scale=scale;d->x=ox;d->y=oy;
 }
-
-void draw_material_gradient(DrawContext *d,DrawRect area,DrawColor a,DrawColor b,int horizontal){
-    int w,h,l,t,r,bottom;DrawColor *p=pixels(d,&w,&h);if(!p)return;
-    DrawPoint from=point(d,(DrawPoint){area.x,area.y}),to=point(d,(DrawPoint){area.x+area.width,area.y+area.height});
-    int left=(int)ceilf(from.x),top=(int)ceilf(from.y),right=(int)ceilf(to.x),end=(int)ceilf(to.y);
-    bounds(d,w,h,&l,&t,&r,&bottom);
-    for(int y=top>t?top:t;y<end && y<bottom;y++)for(int x=left>l?left:l;x<right && x<r;x++){
-        int length=horizontal?right-left:end-top;float f=length>1?(horizontal?x-left:y-top)/(float)(length-1):0;
-        DrawColor c={a.r+(b.r-a.r)*f,a.g+(b.g-a.g)*f,a.b+(b.b-a.b)*f,a.a+(b.a-a.a)*f};
-        p[(size_t)y*w+x]=blend(p[(size_t)y*w+x],luice_palette_map(c,x,y,1));
-    }
-}

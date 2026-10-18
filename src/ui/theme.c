@@ -60,7 +60,7 @@ void ui_graph_paper(DrawContext *draw,DrawRect r) {
 }
 void ui_graph_dots(DrawContext *draw,DrawRect r) { if(classic_style)skin_pattern(draw,r); }
 void ui_graph_area(DrawContext *draw,DrawPoint a,DrawPoint b,float baseline) {
-    DrawColor top=ui_skin.graph_fill,bottom={0,31,49,255};
+    DrawColor top=ui_skin.graph_fill,bottom=draw_palette_enabled(draw)?top:(DrawColor){0,31,49,255};
     DrawVertex v[]={{a,0,0,top},{{a.x,baseline},0,0,bottom},{{b.x,baseline},0,0,bottom},
         {a,0,0,top},{{b.x,baseline},0,0,bottom},{b,0,0,top}};
     draw_triangles(draw,NULL,v,6);
@@ -160,13 +160,13 @@ void theme_studio(void) {
     ui_theme.border=(DrawColor){29,33,37,255};
     ui_theme.browser=(DrawColor){7,47,73,255};
     ui_theme.track=(DrawColor){0,30,37,255};
-    ui_theme.piano_row[0]=(DrawColor){45,142,156,255};
-    ui_theme.piano_row[1]=(DrawColor){34,125,141,255};
+    ui_theme.piano_row[0]=(DrawColor){34,34,34,255};
+    ui_theme.piano_row[1]=(DrawColor){51,51,51,255};
     ui_theme.piano_black=(DrawColor){7,10,14,255};
     ui_theme.piano_white=(DrawColor){195,201,204,255};
     ui_theme.piano_c=(DrawColor){182,188,191,255};
-    ui_theme.grid_major=(DrawColor){74,136,145,255};
-    ui_theme.grid_minor=(DrawColor){43,92,103,255};
+    ui_theme.grid_major=(DrawColor){153,153,153,255};
+    ui_theme.grid_minor=(DrawColor){85,85,85,255};
     ui_theme.highlight=ui_theme.hover=ui_theme.note_drag=(DrawColor){45,187,239,255};
     ui_theme.signal=(DrawColor){45,244,162,255};
     ui_theme.patt=(DrawColor){151,55,245,255};
@@ -201,7 +201,7 @@ void ui_bevel(DrawContext *draw,DrawRect r,int inset) {
     draw_hairline(draw,(DrawPoint){inner.x,inner.y+inner.height-1},(DrawPoint){inner.x+inner.width-1,inner.y+inner.height-1},bottom);
     draw_hairline(draw,(DrawPoint){inner.x+inner.width-1,inner.y},(DrawPoint){inner.x+inner.width-1,inner.y+inner.height-1},bottom);
 }
-/* Shared source-color material. Luice dithers native-pixel palette shades;
+/* Shared source-color material. Luice uses flat palette colors;
    the legacy reference path retains its interpolated triangles. */
 void ui_gradient(DrawContext *draw,DrawRect r,DrawColor base,float strength,int horizontal) {
     if(r.width<=0 || r.height<=0)return;
@@ -209,7 +209,7 @@ void ui_gradient(DrawContext *draw,DrawRect r,DrawColor base,float strength,int 
     DrawColor dark={(int)(base.r*(1-strength)),(int)(base.g*(1-strength)),(int)(base.b*(1-strength)),base.a};
     /* Keep the original foreground contrast throughout dynamic source colors. */
     if(theme_foreground(base).r==0)dark=base;else light=base;
-    if(classic_style && draw_palette_enabled(draw)){draw_material_gradient(draw,r,light,dark,horizontal);return;}
+    if(classic_style && draw_palette_enabled(draw)){draw_rect(draw,r,base);return;}
     DrawColor tr=horizontal?dark:light,bl=horizontal?light:dark;
     DrawVertex vertices[]={
         {{r.x,r.y},0,0,light},{{r.x,r.y+r.height},0,0,bl},{{r.x+r.width,r.y+r.height},0,0,dark},
@@ -220,7 +220,7 @@ void ui_gradient(DrawContext *draw,DrawRect r,DrawColor base,float strength,int 
    are not contrast-clamped. Text is chosen against the darkest endpoint. */
 static void skin_gradient(DrawContext *draw,DrawRect r,DrawColor a,DrawColor b) {
     if(r.width<=0 || r.height<=0)return;
-    if(classic_style && draw_palette_enabled(draw)){draw_material_gradient(draw,r,a,b,0);return;}
+    if(classic_style && draw_palette_enabled(draw)){DrawColor face={(a.r+b.r)/2,(a.g+b.g)/2,(a.b+b.b)/2,(a.a+b.a)/2};draw_rect(draw,r,face);return;}
     DrawVertex v[]={{{r.x,r.y},0,0,a},{{r.x,r.y+r.height},0,0,b},{{r.x+r.width,r.y+r.height},0,0,b},
         {{r.x,r.y},0,0,a},{{r.x+r.width,r.y+r.height},0,0,b},{{r.x+r.width,r.y},0,0,a}};
     draw_triangles(draw,NULL,v,6);
@@ -357,7 +357,7 @@ void ui_level_fill(DrawContext *draw,DrawRect bar,float level,float amber,float 
         DrawColor tl=vertical?b:a,br=vertical?a:b;
         DrawVertex vertices[]={{{r.x,r.y},0,0,tl},{{r.x,r.y+r.height},0,0,a},{{r.x+r.width,r.y+r.height},0,0,br},
             {{r.x,r.y},0,0,tl},{{r.x+r.width,r.y+r.height},0,0,br},{{r.x+r.width,r.y},0,0,b}};
-        draw_triangles(draw,NULL,vertices,6);
+        if(draw_palette_enabled(draw))draw_rect(draw,r,a);else draw_triangles(draw,NULL,vertices,6);
     }
     if(level>red) draw_rect(draw,vertical?(DrawRect){bar.x,bar.y+(1-level)*bar.height,bar.width,(level-red)*bar.height}:(DrawRect){bar.x+red*bar.width,bar.y,(level-red)*bar.width,bar.height},colors[5]);
     DrawRect fill=vertical?(DrawRect){bar.x,bar.y+(1-level)*bar.height,bar.width,bar.height*level}:

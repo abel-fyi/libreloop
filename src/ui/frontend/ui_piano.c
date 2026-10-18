@@ -212,7 +212,7 @@ void piano(float width,float height) {
         if(pitch>=0 && pitch<=127 && (ui.keyboard_notes[channel][pitch] || ui.playing_keys[channel][pitch] ||
            (ui.piano_key==pitch && ui.piano_key_channel==channel)))
             host_draw_rectangle_rec((DrawRect){gx,y,gridw,rh},host_fade(accent,.15f));
-        host_draw_line_ex((DrawPoint){gx,y},(DrawPoint){gx+gridw,y},1,host_fade(ui_theme.grid_minor,.45f));
+        host_draw_line_ex((DrawPoint){gx,y},(DrawPoint){gx+gridw,y},1,host_fade(ui_theme.grid_minor,ui.studio_style?1:.45f));
         if(partial>end) { float left=fmaxf(gx,gx+(end-view)*cw),right=fminf(gx+gridw,gx+(partial-view)*cw); if(right>left) host_draw_rectangle_rec((DrawRect){left,y,right-left,rh-1},ui_theme.disabled); }
         if(pc==0) host_draw_line_ex((DrawPoint){gx,y+rh},(DrawPoint){gx+gridw,y+rh},1,ui_theme.grid_major);
     }

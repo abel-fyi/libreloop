@@ -187,3 +187,20 @@ flat; dithering represents intermediate material shades instead of adding grain
 to every surface. Graph dots remain a separate affordance. See
 [Luice](luice.md) for the enforced paint/material rules, compositor limitations,
 cache budget and current verification and measurements.
+
+## Flat palette materials
+
+Material gradients have been removed from the studio UI: panels, buttons,
+headers, piano keys, clips and graph fills are flat. Meter color changes use
+solid bands without quantizing their displayed level length. Pixel-shaded
+knobs/icons and graph-paper dots remain. The gradient texture cache and its
+public drawing API were removed. The executable is 5,739,600 bytes, 64 bytes
+smaller than the previous build; current rendering cost was not measured.
+
+The piano-roll palette collision was corrected with distinct gray row and grid
+colors, covered by a post-mapping contrast check. The FM editor's minimum height
+increased from 420 to 452 logical units, adding 32 units to compact envelopes.
+Snapping, grid timing, note hit tests and envelope parameter mappings are intact.
+Software screenshots were reviewed for the flat arrangement, piano grid and FM
+six-op envelope. Native display appearance remains a hands-on check.
+All 158 Release tests pass; the experimental CPU backend passes a syntax check.

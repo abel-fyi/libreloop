@@ -6,7 +6,7 @@ arrangement timeline. Its SDL3 interface uses a compact, colorful desktop style
 and the openly licensed PxPlus IBM VGA 8x16 font.
 
 [Luice](docs/luice.md), LibreLoop’s GUI framework, uses a fixed 64-color paint
-palette and shared dithered materials.
+palette and shared flat materials.
 
 LibreLoop does not host external plugin formats. Instruments and effects are
 part of the application. The application source is GPL-3.0-only; bundled
