@@ -36,7 +36,7 @@ static const float *delay_parameter(const void *s,unsigned id) {
 }
 static void tube_defaults(void *s) {*(TubeSettings *)s=tube_default();}
 static int tube_check(const void *s) {return s && tube_valid(*(const TubeSettings *)s);}
-static const float *tube_parameter(const void *s,unsigned id) {const TubeSettings *t=s;return id==PARAM_TUBE_DRIVE?&t->drive:id==PARAM_TUBE_TONE?&t->tone:id==PARAM_TUBE_OUTPUT?&t->output:NULL;}
+static const float *tube_parameter(const void *s,unsigned id) {const TubeSettings *t=s;return id==PARAM_TUBE_DRIVE?&t->drive:id==PARAM_TUBE_TONE?&t->tone:id==PARAM_TUBE_OUTPUT?&t->output:id==PARAM_TUBE_NATURAL?&t->natural:NULL;}
 static void reverb_defaults(void *s) {*(ReverbSettings *)s=reverb_default();}
 static int reverb_check(const void *s) {return s && reverb_valid(*(const ReverbSettings *)s);}
 static const float *reverb_parameter(const void *s,unsigned id) {

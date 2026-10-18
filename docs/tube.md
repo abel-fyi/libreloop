@@ -6,6 +6,7 @@ in a 480×220 logical-unit floating editor (minimum 440×220):
 
 | Control | Range | Default |
 |---|---|---|
+| Voicing | Warm / Natural | Warm |
 | Drive | 0–36 dB | +12 dB |
 | Tone | 1200–20000 Hz, logarithmic, then None | None |
 | Mix | 0–100% | 100% |
@@ -21,7 +22,9 @@ for a more compressed overdrive.
 
 ## Signal path
 
-The engine runs at 48000 Hz. Each side has its own state and follows:
+The engine runs at 48000 Hz. **Warm is the default for every newly added Tube**
+and preserves the original sound. Saved instances remember their mode. Each
+side has its own state. Warm follows:
 
 1. An 18 kHz nominal one-pole input low-pass.
 2. Drive gain, reduced by `1 / (1 + 0.12 * envelope)` for gentle sag.
@@ -35,7 +38,17 @@ Tone snaps to **None** when dragged or wheeled above 20000 Hz. The saved endpoin
 is 22000, a bypass sentinel rather than a cutoff frequency. Raw drag/wheel motion
 is accumulated so fine movements can leave the detent. Numerical values above
 20000 also select bypass, including automated values. The fixed input/interstage
-voicing filters and antiderivative processing remain active in None mode.
+voicing filters remain active in Warm with Tone None.
+
+**Natural** keeps the two asymmetric saturation stages, drive compensation and
+sag, but omits those fixed input/interstage filters. It processes the nonlinear
+stages at 8× sample rate, using three cascaded 2× up/down stages with original
+24th-order Butterworth half-band filters and double-precision histories. Tone
+and DC blocking follow downsampling. Tone None bypasses the final Tone filter
+in either mode. Natural preserves much more treble; it still compresses and
+changes harmonics, so it does not promise unchanged high-frequency content.
+Mode changes crossfade over 20 ms. The oversampler runs only while Natural is
+active or fading out; Warm histories remain live for switching back.
 
 The envelope follows the first stage's absolute output, with approximately
 20 ms attack and 150 ms release. Positive bias introduces even harmonics as well
@@ -56,7 +69,10 @@ was imported. Antiderivative antialiasing reduces aliasing and also attenuates
 high frequencies; it does not eliminate aliasing. Each first-order stage has
 approximately half a sample of small-signal averaging delay, in addition to the
 filters' phase response. The dry path remains immediate and bypass stays unity
-dry. There is no added block buffering or oversampling library.
+dry. There is no added block buffering or external oversampling library. Natural
+adds frequency-dependent phase/group delay through its filters. The immediate
+dry path is unchanged, so partial Mix can produce phase interactions; there is
+no mixer delay compensation or zero-latency claim.
 
 This is a deliberately voiced tube-inspired processor, rather than a measured
 model of a named tube, amplifier or physical circuit. Its bias, sag and filter
@@ -65,26 +81,30 @@ hardware have not been performed.
 
 ## Integration and real-time behavior
 
-Drive, Tone and Output use saved parameter IDs 1401–1403; Mix uses the shared
-FX mix target. All four support value entry, reset, automation and MIDI learn.
+Drive, Tone, Output and voicing use saved parameter IDs 1401–1404; Mix uses the
+shared FX mix target. All five support value entry, reset, automation and MIDI learn.
 Their settings and targets follow FX reordering. Removing Tube cleans up its
 automation and closes its editor. Presets use the existing chooser/container
 with a new device ID; optional `x-tube.*` fields save project settings. Projects
-without Tube retain their prior serialized representation.
+without Tube retain their prior serialized representation. `x-tube.natural`
+stores 0 for Warm or 1 for Natural. Missing fields load as Warm. Tube presets
+write container version 8; older Tube presets load as Warm, and other device
+preset writers retain their previous versions.
 
 Controls slew over 20 ms. Gain and filter targets are recalculated every 32
 samples and interpolated every sample to avoid periodic coefficient jumps.
 Tone interpolation lands exactly on its cached target at each boundary, so
 None reaches a true unity filter coefficient rather than a nearly bypassed one.
 Bypass/removal fades the wet contribution toward zero with the same smoothing.
-The processor uses **168 bytes** per instance on macOS arm64, inside the rack's
+The processor uses **2576 bytes** per instance on macOS arm64, inside the rack's
 existing fixed-size union. It never allocates, frees, locks, waits, logs, or
 accesses files in rendering. Reset clears only this bounded state. Stereo sides
 share settings but have independent filters, nonlinear histories and envelopes.
 
 The editor reuses existing surfaces, fonts, icons and knobs. No bitmap assets,
-new rendering effects or separate GUI library were added. Incremental binary
-size, per-frame rendering cost and real-device CPU/latency remain unmeasured.
+new rendering effects or separate GUI library were added. The arm64 Release executable is 5,722,112 bytes, an increase of 16,448 bytes
+from the preceding build. Per-frame rendering cost and real-device CPU/latency
+remain unmeasured.
 
 ## Verification and measured DSP checks
 
@@ -109,7 +129,23 @@ checks cover project/preset roundtrips, parameter ownership, automation,
 reordering, actual callback output, and agreement with offline WAV export.
 The mixer test checks editor limits and add/remove behavior.
 
-The full Release suite has 151 tests. Focused DSP, integration, actual callback
+Warm matches a frozen pre-change 96,000-frame stereo render bit-for-bit on this
+toolchain (SHA-256
+`45a155c8e338096be47770857d1d7aa0a86a930217bc66d022cfca7b6ebf7b88`).
+With amplitude 0.001, Drive/Output 0 dB and Tone None, Natural measured −0.057 dB
+at 10 kHz and −0.209 dB at 19 kHz relative to 1 kHz; Warm measured −24.552 dB
+at 19 kHz. A separate 19 kHz, amplitude 0.5, +24 dB Drive case measured 66.88 dB
+less selected folded-harmonic power (1, 9, 10 and 20 kHz, each normalized to its
+own fundamental) than the point-sampled biased-stage model. This is a selected
+case, not an alias-free claim. Tests also verify Natural's Tone filtering, mode
+changes across callback blocks, mode automation/MIDI and old preset loading.
+
+A local optimized DSP-only probe processing five seconds of stereo audio used
+0.0573 process CPU seconds for Warm (1.15% of one core) and 0.6371 for Natural
+(12.74%). This is one-instance throughput on this machine, not a real-time
+callback deadline, battery, or whole-app CPU measurement.
+
+The full Release suite has 158 tests. Focused DSP, integration, actual callback
 and mixer tests also run under AddressSanitizer and UndefinedBehaviorSanitizer.
 Software screenshots are checked at 1448×1086 and 900×562. Native audio/MIDI and
 pointer-device interaction, other CPUs/toolchains and subjective sound quality

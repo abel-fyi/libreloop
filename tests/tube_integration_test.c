@@ -10,7 +10,8 @@
 static Project project,loaded;
 static float pcm[48000];
 int main(void) {
-    project_new(&project);project.effect_type[0][0]=EFFECT_TUBE;project.tube[0][0]=(TubeSettings){19,7200,-5};project.effect_mix[0][0]=.7f;
+    for(int natural=0;natural<2;natural++){
+    project_new(&project);project.effect_type[0][0]=EFFECT_TUBE;project.tube[0][0]=(TubeSettings){19,7200,-5,natural};project.effect_mix[0][0]=.7f;
     CHECK(project_save("tube.llp",&project) && project_load("tube.llp",&loaded));remove("tube.llp");
     CHECK(loaded.effect_type[0][0]==EFFECT_TUBE && !memcmp(&project.tube[0][0],&loaded.tube[0][0],sizeof(TubeSettings)) && loaded.effect_mix[0][0]==.7f);
     for(unsigned id=PARAM_TUBE_FIRST;id<=PARAM_TUBE_LAST;id++) {
@@ -18,7 +19,7 @@ int main(void) {
         CHECK(value && parameter_from_pointer(&project,value,&target) && target.parameter==id && target.owner==0 && !target.slot);
         CHECK(parameter_info(&project,target,&v,&lo,&hi) && v==*value && parameter_write(&loaded,target,.5f) && !parameter_write(&loaded,target,NAN));
     }
-    DevicePreset preset={.kind=PRESET_TUBE,.tube={19,7200,-5},.mix=.7f},restored;
+    DevicePreset preset={.kind=PRESET_TUBE,.tube={19,7200,-5,natural},.mix=.7f},restored;
     CHECK(preset_save("tube.llpreset",&preset) && preset_load("tube.llpreset",&restored));remove("tube.llpreset");
     CHECK(restored.kind==PRESET_TUBE && !memcmp(&restored.tube,&preset.tube,sizeof(TubeSettings)) && restored.mix==preset.mix);
     for(int i=0;i<48000;i++)pcm[i]=.3f*sinf(6.28318530718f*440*i/48000);
@@ -38,13 +39,20 @@ int main(void) {
     project.tube[0][0].drive=36;effects_reset(rack);player_reset(&player);player.song=1;player.effects=rack;render(&player,&project,samples,out,512);
     TubeSettings zero_drive=project.tube[0][0];zero_drive.drive=0;tube_reset(&expected);
     for(int i=0;i<512;i++){float frame[2]={pcm[i],pcm[i]};tube_process(&expected,zero_drive,.7f,frame);CHECK(!memcmp(frame,&out[i*2],sizeof frame));}
-    project.midi_bindings[0]=(MidiBinding){0,10,{PARAM_TUBE_TONE,0,0}};project.midi_binding_count=1;
-    CHECK(effect_chain_move(&project,0,0,2) && project.effect_type[0][2]==EFFECT_TUBE && project.tube[0][2].drive==36);
+    project.automations[a].target=(ParameterTarget){PARAM_TUBE_NATURAL,0,0};project.automations[a].points[0].value=project.automations[a].points[1].value=1-natural;
+    effects_reset(rack);player_reset(&player);player.song=1;player.effects=rack;render(&player,&project,samples,out,512);
+    TubeSettings automated=project.tube[0][0];automated.natural=1-natural;tube_reset(&expected);
+    for(int i=0;i<512;i++){float frame[2]={pcm[i],pcm[i]};tube_process(&expected,automated,.7f,frame);CHECK(!memcmp(frame,&out[i*2],sizeof frame));}
+    project.midi_bindings[0]=(MidiBinding){0,10,{PARAM_TUBE_NATURAL,0,0}};project.midi_binding_count=1;
+    CHECK(effect_chain_move(&project,0,0,2) && project.effect_type[0][2]==EFFECT_TUBE && project.tube[0][2].drive==36 && project.tube[0][2].natural==natural);
     CHECK(project.automations[a].target.slot==2 && project.midi_bindings[0].target.slot==2);
     effects_reset_bus(rack,0);effects_free(rack);
     project.tube[0][2].tone=TUBE_TONE_OFF;
-    CHECK(project_save("tube-none.llp",&project) && project_load("tube-none.llp",&loaded) && loaded.tube[0][2].tone==TUBE_TONE_OFF);remove("tube-none.llp");
-    preset.tube.tone=TUBE_TONE_OFF;CHECK(preset_save("tube-none.llpreset",&preset) && preset_load("tube-none.llpreset",&restored) && restored.tube.tone==TUBE_TONE_OFF);remove("tube-none.llpreset");
+    CHECK(project_save("tube-none.llp",&project) && project_load("tube-none.llp",&loaded) && loaded.tube[0][2].tone==TUBE_TONE_OFF && loaded.tube[0][2].natural==natural);remove("tube-none.llp");
+    preset.tube.tone=TUBE_TONE_OFF;CHECK(preset_save("tube-none.llpreset",&preset) && preset_load("tube-none.llpreset",&restored) && restored.tube.tone==TUBE_TONE_OFF && restored.tube.natural==natural);remove("tube-none.llpreset");
     project.tube[0][2].tone=NAN;CHECK(!project_save("invalid-tube.llp",&project));preset.tube.drive=INFINITY;CHECK(!preset_save("invalid-tube.llpreset",&preset));
+    }
+    FILE *legacy=fopen("tube-legacy.llpreset","w");CHECK(legacy);fprintf(legacy,"LIBRELOOP_PRESET 6 %d\n19 7200 -5 .7\n",PRESET_TUBE);fclose(legacy);
+    DevicePreset old;CHECK(preset_load("tube-legacy.llpreset",&old) && old.tube.natural==0);remove("tube-legacy.llpreset");
     puts("Tube registry, project/preset persistence, parameter targets, realtime render/export, automation and reordering passed.");return 0;
 }

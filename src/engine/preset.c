@@ -24,7 +24,7 @@ int preset_save(const char *path,const DevicePreset *p) {
         } else snprintf(reference,sizeof reference,"%s",p->sample_path);
     }
     AtomicFile out; if(!atomic_file_open(&out,path)) return 0;
-    fprintf(out.file,"LIBRELOOP_PRESET %d %d\n",p->kind==PRESET_DELAY?7:6,p->kind);
+    fprintf(out.file,"LIBRELOOP_PRESET %d %d\n",p->kind==PRESET_TUBE?8:p->kind==PRESET_DELAY?7:6,p->kind);
     if(p->kind==PRESET_FM) {
         FMSettings s=p->fm; fprintf(out.file,"%.9g %.9g %.9g %.9g %.9g %.9g\n",s.ratio,s.depth,s.attack,s.decay,s.sustain,s.release);
         fprintf(out.file,"%.9g %.9g %.9g %.9g %.9g %.9g\n",s.mod_decay,s.mod_sustain,s.velocity,s.lfo_rate,s.vibrato,s.tremolo);
@@ -38,7 +38,7 @@ int preset_save(const char *path,const DevicePreset *p) {
     else if(p->kind==PRESET_FLANGER){for(unsigned i=0;i<6;i++)fprintf(out.file,"%.9g ",*flanger_parameter(&p->flanger,i));fprintf(out.file,"%.9g\n",p->mix);}
     else if(p->kind==PRESET_DYNAMICS){float v[sizeof(DynamicsSettings)/sizeof(float)];memcpy(v,&p->dynamics,sizeof v);for(unsigned i=0;i<sizeof v/sizeof *v;i++)fprintf(out.file,"%.9g ",v[i]);fprintf(out.file,"%.9g\n",p->mix);}
     else if(p->kind==PRESET_REVERB)fprintf(out.file,"%.9g %.9g %.9g %.9g %.9g %.9g %.9g %.9g\n",p->reverb.size,p->reverb.decay,p->reverb.damping,p->reverb.predelay,p->reverb.width,p->reverb.mod,p->reverb.gate,p->mix);
-    else if(p->kind==PRESET_TUBE)fprintf(out.file,"%.9g %.9g %.9g %.9g\n",p->tube.drive,p->tube.tone,p->tube.output,p->mix);
+    else if(p->kind==PRESET_TUBE)fprintf(out.file,"%.9g %.9g %.9g %.9g %.9g\n",p->tube.drive,p->tube.tone,p->tube.output,p->mix,p->tube.natural);
     else if(p->kind==PRESET_DELAY) { fprintf(out.file,"%.9g %.9g %.9g %.9g %.9g %u %u %.9g\n",p->delay.time_ms,p->delay.feedback,p->delay.cutoff,p->delay.stereo,p->delay.output,p->delay.sync,p->delay.division,p->mix);
         fprintf(out.file,"%.9g %.9g %.9g %.9g %.9g %u %u\n",p->delay.input_pan,p->delay.input_gain,p->delay.steps,p->delay.offset,p->delay.dry,p->delay.mode,p->delay.model);
     }
@@ -54,7 +54,7 @@ int preset_save(const char *path,const DevicePreset *p) {
 int preset_load(const char *path,DevicePreset *p) {
     FILE *f=platform_file_open(path,"r"); if(!f) return 0;
     DevicePreset next={0}; char magic[32]; int version;
-    int ok=fscanf(f,"%31s %d %d",magic,&version,&next.kind)==3 && !strcmp(magic,"LIBRELOOP_PRESET") && (version>=1 && version<=7);
+    int ok=fscanf(f,"%31s %d %d",magic,&version,&next.kind)==3 && !strcmp(magic,"LIBRELOOP_PRESET") && (version>=1 && version<=8);
     if(ok && next.kind==PRESET_FM) {
         next.fm=fm_legacy(); FMSettings *s=&next.fm; ok=fscanf(f,"%f %f %f %f %f %f",&s->ratio,&s->depth,&s->attack,&s->decay,&s->sustain,&s->release)==6;
         if(ok && version>=3) ok=fscanf(f,"%f %f %f %f %f %f",&s->mod_decay,&s->mod_sustain,&s->velocity,&s->lfo_rate,&s->vibrato,&s->tremolo)==6;
@@ -70,7 +70,7 @@ int preset_load(const char *path,DevicePreset *p) {
     else if(ok && next.kind==PRESET_FLANGER){for(unsigned i=0;ok && i<6;i++)ok=fscanf(f,"%f",(float *)flanger_parameter(&next.flanger,i))==1;ok=ok && fscanf(f,"%f",&next.mix)==1;}
     else if(ok && next.kind==PRESET_DYNAMICS){float v[sizeof(DynamicsSettings)/sizeof(float)]={0};for(unsigned i=0;ok && i<sizeof v/sizeof *v;i++)ok=fscanf(f,"%f",&v[i])==1;memcpy(&next.dynamics,v,sizeof v);ok=ok && fscanf(f,"%f",&next.mix)==1;}
     else if(ok && next.kind==PRESET_REVERB)ok=fscanf(f,"%f %f %f %f %f %f %f %f",&next.reverb.size,&next.reverb.decay,&next.reverb.damping,&next.reverb.predelay,&next.reverb.width,&next.reverb.mod,&next.reverb.gate,&next.mix)==8;
-    else if(ok && next.kind==PRESET_TUBE)ok=fscanf(f,"%f %f %f %f",&next.tube.drive,&next.tube.tone,&next.tube.output,&next.mix)==4;
+    else if(ok && next.kind==PRESET_TUBE){ok=fscanf(f,"%f %f %f %f",&next.tube.drive,&next.tube.tone,&next.tube.output,&next.mix)==4;if(ok && version>=8)ok=fscanf(f,"%f",&next.tube.natural)==1;}
     else if(ok && next.kind==PRESET_DELAY) { next.delay=delay_legacy();ok=fscanf(f,"%f %f %f %f %f %u %u %f",&next.delay.time_ms,&next.delay.feedback,&next.delay.cutoff,&next.delay.stereo,&next.delay.output,&next.delay.sync,&next.delay.division,&next.mix)==8;
         if(ok && version>=7)ok=fscanf(f,"%f %f %f %f %f %u %u",&next.delay.input_pan,&next.delay.input_gain,&next.delay.steps,&next.delay.offset,&next.delay.dry,&next.delay.mode,&next.delay.model)==7;
     }

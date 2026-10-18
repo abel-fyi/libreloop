@@ -187,6 +187,7 @@ static const Field fields[]={
     {"x-tube.drive",F32,offsetof(Project,tube)+offsetof(TubeSettings,drive),(INSERTS+1)*EFFECT_SLOTS,1,sizeof(TubeSettings),0,sizeof(float)},
     {"x-tube.tone",F32,offsetof(Project,tube)+offsetof(TubeSettings,tone),(INSERTS+1)*EFFECT_SLOTS,1,sizeof(TubeSettings),0,sizeof(float)},
     {"x-tube.output",F32,offsetof(Project,tube)+offsetof(TubeSettings,output),(INSERTS+1)*EFFECT_SLOTS,1,sizeof(TubeSettings),0,sizeof(float)},
+    {"x-tube.natural",F32,offsetof(Project,tube)+offsetof(TubeSettings,natural),(INSERTS+1)*EFFECT_SLOTS,1,sizeof(TubeSettings),0,sizeof(float)},
     {"x-delay.input_pan",F32,offsetof(Project,delay)+offsetof(DelaySettings,input_pan),(INSERTS+1)*EFFECT_SLOTS,1,sizeof(DelaySettings),0,sizeof(((DelaySettings *)0)->input_pan)},
     {"x-delay.input_gain",F32,offsetof(Project,delay)+offsetof(DelaySettings,input_gain),(INSERTS+1)*EFFECT_SLOTS,1,sizeof(DelaySettings),0,sizeof(((DelaySettings *)0)->input_gain)},
     {"x-delay.steps",F32,offsetof(Project,delay)+offsetof(DelaySettings,steps),(INSERTS+1)*EFFECT_SLOTS,1,sizeof(DelaySettings),0,sizeof(((DelaySettings *)0)->steps)},

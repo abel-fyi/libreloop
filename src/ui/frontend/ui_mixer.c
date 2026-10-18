@@ -474,7 +474,14 @@ void effect_editor(float width,float height) {
     }
     if(ui.project.effect_type[bus][slot]==EFFECT_TUBE) {
         TubeSettings *t=&ui.project.tube[bus][slot];
-        label("Tube / warm saturation",12,32,13,(DrawColor){100,50,13,255});
+        float voicing=displayed_value(&t->natural,t->natural);
+        label(voicing>=.5f?"Tube / natural saturation":"Tube / warm saturation",12,32,13,(DrawColor){100,50,13,255});
+        if(button("Warm",width-172,28,78,24,voicing<.5f))t->natural=0;
+        if(button("Natural",width-88,28,80,24,voicing>=.5f))t->natural=1;
+        if(hover(width-172,28,164,24)){
+            snprintf(ui.status,sizeof ui.status,"Tube voicing: Warm = original sound; Natural = more high-end bandwidth; Tone still applies in both");
+            if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT))control_menu(&t->natural,0,1,0,"Tube voicing (0 Warm / 1 Natural)");
+        }
         float *values[]={&t->drive,&t->tone,&ui.project.effect_mix[bus][slot],&t->output};
         const unsigned ids[]={PARAM_TUBE_DRIVE,PARAM_TUBE_TONE,PARAM_EFFECT_MIX,PARAM_TUBE_OUTPUT};
         const char *names[]={"DRIVE","TONE","MIX","OUTPUT"};
