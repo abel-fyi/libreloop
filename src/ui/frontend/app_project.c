@@ -490,7 +490,7 @@ void workspace_load(void) {
     for(int i=5;i<WINDOW_CAPACITY;i++){next.show[i]=0;next.floating[i]=1;ui.windows.editors[i].visible=0;}
     if(!next.floating[4])rects[4]=ui.windows.editors[4].rect;
     /* Migrate only the previous stock size; keep deliberate user sizing. */
-    if((rects[4].w==376 || rects[4].w==440) && (rects[4].h==802 || rects[4].h==646)){rects[4].w=480;rects[4].h=646;}
+    rects[4].w=ui.windows.editors[4].minw;rects[4].h=ui.windows.editors[4].minh;
     next.floating[0]=next.floating[2]=0;
     next.show[0]=next.show[2]=0;next.show[4]=0;next.floating[4]=1;next.maximized=-1;next.drag=-1;
     next.editor_right=!!next.editor_right;

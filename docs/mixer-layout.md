@@ -130,8 +130,8 @@ sampler controls. Delay TIME retains an 18-unit radius for its snapping ring;
 the compressor monitor speed stays at 10. Drawing, drag sensitivity, fine
 control, reset, automation and MIDI handling use the existing knob implementation.
 
-Default logical window sizes: Chorus 330×164; Tube 440×176; Phaser/Flanger
-600×176; Reverb 640×176; current Delay 680×184 (minimum width 620). Chorus now
+Fixed logical window sizes: Chorus 330×164; Tube 440×176; Phaser/Flanger
+600×176; Reverb 640×176; current Delay 620×184. Chorus now
 has a single footer row and readouts for all three parameters. Other single-row
 effects share tighter knob/label/readout spacing. EQ already uses small knobs
 and retains its graph. The compressor retains its graph and history dimensions,
@@ -144,3 +144,13 @@ assertions remain intact. Software captures cover Chorus, Delay, Tube, Reverb,
 Dynamics, Phaser and Flanger at 900×562. Native pointer use and HiDPI appearance
 remain hands-on checks. No new assets or drawing effects were added; rendering
 cost has not been measured.
+
+Floating editors now open at their smallest supported size and cannot be
+manually resized. Instrument editors share 440×420 (360 crowded the six-op
+labels); EQ uses 480×330 and Dynamics 820×480. Title dragging and close remain.
+Saved instrument positions are retained, while saved widths/heights normalize
+to the compact size. The workspace clamps tools to the available desktop.
+Main-window resizing and Browser/Mixer/velocity dividers remain active; docked
+pages continue following the workspace. Corner grips and resize-only input
+exclusions are removed for floating tools. Tests cover stale-size normalization,
+corner presses not capturing a resize, and preserved title movement/close.

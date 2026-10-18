@@ -88,10 +88,10 @@ void eq_editor(float width,float height) {
         shown.bands[i].gain=displayed_value(&settings->bands[i].gain,settings->bands[i].gain);
         shown.bands[i].q=displayed_value(&settings->bands[i].q,settings->bands[i].q);
     }
-    label(fit_text(host_text_format("%s · Slot %d",ui.eq_bus?ui.project.insert_names[ui.eq_bus-1]:"Master",ui.eq_slot+1),width-254,12),12,30,12,muted);
-    if(button("Bypass",width-226,26,70,24,ui.project.effect_bypass[ui.eq_bus][ui.eq_slot])) ui.project.effect_bypass[ui.eq_bus][ui.eq_slot]^=1;
-    if(button("Load",width-152,26,66,24,0)) preset_action(PRESET_EQ,ui.eq_bus,ui.eq_slot,0);
-    if(button("Save",width-82,26,70,24,0)) preset_action(PRESET_EQ,ui.eq_bus,ui.eq_slot,1);
+    label(fit_text(host_text_format("%s · Slot %d",ui.eq_bus?ui.project.insert_names[ui.eq_bus-1]:"Master",ui.eq_slot+1),width-292,12),12,30,12,muted);
+    if(button("Bypass",width-272,26,92,24,ui.project.effect_bypass[ui.eq_bus][ui.eq_slot])) ui.project.effect_bypass[ui.eq_bus][ui.eq_slot]^=1;
+    if(button("Load",width-172,26,78,24,0)) preset_action(PRESET_EQ,ui.eq_bus,ui.eq_slot,0);
+    if(button("Save",width-88,26,80,24,0)) preset_action(PRESET_EQ,ui.eq_bus,ui.eq_slot,1);
     DrawRect graph={42,64,width-58,height-196};
     if(ui.studio_style)ui_graph_paper(host_draw(),graph);
     else host_draw_rectangle_rec(graph,bg);
@@ -231,7 +231,7 @@ void mixer_effect_open(int bus,int slot,int toggle) {
     for(id=5;id<WINDOW_CAPACITY && ui.windows.editors[id].visible;id++){}
     if(id==WINDOW_CAPACITY){snprintf(ui.status,sizeof ui.status,"Close an effect editor before opening another (16 open).");return;}
     Rect size=effect_panel_size(type,ui.project.delay[bus][slot].model);
-    StudioWorkspace *s=&ui.windows.workspace;float width=size.x,height=size.y;
+    StudioWorkspace *s=&ui.windows.workspace;float width=size.w,height=size.h;
     width=fminf(width,s->width-s->sidebar-10);height=fminf(height,s->height-84);
     int count=0;for(int i=5;i<WINDOW_CAPACITY;i++)count+=ui.windows.editors[i].visible;
     ui.effect_windows[id].bus=bus;ui.effect_windows[id].slot=slot;ui.effect_windows[id].band=0;

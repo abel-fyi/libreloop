@@ -24,7 +24,7 @@ int main(void) {
     CHECK(!memcmp(&page,&w.editors[1].rect,sizeof page));
     windows_focus(&w,4);CHECK(w.editors[4].visible && w.workspace.floating[4]);Rect instrument=w.editors[4].rect;
     /* Move the floating tool away from the divider before testing resize. */
-    w.editors[4].rect.x=800;w.editors[4].rect.y=80;w.editors[4].rect.h=600;
+    w.editors[4].rect.x=800;w.editors[4].rect.y=80;w.editors[4].rect.h=w.editors[4].minh;
     instrument=w.editors[4].rect;float y=w.editors[3].rect.y-3;
     CHECK(studio_workspace_split(&w,500,y)==3);
     windows_update(&w,desktop,500,y,1,1,1);windows_update(&w,desktop,500,y-100,0,1,1.1);
@@ -50,6 +50,17 @@ int main(void) {
     }
     studio_workspace_hide(&w,3);CHECK(!w.editors[3].visible);
     windows_focus(&w,3);CHECK(w.editors[3].visible);
+    /* Floating tools normalize stale saved sizes and never capture corners. */
+    studio_workspace_layout(&w,1448,1086,238);windows_focus(&w,4);
+    w.editors[4].rect=(Rect){800,80,600,700};
+    windows_update(&w,desktop,810,120,0,0,8);
+    CHECK(w.editors[4].rect.w==440 && w.editors[4].rect.h==420);
+    Rect fixed=w.editors[4].rect;
+    windows_update(&w,desktop,fixed.x+fixed.w-3,fixed.y+fixed.h-3,1,1,8.1);
+    CHECK(w.grab==-1 && !w.resize);
+    windows_update(&w,desktop,fixed.x+fixed.w+50,fixed.y+fixed.h+50,0,1,8.2);
+    CHECK(!memcmp(&fixed,&w.editors[4].rect,sizeof fixed));
+    windows_update(&w,desktop,810,120,0,0,8.3);
     /* Caption sizing changes geometry, not the legacy controller coordinates. */
     Windows chrome;windows_init(&chrome,1448,1086);
     CHECK(windows_title_height(&chrome)==18);

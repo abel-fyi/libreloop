@@ -11,7 +11,8 @@ void studio_workspace_init(Windows *w,float width,float height,float sidebar) {
     for(int i=4;i<WINDOW_CAPACITY;i++){s->floating[i]=1;w->editors[i].visible=0;}
     w->editors[3].minh=160;
     /* Instrument editors are compact floating tools, independent of Mixer size. */
-    w->editors[4].rect=(Rect){fmaxf(sidebar+12,width-492),84,480,646};
+    w->editors[4].minw=440;w->editors[4].minh=420;
+    w->editors[4].rect=(Rect){fmaxf(sidebar+12,width-452),84,440,420};
     studio_workspace_layout(w,width,height,sidebar);
     w->focused=1;
 }
@@ -39,8 +40,7 @@ void studio_workspace_open(Windows *w,int id) {
     if(id==1)s->show[2]=0;
     if(id>=4) {
         if(!s->floating[id]) {
-            float fw=id==4?480:w->editors[id].minw<=330?360:620;
-            float fh=id==4?646:w->editors[id].minw<=330?280:380;
+            float fw=w->editors[id].minw,fh=w->editors[id].minh;
             w->editors[id].rect=(Rect){fmaxf(s->sidebar+12,s->width-fw-12),82,fw,fh};
         }
         s->floating[id]=1;w->editors[id].visible=1;
@@ -82,12 +82,12 @@ void studio_workspace_update(Windows *w,Rect desktop,float x,float y,int pressed
     }
     for(int i=4;i<windows_count(w);i++) {
         Editor *e=&w->editors[i];Rect *r=&e->rect;
-        r->w=clamp(r->w,fminf(e->minw,desktop.w),desktop.w);
-        r->h=clamp(r->h,fminf(e->minh,desktop.h),desktop.h);
+        r->w=fminf(e->minw,desktop.w);
+        r->h=fminf(e->minh,desktop.h);
         r->x=clamp(r->x,desktop.x,desktop.x+desktop.w-r->w);r->y=clamp(r->y,desktop.y,desktop.y+desktop.h-r->h);
     }
     if(w->grab>=4) {
-        Editor *e=&w->editors[w->grab];if(w->resize){e->rect.w=fmaxf(e->minw,x-e->rect.x+w->dx);e->rect.h=fmaxf(e->minh,y-e->rect.y+w->dy);}else{e->rect.x=x-w->dx;e->rect.y=y-w->dy;}
+        Editor *e=&w->editors[w->grab];w->resize=0;e->rect.x=x-w->dx;e->rect.y=y-w->dy;
     }
     int id=windows_hit(w,x,y);w->owner=id;
     if(pressed && id>=0) {
@@ -96,6 +96,6 @@ void studio_workspace_update(Windows *w,Rect desktop,float x,float y,int pressed
             if(id>=4 && x>=r.x+r.w-STUDIO_TITLE)studio_workspace_hide(w,id);
             else if(id>=4){w->grab=id;w->resize=0;w->dx=x-r.x;w->dy=y-r.y;}
             w->owner=-1;
-        } else if(id>=4 && x>r.x+r.w-12 && y>r.y+r.h-12){w->grab=id;w->resize=1;w->dx=r.x+r.w-x;w->dy=r.y+r.h-y;w->owner=-1;}
+        }
     }
 }

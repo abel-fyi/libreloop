@@ -118,7 +118,7 @@ void draw_editor(int id,float scale) {
             else host_draw_rectangle(r.w-54+slot*18,1,17,TITLE-2,ui_theme.hover);
         }
         if(hover_slot>=0)snprintf(ui.status,sizeof ui.status,"%s window",slot==0?"Minimize":slot==1?(ui.windows.workspace.enabled && !ui.windows.workspace.floating[id] && id>=4)?"Float":e->maximized?"Restore":"Maximize":"Hide");
-    } else if(chrome)snprintf(ui.status,sizeof ui.status,ui.windows.workspace.enabled?(id>=4?"Drag title to move; corner to resize; close hides the editor and keeps audio running":"Use PATT / SONG in the toolbar; drag the Mixer divider to resize"):"Drag title bar to move; double-click to maximize/restore; right-click for window options");
+    } else if(chrome)snprintf(ui.status,sizeof ui.status,ui.windows.workspace.enabled?(id>=4?"Drag title to move; close hides the editor and keeps audio running":"Use PATT / SONG in the toolbar; drag the Mixer divider to resize"):"Drag title bar to move; double-click to maximize/restore; right-click for window options");
     DrawColor hover_ink=theme_foreground(ui_theme.hover);
     if(!ui.windows.workspace.enabled)host_draw_line_ex((DrawPoint){r.w-49,9},(DrawPoint){r.w-41,9},2,hover_slot==0?hover_ink:ink);
     int mx=r.w-27; DrawColor maximize_ink=hover_slot==1?hover_ink:ink;
@@ -138,7 +138,7 @@ void draw_editor(int id,float scale) {
         knob_style(r.w-72,TITLE/2,&ui.project.swing,0,1,0,"Swing",KNOB_SWING);
         if(hover(r.w-72-SWING_RADIUS-1,TITLE/2-SWING_RADIUS-1,2*SWING_RADIUS+2,2*SWING_RADIUS+2) || ui.control_drag==&ui.project.swing) snprintf(ui.status,sizeof ui.status,"Swing: %.0f%% | delays alternate steps; drag or wheel; right-click to enter",ui.project.swing*100);
     }
-    ui.input_enabled=ui.input_enabled && ui.mouse.y>=TITLE && !((!ui.windows.workspace.enabled || ui.windows.workspace.floating[id]) && ui.mouse.x>r.w-12 && ui.mouse.y>r.h-12);
+    ui.input_enabled=ui.input_enabled && ui.mouse.y>=TITLE && !(!ui.windows.workspace.enabled && ui.mouse.x>r.w-12 && ui.mouse.y>r.h-12);
     if(ui.midi_take.active && id<=2) ui.input_enabled=0;
     if(id==0) rack(r.w,r.h); else if(id==1) playlist(r.w,r.h,scale); else if(id==2) {
         if(ui.studio_style) {
@@ -162,7 +162,7 @@ void draw_editor(int id,float scale) {
     if(ui.studio_style && !ui.profile_flat) {
         draw_border(host_draw(),(DrawRect){0,0,r.w,r.h},1,ui_theme.border);
     }
-    if(!ui.windows.workspace.enabled || ui.windows.workspace.floating[id])host_draw_line(r.w-9,r.h-2,r.w-2,r.h-9,muted);
+    if(!ui.windows.workspace.enabled)host_draw_line(r.w-9,r.h-2,r.w-2,r.h-9,muted);
     host_end_mode2_d(); host_end_scissor_mode(); ui.text_origin=(DrawPoint){0};
     if(ui.windows.workspace.enabled && id>=5){ui.effect_windows[id].band=ui.eq_band;ui.eq_bus=saved_bus;ui.eq_slot=saved_slot;ui.eq_band=saved_band;}
 }

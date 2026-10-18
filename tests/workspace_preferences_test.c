@@ -13,11 +13,11 @@ int main(void) {
     ui.windows.workspace.editor_right=1;ui.windows.workspace.editor_width=.57f;ui.windows.workspace.mixer=.31f;ui.windows.workspace.piano=.4f;workspace_save();
     ui.windows.workspace.mixer=.2f;ui.windows.workspace.piano=.3f;workspace_load();
     CHECK(ui.windows.workspace.mixer==.31f && ui.windows.workspace.piano==.4f && ui.windows.workspace.editor_right && ui.windows.workspace.editor_width==.57f);
-    CHECK(ui.windows.editors[4].rect.w==480 && ui.windows.editors[4].rect.h==646);
+    CHECK(ui.windows.editors[4].rect.w==440 && ui.windows.editors[4].rect.h==420);
     ui.windows.editors[4].rect.w=376;ui.windows.editors[4].rect.h=802;workspace_save();workspace_load();
-    CHECK(ui.windows.editors[4].rect.h==646);
+    CHECK(ui.windows.editors[4].rect.h==420);
     ui.windows.editors[4].rect.h=720;workspace_save();workspace_load();
-    CHECK(ui.windows.editors[4].rect.h==720);
+    CHECK(ui.windows.editors[4].rect.h==420);
     ui.song=1;ui.reset=0;desktop_playback_page(0);
     CHECK(!ui.song && ui.reset && ui.windows.editors[2].visible && !ui.windows.editors[1].visible);
     ui.reset=0;desktop_playback_page(0);CHECK(!ui.reset);
