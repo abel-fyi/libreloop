@@ -15,6 +15,7 @@
 #include <ctype.h>
 
 static int project_valid(const Project *p) {
+    for(int c=0;c<CHANNELS;c++)if(!voice_settings_valid(p->voice[c]))return 0;
     if(!isfinite(p->bpm) || p->bpm<30 || p->bpm>300 || p->pattern_count<1 || p->pattern_count>PATTERNS) return 0;
     if(!isfinite(p->master_pan) || fabsf(p->master_pan)>1 || !isfinite(p->master_pitch) || fabsf(p->master_pitch)>12) return 0;
     if(!automation_valid(p) || p->midi_binding_count<0 || p->midi_binding_count>MIDI_BINDINGS) return 0;
@@ -96,6 +97,10 @@ static const Field fields[]={
     FLAT(pan,float,F32),
     FLAT(channel_pitch,float,F32),
     FLAT(pitch_range,float,F32),
+    {"x-voice.limit",F32,offsetof(Project,voice)+offsetof(VoiceSettings,limit),CHANNELS,1,sizeof(VoiceSettings),0,sizeof(float)},
+    {"x-voice.mono",F32,offsetof(Project,voice)+offsetof(VoiceSettings,mono),CHANNELS,1,sizeof(VoiceSettings),0,sizeof(float)},
+    {"x-voice.legato",F32,offsetof(Project,voice)+offsetof(VoiceSettings,legato),CHANNELS,1,sizeof(VoiceSettings),0,sizeof(float)},
+    {"x-voice.glide",F32,offsetof(Project,voice)+offsetof(VoiceSettings,glide),CHANNELS,1,sizeof(VoiceSettings),0,sizeof(float)},
     FLAT(clip_steps,float,F32),
     FLAT(clip_starts,float,F32),
     FLAT(clip_offsets,float,F32),
@@ -279,7 +284,7 @@ int project_save(const char *path,const Project *p) {
     for(size_t n=0;n<FIELD_COUNT;n++) {
         Field stored=fields[n];if(version==1)stored.count=pattern_field_count(&stored,LEGACY_PATTERNS);
         const Field *f=&stored;
-        if(!strncmp(f->name,"x-analog.",9)){
+        if(!strncmp(f->name,"x-analog.",9) || !strncmp(f->name,"x-voice.",8)){
             int any=0;for(size_t i=0;i<f->count;i++){float value;memcpy(&value,address((Project *)p,f,i),sizeof value);any|=value!=0;}
             if(!any)continue;
         }

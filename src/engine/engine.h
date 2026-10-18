@@ -39,6 +39,7 @@ typedef struct { ParameterTarget target; float steps; int count; uint32_t color;
 float gain_db(float gain);
 float fader_position(float gain);
 float fader_gain(float position);
+typedef struct { float limit,mono,legato,glide; } VoiceSettings; /* limit 0 = unrestricted; glide seconds */
 typedef struct { uint8_t pitch, velocity; float start, length; } Note; /* length 0 = drum one-shot */
 typedef struct {
     float bpm;
@@ -65,6 +66,7 @@ typedef struct {
     Sampler sampler[CHANNELS];
     uint8_t instrument[CHANNELS];
     FMSettings fm[CHANNELS];
+    VoiceSettings voice[CHANNELS];
     float master_pitch; /* semitones; sample speed, independent of tempo */
     float master_pan; /* -1 left, 0 unchanged, +1 right; stereo balance */
     float insert_width[INSERTS],master_width; /* 0 mono, 1 unchanged, 2 wider */
@@ -92,7 +94,9 @@ typedef struct {
 } Project;
 typedef struct PlaybackPlan PlaybackPlan;
 /* Sequencing/mixing state wraps device-owned DSP state. */
-typedef struct { int channel; union { InstrumentVoice device; SamplerVoice sampler; FMVoice fm; }; uint8_t instrument; double remaining; float gain; int lane,audio_clip,pattern,note_id; } Voice;
+typedef struct { int channel; union { InstrumentVoice device; SamplerVoice sampler; FMVoice fm; }; uint8_t instrument; double remaining; float gain; int lane,audio_clip,pattern,note_id;
+    uint64_t order; int held,selected; float note_pitch,base_pitch,current_pitch,glide_step; unsigned glide_left;
+} Voice;
 typedef struct {
     EffectRack *effects; /* borrowed runtime rack; attach after player_reset */
     uint64_t frame;
@@ -102,10 +106,19 @@ typedef struct {
     int audio_resync; /* reconcile edited Song Audio clips at the current frame */
     float start_step,loop_start,loop_end; /* loop_end 0 disables the playback region */
     Voice voices[128];
+    uint64_t voice_order;
     uint8_t channel_active[CHANNELS],channel_trigger[CHANNELS];
     uint8_t lane_active[LANES],lane_trigger[LANES]; /* activity from the latest render block */
     const PlaybackPlan *plan; /* optional prepared geometry/routing; reset clears it */
 } Player;
+/* Shared voice policy; fixed storage, no allocation or platform calls. */
+int voice_settings_valid(VoiceSettings s);
+int voice_policy_enabled(const Project *p,int c);
+void player_voice_on(Player *p,const Project *pr,int slot,float pitch);
+void player_voice_off(Player *p,const Project *pr,int slot);
+void player_voice_tick(Player *p,const Project *pr);
+void player_voice_tick_pair(Player *p,Player *live,const Project *pr);
+double player_voice_pitch(Voice *v);
 /* Editing always follows the visible grid (ruler spacing at distant zooms). */
 float grid_interval(float pixels_per_step);
 float snap_floor(float value,float interval);

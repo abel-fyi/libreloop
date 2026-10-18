@@ -28,7 +28,7 @@ static int project_equal(const Project *a,const Project *b) {
     FIELD(effect_mix); FIELD(effect_bypass);
     for(int l=0;l<LANES;l++) STRING(track_names[l]);
     for(int i=0;i<INSERTS;i++) STRING(insert_names[i]);
-    FIELD(instrument); FIELD(fm); FIELD(effect_type); FIELD(effect_bypass);
+    FIELD(voice); FIELD(instrument); FIELD(fm); FIELD(effect_type); FIELD(effect_bypass);
     for(int bus=0;bus<=INSERTS;bus++) for(int slot=0;slot<EFFECT_SLOTS;slot++) {
         FIELD(chorus[bus][slot].rate); FIELD(chorus[bus][slot].depth);
         for(int band=0;band<EQ_BANDS;band++) {

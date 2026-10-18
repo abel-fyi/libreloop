@@ -27,7 +27,7 @@ static void capture(unsigned frames,unsigned total) {
 int main(int argc,char **argv) {
     if(argc!=3)return 1;
     int mode=atoi(argv[1]);unsigned block=atoi(argv[2]);
-    if(mode<0 || mode>7 || (block!=64 && block!=512))return 1;
+    if(mode<0 || mode>8 || (block!=64 && block!=512))return 1;
     project_new(&fixture);fixture.channel_count=2;
     effects=effects_create(INSERTS+1);if(!effects)return 2;
     player_reset(&player);player_reset(&live);player.effects=live.effects=effects;
@@ -47,7 +47,7 @@ int main(int argc,char **argv) {
         fixture.clips[0][0]=1;fixture.clip_steps[0][0]=16;
     } else if(mode==2 || mode==3 || mode==4) {
         fixture.instrument[0]=INSTRUMENT_FM;fixture.fm[0]=mode==2?fm_legacy():fm_factory(mode==3?0:5);
-    } else if(mode==7){fixture.instrument[0]=INSTRUMENT_FM;fixture.fm[0]=fm_analog_factory(0);
+    } else if((mode==7 || mode==8)){fixture.instrument[0]=INSTRUMENT_FM;fixture.fm[0]=fm_analog_factory(0);if(mode==8)fixture.voice[0]=(VoiceSettings){.mono=1,.legato=1,.glide=.08f};
     } else if(mode==6) {
         fixture.channel_audio[0]=1;fixture.audio_seconds[0]=1;fixture.clips[0][0]=PATTERNS+1;
         fixture.clip_offsets[0][0]=.125f;
@@ -78,11 +78,13 @@ int main(int argc,char **argv) {
            putting any lock in the rewrite callback. */
         if(at==40960) control_begin();
         if(at==45056) control_end();
-        if(at==0 && ((mode>=1 && mode<=4) || mode==7))audio_key_velocity(7,0,69,90);
+        if(at==0 && ((mode>=1 && mode<=4) || (mode==7 || mode==8)))audio_key_velocity(7,0,69,90);
+        if(mode==8 && at==4096)audio_key_velocity(8,0,76,100);
+        if(mode==8 && at==12288)audio_key_velocity(8,0,76,0);
         if(at==8192 && mode==1) {ready=0;audio_preview(source[1]);ready=1;}
         if(at==16384){fixture.bpm=80;fixture.master_pitch=2;audio_update(&fixture,mode==0 || mode==5 || mode==6,1,0,0,.6f,0,mode==6?1.5f:0,mode==6?10.25f:0);}
-        if(at==24576 && ((mode>=1 && mode<=4) || mode==7))audio_key_velocity(7,0,69,0);
-        if(at==32768 && ((mode>=1 && mode<=4) || mode==7))audio_note(0,(Note){60,100,0,2});
+        if(at==24576 && ((mode>=1 && mode<=4) || (mode==7 || mode==8)))audio_key_velocity(7,0,69,0);
+        if(at==32768 && ((mode>=1 && mode<=4) || (mode==7 || mode==8)))audio_note(0,(Note){60,100,0,2});
         if(at==40960){fixture.volume[0]=.2f;audio_update(&fixture,mode==0 || mode==5 || mode==6,1,0,0,.6f,0,mode==6?1.5f:0,mode==6?10.25f:0);}
         if(at==49152 && mode==6) {
             fixture.clip_offsets[0][0]=.25f;audio_update(&fixture,1,1,0,0,.6f,0,1.5f,10.25f);

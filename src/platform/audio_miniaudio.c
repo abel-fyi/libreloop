@@ -361,10 +361,17 @@ static void consume_commands(void) {
                     Voice *voice=&live.voices[127]; uint32_t phase[6];
                     int retain=voice->instrument==INSTRUMENT_FM && voice->channel==c->channel && voice->fm.engine==1 && project.fm[c->channel].engine==1 && !project.fm[c->channel].dx7.value[136];
                     if(retain) memcpy(phase,voice->fm.dx7.phase,sizeof phase);
-                    *voice=(Voice){.channel=c->channel,.instrument=INSTRUMENT_FM,.remaining=(c->note.length?c->note.length:1)*RATE*15/project.bpm,.gain=c->note.velocity/127.f,.lane=-1};
+                    *voice=(Voice){.channel=c->channel,.instrument=INSTRUMENT_FM,.remaining=(c->note.length?c->note.length:1)*RATE*15/project.bpm,.gain=c->note.velocity/127.f,.lane=-1,.note_pitch=c->note.pitch,.base_pitch=c->note.pitch,.current_pitch=c->note.pitch};
                     instrument_start(&voice->device,voice->instrument,(InstrumentSettings){&project.sampler[c->channel],&project.fm[c->channel]},(InstrumentNote){.frequency=440*pow(2,(c->note.pitch-69)/12.0),.velocity=c->note.velocity/127.f});
                     if(retain) memcpy(voice->fm.dx7.phase,phase,sizeof phase);
+                    player_voice_on(&live,&project,127,c->note.pitch);
                     atomic_store(&channel_trigger[c->channel],1); break;
+                }
+                if(voice_policy_enabled(&project,c->channel)) {
+                    Voice *voice=&live.voices[127];
+                    *voice=(Voice){.channel=c->channel,.instrument=INSTRUMENT_SAMPLER,.remaining=(c->note.length?c->note.length:1)*RATE*15/project.bpm,.gain=c->note.velocity/127.f,.lane=-1,.note_pitch=c->note.pitch,.base_pitch=c->note.pitch,.current_pitch=c->note.pitch};
+                    instrument_start(&voice->device,INSTRUMENT_SAMPLER,(InstrumentSettings){&project.sampler[c->channel],&project.fm[c->channel]},(InstrumentNote){.speed=exp2((c->note.pitch-60)/12.),.velocity=c->note.velocity/127.f});
+                    player_voice_on(&live,&project,127,c->note.pitch);atomic_store(&channel_trigger[c->channel],1);break;
                 }
                 preview=samples[c->channel]; preview_position=preview_frame=0; preview_time=monotonic_time();
                 preview_remaining=UINT_MAX;preview_note_pitch=pow(2,((int)c->note.pitch-60)/12.0);preview_speed=preview_note_pitch*channel_speed(&project,c->channel);
@@ -382,16 +389,15 @@ static void consume_commands(void) {
                 uint32_t phase[6]; Voice *old=&live.voices[c->slot];
                 int retain=old->instrument==INSTRUMENT_FM && old->channel==c->channel && old->fm.engine==1 && project.fm[c->channel].engine==1 && !project.fm[c->channel].dx7.value[136];
                 if(retain) memcpy(phase,old->fm.dx7.phase,sizeof phase);
-                live.voices[c->slot]=(Voice){.channel=c->channel,.sampler={.speed=pow(2,(c->pitch-60)/12.0)},.remaining=-1,.gain=c->note.velocity/127.f,.lane=-1};
+                live.voices[c->slot]=(Voice){.channel=c->channel,.sampler={.speed=pow(2,(c->pitch-60)/12.0)},.remaining=-1,.gain=c->note.velocity/127.f,.lane=-1,.note_pitch=c->pitch,.base_pitch=c->pitch,.current_pitch=c->pitch};
                 if(project.instrument[c->channel]==INSTRUMENT_FM) {
                     live.voices[c->slot].instrument=INSTRUMENT_FM;
                     instrument_start(&live.voices[c->slot].device,INSTRUMENT_FM,(InstrumentSettings){&project.sampler[c->channel],&project.fm[c->channel]},(InstrumentNote){.frequency=440*pow(2,(c->pitch-69)/12.0),.velocity=c->note.velocity/127.f});
                     if(retain) memcpy(live.voices[c->slot].fm.dx7.phase,phase,sizeof phase);
                 }
+                player_voice_on(&live,&project,c->slot,c->pitch);
             } else if(live.voices[c->slot].gain) {
-                Voice *voice=&live.voices[c->slot];
-                if(voice->instrument==INSTRUMENT_FM) instrument_release(&voice->device,voice->instrument,(InstrumentSettings){&project.sampler[voice->channel],&project.fm[voice->channel]});
-                else voice->remaining=RATE*.005;
+                player_voice_off(&live,&project,c->slot);
             }
             break;
         case STOP: {
