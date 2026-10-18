@@ -122,3 +122,35 @@ After correcting that setup, both theme checks pass on rerun. The experimental
 CPU backend passes a syntax check. Native Retina appearance and display changes
 remain hands-on checks. Earlier timing probes describe earlier revisions; no
 new native rendering-cost measurement is claimed for this adjustment.
+
+## Shared dithered finish with distinct materials
+
+This revision supersedes the preceding panel-density treatment. The visual aim
+is an overall dithered UI, using shared surface drawing rather than a final
+screen overlay that would also obscure text and audio data.
+
+Panels now use fine alternating light/dark dots: one marked physical pixel per
+4×4 cell, black or white at alpha 64. Controls and title bars retain restrained
+Bayer grain at alpha 12. Colored clips and source-color gradients use staggered
+marks at alpha 48, one per 8×4 cell. These variations keep the common finish
+without making every surface identical. Labels, notes and traces remain above
+the materials. No input geometry or audio behavior changed.
+
+Graph displays restore the older, larger cyan dots. Graph texels follow rounded
+native display density (2× gives 2×2-pixel dots), independently of manual UI
+zoom. General material dots stay at physical pixel size. Both keep their phase
+anchored to the framebuffer to avoid swimming with fractional UI movement.
+
+The shared pattern and knob atlases now occupy 80 KiB of RGBA pixel storage.
+One cached graph-density variant adds 64 KiB at 2× or 144 KiB at 3×. Existing
+surface passes select a different cached tile; this adds no new surface pass or
+per-frame generation. New driver/GPU overhead has not been measured. The Release
+executable remains 5,739,296 bytes, equal to this revision's starting build.
+
+Software-rendered screenshot inspection covered the arrangement, clips, browser,
+controls and mixer at 150% UI scale. Rendering tests check material contrast and
+physical pixel stability at 75–200% UI scale, fractional movement, and simulated
+1×/2×/3× display density; graph dots use the corresponding native-density size.
+Native Retina appearance, compositor scaling and display transitions remain
+unverified hands-on checks. Earlier timing numbers describe earlier revisions.
+All 158 Release tests pass for this revision, including both theme checks.

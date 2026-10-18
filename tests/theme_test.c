@@ -160,18 +160,20 @@ static int check_pixel_pattern(void) {
 static int check_material_density(void){
     if(!theme_draw_init(draw))return 0;
     unsigned char reference[80*64*4],actual[80*64*4];
-    draw_pattern_density(draw,1);draw_transform(draw,1,0,0);draw_clear(draw,(DrawColor){0,0,0,255});
-    ui_surface(draw,(DrawRect){0,0,100,100},(DrawColor){128,128,128,255});draw_flush(draw);
-    if(!draw_read_rgba(draw,reference,80,64))return 0;
-    int low=255,high=0;for(int i=0;i<80*64;i++){if(reference[i*4]<low)low=reference[i*4];if(reference[i*4]>high)high=reference[i*4];}
-    if(high-low<24)return 0;
     const float scales[]={.75f,1,1.25f,1.5f,2};
-    for(int density=1;density<=3;density++)for(unsigned i=0;i<sizeof scales/sizeof *scales;i++)for(int moved=0;moved<2;moved++){
-        draw_pattern_density(draw,density);draw_transform(draw,scales[i],moved?.37f:0,moved?.83f:0);
-        draw_clear(draw,(DrawColor){0,0,0,255});ui_surface(draw,(DrawRect){0,0,100,100},(DrawColor){128,128,128,255});draw_flush(draw);
-        if(!draw_read_rgba(draw,actual,80,64))return 0;
-        for(int y=10;y<54;y++)for(int x=10;x<62;x++)
-            if(memcmp(actual+(y*80+x)*4,reference+((y/density)*80+x/density)*4,4))return 0;
+    for(int graph=0;graph<2;graph++){
+        draw_pattern_density(draw,1);draw_transform(draw,1,0,0);draw_clear(draw,(DrawColor){0,0,0,255});
+        if(graph)ui_graph_paper(draw,(DrawRect){0,0,100,100});else ui_surface(draw,(DrawRect){0,0,100,100},(DrawColor){128,128,128,255});draw_flush(draw);
+        if(!draw_read_rgba(draw,reference,80,64))return 0;
+        int low=255,high=0;for(int i=0;i<80*64;i++){int c=reference[i*4+(graph?2:0)];if(c<low)low=c;if(c>high)high=c;}
+        if(high-low<(graph?8:48))return 0;
+        for(int density=1;density<=3;density++)for(unsigned i=0;i<sizeof scales/sizeof *scales;i++)for(int moved=0;moved<2;moved++){
+            draw_pattern_density(draw,density);draw_transform(draw,scales[i],moved?.37f:0,moved?.83f:0);draw_clear(draw,(DrawColor){0,0,0,255});
+            if(graph)ui_graph_paper(draw,(DrawRect){0,0,100,100});else ui_surface(draw,(DrawRect){0,0,100,100},(DrawColor){128,128,128,255});draw_flush(draw);
+            if(!draw_read_rgba(draw,actual,80,64))return 0;
+            int step=graph?density:1;
+            for(int y=10;y<54;y++)for(int x=10;x<62;x++)if(memcmp(actual+(y*80+x)*4,reference+((y/step)*80+x/step)*4,4))return 0;
+        }
     }
     draw_pattern_density(draw,1);draw_transform(draw,1,0,0);return 1;
 }
