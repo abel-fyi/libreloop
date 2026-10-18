@@ -23,6 +23,8 @@ void theme_visual_preview(void);
 DrawColor theme_foreground(DrawColor background);
 enum { UI_SOURCE_COLORS=8 };
 DrawColor ui_source_palette_color(int index);
+void ui_meter_marks(DrawContext *draw,DrawRect bar,float peak,int clipped,int vertical);
+void ui_meter_channel(DrawContext *draw,float x,float y,int right);
 void ui_level_fill(DrawContext *draw,DrawRect bar,float level,float amber,float red,int vertical);
 void ui_gradient(DrawContext *draw,DrawRect rect,DrawColor base,float strength,int horizontal);
 void ui_display_grid(DrawContext *draw,DrawRect rect,int columns,int rows);

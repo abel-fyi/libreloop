@@ -658,7 +658,7 @@ int main(int argc,char **argv) {
                 ui_bevel(host_draw(),(DrawRect){audio_x,ty,analyzer_width,th},1);
 
             }
-            int mx=audio_x+analyzer_width+gap,meter_width=ui.studio_style?toolbar.levels.w:40,fill_width=meter_width-(ui.studio_style?18:4);
+            int mx=audio_x+analyzer_width+gap,meter_width=ui.studio_style?toolbar.levels.w:40,fill_width=meter_width-(ui.studio_style?28:4);
             host_draw_rectangle(mx,ty,meter_width,th,bg);
             for(int side=0;side<2;side++) {
                 float level=fmaxf(0,fminf(1,(20*log10f(fmaxf(.001f,ui.meter_level[0][side]))+60)/60));
@@ -668,10 +668,10 @@ int main(int argc,char **argv) {
                     ui_display_well(host_draw(),(DrawRect){mx+14,row,fill_width,13});
                     ui_level_fill(host_draw(),(DrawRect){mx+14,row,fill_width,13},level,.8f,1,0);
                     float hold=fmaxf(0,fminf(1,(20*log10f(fmaxf(.001f,ui.meter_hold[0][side]))+60)/60));
-                    if(hold>0)host_draw_line(mx+14+hold*fill_width,row,mx+14+hold*fill_width,row+13,ui_theme.signal);
+                    ui_meter_marks(host_draw(),(DrawRect){mx+14,row,fill_width,13},hold,ui.meter_hold[0][side]>1,0);
                     for(int tick=0;tick<=5;tick++)host_draw_line(mx+14+tick*fill_width/5,row+14,mx+14+tick*fill_width/5,row+16,(DrawColor){90,126,100,255});
                 } else host_draw_rectangle(mx+2,ty+2+side*(th/2),36*level,7,accent);
-                if(ui.meter_hold[0][side]>=1) host_draw_rectangle(mx+meter_width-4,ty+(ui.studio_style?3+side*18:2+side*(th/2)),2,ui.studio_style?8:7,ui_theme.meter_high);
+                if(!ui.studio_style && ui.meter_hold[0][side]>=1) host_draw_rectangle(mx+meter_width-4,ty+(ui.studio_style?3+side*18:2+side*(th/2)),2,ui.studio_style?8:7,ui_theme.meter_high);
             }
             if(ui.studio_style)ui_bevel(host_draw(),(DrawRect){mx,ty,meter_width,th},1);
             if(hover(audio_x,ty,analyzer_width+gap+meter_width,th)) snprintf(ui.status,sizeof ui.status,audio_ok?"Master frequency spectrum and stereo level · red indicates clipping":"Audio device unavailable");

@@ -181,3 +181,19 @@ The legacy presentation retains its original seven-segment renderer.
 Draw-command checks cover the smaller centisecond baseline, long-value bounds
 and readable stroke dimensions at 75% UI scale. A software-rendered showcase
 capture was reviewed. Native Retina appearance remains a hands-on check.
+
+## Hardware meter details
+
+Mixer meters and the top-bar stereo meter share peak-marker and clipping-lamp
+helpers. Markers are narrow solid strokes; each channel has a bordered 5×5
+square lamp that lights red when its held peak exceeds unity. Lamps follow the
+existing peak-hold/decay state rather than introducing a new latch or timer.
+Mixer bars have tiny engraved bitmap L/R legends, and the top bar retains its
+existing L/R captions. The top-bar bars reserve ten additional logical units
+for their lamps; their overall toolbar footprint is unchanged.
+
+Level fills retain their existing continuous extent, color zones, gain mapping
+and update cadence. There are no segmented gaps or decorative textures. Software
+pixel checks cover marker placement and the active/inactive lamp colors; a
+playing showcase capture was reviewed. Native display appearance and hardware
+rendering cost remain unmeasured.

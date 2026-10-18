@@ -39,6 +39,19 @@ static int check_meter(void) {
     int ok=colors>40 && red[0]>red[1]*2 && green[1]>green[0]*2 && !empty[0] && !empty[1] && !beyond[0] && !beyond[1];
     draw_target(draw,NULL);draw_texture_destroy(target);return ok;
 }
+static int check_meter_marks(void) {
+    DrawTexture *target=draw_texture_create(draw,80,64,NULL,1);if(!target)return 0;
+    draw_target(draw,target);draw_clear(draw,(DrawColor){0,0,0,255});
+    ui_meter_marks(draw,(DrawRect){4,4,30,8},.5f,0,0);
+    ui_meter_marks(draw,(DrawRect){48,4,6,40},1,1,1);
+    unsigned char p[80*64*4];if(!draw_read_rgba(draw,p,80,64))return 0;
+    const unsigned char *peak=p+(7*80+18)*4,*before=p+(7*80+17)*4;
+    const unsigned char *lamp=p+(51*80+50)*4,*off=p+(7*80+40)*4;
+    const unsigned char *crest=p+(4*80+50)*4;
+    int ok=peak[1]>200 && !before[1] && lamp[0]==ui_theme.meter_high.r &&
+        lamp[1]==ui_theme.meter_high.g && crest[0]==lamp[0] && off[0]==51 && off[1]==34;
+    draw_target(draw,NULL);draw_texture_destroy(target);return ok;
+}
 static DrawColor skin_pixel(const unsigned char *p,int width,float scale,int x,int y) {
     int at=((int)((y+.5f)*scale)*width+(int)((x+.5f)*scale))*4;
     return (DrawColor){p[at],p[at+1],p[at+2],p[at+3]};
@@ -276,6 +289,7 @@ int main(int argc,char **argv) {
     if(render) {
         CHECK(check_material_density());
         CHECK(check_display_finish());
+        CHECK(check_meter_marks());
         CHECK(check_bitmap_knobs());
         const float scales[]={1,1.25f,1.5f,2,3};
         for(unsigned i=0;i<sizeof scales/sizeof *scales;i++){CHECK(check_skin(scales[i]));CHECK(check_grips(scales[i],0));CHECK(check_grips(scales[i],1));}

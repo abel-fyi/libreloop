@@ -354,6 +354,28 @@ void ui_level_fill(DrawContext *draw,DrawRect bar,float level,float amber,float 
     }
 }
 
+/* Shared hardware meter finish. Peak position stays continuous and the lamp
+   uses the existing peak-hold state; it does not introduce a second timer. */
+void ui_meter_marks(DrawContext *draw,DrawRect bar,float peak,int clipped,int vertical) {
+    peak=fmaxf(0,fminf(1,peak));
+    DrawColor marker=clipped?ui_theme.meter_high:(DrawColor){221,255,204,255};
+    if(peak>0) {
+        DrawRect r=vertical?(DrawRect){bar.x,fmaxf(bar.y,bar.y+(1-peak)*bar.height-1),bar.width,1}:
+            (DrawRect){fmaxf(bar.x,bar.x+peak*bar.width-1),bar.y,1,bar.height};
+        draw_rect(draw,r,marker);
+    }
+    DrawRect lamp=vertical?(DrawRect){bar.x+(bar.width-5)/2,bar.y+bar.height+5,5,5}:
+        (DrawRect){bar.x+bar.width+4,bar.y+(bar.height-5)/2,5,5};
+    draw_rect(draw,(DrawRect){lamp.x-1,lamp.y-1,lamp.width+2,lamp.height+2},ui_theme.border);
+    draw_rect(draw,lamp,clipped?ui_theme.meter_high:(DrawColor){51,34,34,255});
+}
+/* Tiny engraved L/R legends, separate from normal interface captions. */
+void ui_meter_channel(DrawContext *draw,float x,float y,int right) {
+    static const unsigned char letters[2][5]={{4,4,4,4,7},{6,5,6,5,5}};
+    for(int row=0;row<5;row++)for(int col=0;col<3;col++)
+        if(letters[right!=0][row]&(4>>col))draw_rect(draw,(DrawRect){x+col,y+row,1,1},ui_theme.text);
+}
+
 /* Quiet phosphor grid: no animation and no invented signal when idle. */
 void ui_display_grid(DrawContext *draw,DrawRect r,int columns,int rows) {
     if(classic_style)ui_graph_paper(draw,r);

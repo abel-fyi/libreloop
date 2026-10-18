@@ -30,6 +30,8 @@ void ui_level_fill(DrawContext *d,DrawRect r,float level,float amber,float red,i
 }
 void ui_display_well(DrawContext *d,DrawRect r){(void)d;host_draw_rectangle_rec(r,ui_skin.display);}
 DrawContext *host_draw(void){return NULL;}
+#define ui_meter_marks(...) ((void)0)
+#define ui_meter_channel(...) ((void)0)
 #define ui_display_grid(...) ((void)0)
 #define ui_bevel(...) ((void)0)
 #include "../src/ui/frontend/ui_mixer.c"
