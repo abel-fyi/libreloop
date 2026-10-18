@@ -159,6 +159,19 @@ static void fm_control_spaced(FMSettings *s,unsigned id,const char *caption,int 
 }
 void fm_control(FMSettings *s,unsigned id,const char *caption,int x,int y) { fm_control_spaced(s,id,caption,x,y,0,0); }
 
+/* Envelope materials are shared; stage geometry and gestures belong to each synth. */
+static void envelope_grid(DrawRect plot,float top,float base) {
+    host_draw_rectangle_rec(plot,ui.studio_style?ui_skin.graph:bg);
+    if(ui.studio_style)for(int i=0;i<=4;i++) {
+        float y=top+(base-top)*i/4;
+        host_draw_line_ex((DrawPoint){plot.x+8,y},(DrawPoint){plot.x+plot.width-8,y},1,(DrawColor){58,91,121,255});
+    }
+}
+static void envelope_guide(float x,float top,float base) {
+    host_draw_line_ex((DrawPoint){x,top},(DrawPoint){x,base},1,(DrawColor){255,255,255,255});
+}
+static void envelope_frame(DrawRect plot) {if(ui.studio_style && !ui.profile_flat)ui_bevel(host_draw(),plot,1);}
+
 /* Draw beneath the existing envelope segments, without changing their geometry. */
 static void envelope_segment(DrawPoint a,DrawPoint b,float base) {
     if(ui.studio_style) {
@@ -200,7 +213,6 @@ static void analog_envelope_segment(DrawPoint a,DrawPoint b,float base,int attac
 
 void fm_envelope_graph(FMSettings *s,DrawRect plot) {
     int modern=ui.studio_style && s->engine==2 && s->analog.model;
-    host_draw_rectangle_rec(plot,ui.studio_style?ui_skin.graph:bg);
     float slot=(plot.width-24)/3,base=plot.y+plot.height-22,range=plot.height-34;
     float times[3]={*fm_parameter_pointer(s,ui.fm_envelope_ids[ui.fm_tab][0]),*fm_parameter_pointer(s,ui.fm_envelope_ids[ui.fm_tab][1]),*fm_parameter_pointer(s,ui.fm_envelope_ids[ui.fm_tab][3])};
     int fields[]={0,1,3}; DrawPoint handles[3];
@@ -209,15 +221,10 @@ void fm_envelope_graph(FMSettings *s,DrawRect plot) {
         const ParameterDescriptor *info=parameter_descriptor(ui.fm_envelope_ids[ui.fm_tab][fields[i]]);
         float t=log1pf(times[i]*100)/log1pf(info->high*100);
         handles[i]=(DrawPoint){plot.x+8+slot*i+.9f*slot*t,i==0?base-range:i==1?base-sustain*range:base};
-        if(!ui.studio_style)host_draw_line_ex((DrawPoint){plot.x+8+slot*i,plot.y+8},(DrawPoint){plot.x+8+slot*i,base},1,ui_theme.grid_minor);
+
     }
-    /* Horizontal reference lines stay behind the opaque envelope fill. */
-    if(ui.studio_style){
-        for(int i=0;i<=4;i++) {
-            float y=base-range*i/4;
-            host_draw_line_ex((DrawPoint){plot.x+8,y},(DrawPoint){plot.x+plot.width-8,y},1,(DrawColor){58,91,121,255});
-        }
-    }
+    envelope_grid(plot,base-range,base);
+    if(!ui.studio_style)for(int i=0;i<3;i++)host_draw_line_ex((DrawPoint){plot.x+8+slot*i,plot.y+8},(DrawPoint){plot.x+8+slot*i,base},1,ui_theme.grid_minor);
     if(modern)analog_envelope_segment((DrawPoint){plot.x+8,base},handles[0],base,1,1);
     else envelope_segment((DrawPoint){plot.x+8,base},handles[0],base);
     DrawPoint previous=handles[0];
@@ -233,7 +240,7 @@ void fm_envelope_graph(FMSettings *s,DrawRect plot) {
     if(ui.studio_style) {
         /* Stage boundaries follow actual handles; neither the plot nor its hits move. */
         float stages[]={handles[0].x,handles[1].x,release.x};
-        for(int i=0;i<3;i++)host_draw_line_ex((DrawPoint){stages[i],plot.y+6},(DrawPoint){stages[i],base},1,(DrawColor){255,255,255,255});
+        for(int i=0;i<3;i++)envelope_guide(stages[i],plot.y+6,base);
         /* Repaint the contour over the grid without changing its coordinates. */
         DrawColor edge=ui_skin.graph_line;
         if(modern)analog_envelope_segment((DrawPoint){plot.x+8,base},handles[0],base,1,0);
@@ -248,7 +255,7 @@ void fm_envelope_graph(FMSettings *s,DrawRect plot) {
         if(modern)analog_envelope_segment(release,handles[2],base,0,0);else smooth_line(release,handles[2],2,edge);
         ui_graph_handle(host_draw(),(DrawPoint){plot.x+8,base});
         ui_graph_handle(host_draw(),release);
-        if(!ui.profile_flat)ui_bevel(host_draw(),plot,1);
+        envelope_frame(plot);
     }
     const char *captions[]={"Attack","Decay / sustain","Release"};
     for(int i=0;i<3;i++) {
@@ -371,8 +378,8 @@ static void fm_spaced_row(FMSettings *s,const unsigned *ids,const char *const *n
 }
 
 void dx7_envelope_graph(FMSettings *s,int base,DrawRect plot) {
-    host_draw_rectangle_rec(plot,ui.studio_style?ui_skin.graph:bg);
     float width=(plot.width-16)/4,height=fmaxf(1,plot.height-12);
+    envelope_grid(plot,plot.y+6,plot.y+6+height);
     DrawPoint points[5]={{plot.x+8,plot.y+height}};
     for(int i=0;i<4;i++) {
         float rate=s->dx7.value[base+i],level=s->dx7.value[base+4+i];
@@ -380,17 +387,12 @@ void dx7_envelope_graph(FMSettings *s,int base,DrawRect plot) {
     }
     if(ui.studio_style) {
         float baseline=plot.y+6+height;
-        DrawColor grid={18,61,83,255},guide={255,255,255,255};
-        for(int i=0;i<=4;i++) {
-            float y=plot.y+6+height*i/4;
-            host_draw_line_ex((DrawPoint){plot.x+8,y},(DrawPoint){plot.x+plot.width-8,y},1,grid);
-        }
         for(int i=0;i<4;i++) {
             DrawPoint a=points[i],b=points[i+1];
             ui_graph_area(host_draw(),a,b,baseline);
         }
-        for(int i=1;i<=4;i++)host_draw_line_ex((DrawPoint){points[i].x,plot.y+6},(DrawPoint){points[i].x,baseline},1,guide);
-        if(!ui.profile_flat)ui_bevel(host_draw(),plot,1);
+        for(int i=1;i<=4;i++)envelope_guide(points[i].x,plot.y+6,baseline);
+        envelope_frame(plot);
     }
     for(int i=0;i<4;i++) {
         DrawPoint point=points[i+1];
