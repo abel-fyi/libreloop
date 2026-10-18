@@ -82,7 +82,7 @@ void project_default(Project *p) {
 }
 /* Share factory settings with Demo; new sessions start empty. */
 void project_new(Project *p) {
-    project_default(p); memset(p->notes,0,sizeof p->notes); p->channel_count=1;
+    project_default(p); p->insert_count=8; memset(p->notes,0,sizeof p->notes); p->channel_count=1;
     memset(p->route,0,sizeof p->route);
     for(int c=0;c<CHANNELS;c++) {
         snprintf(p->paths[c],sizeof p->paths[c],"%s",SAMPLE_EMPTY);
@@ -166,6 +166,16 @@ int pattern_delete(Project *p,int pattern) {
     memset(p->notes[last],0,sizeof p->notes[last]); p->pattern_steps[last]=STEPS; p->pattern_colors[last]=pattern_palette[last];
     snprintf(p->pattern_names[last],PATTERN_NAME,"Pattern %d",last+1);
     return 1;
+}
+int insert_add(Project *p,int count) {
+    if(count<1 || p->insert_count<0 || p->insert_count>INSERTS || count>INSERTS-p->insert_count)return 0;
+    int first=p->insert_count+1;
+    p->insert_count+=count;
+    for(int id=first;id<=p->insert_count;id++) {
+        insert_reset(p,id);
+        snprintf(p->insert_names[id-1],PATTERN_NAME,"Insert %d",id);
+    }
+    return first;
 }
 int insert_reset(Project *p,int id) {
     if(id<1 || id>p->insert_count) return 0;

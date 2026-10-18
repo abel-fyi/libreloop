@@ -167,6 +167,7 @@ typedef struct {
     int device_count,device_target,device_io,device_scroll;
     Browser browser;
     int route_drag,route_start,mixer_selected,mixer_scroll,mixer_pan,cable_drag;
+    float mixer_add_count;
     float mixer_offset,mixer_scroll_grab,mixer_fx_scroll[INSERTS+1];
     int mixer_fx_hidden,fx_press,fx_dragging,fx_bus,fx_slot,fx_drop,fx_add_pending,route_menu_scroll;
     DrawPoint fx_press_point;
@@ -368,6 +369,8 @@ int mixer_effect_window(int bus,int slot);
 void mixer_effect_open(int bus,int slot,int toggle);
 void mixer_effect_add(int bus,int slot,int type);
 void mixer_effect_remove(int bus,int slot);
+void mixer_add_inserts(int count);
+void begin_mixer_add(void);
 void mixer_effect_replace(int bus,int slot,int type);
 void fonts_update(float scale);
 int text_width(const char *text,int size);

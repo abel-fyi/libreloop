@@ -11,7 +11,7 @@ static void preview(void *ctx,int c,Note n){(void)ctx;fprintf(previews,"%d %d %d
 static void key_preview(void *ctx,int slot,int c,int pitch,int down){(void)ctx;fprintf(audition,"%d %d %d %d\n",slot,c,pitch,down);}
 int main(int argc,char **argv) {
     if(argc!=2)return 1;int mode=atoi(argv[1]);if(mode<0 || mode>11)return 1;
-    project_new(&project);project.pattern_steps[0]=17.25f;
+    project_new(&project);project.insert_count=INSERTS; /* Frozen reference project geometry. */project.pattern_steps[0]=17.25f;
     project.notes[0][0][0]=(Note){60,100,4,2};project.notes[0][0][1]=(Note){60,70,4,1};project.notes[0][0][2]=(Note){64,80,8,1.25f};
     PianoGesture g={.length=1.5f,.before=before,.selected=selected,.selection_before=selection_before};
     PianoViewport v={484,580,32,0,1,72};PianoScrollbars bars={0};PianoKeys keys={.pitch=-1};PianoVelocity velocity={.ramp=-1,.before=velocity_before};

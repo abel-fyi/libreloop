@@ -14,7 +14,7 @@ static void preview(void *context,int channel,Note n) {
 }
 int main(int argc,char **argv) {
     if(argc!=2)return 1;int mode=atoi(argv[1]);if(mode<0 || mode>4)return 1;
-    project_new(&project);project.pattern_steps[0]=17.25f;state.length=1.5f;
+    project_new(&project);project.insert_count=INSERTS; /* Frozen reference project geometry. */project.pattern_steps[0]=17.25f;state.length=1.5f;
     project.notes[0][0][0]=(Note){60,100,0,2};
     project.notes[0][0][1]=(Note){64,80,2.5f,1.25f};
     project.notes[0][0][2]=(Note){60,70,0,1};

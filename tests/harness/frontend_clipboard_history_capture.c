@@ -12,7 +12,7 @@ void audio_channels(const Project *project,const Sample samples[CHANNELS]){(void
 int host_thread_join(PlatformThread *thread,void **result){(void)thread;(void)result;abort();return 0;}
 #include "clipboard_history_sequence.h"
 int main(void) {
-    project_new(&ui.project);ui.project.channel_count=2;ui.project.pattern_count=2;
+    project_new(&ui.project);ui.project.insert_count=INSERTS; /* Frozen reference project geometry. */ui.project.channel_count=2;ui.project.pattern_count=2;
     ui.project.notes[0][0][0]=(Note){60,90,0,1};ui.project.notes[0][0][1]=(Note){64,110,2,2};
     ui.project.clips[0][0]=1;ui.project.clip_steps[0][0]=16;ui.project.clip_starts[0][0]=0;
     ui.project.channel_audio[1]=1;ui.project.audio_seconds[1]=2;snprintf(ui.project.paths[1],sizeof ui.project.paths[1],"missing.wav");

@@ -74,7 +74,7 @@ void pattern_extend(float end) {
 #include "../../src/ui/frontend/ui_piano.c"
 int main(int argc,char **argv) {
     if(argc!=2)return 1;int mode=atoi(argv[1]);if(mode<0 || mode>29)return 1;
-    project_new(&ui.project);ui.project.pattern_steps[0]=17.25f;
+    project_new(&ui.project);ui.project.insert_count=INSERTS; /* Frozen reference project geometry. */ui.project.pattern_steps[0]=17.25f;
     ui.piano_note_length=1.5f;ui.piano_zoom=1;ui.piano_top=72;ui.piano_span[0]=32;ui.velocity_drag=-1;
     ui.windows.editors[2].rect=(Rect){0,0,484,580};ui.input_enabled=1;
     ui.project.notes[0][0][0]=(Note){60,100,4,2};ui.project.notes[0][0][1]=(Note){60,70,4,1};ui.project.notes[0][0][2]=(Note){64,80,8,1.25f};

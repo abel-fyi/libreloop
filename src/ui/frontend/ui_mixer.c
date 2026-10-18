@@ -926,6 +926,14 @@ static void studio_mixer_strip(MixerView v,int bus) {
         if(output){snprintf(ui.status,sizeof ui.status,"Insert %d output: drag to add a destination; right-click to remove cables",bus);if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)){ui.route_menu_scroll=0;open_context(26,bus,(DrawPoint){ui.mouse.x+desktop_editor_rect(3).x,ui.mouse.y+desktop_editor_rect(3).y});}if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)){ui.cable_drag=bus;ui.mixer_selected=bus;ui.input_enabled=0;}}
     }
 }
+void mixer_add_inserts(int count) {
+    int first=insert_add(&ui.project,count);
+    if(!first){snprintf(ui.status,sizeof ui.status,"Cannot add inserts: limit is %d.",INSERTS);return;}
+    ui.mixer_selected=first;
+    Rect root=desktop_editor_rect(3);MixerView v=desktop_mixer_view(root.w,root.h);
+    ui.mixer_offset=fmaxf(0,fminf(v.maximum,(first-1)*MIXER_STRIDE));
+    snprintf(ui.status,sizeof ui.status,"Added %d mixer insert%s (%d / %d).",count,count==1?"":"s",ui.project.insert_count,INSERTS);
+}
 static void mixer_studio(float width,float height) {
     Rect root=desktop_editor_rect(3);float scale=ui_scale();
     MixerView v=desktop_mixer_view(width,height);
@@ -938,6 +946,13 @@ static void mixer_studio(float width,float height) {
     if(button("FX",4,TITLE+4,60,22,!ui.mixer_fx_hidden)){ui.mixer_fx_hidden^=1;ui.input_enabled=0;v=desktop_mixer_view(width,height);}
     label(fit_text(mixer_name(ui.mixer_selected),112,UI_TEXT_SIZE),72,TITLE+7,UI_TEXT_SIZE,ink);
     device_button(0,196,TITLE+4,170);device_button(1,374,TITLE+4,170);
+    int add_enabled=ui.input_enabled;ui.input_enabled=add_enabled && ui.project.insert_count<INSERTS;
+    if(button("+",width-32,TITLE+4,24,22,0)){mixer_add_inserts(1);v=desktop_mixer_view(width,height);}
+    if(hover(width-32,TITLE+4,24,22)){
+        snprintf(ui.status,sizeof ui.status,"%d / %d inserts | Click to add one; right-click to add multiple",ui.project.insert_count,INSERTS);
+        if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT))open_context(29,0,(DrawPoint){ui.mouse.x+root.x,ui.mouse.y+root.y});
+    }
+    ui.input_enabled=add_enabled;
     for(int bus=0;bus<=v.count;bus++){int count=effect_chain_list(&ui.project,bus).count;ui.mixer_fx_scroll[bus]=fmaxf(0,fminf(fmaxf(0,count*22-mixer_fx_list_height(v,count)),ui.mixer_fx_scroll[bus]));}
     studio_mixer_scale(v);
     DrawPoint pointer=ui.mouse,origin=ui.text_origin;int enabled=ui.input_enabled;

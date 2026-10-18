@@ -14,7 +14,7 @@ int main(int argc,char **argv) {
     if(argc!=3) return 1;
     int mode=atoi(argv[1]); unsigned block=(unsigned)atoi(argv[2]);
     if(mode<0 || mode>7 || (block!=64 && block!=512)) return 1;
-    project_new(&p); p.channel_count=2; p.bpm=123.5f;
+    project_new(&p);p.insert_count=INSERTS; /* Frozen reference project geometry. */ p.channel_count=2; p.bpm=123.5f;
     for(int c=0;c<2;c++) {
         source[c]=(Sample){.data=calloc(48000,2*sizeof(float)),.frames=48000,.channels=2};
         if(!source[c].data) return 2;

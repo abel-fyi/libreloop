@@ -9,7 +9,7 @@ int host_check_collision_point_rec(DrawPoint p,DrawRect r) {
 #include "../src/ui/frontend/ui_mixer.c"
 #define CHECK(x) do {if(!(x)){fprintf(stderr,"Failed line %d: %s\n",__LINE__,#x);return 1;}} while(0)
 int main(void) {
-    project_new(&ui.project);
+    project_new(&ui.project);ui.project.insert_count=INSERTS; /* Exercise high scrolled bus IDs. */
     ui.windows.editors[3].visible=1;
     ui.studio_style=1;ui.mixer_scroll=37;
     ui.windows.editors[3].rect=(Rect){244,854,1200,208};

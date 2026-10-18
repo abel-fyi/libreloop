@@ -3,7 +3,7 @@ static int load_calls,finish_calls,sample_commands,channel_commands;
 static FILE *trace,*selection;
 static int sample_load_fixture(const char *path,Sample *sample){load_calls++;if(strstr(path,"bad"))return 0;*sample=(Sample){.data=malloc(48000*2*sizeof(float)),.frames=48000,.channels=2};if(!sample->data)return 0;for(unsigned i=0;i<48000;i++){sample->data[i*2]=(int)(i%17)*.001f;sample->data[i*2+1]=-(int)(i%23)*.001f;}return 1;}
 static void seed(int mode){
-    project_new(&ui.project);ui.project.channel_count=2;ui.project.pattern_count=2;
+    project_new(&ui.project);ui.project.insert_count=INSERTS; /* Frozen reference project geometry. */ui.project.channel_count=2;ui.project.pattern_count=2;
     windows_init(&ui.windows,1200,675);for(int i=0;i<EDITORS;i++)ui.windows.editors[i].visible=0;
     ui.arrangement.zoom=1;ui.arrangement.source_pattern=-1;ui.track_zoom=1;ui.browser_focus=1;ui.rack_paint=-1;
     ui.project.notes[0][0][0]=(Note){60,90,0,2};

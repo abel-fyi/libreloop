@@ -44,7 +44,7 @@ static void commit_snapshot(FILE *trace,const char *label,int result,int stage){
     fclose(pcm);
 }
 static int project_commit_sequence(int mode){
-    if(!make_wave())return 1;memset(&ui,0,sizeof ui);project_new(&ui.project);
+    if(!make_wave())return 1;memset(&ui,0,sizeof ui);project_new(&ui.project);ui.project.insert_count=INSERTS; /* Frozen reference project geometry. */
     strcpy(ui.project.paths[0],"source.wav");strcpy(ui.project.channel_names[0],"Keep channel name");
     /* Preset callers normally receive the canonical path produced by import. */
     if(mode==8 || mode==9){char root[4096];if(!getcwd(root,sizeof root))return 1;snprintf(ui.project.paths[0],sizeof ui.project.paths[0],"%s/source.wav",root);}

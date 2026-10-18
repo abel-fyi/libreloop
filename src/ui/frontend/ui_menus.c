@@ -28,6 +28,12 @@ void begin_number(float *value,float low,float high,float initial,const char *na
     snprintf(ui.number_text,sizeof ui.number_text,"%.6g",*value); ui.rename_select_all=1; open_popup(5);
 }
 
+void begin_mixer_add(void) {
+    if(ui.project.insert_count>=INSERTS)return;
+    ui.mixer_add_count=1;
+    begin_number(&ui.mixer_add_count,1,INSERTS-ui.project.insert_count,1,"Number of mixer inserts to add");ui.number_integer=1;
+}
+
 void control_menu(float *value,float low,float high,float initial,const char *name) {
     int automated=parameter_from_pointer(&ui.project,value,&ui.automation_target);
     ui.menu_value=value; ui.menu_low=low; ui.menu_high=high; ui.menu_initial=initial;
@@ -322,10 +328,11 @@ void draw_popup_content(void) {
     label(number?host_text_format("%.6g to %.6g; decimal dot or comma",ui.number_low,ui.number_high):"Choose Apply or Cancel below",x+8,y+66,11,muted);
     int apply=button("Apply",x+8,y+84,76,24,1) || host_is_key_pressed(HOST_KEY_ENTER);
     if(button("Cancel",x+92,y+84,76,24,0)) ui.pattern_popup=0;
-    if(number && button("Reset",x+176,y+84,76,24,0)) { if(ui.number_target==&ui.rack_fill_interval){snprintf(ui.number_text,sizeof ui.number_text,"4");ui.rename_select_all=1;}else{*ui.number_target=ui.number_default;if(ui.number_target==&ui.record_count_steps)midi_save_settings();ui.pattern_popup=0;} }
+    if(number && button("Reset",x+176,y+84,76,24,0)) { if(ui.number_target==&ui.rack_fill_interval || ui.number_target==&ui.mixer_add_count){snprintf(ui.number_text,sizeof ui.number_text,ui.number_target==&ui.mixer_add_count?"1":"4");ui.rename_select_all=1;}else{*ui.number_target=ui.number_default;if(ui.number_target==&ui.record_count_steps)midi_save_settings();ui.pattern_popup=0;} }
     if(apply) {
         if(number) {
             if(!text_number_parse(text,ui.number_low,ui.number_high,ui.number_integer,ui.number_target)) { snprintf(ui.status,sizeof ui.status,"Enter a number from %.6g to %.6g.",ui.number_low,ui.number_high); return; }
+            if(ui.number_target==&ui.mixer_add_count)mixer_add_inserts((int)ui.mixer_add_count);
             if(ui.number_target==&ui.record_count_steps)midi_save_settings();
             if(ui.number_target==&ui.rack_fill_interval)desktop_rack_fill(ui.rack_fill_pattern,ui.rack_fill_channel,(int)ui.rack_fill_interval);
         } else if(folder) {
@@ -529,12 +536,15 @@ void draw_context_content(void) {
         for(int id=ui.context_kind==26?0:1;id<=ui.project.insert_count;id++)
             if(ui.context_kind==26?insert_has_send(&ui.project,ui.context_target,id):insert_has_send(&ui.project,id,ui.context_target))route_rows[route_count++]=id;
     }
-    int w=ui.context_kind==14 || ui.context_kind==16?160:(ui.context_kind==5 || ui.context_kind==8 || ui.context_kind==12)?304:228,h=(ui.context_kind==26 || ui.context_kind==27)?8+25*(int)fminf(8,route_count+1):ui.context_kind==28?209:ui.context_kind==25?(ui.project.effect_type[ui.eq_bus][ui.context_target]?158:209):ui.context_kind==24?8+25*GRID_CHOICES:ui.context_kind==9?133:ui.context_kind==21?8+25*FM_FACTORY_COUNT:ui.context_kind==22?83:ui.context_kind==23?108:ui.context_kind==19?108:ui.context_kind==20?58:ui.context_kind==17?8+25*(int)fminf(8,instrument_count):ui.context_kind==18?58:ui.context_kind==4?108:ui.context_kind==16?32:ui.context_kind==15?58:ui.context_kind==14?8+EQ_SHAPES*25:ui.context_kind==13?58:ui.context_kind==2?183:ui.context_kind==7?133:(ui.context_kind==5 || ui.context_kind==8 || ui.context_kind==12)?76:ui.context_kind==3 && !ui.context_target?32:82,x=fmaxf(0,fminf(host_get_screen_width()/scale-w,ui.context_position.x)),y=fmaxf(0,fminf(host_get_screen_height()/scale-h,ui.context_position.y));
+    int w=ui.context_kind==14 || ui.context_kind==16?160:(ui.context_kind==5 || ui.context_kind==8 || ui.context_kind==12)?304:228,h=ui.context_kind==29?58:(ui.context_kind==26 || ui.context_kind==27)?8+25*(int)fminf(8,route_count+1):ui.context_kind==28?209:ui.context_kind==25?(ui.project.effect_type[ui.eq_bus][ui.context_target]?158:209):ui.context_kind==24?8+25*GRID_CHOICES:ui.context_kind==9?133:ui.context_kind==21?8+25*FM_FACTORY_COUNT:ui.context_kind==22?83:ui.context_kind==23?108:ui.context_kind==19?108:ui.context_kind==20?58:ui.context_kind==17?8+25*(int)fminf(8,instrument_count):ui.context_kind==18?58:ui.context_kind==4?108:ui.context_kind==16?32:ui.context_kind==15?58:ui.context_kind==14?8+EQ_SHAPES*25:ui.context_kind==13?58:ui.context_kind==2?183:ui.context_kind==7?133:(ui.context_kind==5 || ui.context_kind==8 || ui.context_kind==12)?76:ui.context_kind==3 && !ui.context_target?32:82,x=fmaxf(0,fminf(host_get_screen_width()/scale-w,ui.context_position.x)),y=fmaxf(0,fminf(host_get_screen_height()/scale-h,ui.context_position.y));
     ui.input_enabled=1;
     if(host_is_key_pressed(HOST_KEY_ESCAPE) || (!ui.context_opened && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT) && !hover(x,y,w,h))) { ui.context_kind=0; return; }
     ui_frame(host_draw(),(DrawRect){x,y,w,h});
     int target=ui.context_target,kind=ui.context_kind;
-    if(kind==26 || kind==27) {
+    if(kind==29) {
+        if(button("Add insert",x+4,y+4,w-8,24,0)){mixer_add_inserts(1);ui.context_kind=0;return;}
+        if(button("Add multiple...",x+4,y+29,w-8,24,0)){begin_mixer_add();ui.context_kind=0;return;}
+    } else if(kind==26 || kind==27) {
         int visible=fminf(8,route_count+1);
         if(hover(x,y,w,h))ui.route_menu_scroll=fmaxf(0,fminf(route_count+1-visible,ui.route_menu_scroll-host_get_mouse_wheel_move()));
         for(int row=0;row<visible;row++) {

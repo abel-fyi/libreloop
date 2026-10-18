@@ -18,7 +18,7 @@ static void key_preview(void *unused,int slot,int channel,int pitch,int down){(v
 static void preview(void *context,int channel,Note n){(void)context;fprintf(previews,"%d %d %d %.9g %.9g\n",channel,n.pitch,n.velocity,n.start,n.length);}
 int main(int argc,char **argv) {
     if(argc!=2)return 1;int mode=atoi(argv[1]);if(mode<0 || mode>29)return 1;
-    project_new(&project);project.pattern_steps[0]=17.25f;
+    project_new(&project);project.insert_count=INSERTS; /* Frozen reference project geometry. */project.pattern_steps[0]=17.25f;
     state.length=1.5f;view.zoom=1;view.top=72;view.span=32;
     view.width=484;view.height=580;int enabled=1;
     project.notes[0][0][0]=(Note){60,100,4,2};project.notes[0][0][1]=(Note){60,70,4,1};project.notes[0][0][2]=(Note){64,80,8,1.25f};

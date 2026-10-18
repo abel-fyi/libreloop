@@ -380,5 +380,18 @@ int main(void) {
     float stack_out[16]; render(&stacked_player,&p,stack_samples,stack_out,8);
     CHECK(fabsf(stack_out[2]-.2f*100/127)<.00001f); /* Both notes produce a voice. */
 
+    project_new(&p);CHECK(p.insert_count==8);
+    p.insert_volume[0]=.7f;snprintf(p.insert_names[0],PATTERN_NAME,"Keep this");
+    p.insert_volume[8]=.2f;p.effect_type[9][0]=EFFECT_TUBE;p.effect_bypass[9][0]=1;
+    CHECK(insert_add(&p,3)==9 && p.insert_count==11);
+    CHECK(p.insert_volume[0]==.7f && !strcmp(p.insert_names[0],"Keep this"));
+    for(int id=9;id<=11;id++)CHECK(p.insert_volume[id-1]==1 && p.insert_width[id-1]==1 && !p.insert_output[id-1] && !p.effect_type[id][0] && !p.effect_bypass[id][0]);
+    CHECK(!strcmp(p.insert_names[8],"Insert 9"));
+    CHECK(!insert_add(&p,0) && !insert_add(&p,-1) && !insert_add(&p,INSERTS) && p.insert_count==11);
+    CHECK(project_save("added-inserts.llp",&p) && project_load("added-inserts.llp",&q) && q.insert_count==11);
+    remove("added-inserts.llp");
+    CHECK(insert_add(&p,INSERTS-p.insert_count)==12 && p.insert_count==INSERTS);
+    CHECK(!insert_add(&p,1) && p.insert_count==INSERTS);
+
     puts("Project persistence, master pitch, clip lengths, extended patterns, chords and gates, routing, render consistency, mute and WAV duration passed."); return 0;
 }

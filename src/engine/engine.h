@@ -127,6 +127,7 @@ void project_default(Project *p);
 void project_new(Project *p);
 void project_demo(Project *p);
 int insert_reset(Project *p,int id);
+int insert_add(Project *p,int count);
 int pattern_delete(Project *p,int pattern);
 /* Preserve notes, routing, sample data/settings and names; remove unsupported FM automation. */
 int channel_replace_instrument(Project *project,int channel,int type);

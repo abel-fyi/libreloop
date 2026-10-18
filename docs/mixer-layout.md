@@ -154,3 +154,28 @@ Main-window resizing and Browser/Mixer/velocity dividers remain active; docked
 pages continue following the workspace. Corner grips and resize-only input
 exclusions are removed for floating tools. Tests cover stale-size normalization,
 corner presses not capturing a resize, and preserved title movement/close.
+
+## Adding mixer inserts
+
+New projects start with eight inserts plus Master. The Mixer header's + button
+adds one insert; right-click it and choose **Add multiple...** to enter a whole
+number from one through the remaining capacity. The existing ceiling is 100
+inserts, excluding Master. At capacity, the add button is disabled. Newly added
+inserts use default gain/width, route to Master and have no effects or device
+assignments. Existing inserts, routing and effects remain intact. The first
+new insert is selected and revealed. Insert count already belongs to the saved
+project format; loaded projects keep their counts. Frozen factory/demo reference
+projects retain their original count.
+
+This changes the initial count, not the storage architecture. Project settings
+use fixed-capacity arrays, and the runtime rack reserves 101 buses including
+Master. Delay, Reverb, Dynamics and Flanger state is allocated when needed off
+the audio callback. Playback plans already omit unused buses from the render
+order. Fewer displayed inserts therefore do not imply proportional memory or
+CPU savings; neither has been benchmarked for this change.
+
+Regression harnesses now explicitly initialize the frozen reference insert count
+where serialized project bytes or high bus IDs are compared. Reference fixtures
+and comparison assertions are unchanged. Separate tests cover the eight-insert
+default, batch addition, limits, initialized state, preservation of existing
+settings and save/load of the resulting count.

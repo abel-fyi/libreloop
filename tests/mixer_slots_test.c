@@ -118,5 +118,9 @@ int main(void) {
     int replacement=mixer_effect_window(4,0);CHECK(replacement>=5 && ui.windows.editors[replacement].visible);
     CHECK(ui.project.effect_type[3][0]==EFFECT_EQ && ui.project.effect_type[3][1]==EFFECT_CHORUS);
     mixer_effect_replace(4,0,999);CHECK(ui.project.effect_type[4][0]==EFFECT_REVERB);
+    int old_inserts=ui.project.insert_count;
+    mixer_add_inserts(2);CHECK(ui.project.insert_count==old_inserts+2 && ui.mixer_selected==old_inserts+1);
+    CHECK(ui.mixer_offset>=0 && ui.project.insert_volume[old_inserts]==1);
+    mixer_add_inserts(INSERTS);CHECK(ui.project.insert_count==old_inserts+2);
     return 0;
 }
