@@ -187,7 +187,6 @@ void meter_draw(int id,int x,int top,int bottom,int bar_width) {
             if(level>zero) host_draw_rectangle(left,bottom-level*height,bar_width,(level-zero)*height,ui_theme.meter_high);
         }
         if(ui.studio_style) {
-            ui_meter_channel(host_draw(),left+(bar_width-3)/2.f,top-6,side);
             ui_meter_marks(host_draw(),(DrawRect){left,top,bar_width,height},peak,ui.meter_hold[id][side]>1,1);
         } else if(peak>0) host_draw_rectangle(left-1,fmaxf(top,bottom-peak*height),bar_width+2,1,ui.meter_hold[id][side]>1?ui_theme.meter_high:ui.studio_style?(DrawColor){222,232,181,255}:ink);
     }

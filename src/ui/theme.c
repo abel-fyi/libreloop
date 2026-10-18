@@ -369,13 +369,6 @@ void ui_meter_marks(DrawContext *draw,DrawRect bar,float peak,int clipped,int ve
     draw_rect(draw,(DrawRect){lamp.x-1,lamp.y-1,lamp.width+2,lamp.height+2},ui_theme.border);
     draw_rect(draw,lamp,clipped?ui_theme.meter_high:(DrawColor){51,34,34,255});
 }
-/* Tiny engraved L/R legends, separate from normal interface captions. */
-void ui_meter_channel(DrawContext *draw,float x,float y,int right) {
-    static const unsigned char letters[2][5]={{4,4,4,4,7},{6,5,6,5,5}};
-    for(int row=0;row<5;row++)for(int col=0;col<3;col++)
-        if(letters[right!=0][row]&(4>>col))draw_rect(draw,(DrawRect){x+col,y+row,1,1},ui_theme.text);
-}
-
 /* Quiet phosphor grid: no animation and no invented signal when idle. */
 void ui_display_grid(DrawContext *draw,DrawRect r,int columns,int rows) {
     if(classic_style)ui_graph_paper(draw,r);

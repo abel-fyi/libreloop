@@ -188,8 +188,7 @@ Mixer meters and the top-bar stereo meter share peak-marker and clipping-lamp
 helpers. Markers are narrow solid strokes; each channel has a bordered 5×5
 square lamp that lights red when its held peak exceeds unity. Lamps follow the
 existing peak-hold/decay state rather than introducing a new latch or timer.
-Mixer bars have tiny engraved bitmap L/R legends, and the top bar retains its
-existing L/R captions. The top-bar bars reserve ten additional logical units
+Mixer bars have no letter labels; the top bar retains its existing L/R captions. The top-bar bars reserve ten additional logical units
 for their lamps; their overall toolbar footprint is unchanged.
 
 Level fills retain their existing continuous extent, color zones, gain mapping
