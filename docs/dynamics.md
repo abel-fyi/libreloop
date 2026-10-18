@@ -1,10 +1,10 @@
-# Dynamics
+# Multiband Compressor
 
 A built-in three-band compressor/expander with a fourth Master processor,
 inspired by the workflow in Image-Line's Maximus. Original GPL-3.0-only C code;
 no Image-Line code, artwork, presets, or new dependencies are included.
 
-Open a mixer strip's effect adder and select **Add Dynamics**. The floating
+Open a mixer strip's effect adder and select **Add Multiband Compressor**. The floating
 editor has a level transfer curve on the left, a live monitor on the right, and
 Low/Mid/High/Master selectors below. Red, amber, yellow and green identify bands.
 The same bitmap text, knobs and window treatment as the rest of LibreLoop apply.
@@ -38,11 +38,11 @@ let peaks pass; this version does not promise an absolute output ceiling.
   always follows their sum. Master Solo is the complete summed signal.
 - Width: 0% mono, 100% unchanged, 200% doubles the existing side information.
   It does not synthesize stereo from mono. Both channels share one gain envelope.
-- **LMH Mix** blends the compressed bands with their phase-aligned uncompressed
+- **Band Mix** blends the compressed bands with their phase-aligned uncompressed
   sum before Master. Prefer this for parallel compression. The rack's outer Mix
   and Bypass crossfade to the original input; minimum-phase crossover phase can
   cause cancellation at intermediate outer Mix settings.
-- Low/High set the crossover boundaries; Cut is an optional input high-pass,
+- Low/High set the crossover boundaries; Low Cut is an optional input high-pass,
   disabled at zero. Bands view also allows dragging the two boundaries.
 - Saturation blends a tanh soft clipper with the processed signal; Ceiling sets
   its scale, not a brick-wall limit. It is disabled at zero and is not oversampled.
@@ -66,7 +66,7 @@ view shows the actual split.
 Load opens the existing file chooser and creates 0 dB Ceiling, Drum Punch and
 Gentle Glue factory presets if absent. 0 dB Ceiling is the default for all bands:
 a unity diagonal up to 0 dB, horizontal above, without saturation or low cut.
-Previously generated Neutral presets and saved project curves are preserved. Drum Punch narrows bass to mono, uses firmer curves and 65% LMH Mix.
+Previously generated Neutral presets and saved project curves are preserved. Drum Punch narrows bass to mono, uses firmer curves and 65% Band Mix.
 Gentle Glue uses milder curves and wider highs. Save persists all four curves
 and settings. The 52 numeric parameters support existing automation/MIDI mapping;
 curve topology itself is edited and saved, not automated.
@@ -150,3 +150,33 @@ per-frame UI rendering cost have not been isolated. No image assets were added.
 Display regression checks cover the centered ¼×/1×/4× speed mapping, a fixed
 right-hand newest sample, extended history capacity, and meter-fill bounds for
 all five curve shapes. Audio tests remain unchanged by the display settings.
+
+## Reference layout pass
+
+The locally supplied `references/screenshots/maximus.png` was reviewed directly.
+The fixed 820×480 editor retains the curve/history above the controls and uses
+three lower groups matching the reference's organization:
+
+- Left: Low/Mid/High/Master, four explicit band modes, Pre/Post above
+  saturation/ceiling, and a Solo checkbox with stereo Width immediately right.
+- Middle: Attack, Release and Hold above Release 2 and the RMS checkbox.
+  Unchecked RMS means peak detection.
+- Right: Low/High crossover frequencies above Band Mix and Low Cut.
+
+The existing sampler checkbox implementation is reused for Solo, band mode
+selection and RMS. Knobs retain the shared compact size. Curve reset/copy/paste,
+wet/dry and presets occupy the footer. Readouts use short Hz/kHz formatting.
+The add/replace menus are wide enough for the complete effect name.
+
+Band Mix is the former LMH Mix: it has a defined parallel-compression role and
+is retained with a clearer label and tooltip. No LMH Delay control is implemented
+or added. Hold labels the existing sustain/hold time. No parameters, DSP, saved
+IDs, presets or project fields were removed or changed in this layout pass.
+The internal C identifiers and serialized `x-dynamics` fields retain their names.
+
+Differences from Maximus are deliberate: LibreLoop's compact vintage materials
+and knob sizes remain; unsupported threshold, envelope-curve selectors,
+crossover-slope/linear-phase choices and LMH Delay are not drawn. The existing
+editable transfer curve supplies the compression threshold/shape workflow.
+Software captures were inspected at 900×562 and 1448×1086. Native interaction
+and HiDPI legibility remain hands-on checks.

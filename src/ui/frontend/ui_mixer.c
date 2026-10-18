@@ -347,7 +347,7 @@ static void dynamics_editor(float width,float height,int bus,int slot){
     static const DrawColor colors[4]={{223,103,96,255},{219,168,85,255},{211,207,111,255},{142,204,113,255}};
     static const char *bands[]={"LOW","MID","HIGH","MASTER"};
     int window=ui.knob_context,selected=ui.dynamics_band[window];if(selected<0 || selected>3)selected=3;
-    DynamicsSettings *s=&ui.project.dynamics[bus][slot];DynamicsBand *b=&s->band[selected];DrawColor color=colors[selected],graph_ink={151,167,162,255};int compact=width<820;
+    DynamicsSettings *s=&ui.project.dynamics[bus][slot];DynamicsBand *b=&s->band[selected];DrawColor color=colors[selected],graph_ink={151,167,162,255};
     DynamicsMonitor *m=&monitor[window];if(!ui.dynamics_pause[window])audio_dynamics_monitor(bus,slot,m);
     float graph_h=fmaxf(180,height-320),left_w=width*.36f;
     DrawRect curve={32,49,left_w-42,graph_h},history={left_w+8,49,width-left_w-40,graph_h};
@@ -411,34 +411,47 @@ static void dynamics_editor(float width,float height,int bus,int slot){
     label("SPEED",speed_x-65,speed_y-6,12,graph_ink);
     label(host_text_format("%.2fx",dynamics_monitor_speed(ui.dynamics_speed[window])),speed_x+18,speed_y-6,12,graph_ink);
     if(hover(speed_x-12,speed_y-12,24,24) || ui.control_drag==&ui.dynamics_speed[window])snprintf(ui.status,sizeof ui.status,"Monitor speed: left = slower / more history; center = 1x; right = faster / more detail; audio is unchanged");
-    float tabs=graph_h+81;
-    for(int i=0;i<4;i++)if(button(bands[i],8,tabs+i*29,78,25,i==selected)){ui.dynamics_band[window]=i;ui.dynamics_drag=0;}
+    float tabs=graph_h+81;int narrow=width<760;
+    float band_w=narrow?60:78,mode_x=narrow?76:92;
+    host_draw_line(width*.405f,tabs,width*.405f,height-36,ui_theme.border);
+    host_draw_line(width*.705f,tabs+29,width*.705f,height-36,ui_theme.border);
+    for(int i=0;i<4;i++)if(button(bands[i],8,tabs+i*26,band_w,23,i==selected)){ui.dynamics_band[window]=i;ui.dynamics_drag=0;}
     if(button("Monitor",width-264,tabs,84,23,!ui.dynamics_view[window]))ui.dynamics_view[window]=0;
     if(button("Bands",width-176,tabs,78,23,ui.dynamics_view[window]))ui.dynamics_view[window]=1;
     if(button(ui.dynamics_pause[window]?"Resume":"Pause",width-94,tabs,86,23,ui.dynamics_pause[window]))ui.dynamics_pause[window]^=1;
-    const char *modes[]={"ON","COMP OFF","MUTED","OFF"};
-    if(button(modes[(int)b->mode],92,tabs,100,25,0))b->mode=fmodf(b->mode+1,4);
-    if(button("SOLO",92,tabs+29,100,25,b->solo))b->solo=!b->solo;
-    if(button(b->rms?"RMS":"PEAK",92,tabs+58,100,25,b->rms))b->rms=!b->rms;
-    if(button("Reset curve",204,tabs,112,23,0)){DynamicsSettings reset=dynamics_default();memcpy(b->points,reset.band[selected].points,sizeof b->points);b->count=3;}
-    if(button("Copy",compact?108:322,compact?height-30:tabs,64,23,0)){ui.dynamics_copy=*b;ui.dynamics_has_copy=1;}
-    if(button("Paste",compact?178:392,compact?height-30:tabs,68,23,0) && ui.dynamics_has_copy){memcpy(b->points,ui.dynamics_copy.points,sizeof b->points);b->count=ui.dynamics_copy.count;}
-    float *values[]={&b->pre,&b->post,&b->attack,&b->release,&b->release2,&b->sustain,&b->width,&b->saturation,&b->ceiling,&s->low,&s->high,&s->lowcut,&s->blend,&ui.project.effect_mix[bus][slot]};
-    const int offsets[]={0,1,2,3,4,5,6,11,10,-4,-3,-2,-1,-5};
-    const char *names[]={"PRE","POST","ATT","REL","REL 2","SUSTAIN","WIDTH","SAT","CEIL","LOW","HIGH","CUT","LMH MIX","MIX"};
-    for(int i=0;i<14;i++){
-        int off=offsets[i];const ParameterDescriptor *info=parameter_descriptor(off==-5?PARAM_EFFECT_MIX:PARAM_DYNAMICS_FIRST+(off<0?off+4:4+selected*12+off));
-        float x=204+(width-212)*((i%7)+.5f)/7,ky=tabs+46+(i/7)*66;
+    const char *modes[]={"On","Comp off","Muted","Off"};
+    for(int i=0;i<4;i++)if(sampler_toggle(mode_x,tabs+i*22,narrow?88:104,modes[i],(int)b->mode==i))b->mode=i;
+    if(sampler_toggle(8,tabs+122,80,"Solo",b->solo))b->solo=!b->solo;
+    if(sampler_toggle(width*.51f,tabs+112,100,"RMS",b->rms))b->rms=!b->rms;
+    if(hover(width*.51f,tabs+112,100,22))snprintf(ui.status,sizeof ui.status,"Detector: RMS measures average energy; unchecked uses peaks");
+    float *values[]={&b->pre,&b->post,&b->attack,&b->release,&b->release2,&b->sustain,&b->width,&b->saturation,&b->ceiling,&s->low,&s->high,&s->lowcut,&s->blend};
+    const int offsets[]={0,1,2,3,4,5,6,11,10,-4,-3,-2,-1};
+    const char *names[]={"PRE","POST","ATTACK","RELEASE","REL 2","HOLD","WIDTH","SAT","CEIL","LOW","HIGH","LOW CUT","BAND MIX"};
+    const float positions[]={.28f,.37f,.46f,.55f,.46f,.64f,.16f,.28f,.37f,.78f,.93f,.93f,.78f};
+    for(int i=0;i<13;i++){
+        int off=offsets[i];const ParameterDescriptor *info=parameter_descriptor(PARAM_DYNAMICS_FIRST+(off<0?off+4:4+selected*12+off));
+        int bottom=i==4 || (i>=6 && i!=9 && i!=10);
+        float x=width*positions[i],ky=tabs+(bottom?116:50);
+        if(i==6)ky=tabs+122;
         knob_sized(x,ky,values[i],info->low,info->high,info->initial,info->name,i==6?KNOB_WIDTH:info->kind==PARAMETER_LOGARITHMIC?KNOB_LOGARITHMIC:KNOB_NORMAL,PANEL_KNOB_RADIUS);
-        label(names[i],x-text_width(names[i],12)/2,ky+22,12,ink);
-        float shown=displayed_value(values[i],*values[i]);const char *number=i==0 || i==1 || i==8?host_text_format("%+.1f",shown):i>=2 && i<=5?host_text_format("%.0fms",shown):i==9 || i==10 || i==11?host_text_format("%.0fHz",shown):host_text_format("%.0f%%",shown*100);
-        label(number,x-text_width(number,12)/2,ky+38,12,muted);
+        label(names[i],x-text_width(names[i],12)/2,ky+20,12,ink);
+        float shown=displayed_value(values[i],*values[i]);
+        const char *number=i==0 || i==1 || i==8?host_text_format("%+.1f",shown):i>=2 && i<=5?host_text_format("%.0fms",shown):i==9 || i==10 || i==11?(shown>=1000?host_text_format("%.2gkHz",shown/1000):host_text_format("%.0fHz",shown)):host_text_format("%.0f%%",shown*100);
+        label(number,x-text_width(number,12)/2,ky+36,12,muted);
+        if(i==6 && hover(x-14,ky-14,28,28))snprintf(ui.status,sizeof ui.status,"Stereo width: 0%% = mono, 100%% = unchanged stereo; higher widens this band");
+        if(i==12 && hover(x-14,ky-14,28,28))snprintf(ui.status,sizeof ui.status,"Band Mix: blend compressed low/mid/high bands with phase-aligned uncompressed audio before Master");
     }
     float footer=height-30;
     if(button("Bypass",8,footer,92,24,ui.project.effect_bypass[bus][slot]))ui.project.effect_bypass[bus][slot]^=1;
-    if(!compact)label("Right-click curve: add/delete | hollow handles: bend",110,footer+5,12,muted);
+    if(button("Reset curve",108,footer,112,24,0)){DynamicsSettings reset=dynamics_default();memcpy(b->points,reset.band[selected].points,sizeof b->points);b->count=3;}
+    if(button("Copy",226,footer,64,24,0)){ui.dynamics_copy=*b;ui.dynamics_has_copy=1;}
+    if(button("Paste",296,footer,68,24,0) && ui.dynamics_has_copy){memcpy(b->points,ui.dynamics_copy.points,sizeof b->points);b->count=ui.dynamics_copy.count;}
+    float wet_x=width-204;
+    knob_sized(wet_x,footer+12,&ui.project.effect_mix[bus][slot],0,1,1,"Multiband Compressor wet/dry mix",KNOB_NORMAL,PANEL_KNOB_RADIUS);
+    label("WET",wet_x-44,footer+5,12,muted);
     if(button("Load",width-172,footer,78,24,0))preset_action(PRESET_DYNAMICS,bus,slot,0);
     if(button("Save",width-88,footer,80,24,0))preset_action(PRESET_DYNAMICS,bus,slot,1);
+
 }
 
 static void modulation_editor(float width,float height,int bus,int slot){
@@ -740,7 +753,7 @@ static void mixer_legacy(float width,float height) {
         if(button("+ Tube",fx+8,effect_button_y+54,MIXER_PANEL-16,24,0))mixer_effect_add(bus,slot,EFFECT_TUBE);
         if(button("+ Phaser",fx+8,effect_button_y+135,MIXER_PANEL-16,24,0))mixer_effect_add(bus,slot,EFFECT_PHASER);
         if(button("+ Flanger",fx+8,effect_button_y+162,MIXER_PANEL-16,24,0))mixer_effect_add(bus,slot,EFFECT_FLANGER);
-        if(button("+ Dynamics",fx+8,effect_button_y+108,MIXER_PANEL-16,24,0))mixer_effect_add(bus,slot,EFFECT_DYNAMICS);
+        if(button("+ Multiband Compressor",fx+8,effect_button_y+108,MIXER_PANEL-16,24,0))mixer_effect_add(bus,slot,EFFECT_DYNAMICS);
         if(button("+ Reverb",fx+8,effect_button_y+81,MIXER_PANEL-16,24,0))mixer_effect_add(bus,slot,EFFECT_REVERB);
     } else {
         label(effect_descriptor(ui.project.effect_type[bus][slot])->name,fx+8,effect_y,12,ink);
@@ -753,7 +766,7 @@ static void mixer_legacy(float width,float height) {
             ui.control_drag=NULL; ui.automation_selected=ui.automation_node=-1; ui.picker_drag=-1;
         } else if(ui.project.effect_type[bus][slot]==EFFECT_PHASER) {if(button("Open Phaser",fx+8,effect_button_y,MIXER_PANEL-16,24,0))mixer_effect_open(bus,slot,0);
         } else if(ui.project.effect_type[bus][slot]==EFFECT_FLANGER) {if(button("Open Flanger",fx+8,effect_button_y,MIXER_PANEL-16,24,0))mixer_effect_open(bus,slot,0);
-        } else if(ui.project.effect_type[bus][slot]==EFFECT_DYNAMICS) { if(button("Open Dynamics",fx+8,effect_button_y,MIXER_PANEL-16,24,0))mixer_effect_open(bus,slot,0);
+        } else if(ui.project.effect_type[bus][slot]==EFFECT_DYNAMICS) { if(button("Open Multiband Compressor",fx+8,effect_button_y,MIXER_PANEL-16,24,0))mixer_effect_open(bus,slot,0);
         } else if(ui.project.effect_type[bus][slot]==EFFECT_REVERB) {
             if(button("Open Reverb",fx+8,effect_button_y,MIXER_PANEL-16,24,0))mixer_effect_open(bus,slot,0);
         } else if(ui.project.effect_type[bus][slot]==EFFECT_TUBE) {

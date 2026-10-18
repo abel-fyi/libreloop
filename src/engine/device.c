@@ -59,7 +59,7 @@ static const DeviceDescriptor devices[]={
     {"Delay",sizeof(DelaySettings),delay_defaults,delay_check,delay_parameter,{{PARAM_DELAY_FIRST,PARAM_DELAY_LAST},{PARAM_EFFECT_MIX,PARAM_EFFECT_MIX}}},
     {"Tube",sizeof(TubeSettings),tube_defaults,tube_check,tube_parameter,{{PARAM_TUBE_FIRST,PARAM_TUBE_LAST},{PARAM_EFFECT_MIX,PARAM_EFFECT_MIX}}},
     {"Reverb",sizeof(ReverbSettings),reverb_defaults,reverb_check,reverb_parameter,{{PARAM_REVERB_FIRST,PARAM_REVERB_LAST},{PARAM_EFFECT_MIX,PARAM_EFFECT_MIX}}},
-    {"Dynamics",sizeof(DynamicsSettings),dynamics_defaults,dynamics_check,dynamics_device_parameter,{{PARAM_DYNAMICS_FIRST,PARAM_DYNAMICS_LAST},{PARAM_EFFECT_MIX,PARAM_EFFECT_MIX}}},
+    {"Multiband Compressor",sizeof(DynamicsSettings),dynamics_defaults,dynamics_check,dynamics_device_parameter,{{PARAM_DYNAMICS_FIRST,PARAM_DYNAMICS_LAST},{PARAM_EFFECT_MIX,PARAM_EFFECT_MIX}}},
     {"Phaser",sizeof(PhaserSettings),phaser_defaults,phaser_check,phaser_device_parameter,{{PARAM_PHASER_FIRST,PARAM_PHASER_LAST},{PARAM_EFFECT_MIX,PARAM_EFFECT_MIX}}},
     {"Flanger",sizeof(FlangerSettings),flanger_defaults,flanger_check,flanger_device_parameter,{{PARAM_FLANGER_FIRST,PARAM_FLANGER_LAST},{PARAM_EFFECT_MIX,PARAM_EFFECT_MIX}}},
 };
