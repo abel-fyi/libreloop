@@ -171,31 +171,6 @@ void draw_popup_content(void) {
         if(ui.studio_style && button("UI Scale...",x+4,y+30,w-8,25,0) && !ui.popup_opened){open_popup(14);return;}
         return;
     }
-    if(ui.pattern_popup==14) {
-        float scale=ui_scale(),screen_w=host_get_screen_width()/scale,screen_h=host_get_screen_height()/scale;
-        int w=400,h=208,x=(screen_w-w)/2,y=(screen_h-h)/2;
-        ui_frame(host_draw(),(DrawRect){x,y,w,h});
-        if(ui.studio_style)ui_titlebar(host_draw(),(DrawRect){x,y,w,STUDIO_TITLE},1);
-        label("UI Scale",x+8,y+3,14,ink);
-        if(host_is_key_pressed(HOST_KEY_ESCAPE) || button("x",x+w-24,y+3,18,18,0) ||
-           (!ui.popup_opened && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT) && !hover(x,y,w,h))){ui.pattern_popup=0;return;}
-        float requested=ui.ui_scale_preference>0?ui.ui_scale_preference:scale,next=ui.ui_scale_preference;
-        label(ui.ui_scale_preference==0?host_text_format("Automatic (%.0f%%)",scale*100):(requested>scale+.005f?host_text_format("%.0f%% (using %.0f%%)",requested*100,scale*100):host_text_format("%.0f%%",requested*100)),x+100,y+50,14,ink);
-        if(button("",x+16,y+44,56,28,0))next=fminf(2,fmaxf(.75f,(ceilf(requested*4-.001f)-1)/4));
-        if(button("",x+w-72,y+44,56,28,0))next=fminf(2,(floorf(requested*4+.001f)+1)/4);
-        host_draw_line_ex((DrawPoint){x+38,y+58},(DrawPoint){x+50,y+58},2,ink);
-        host_draw_line_ex((DrawPoint){x+w-50,y+58},(DrawPoint){x+w-38,y+58},2,ink);
-        host_draw_line_ex((DrawPoint){x+w-44,y+52},(DrawPoint){x+w-44,y+64},2,ink);
-        if(hover(x+16,y+44,56,28))snprintf(ui.status,sizeof ui.status,"Smaller interface (minimum 75%%)");
-        if(hover(x+w-72,y+44,56,28))snprintf(ui.status,sizeof ui.status,"Larger interface (maximum 200%%; limited to fit this window)");
-        if(button("Automatic",x+16,y+88,174,28,ui.ui_scale_preference==0))next=0;
-        if(button("100%",x+204,y+88,180,28,ui.ui_scale_preference==1))next=1;
-        label("Whole interface; project zoom is unchanged.",x+16,y+132,12,muted);
-        label(requested>scale+.005f?"Scale limited to fit this window.":"System HiDPI is handled automatically.",x+16,y+154,12,muted);
-        if(button("Close",x+w-100,y+h-34,84,26,0))ui.pattern_popup=0;
-        if(next!=ui.ui_scale_preference){ui.ui_scale_preference=next;if(!ui_scale_save())snprintf(ui.status,sizeof ui.status,"UI scale changed; could not save preference.");}
-        return;
-    }
     if(ui.pattern_popup==12) {
         float scale=ui_scale(); int w=400,h=152,x=(host_get_screen_width()/scale-w)/2,y=(host_get_screen_height()/scale-h)/2;
         ui_frame(host_draw(),(DrawRect){x,y,w,h}); label("Save your changes?",x+16,y+16,16,ink);
@@ -205,7 +180,7 @@ void draw_popup_content(void) {
         if(button("Cancel",x+252,y+100,100,28,0) || host_is_key_pressed(HOST_KEY_ESCAPE)) { ui.document.pending_action=0; ui.pattern_popup=0; }
         return;
     }
-    int picker=ui.pattern_popup==11,folder=ui.pattern_popup==3,help=ui.pattern_popup==4,number=ui.pattern_popup==5,w=ui.pattern_popup==13?460:picker?700:ui.pattern_popup==6?320:help?660:number?360:folder?620:260,h=ui.pattern_popup==13?390:picker?(ui.file_confirm?180:500):help?645:116;
+    int picker=ui.pattern_popup==11,folder=ui.pattern_popup==3,help=ui.pattern_popup==4,number=ui.pattern_popup==5,w=ui.pattern_popup==14?400:ui.pattern_popup==13?460:picker?700:ui.pattern_popup==6?320:help?660:number?360:folder?620:260,h=ui.pattern_popup==14?208:ui.pattern_popup==13?390:picker?(ui.file_confirm?180:500):help?645:116;
     int title=ui.studio_style?STUDIO_TITLE:TITLE,pad=title-TITLE;
     h+=pad;
     float scale=ui_scale();
@@ -229,6 +204,25 @@ void draw_popup_content(void) {
     if(!ui.popup_drag && !ui.popup_opened && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT) && !hover(x,y,w,h)) { if(ui.pattern_popup==11) ui.document.pending_action=0; ui.pattern_popup=0; return; }
     ui.input_enabled=!ui.popup_drag;
     y+=pad;h-=pad;
+    if(ui.pattern_popup==14) {
+        popup_caption("UI Scale",x,y,w);
+        float requested=ui.ui_scale_preference>0?ui.ui_scale_preference:scale,next=ui.ui_scale_preference;
+        label(ui.ui_scale_preference==0?host_text_format("Automatic (%.0f%%)",scale*100):(requested>scale+.005f?host_text_format("%.0f%% (using %.0f%%)",requested*100,scale*100):host_text_format("%.0f%%",requested*100)),x+100,y+50,14,ink);
+        if(button("",x+16,y+44,56,28,0))next=fminf(2,fmaxf(.75f,(ceilf(requested*4-.001f)-1)/4));
+        if(button("",x+w-72,y+44,56,28,0))next=fminf(2,(floorf(requested*4+.001f)+1)/4);
+        host_draw_line_ex((DrawPoint){x+38,y+58},(DrawPoint){x+50,y+58},2,ink);
+        host_draw_line_ex((DrawPoint){x+w-50,y+58},(DrawPoint){x+w-38,y+58},2,ink);
+        host_draw_line_ex((DrawPoint){x+w-44,y+52},(DrawPoint){x+w-44,y+64},2,ink);
+        if(hover(x+16,y+44,56,28))snprintf(ui.status,sizeof ui.status,"Smaller interface (minimum 75%%)");
+        if(hover(x+w-72,y+44,56,28))snprintf(ui.status,sizeof ui.status,"Larger interface (maximum 200%%; limited to fit this window)");
+        if(button("Automatic",x+16,y+88,174,28,ui.ui_scale_preference==0))next=0;
+        if(button("100%",x+204,y+88,180,28,ui.ui_scale_preference==1))next=1;
+        label("Whole interface; project zoom is unchanged.",x+16,y+132,12,muted);
+        label(requested>scale+.005f?"Scale limited to fit this window.":"System HiDPI is handled automatically.",x+16,y+154,12,muted);
+        if(button("Close",x+w-100,y+h-34,84,26,0))ui.pattern_popup=0;
+        if(next!=ui.ui_scale_preference){ui.ui_scale_preference=next;if(!ui_scale_save())snprintf(ui.status,sizeof ui.status,"UI scale changed; could not save preference.");}
+        return;
+    }
     if(picker) { draw_file_picker(x,y,w,h,scale); host_end_scissor_mode(); return; }
     if(ui.pattern_popup==13) {
         popup_caption("MIDI / Recording",x,y,w);

@@ -209,3 +209,9 @@ The old frontend override forcing 99 inserts was removed from startup and
 File → New. The smoke startup test now exercises the actual New workflow and
 asserts eight inserts. Demo/reference rendering comparisons retain an explicit
 100-insert input to preserve their frozen project comparison.
+
+UI Scale now uses the same modal dialog shell as MIDI/Recording, numeric entry
+and file dialogs: title dragging, screen clamping, close and Escape handling
+are shared. Its contents no longer draw a separate centered-only frame. The
+settings dialog remains modal; audio/instrument editors keep their existing
+floating-tool behavior.
