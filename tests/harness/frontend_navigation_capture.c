@@ -15,6 +15,7 @@ int host_is_mouse_button_down(int b){return b==HOST_MOUSE_BUTTON_MIDDLE && test_
 int host_is_key_down(int key){if(key==HOST_KEY_LEFT_SHIFT || key==HOST_KEY_RIGHT_SHIFT)return test_frame.shift;return (key==HOST_KEY_LEFT_SUPER || key==HOST_KEY_RIGHT_SUPER || key==HOST_KEY_LEFT_CONTROL || key==HOST_KEY_RIGHT_CONTROL) && test_frame.zoom_modifier;}
 #include "../../src/ui/frontend/ui_shell.c"
 int main(int argc,char **argv) {
+    ui_state_init();
     if(argc!=3)return 1;int mode=atoi(argv[1]);float scale=atof(argv[2]);if(mode<0 || mode>3)return 1;
     ui.navigation_drag=-1;ui.browser_focus=1;windows_init(&ui.windows,1200,675);int id=mode%2?2:1;windows_focus(&ui.windows,id);
     ui.arrangement.zoom=1;ui.arrangement.view_start=3.25f;ui.track_scroll=100.5f;ui.track_zoom=1;

@@ -80,6 +80,7 @@ static void smoke_scene_prepare(int scene) {
 }
 
 int main(int argc,char **argv) {
+    ui_state_init();
     int smoke_playing=0,smoke_piano_maximized=0,smoke_new_project=0;
     float smoke_velocity=0,smoke_mixer_offset=0,smoke_fx_scroll=0;int smoke_seconds=0,smoke_fx_hidden=0,smoke_inserts=0,smoke_routing=0,smoke_fx_count=0;
     float smoke_ui_scale=0;

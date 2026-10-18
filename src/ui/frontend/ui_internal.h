@@ -262,9 +262,10 @@ typedef struct {
     float dynamics_drag_x,dynamics_drag_y,dynamics_speed[32];
     Spectrum master_spectrum,eq_spectrum;
     int spectrum_active;
-    const unsigned fm_envelope_ids[3][4];
+    unsigned fm_envelope_ids[3][4];
 } UiState;
 extern UiState ui;
+void ui_state_init(void);
 static inline Rect desktop_editor_rect(int id) { return windows_content_frame(&ui.windows,id); }
 static inline void pattern_select_channel(int c) {
     if(c<0 || c>=ui.project.channel_count)return;

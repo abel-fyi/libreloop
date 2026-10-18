@@ -25,6 +25,7 @@ static void fixture_graph_area(DrawPoint a,DrawPoint b,float base) {
 #include "../src/ui/frontend/ui_instruments.c"
 #define CHECK(x) do {if(!(x)){fprintf(stderr,"Failed line %d: %s\n",__LINE__,#x);return 1;}} while(0)
 int main(void) {
+    ui_state_init();
     ui_skin.graph_fill=(DrawColor){0,92,139,255};
     project_new(&ui.project);
     FMSettings initial=fm_default();
