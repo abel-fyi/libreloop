@@ -397,10 +397,11 @@ void ui_frame(DrawContext *draw,DrawRect rect) {
     else draw_border(draw,rect,1,ui_theme.border);
 }
 
-/* Twenty-four distinct source swatches already inside Luice's paint palette. */
+/* Four well-separated hues, paired light/dark, inside Luice's paint palette. */
 DrawColor ui_source_palette_color(int index){
-    static const int family[8]={6,7,0,1,2,3,4,5},shade[3]={4,2,1};
-    index=((index%24)+24)%24;return luice_palette_color(16+family[index%8]*6+shade[index/8]);
+    static const int family[4]={6,1,4,7};
+    index=((index%UI_SOURCE_COLORS)+UI_SOURCE_COLORS)%UI_SOURCE_COLORS;
+    return luice_palette_color(16+family[index/2]*6+(index&1?1:3));
 }
 DrawColor theme_foreground(DrawColor background) {
     float channels[]={background.r/255.f,background.g/255.f,background.b/255.f};

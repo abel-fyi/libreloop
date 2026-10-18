@@ -83,21 +83,26 @@ has not been measured. The executable is 5,739,648 bytes (+48 bytes). A software
 showcase screenshot was reviewed; native Retina appearance remains unverified.
 All 158 Release tests pass for the shared display-well revision.
 
-## Distinct source colors
+## Paired source colors
 
-The 24 standard source swatches map explicitly to 24 distinct entries in Luice's
-fixed palette: eight hue families at three shades. Saved source RGB values stay
-unchanged; the studio presentation maps those standard swatches before the
-renderer sees them. This prevents two different automatic colors from collapsing
-to the same displayed shade, including patterns 3 and 4. New patterns cycle the
-24 automatic colors after all are used. The legacy rendering path retains its
-original color presentation. Arbitrary saved custom colors still use the normal
-palette conversion.
+The studio color picker offers eight swatches: blue, orange, green and purple,
+each paired light/dark. Light fills use dark text, dark fills use white text.
+The lighter shade is less pastel than the previous 24-color presentation. All
+eight swatches are exact members of Luice's fixed paint palette, with at least
+4.5:1 foreground contrast after palette mapping.
 
-Rendering checks assert all 24 source swatches are distinct after palette
-mapping. A twelve-pattern studio screenshot was reviewed, including the first
-four source colors. See [pattern capacity](pattern-capacity.md) for the separate
-engine limit expansion and file compatibility checks.
+Automatic pattern creation alternates light/dark tokens. It checks the preceding
+standard color so deletion or recoloring does not force two adjacent automatic
+assignments into the same tone. Unused choices of the required tone are preferred;
+colors repeat once the eight choices are in use. Legacy stored RGB tokens stay
+unchanged and fold into the smaller presentation set; the manual picker marks
+the matching visible swatch. Arbitrary custom colors retain the normal conversion.
+The legacy rendering path retains its original picker and presentation.
+
+Engine checks cover the alternating sequence across 64 patterns. Rendering checks
+require all eight swatches to be distinct, remain inside the palette and select
+the expected black/white foreground with sufficient contrast. A twelve-pattern
+studio capture was reviewed, including the first light/dark pairs.
 
 ## Uniform display material
 

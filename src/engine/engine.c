@@ -160,7 +160,16 @@ int pattern_add(Project *p){
         int duplicate=0;for(int i=0;i<pattern;i++)if(!strcmp(p->pattern_names[i],p->pattern_names[pattern]))duplicate=1;
         if(!duplicate)break;
     }
-    p->pattern_colors[pattern]=next_source_color(p->pattern_colors,pattern);
+    /* Alternate light/dark source tokens, including after a deletion or recolor. */
+    int tone=pattern&1;
+    for(int i=0;i<COLOR_COUNT;i++)if(p->pattern_colors[pattern-1]==pattern_palette[i])tone=1-(i&1);
+    int first=(pattern%PATTERN_COLOR_COUNT & ~1)|tone,color=first;
+    for(int step=0;step<PATTERN_COLOR_COUNT/2;step++){
+        int candidate=(first+step*2)%PATTERN_COLOR_COUNT,used=0;
+        for(int i=0;i<pattern;i++)if(p->pattern_colors[i]==pattern_palette[candidate])used=1;
+        if(!used){color=candidate;break;}
+    }
+    p->pattern_colors[pattern]=pattern_palette[color];
     return pattern;
 }
 int pattern_delete(Project *p,int pattern) {

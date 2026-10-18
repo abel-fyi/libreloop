@@ -13,6 +13,7 @@
 #define PATTERNS 64
 #define LEGACY_PATTERNS 8
 #define PATTERN_NAME 48
+#define PATTERN_COLOR_COUNT 8
 #define COLOR_HUES 12
 #define COLOR_COUNT (COLOR_HUES*2)
 extern const uint32_t pattern_palette[COLOR_COUNT];

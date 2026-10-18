@@ -199,9 +199,11 @@ static int check_display_finish(void){
 static int check_luice_palette(void){
     unsigned char pixels[80*64*4];const float scales[]={.75f,1,1.25f,1.5f,2};
     theme_init();theme_studio();draw_palette_enable(draw,1);
-    for(int i=0;i<24;i++){
+    for(int i=0;i<UI_SOURCE_COLORS;i++){
         DrawColor color=ui_source_palette_color(i);
         if(!same(color,luice_palette_map(color,0,0,0)))return 0;
+        DrawColor text=theme_foreground(color);
+        if(text.r!=(i&1?255:0) || contrast(text,color)<4.5f)return 0;
         for(int j=0;j<i;j++)if(same(color,ui_source_palette_color(j)))return 0;
     }
     for(int row=0;row<2;row++){

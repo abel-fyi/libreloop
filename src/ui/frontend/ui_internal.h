@@ -264,6 +264,7 @@ typedef struct {
     int spectrum_active;
     unsigned fm_envelope_ids[3][4];
 } UiState;
+_Static_assert(UI_SOURCE_COLORS==PATTERN_COLOR_COUNT,"Pattern assignment and source swatches must agree");
 extern UiState ui;
 void ui_state_init(void);
 static inline Rect desktop_editor_rect(int id) { return windows_content_frame(&ui.windows,id); }

@@ -292,16 +292,19 @@ int drag_button(const char *text,int x,int y,int w,int h,int active) {
 }
 
 int color_picker(int x,int y,int width,uint32_t selected) {
-    int chosen=-1,spacing=width/COLOR_HUES;
+    int columns=ui.studio_style?UI_SOURCE_COLORS/2:COLOR_HUES;
+    int swatches=ui.studio_style?UI_SOURCE_COLORS:COLOR_COUNT;
+    int chosen=-1,spacing=width/columns,selected_index=-1;
+    if(ui.studio_style)for(int i=0;i<COLOR_COUNT;i++)if(selected==pattern_palette[i])selected_index=i%UI_SOURCE_COLORS;
     int hover_index=-1;
-    for(int i=0;i<COLOR_COUNT;i++)
-        if(hover(x+(i%COLOR_HUES)*spacing,y+(i/COLOR_HUES)*28,spacing-4,24)) hover_index=i;
-    for(int i=0;i<COLOR_COUNT;i++) {
+    for(int i=0;i<swatches;i++)
+        if(hover(x+(i%columns)*spacing,y+(i/columns)*28,spacing-4,24)) hover_index=i;
+    for(int i=0;i<swatches;i++) {
         unsigned rgb=pattern_palette[i]; DrawColor color=source_rgb(rgb);
-        DrawRect swatch={x+(i%COLOR_HUES)*spacing,y+(i/COLOR_HUES)*28,spacing-4,24};
+        DrawRect swatch={x+(i%columns)*spacing,y+(i/columns)*28,spacing-4,24};
         int over=hover(swatch.x,swatch.y,swatch.width,swatch.height);
         ui_surface(host_draw(),swatch,color);
-        if(hover_index>=0?i==hover_index:selected==rgb) host_draw_rectangle_lines_ex((DrawRect){swatch.x+2,swatch.y+2,swatch.width-4,swatch.height-4},2,clip_foreground(color));
+        if(hover_index>=0?i==hover_index:(ui.studio_style?i==selected_index:selected==rgb)) host_draw_rectangle_lines_ex((DrawRect){swatch.x+2,swatch.y+2,swatch.width-4,swatch.height-4},2,clip_foreground(color));
         if(over) { host_set_mouse_cursor(HOST_MOUSE_CURSOR_POINTING_HAND); snprintf(ui.status,sizeof ui.status,"Choose color #%06X",rgb); if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)) chosen=i; }
     }
     return chosen;

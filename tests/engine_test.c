@@ -394,7 +394,7 @@ int main(void) {
     CHECK(!insert_add(&p,1) && p.insert_count==INSERTS);
 
     project_new(&p);
-    for(int i=1;i<PATTERNS;i++)CHECK(pattern_add(&p)==i);
+    for(int i=1;i<PATTERNS;i++){CHECK(pattern_add(&p)==i);CHECK(p.pattern_colors[i]==pattern_palette[i%PATTERN_COLOR_COUNT]);}
     CHECK(p.pattern_count==64 && pattern_add(&p)==-1 && p.pattern_count==64);
     CHECK(note_add(&p,63,0,0,60,4));p.clips[0][0]=64;p.clip_steps[0][0]=16;
     CHECK(project_save("many-patterns.llp",&p) && project_load("many-patterns.llp",&q));
