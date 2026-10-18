@@ -549,7 +549,7 @@ int main(int argc,char **argv) {
         int transport_active=ui.playing || audio_preview_position(ui.audition)>=0 || audio_key_position(127,ui.instrument_channel)>=0;
         if(button(ui.studio_style?"":transport_active?"||":">",play_x,ty,tw,th,transport_active)) transport_toggle();
         if(ui.studio_style)icon_in_button(transport_active?ICON_PAUSE:ICON_PLAY,(DrawRect){play_x,ty,tw,th},ink);
-        if(hover(play_x,ty,tw,th)) snprintf(ui.status,sizeof ui.status,"Play from ruler / stop all audio, including previews (Space)");
+        if(hover(play_x,ty,tw,th)) snprintf(ui.status,sizeof ui.status,"Play from ruler / stop sources, preserving effect tails (Space)");
         if(button(ui.studio_style?"":"[]",stop_x,ty,tw,th,0)) transport_stop();
         if(ui.studio_style)icon_in_button(ICON_STOP,(DrawRect){stop_x,ty,tw,th},ink);
         if(hover(stop_x,ty,tw,th)) snprintf(ui.status,sizeof ui.status,"Stop all audio; press again while stopped to return the start marker to the beginning");

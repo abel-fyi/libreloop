@@ -318,7 +318,7 @@ static void consume_commands(void) {
         const AudioCommand *c=&pending.commands[read++%AUDIO_COMMANDS];
         switch(c->kind) {
         case UPDATE:
-            if(c->reset || playing!=c->run || player.song!=c->song || (!c->song && player.pattern!=c->pattern)) effects_reset(effects);
+            /* Transport seeks/stops reset sources, but let delay/reverb tails ring. */
             playing=c->run; output_volume=c->output;
             if(c->reset || !playing || player.song!=c->song || (!c->song && player.pattern!=c->pattern)) {
                 click_position=1200; player_reset(&player); player.effects=effects; player_seek(&player,&project,c->start);
@@ -399,7 +399,7 @@ static void consume_commands(void) {
             for(int i=0;i<128;i++) active|=live.voices[i].gain!=0;
             atomic_store(&stopped_active,active);
             playing=0; preview=(Sample){0}; preview_end=preview_remaining=0; preview_channel=-1; click_position=1200;
-            memset(player.voices,0,sizeof player.voices); memset(live.voices,0,sizeof live.voices); effects_reset(effects);
+            memset(player.voices,0,sizeof player.voices); memset(live.voices,0,sizeof live.voices); if(!c->down) effects_reset(effects);
             break;
         }
         }
@@ -632,10 +632,12 @@ void audio_key_velocity(int slot,int channel,int pitch,int velocity) {
     submit((AudioCommand){.kind=KEY,.slot=slot,.channel=channel,.pitch=pitch,.down=velocity>0,.note={.velocity=velocity>0?(velocity>127?127:velocity):0}});
     control_end();
 }
-int audio_stop(void) {
-    control_begin(); uint64_t serial=submit((AudioCommand){.kind=STOP}); control_end();
+static int stop_audio(int preserve_tails) {
+    control_begin(); uint64_t serial=submit((AudioCommand){.kind=STOP,.down=preserve_tails}); control_end();
     wait_acknowledged(serial); return atomic_load(&stopped_active);
 }
+int audio_stop(void) { return stop_audio(0); }
+int audio_transport_stop(void) { return stop_audio(1); }
 double audio_preview_position(Sample sample) {
     refresh_view();
     double progress=-1;

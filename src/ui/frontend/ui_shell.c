@@ -66,7 +66,7 @@ float playback_start(void) {
     return ui.playing && !playback_loop()[1] && start>=end?0:start;
 }
 
-void transport_toggle(void) { ui.stop_armed=0; recording_finish(); int active=audio_stop(); ui.playing=ui.playing || active?0:1; ui.reset=1; }
+void transport_toggle(void) { ui.stop_armed=0; recording_finish(); int active=audio_transport_stop(); ui.playing=ui.playing || active?0:1; ui.reset=1; }
 
 void transport_stop(void) {
     int rewind=ui.stop_armed && !ui.playing;

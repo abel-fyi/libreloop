@@ -322,7 +322,24 @@ int main(void) {
         test_callback(NULL,out,NULL,64);
         for(int i=0;i<64;i++){float frame[2]={!block && !i?.2f:0,!block && !i?.2f:0};reverb_process(reverb_expected,fixture.reverb[0][0],1,frame);CHECK(!memcmp(frame,&out[i*2],sizeof frame));reverb_energy+=frame[0]*frame[0]+frame[1]*frame[1];}
     }
-    CHECK(reverb_energy>0);ready=0;ma_atomic_device_state_set(&device.state,ma_device_state_uninitialized);audio_stop();reverb_free(reverb_expected);
+    CHECK(reverb_energy>0);
+    /* Space stops sources, including the queued UI reset, without clearing tails. */
+    ready=0;ma_atomic_device_state_set(&device.state,ma_device_state_uninitialized);
+    CHECK(audio_transport_stop());
+    audio_update(&fixture,0,1,0,1,1,0,0,0);
+    ready=1;ma_atomic_device_state_set(&device.state,ma_device_state_started);
+    double stopped_tail=0;
+    for(int block=0;block<16;block++) {
+        test_callback(NULL,out,NULL,64);
+        for(int i=0;i<64;i++){float frame[2]={0,0};reverb_process(reverb_expected,fixture.reverb[0][0],1,frame);CHECK(!memcmp(frame,&out[i*2],sizeof frame));stopped_tail+=out[i*2]*out[i*2]+out[i*2+1]*out[i*2+1];}
+    }
+    CHECK(stopped_tail>0);
+    /* The explicit Stop All Audio action clears the same live tail. */
+    ready=0;ma_atomic_device_state_set(&device.state,ma_device_state_uninitialized);audio_stop();
+    audio_update(&fixture,0,1,0,1,1,0,0,0);
+    ready=1;ma_atomic_device_state_set(&device.state,ma_device_state_started);
+    test_callback(NULL,out,NULL,64);for(int i=0;i<128;i++)CHECK(out[i]==0);
+    ready=0;ma_atomic_device_state_set(&device.state,ma_device_state_uninitialized);audio_stop();reverb_free(reverb_expected);
     effects_free(effects);effects=NULL;player.effects=live.effects=NULL;
     puts("Transparent output, capture, post-fader recording, ring bounds, mixing and ordered controls passed.");
     return 0;

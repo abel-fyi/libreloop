@@ -24,6 +24,11 @@ for directory in ("src/ui/frontend", "src/interaction"):
 expected = Counter(fixture["literals"])
 for literal in fixture["resource_path_exceptions"]:
     del expected[literal]
+# Approved transport change: Space preserves tails; the old tooltip claimed panic.
+old_stop = '"Play from ruler / stop all audio, including previews (Space)"'
+new_stop = '"Play from ruler / stop sources, preserving effect tails (Space)"'
+assert actual[new_stop] == expected[old_stop] == 1
+expected[new_stop] += expected.pop(old_stop)
 missing = expected - actual
 assert not missing, f"Original frontend literals changed or disappeared: {dict(missing)}"
 print(f"All {sum(expected.values())} original UI literal occurrences preserved")

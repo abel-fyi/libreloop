@@ -12,6 +12,7 @@ void audio_update(const Project *p, int playing, int song, int pattern, int rese
 void audio_sample(int channel, Sample sample);
 void audio_channels(const Project *p,const Sample samples[CHANNELS]);
 void audio_preview(Sample sample);
+int audio_transport_stop(void); /* Stops sources while preserving effect tails. */
 int audio_stop(void); /* Stops all playback; returns whether anything was playing. */
 double audio_preview_position(Sample sample);
 void audio_note(int channel,Note note);
