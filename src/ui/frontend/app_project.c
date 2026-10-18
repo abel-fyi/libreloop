@@ -502,7 +502,8 @@ void workspace_load(void) {
     if(!ok || !isfinite(next.mixer) || !isfinite(next.piano) || !isfinite(next.rack) || !isfinite(next.inspector_width) || next.mixer<.05f || next.mixer>.8f || next.piano<.05f || next.piano>.9f || next.rack<152 || next.rack>600 || next.inspector_width<330 || next.inspector_width>700 || (next.inspector!=4 && next.inspector!=5))return;
     if(!isfinite(next.editor_width) || next.editor_width<.1f || next.editor_width>.9f)return;
     if(version<4)next.mixer=fmaxf(182/(next.height-84),next.mixer-88/(next.height-84));
-    if(fabsf(next.mixer-272.f/1002)<.00001f)next.mixer=studio_workspace_default_mixer(next.height);
+    /* A saved compact split must not hide the reference scale on startup. */
+    next.mixer=fmaxf(next.mixer,studio_workspace_default_mixer(next.height));
     if(next.inspector==5 && !ui.project.effect_type[ui.eq_bus][ui.eq_slot]){next.inspector=4;next.show[4]=next.show[5];}
     for(int i=5;i<WINDOW_CAPACITY;i++){next.show[i]=0;next.floating[i]=1;ui.windows.editors[i].visible=0;}
     if(!next.floating[4])rects[4]=ui.windows.editors[4].rect;

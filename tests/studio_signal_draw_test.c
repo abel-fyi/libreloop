@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 /* Inspect the actual frontend's draw commands for lost signal resolution. */
 #include "../src/ui/frontend/ui_internal.h"
+#include <stdarg.h>
 UiState ui;
 Theme ui_theme;
 DesktopSkin ui_skin;
@@ -14,6 +15,12 @@ void host_draw_line_ex(DrawPoint a,DrawPoint b,float width,DrawColor c){(void)a;
 DrawColor host_color_from_h_s_v(float h,float s,float v){(void)h;(void)s;(void)v;return (DrawColor){0};}
 int hover(float x,float y,float w,float h){(void)x;(void)y;(void)w;(void)h;return 0;}
 const char *mixer_name(int id){(void)id;return "Test";}
+static int scale_labels[8],scale_count;
+void label(const char *text,float x,float y,int size,DrawColor color){
+    (void)x;(void)y;(void)size;(void)color;
+    if(strcmp(text,"dBFS") && scale_count<8)scale_labels[scale_count++]=atoi(text);
+}
+const char *host_text_format(const char *format,...){static char text[64];va_list args;va_start(args,format);vsnprintf(text,sizeof text,format,args);va_end(args);return text;}
 /* Suppress only the cosmetic ramp, recording the requested fill extent. */
 void ui_level_fill(DrawContext *d,DrawRect r,float level,float amber,float red,int vertical){
     (void)d;(void)amber;(void)red;
@@ -28,7 +35,14 @@ DrawContext *host_draw(void){return NULL;}
 #include "../src/ui/frontend/ui_mixer.c"
 #define CHECK(x) do{if(!(x)){fprintf(stderr,"Failed line %d: %s\n",__LINE__,#x);return 1;}}while(0)
 int main(void) {
-    ui.studio_style=1;Spectrum s={0};
+    ui.studio_style=1;
+    MixerView full=mixer_view_rows(1200,456,8,0,0,0);studio_mixer_scale(full);
+    CHECK(scale_count==8);
+    const int expected[]={6,0,-6,-12,-24,-36,-48,-60};
+    for(int i=0;i<8;i++){int found=0;for(int j=0;j<scale_count;j++)found|=scale_labels[j]==expected[i];CHECK(found);}
+    scale_count=0;MixerView small=full;small.fader_bottom=small.fader_top+60;studio_mixer_scale(small);
+    CHECK(scale_count && scale_labels[0]==0);
+    Spectrum s={0};
     for(int i=0;i<SPECTRUM_BINS;i++)s.db[i]=-78;
     s.db[11]=-32.5f;s.db[12]=-44.125f;s.db[63]=-12.25f;
     spectrum_draw(&s,(DrawRect){10,20,192,78},0);

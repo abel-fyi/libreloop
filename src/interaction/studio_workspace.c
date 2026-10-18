@@ -2,8 +2,8 @@
 #include "studio_layout.h"
 #include <math.h>
 static float clamp(float n,float low,float high){return fmaxf(low,fminf(high,n));}
-/* 256 body units plus the adder/FX shelf leaves 60 units of meter travel. */
-float studio_workspace_default_mixer(float height){return 256.f/fmaxf(1,height-84);}
+/* 440 body units leave 244 units of meter travel: every dB label fits. */
+float studio_workspace_default_mixer(float height){return fminf(.8f,440.f/fmaxf(1,height-84));}
 void studio_workspace_init(Windows *w,float width,float height,float sidebar) {
     studio_windows_layout(w,width,height,sidebar);
     StudioWorkspace *s=&w->workspace;
@@ -69,7 +69,7 @@ void studio_workspace_update(Windows *w,Rect desktop,float x,float y,int pressed
     if(!down){s->drag=-1;w->grab=-1;}
     if(s->drag==3) {
         float size=s->start_size-(y-s->start_pointer),area=s->height-84;
-        s->show[3]=size>=100;s->mixer=clamp((size-(s->mixer_fx_rows<0?0:(1+fminf(3,s->mixer_fx_rows))*22))/area,182/area,.7f);
+        s->show[3]=size>=100;s->mixer=clamp((size-(s->mixer_fx_rows<0?0:(1+fminf(3,s->mixer_fx_rows))*22))/area,182/area,.8f);
         w->owner=-1;w->grab=-1;reflow(w);return;
     }
     int split=studio_workspace_split(w,x,y);

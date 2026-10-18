@@ -854,14 +854,19 @@ void desktop_mixer_scrollbar_update(void) {
     if(!host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT) || host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT))ui.mixer_pan=0;
 }
 static void studio_mixer_scale(MixerView v) {
-    label("dBFS",3,v.fader_top-20,UI_TEXT_SIZE,muted);
-    const int ticks[]={6,0,-6,-12,-24,-36,-48,-60};float last=-1000;
-    for(unsigned i=0;i<sizeof ticks/sizeof *ticks;i++) {
-        float y=v.fader_bottom-meter_height(powf(10,ticks[i]/20.f))*(v.fader_bottom-v.fader_top);
-        host_draw_line(36,y,41,y,muted);
-        float travel=v.fader_bottom-v.fader_top;
-        int reference=ticks[i]==6 || ticks[i]==-12 || ticks[i]==-36 || ticks[i]==-60;
-        if((travel>=120 || reference) && y-last>=UI_TEXT_SIZE+2-.001f){label(host_text_format("%d",ticks[i]),3,y-8,UI_TEXT_SIZE,muted);last=y;}
+    label("dBFS",3,v.fader_top-28,UI_TEXT_SIZE,muted);
+    const int ticks[]={6,0,-6,-12,-24,-36,-48,-60};float positions[8];
+    for(unsigned i=0;i<8;i++){
+        positions[i]=v.fader_bottom-meter_height(powf(10,ticks[i]/20.f))*(v.fader_bottom-v.fader_top);
+        host_draw_line(36,positions[i],41,positions[i],muted);
+    }
+    /* Full scale at the default height. When deliberately compacted, retain
+       unity first, followed by the main attenuation marks, then extra detail. */
+    const int priority[]={1,3,4,5,6,7,2,0};float drawn[8];int count=0;
+    for(unsigned j=0;j<8;j++){
+        int i=priority[j],fits=1;
+        for(int n=0;n<count;n++)if(fabsf(positions[i]-drawn[n])<UI_TEXT_SIZE+2-.001f)fits=0;
+        if(fits){label(host_text_format("%d",ticks[i]),3,positions[i]-8,UI_TEXT_SIZE,muted);drawn[count++]=positions[i];}
     }
 }
 static void studio_mixer_strip(MixerView v,int bus) {

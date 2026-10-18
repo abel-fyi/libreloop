@@ -117,28 +117,33 @@ exactly at 75–200% UI scale, fractional placement and simulated 1×/2×/3× di
 density. Both theme tests and the continuous meter test pass. A software showcase
 screenshot was reviewed; native display appearance remains unverified.
 
-## Compact mixer reference scale
+## Full mixer scale on startup
 
-The mixer starts with a 256-unit body plus its existing adder/FX shelf. At the
-1448×1086 reference viewport this changes its empty outer height from 294 to
-278 units and gives 60 units of fader/meter travel. Startup derives the split
-ratio from this logical size rather than a fraction of the monitor height.
-Double-clicking the divider restores the same default. Saved stock proportions
-migrate to it; deliberate saved split sizes remain intact.
+The default mixer body is 440 logical units plus the existing adder/FX shelf,
+replacing the mistaken 256-unit compact default. At the 1448×1086 reference
+viewport its empty outer height is 462 units, with 244 units of fader travel.
+All scale labels fit: +6, 0, −6, −12, −24, −36, −48 and −60 dB. The dBFS caption
+also has more separation from the top label.
 
-Compact meters prioritize +6, −12, −36 and −60 dB labels, retaining every tick
-mark. At 120 or more units of travel the intermediate labels can appear under
-the existing non-overlap rule. Meter response, gain mapping and level length are
-unchanged. The default preserves room for these labels at supported startup
-sizes, including three FX rows. At the minimum 900×562 viewport, the arrangement
-therefore gives more space to the mixer; its minimum outer height while resizing
-is now 122 units rather than 246. This is an intentional layout change. The
-workspace geometry assertions were updated separately; note/grid behavior
-assertions and frozen interaction fixtures were not changed.
+Startup expands saved compact splits to this default target instead of reopening
+the cropped scale. Larger saved splits remain intact. Double-clicking the divider
+restores the same target. Manual compaction is still possible during use. The
+scale now prioritizes 0 dB first, followed by the main attenuation marks, adding
+−6 and +6 only when space permits. This supersedes the former +6/−12/−36/−60
+subset. All tick positions and gain mappings are unchanged.
 
-Geometry checks cover startup heights 562–1200 with zero through three FX rows,
-requiring at least 60 units of meter travel and non-overlapping workspace panes.
-Software screenshots were reviewed at 1448×1086 and 900×562 with three effects.
-Native display appearance remains a hands-on check.
-All 158 Release tests pass, with a further preference test confirming stock-size
-migration and preservation of a custom split.
+Very short logical viewports still constrain mixer height to preserve a usable
+workspace; not all eight labels can fit there without overlapping. The full
+scale fits with no FX shelf rows at logical heights of at least 674, or with all
+three FX rows at heights of at least 740. Smaller or manually compressed views
+retain 0 dB ahead of less useful detail. UI scale and font size are not silently
+changed to force the scale into a short viewport.
+
+The real frontend draw-command test asserts all eight labels at the default
+size and 0 dB priority when compacted. Geometry checks cover supported startup
+sizes, including full meter travel at heights of 740 and above with three FX
+rows. Preference checks cover expanding compact saved splits and preserving
+larger saved splits. Software captures were reviewed for the full scale and
+twelve patterns with light/dark pairs. All 158 Release tests pass; the final
+startup preference change also passed its targeted rerun. Native display
+appearance remains a hands-on check.
