@@ -111,3 +111,29 @@ A rendering regression check compares the well and spectrum material pixels
 exactly at 75–200% UI scale, fractional placement and simulated 1×/2×/3× display
 density. Both theme tests and the continuous meter test pass. A software showcase
 screenshot was reviewed; native display appearance remains unverified.
+
+## Compact mixer reference scale
+
+The mixer starts with a 256-unit body plus its existing adder/FX shelf. At the
+1448×1086 reference viewport this changes its empty outer height from 294 to
+278 units and gives 60 units of fader/meter travel. Startup derives the split
+ratio from this logical size rather than a fraction of the monitor height.
+Double-clicking the divider restores the same default. Saved stock proportions
+migrate to it; deliberate saved split sizes remain intact.
+
+Compact meters prioritize +6, −12, −36 and −60 dB labels, retaining every tick
+mark. At 120 or more units of travel the intermediate labels can appear under
+the existing non-overlap rule. Meter response, gain mapping and level length are
+unchanged. The default preserves room for these labels at supported startup
+sizes, including three FX rows. At the minimum 900×562 viewport, the arrangement
+therefore gives more space to the mixer; its minimum outer height while resizing
+is now 122 units rather than 246. This is an intentional layout change. The
+workspace geometry assertions were updated separately; note/grid behavior
+assertions and frozen interaction fixtures were not changed.
+
+Geometry checks cover startup heights 562–1200 with zero through three FX rows,
+requiring at least 60 units of meter travel and non-overlapping workspace panes.
+Software screenshots were reviewed at 1448×1086 and 900×562 with three effects.
+Native display appearance remains a hands-on check.
+All 158 Release tests pass, with a further preference test confirming stock-size
+migration and preservation of a custom split.

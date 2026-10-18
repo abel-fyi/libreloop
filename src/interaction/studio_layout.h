@@ -9,6 +9,7 @@ typedef struct {
     int compact;
 } StudioToolbar;
 float studio_ui_scale(float width,float height,float preference);
+float studio_workspace_default_mixer(float height);
 void studio_workspace_init(Windows *w,float width,float height,float sidebar);
 void studio_workspace_layout(Windows *w,float width,float height,float sidebar);
 void studio_workspace_open(Windows *w,int id);

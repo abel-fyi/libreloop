@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "studio_layout.h"
+#include "mixer_view.h"
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -8,7 +9,17 @@ static int overlap(Rect a,Rect b){return a.x<b.x+b.w && b.x<a.x+a.w && a.y<b.y+b
 int main(void) {
     Windows w;windows_init(&w,1448,1086);studio_workspace_init(&w,1448,1086,238);
     CHECK(w.editors[1].visible && !w.editors[0].visible && !w.editors[2].visible && !w.editors[4].visible);
-    CHECK(w.editors[1].rect.h==702 && w.editors[3].rect.h==294);
+    CHECK(w.editors[1].rect.h==718 && w.editors[3].rect.h==278);
+    /* Every supported startup size preserves compact meter travel, including
+       the three-row FX shelf. Geometry is allowed to consume more of a small
+       arrangement viewport to keep the default mixer readable. */
+    for(int height=562;height<=1200;height+=11)for(int rows=0;rows<=3;rows++){
+        Windows startup;windows_init(&startup,900,height);studio_workspace_init(&startup,900,height,238);
+        startup.workspace.mixer_fx_rows=rows;studio_workspace_layout(&startup,900,height,238);
+        MixerView v=mixer_view_rows(startup.editors[3].rect.w,startup.editors[3].rect.h-6,8,0,0,rows);
+        CHECK(v.fader_bottom-v.fader_top>=60-.001f);
+        CHECK(startup.editors[1].rect.h>=122 && !overlap(startup.editors[1].rect,startup.editors[3].rect));
+    }
     Rect empty_mixer=w.editors[3].rect;
     for(int rows=1;rows<=3;rows++) {
         w.workspace.mixer_fx_rows=rows;studio_workspace_layout(&w,1448,1086,238);
@@ -28,12 +39,12 @@ int main(void) {
     instrument=w.editors[4].rect;float y=w.editors[3].rect.y-3;
     CHECK(studio_workspace_split(&w,500,y)==3);
     windows_update(&w,desktop,500,y,1,1,1);windows_update(&w,desktop,500,y-100,0,1,1.1);
-    CHECK(w.editors[3].rect.h==394 && w.editors[1].rect.h==602);
+    CHECK(w.editors[3].rect.h==378 && w.editors[1].rect.h==618);
     CHECK(!memcmp(&instrument,&w.editors[4].rect,sizeof instrument));
     windows_update(&w,desktop,500,y-100,0,0,1.2);CHECK(w.workspace.drag==-1);
     y=w.editors[3].rect.y-3;
     windows_update(&w,desktop,500,y,1,1,3);windows_update(&w,desktop,500,y,0,0,3.05);
-    windows_update(&w,desktop,500,y,1,1,3.2);CHECK(w.editors[3].rect.h==294);
+    windows_update(&w,desktop,500,y,1,1,3.2);CHECK(w.editors[3].rect.h==278);
     windows_update(&w,desktop,500,y,0,0,3.3);
     /* Only close remains; former minimize/maximize positions do not hide/zoom. */
     studio_workspace_maximize(&w,4);CHECK(!w.editors[4].maximized);
@@ -44,7 +55,7 @@ int main(void) {
     for(int width=900;width<=1920;width+=102)for(int height=562;height<=1086;height+=131)for(int id=1;id<=2;id++) {
         studio_workspace_layout(&w,width,height,238);windows_focus(&w,id);
         CHECK(w.editors[id].visible && !w.editors[id==1?2:1].visible && !w.editors[0].visible);
-        Rect r=w.editors[id].rect;CHECK(r.x==244 && r.y==60 && r.w==width-248 && r.h>=246);
+        Rect r=w.editors[id].rect;CHECK(r.x==244 && r.y==60 && r.w==width-248 && r.h>=122);
         CHECK(!overlap(r,w.editors[3].rect));
         CHECK(r.y+r.h<=w.editors[3].rect.y-6+.01f);
     }

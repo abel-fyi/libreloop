@@ -859,7 +859,9 @@ static void studio_mixer_scale(MixerView v) {
     for(unsigned i=0;i<sizeof ticks/sizeof *ticks;i++) {
         float y=v.fader_bottom-meter_height(powf(10,ticks[i]/20.f))*(v.fader_bottom-v.fader_top);
         host_draw_line(36,y,41,y,muted);
-        if(y-last>=UI_TEXT_SIZE+2){label(host_text_format("%d",ticks[i]),3,y-8,UI_TEXT_SIZE,muted);last=y;}
+        float travel=v.fader_bottom-v.fader_top;
+        int reference=ticks[i]==6 || ticks[i]==-12 || ticks[i]==-36 || ticks[i]==-60;
+        if((travel>=120 || reference) && y-last>=UI_TEXT_SIZE+2-.001f){label(host_text_format("%d",ticks[i]),3,y-8,UI_TEXT_SIZE,muted);last=y;}
     }
 }
 static void studio_mixer_strip(MixerView v,int bus) {

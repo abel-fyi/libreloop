@@ -2,11 +2,13 @@
 #include "studio_layout.h"
 #include <math.h>
 static float clamp(float n,float low,float high){return fmaxf(low,fminf(high,n));}
+/* 256 body units plus the adder/FX shelf leaves 60 units of meter travel. */
+float studio_workspace_default_mixer(float height){return 256.f/fmaxf(1,height-84);}
 void studio_workspace_init(Windows *w,float width,float height,float sidebar) {
     studio_windows_layout(w,width,height,sidebar);
     StudioWorkspace *s=&w->workspace;
     *s=(StudioWorkspace){.enabled=1,.inspector=4,.maximized=-1,.drag=-1,.last_split=-1,
-        .editor_width=.5f,.mixer=272.f/1002,.piano=276.f/788,.rack=168,.inspector_width=334};
+        .editor_width=.5f,.mixer=studio_workspace_default_mixer(height),.piano=276.f/788,.rack=168,.inspector_width=334};
     s->show[1]=s->show[3]=1;
     for(int i=4;i<WINDOW_CAPACITY;i++){s->floating[i]=1;w->editors[i].visible=0;}
     w->editors[3].minh=160;
@@ -19,9 +21,9 @@ void studio_workspace_init(Windows *w,float width,float height,float sidebar) {
 void studio_workspace_layout(Windows *w,float width,float height,float sidebar) {
     StudioWorkspace *s=&w->workspace;s->width=width;s->height=height;s->sidebar=sidebar;
     float x=sidebar+6,y=60,full=width-x-4,area=height-84;
-    if(s->mixer_fx_rows>=0)s->mixer_fx_rows=fmaxf(0,fminf(s->mixer_fx_rows,fminf(3,floorf((area-252-182)/22)-1)));
+    if(s->mixer_fx_rows>=0)s->mixer_fx_rows=fmaxf(0,fminf(s->mixer_fx_rows,fminf(3,floorf((area-128-256)/22)-1)));
     float extra=s->mixer_fx_rows<0?0:(1+s->mixer_fx_rows)*22;
-    float mixer=s->show[3]?clamp(area*s->mixer,182,fmaxf(182,area-252-extra))+extra:STUDIO_TITLE;
+    float mixer=s->show[3]?clamp(area*s->mixer,182,fmaxf(182,area-128-extra))+extra:STUDIO_TITLE;
     w->editors[3].minh=182+extra;
     w->editors[3].rect=(Rect){x,height-24-mixer,full,mixer};w->editors[3].visible=s->show[3];
     Rect page={x,y,full,area-mixer-6};
@@ -73,7 +75,7 @@ void studio_workspace_update(Windows *w,Rect desktop,float x,float y,int pressed
     int split=studio_workspace_split(w,x,y);
     if(split>=0 && pressed) {
         if(s->last_split==split && time-s->last_time<.3 && fabsf(x-s->last_x)<4 && fabsf(y-s->last_y)<4) {
-            s->mixer=272.f/1002;s->show[3]=1;s->last_split=-1;reflow(w);
+            s->mixer=studio_workspace_default_mixer(s->height);s->show[3]=1;s->last_split=-1;reflow(w);
         } else {
             s->drag=3;s->start_pointer=y;s->start_size=w->editors[3].rect.h;
             s->last_split=split;s->last_time=time;s->last_x=x;s->last_y=y;

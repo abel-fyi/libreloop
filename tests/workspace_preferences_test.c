@@ -38,6 +38,9 @@ int main(void) {
     CHECK(ui.windows.editors[1].visible && !ui.windows.editors[0].visible && !ui.windows.editors[2].visible && !ui.windows.editors[4].visible);
     CHECK(ui.windows.workspace.floating[4] && ui.windows.editors[1].rect.w==1200);
     CHECK(fabsf(ui.windows.workspace.mixer-(.31f-88.f/1002))<.00001f);
+    /* Migrate the former stock split, while the earlier .31 custom size stays unchanged. */
+    ui.windows.workspace.mixer=272.f/1002;workspace_save();ui.windows.workspace.mixer=.2f;workspace_load();
+    CHECK(fabsf(ui.windows.workspace.mixer-studio_workspace_default_mixer(ui.windows.workspace.height))<.00001f);
     Windows expected=ui.windows;FILE *f=fopen("workspace-prefs/workspace.txt","w");CHECK(f);
     fputs("1 nan .5 168 334 4\n",f);fclose(f);workspace_load();CHECK(!memcmp(&expected,&ui.windows,sizeof expected));
     remove("workspace-prefs/workspace.txt");
