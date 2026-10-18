@@ -386,11 +386,29 @@ static void dynamics_editor(float width,float height,int bus,int slot){
         else if(ui.dynamics_drag_kind)dynamics_curve_bend(b,ui.dynamics_drag-1,ui.dynamics_drag_x+(ui.dynamics_drag_y-ui.mouse.y)/(host_is_key_down(HOST_KEY_LEFT_CONTROL)?600:120));
         else dynamics_curve_move(b,ui.dynamics_drag-1,input,output,host_is_key_down(HOST_KEY_LEFT_CONTROL),host_is_key_down(HOST_KEY_LEFT_SHIFT));
     }
-    if(ui.dynamics_view[window]){
+    int knob_hold=0;
+    if(host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT)) {
+        knob_hold=ui.control_drag==&s->low || ui.control_drag==&s->high || ui.control_drag==&s->lowcut;
+        if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)) {
+            float top=graph_h+81;
+            knob_hold|=hover(width*.78f-13,top+37,26,26) || hover(width*.93f-13,top+37,26,26) || hover(width*.93f-13,top+103,26,26);
+        }
+    }
+    if(ui.dynamics_view[window] || knob_hold){
         float lo=logf(s->low/20)/logf(1000),hi=logf(s->high/20)/logf(1000);
-        const float bounds[]={0,lo,hi,1};
-        for(int i=0;i<3;i++){DrawColor fill=colors[i];fill.a=90;host_draw_rectangle(history.x+history.width*bounds[i],history.y,history.width*(bounds[i+1]-bounds[i]),history.height,fill);label(bands[i],history.x+history.width*bounds[i]+6,history.y+8,12,colors[i]);}
-        for(int i=0;i<2;i++){float x=history.x+history.width*(i?hi:lo);host_draw_line(x,history.y,x,history.y+history.height,ink);if(hover(x-8,history.y,16,history.height) && host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT)){float hz=20*powf(1000,(ui.mouse.x-history.x)/history.width);if(i)s->high=fmaxf(fmaxf(1000,s->low+1),fminf(16000,hz));else s->low=fmaxf(40,fminf(fminf(1000,s->high-1),hz));}}
+        float bounds[4];dynamics_band_bounds(s->low,s->high,s->lowcut,bounds);
+        if(bounds[0]>0) {
+            host_draw_rectangle(history.x,history.y,history.width*bounds[0],history.height,(DrawColor){25,30,30,255});
+            float x=history.x+history.width*bounds[0];host_draw_line(x,history.y,x,history.y+history.height,graph_ink);
+            label("CUT",history.x+4,history.y+history.height-18,12,graph_ink);
+        }
+        for(int i=0;i<3;i++){
+            DrawColor fill=colors[i];fill.a=90;float region=history.width*(bounds[i+1]-bounds[i]);
+            if(region<=0)continue;
+            host_draw_rectangle(history.x+history.width*bounds[i],history.y,region,history.height,fill);
+            if(region>=text_width(bands[i],12)+12)label(bands[i],history.x+history.width*bounds[i]+6,history.y+8,12,colors[i]);
+        }
+        for(int i=0;i<2;i++){float x=history.x+history.width*(i?hi:lo);host_draw_line(x,history.y,x,history.y+history.height,ink);if(!knob_hold && hover(x-8,history.y,16,history.height) && host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT)){float hz=20*powf(1000,(ui.mouse.x-history.x)/history.width);if(i)s->high=fmaxf(fmaxf(1000,s->low+1),fminf(16000,hz));else s->low=fmaxf(40,fminf(fminf(1000,s->high-1),hz));}}
         label("20 Hz",history.x,history.y+history.height+3,12,graph_ink);label("20 kHz",history.x+history.width-54,history.y+history.height+3,12,graph_ink);
     }else{
         if(hover(history.x,history.y,history.width,history.height) && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT))ui.dynamics_pause[window]^=1;
@@ -407,10 +425,10 @@ static void dynamics_editor(float width,float height,int bus,int slot){
         float gain=m->count?m->gain[selected][m->count-1]:0;label(host_text_format("Gain %+.1f dB",fabsf(gain)<.25f?0:gain),history.x+history.width-128,32,12,accent);
     }
     float speed_x=history.x+history.width-112,speed_y=history.y+history.height+17;
-    knob_sized(speed_x,speed_y,&ui.dynamics_speed[window],-1,1,0,"Monitor speed (center = normal)",KNOB_CENTER,10);
+    knob_sized(speed_x,speed_y,&ui.dynamics_speed[window],-1,1,0,"Monitor speed (center = 0.85x)",KNOB_CENTER,10);
     label("SPEED",speed_x-65,speed_y-6,12,graph_ink);
     label(host_text_format("%.2fx",dynamics_monitor_speed(ui.dynamics_speed[window])),speed_x+18,speed_y-6,12,graph_ink);
-    if(hover(speed_x-12,speed_y-12,24,24) || ui.control_drag==&ui.dynamics_speed[window])snprintf(ui.status,sizeof ui.status,"Monitor speed: left = slower / more history; center = 1x; right = faster / more detail; audio is unchanged");
+    if(hover(speed_x-12,speed_y-12,24,24) || ui.control_drag==&ui.dynamics_speed[window])snprintf(ui.status,sizeof ui.status,"Monitor speed: left = slower / more history; center = 0.85x; right = faster / more detail; audio is unchanged");
     float tabs=graph_h+81;int narrow=width<760;
     float band_w=narrow?60:78,mode_x=narrow?76:92;
     host_draw_line(width*.405f,tabs,width*.405f,height-36,ui_theme.border);

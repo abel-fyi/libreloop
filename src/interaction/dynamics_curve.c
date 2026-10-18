@@ -7,7 +7,15 @@ static float clamp(float x,float a,float b){return fmaxf(a,fminf(b,x));}
    near the origin, leaving useful room for bends above ordinary thresholds. */
 float dynamics_level_position(float db){return log1pf(2*powf(10,clamp(db,-72,12)/20))/log1pf(2*powf(10,12.f/20));}
 float dynamics_level_db(float position){float gain=expm1f(clamp(position,0,1)*log1pf(2*powf(10,12.f/20)))/2;return clamp(20*log10f(fmaxf(gain,1e-12f)),-72,12);}
-float dynamics_monitor_speed(float control){return powf(4,clamp(control,-1,1));}
+float dynamics_monitor_speed(float control){
+    if(control<=-1)return .25f;if(control>=1)return 4;
+    return .85f*powf(control<0?.85f/.25f:4/.85f,control);
+}
+void dynamics_band_bounds(float low,float high,float lowcut,float bounds[4]){
+    float cut=clamp(logf(fmaxf(20,lowcut)/20)/logf(1000),0,1);
+    bounds[0]=cut;bounds[1]=fmaxf(cut,clamp(logf(low/20)/logf(1000),0,1));
+    bounds[2]=fmaxf(bounds[1],clamp(logf(high/20)/logf(1000),0,1));bounds[3]=1;
+}
 float dynamics_monitor_position(unsigned age,float control){return 1-age*dynamics_monitor_speed(control)/255.f;}
 float dynamics_meter_height(const DynamicsBand *band,float input_db,float position){
     if(input_db<=-71.5f || position<0 || position>dynamics_level_position(input_db))return 0;

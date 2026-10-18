@@ -24,10 +24,14 @@ int main(void){
     for(int i=0;i<8;i++)dynamics_curve_insert(b,-60+i*8,-60+i*8);CHECK(b->count==8);CHECK(dynamics_curve_insert(b,-10,-10)<0);CHECK(dynamics_valid(s));
     s=dynamics_default();s.band[3].points[1]=(DynamicsPoint){-12,-12,0,0};s.band[3].points[2].y=-6;CHECK(fabsf(dynamics_curve(&s.band[3],0)+9)<.001f);
     s.band[3].points[1].x=NAN;CHECK(!dynamics_valid(s));s=dynamics_default();
-    CHECK(dynamics_monitor_speed(0)==1 && dynamics_monitor_speed(-1)==.25f && dynamics_monitor_speed(1)==4);
+    CHECK(dynamics_monitor_speed(0)==.85f && dynamics_monitor_speed(-1)==.25f && dynamics_monitor_speed(1)==4);
     CHECK(dynamics_monitor_position(0,-1)==1 && dynamics_monitor_position(0,1)==1);
-    CHECK(fabsf(dynamics_monitor_position(255,0))<1e-6f);
+    CHECK(fabsf(dynamics_monitor_position(255,0)-.15f)<1e-6f);
     CHECK(dynamics_monitor_position(255,-1)>.7f && dynamics_monitor_position(255,1)<0);
+    float bounds[4];dynamics_band_bounds(200,2500,0,bounds);CHECK(bounds[0]==0 && bounds[3]==1);
+    float original=bounds[1];dynamics_band_bounds(200,2500,100,bounds);
+    CHECK(bounds[0]>0 && bounds[0]<bounds[1] && bounds[1]==original);
+    dynamics_band_bounds(40,2500,200,bounds);CHECK(bounds[0]==bounds[1] && bounds[1]<bounds[2]);
     /* A single input level fills from the origin only as far as its x value,
        with every column capped by the drawn curve, including held segments. */
     s=dynamics_default();s.band[0].points[1]=(DynamicsPoint){-12,-12,0,0};s.band[0].points[2].y=-12;

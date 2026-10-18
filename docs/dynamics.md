@@ -147,7 +147,7 @@ measurement. Runtime storage is **18,888 bytes per prepared instance** on this
 ABI. The complete app executable is **5,589,472 bytes**; its size delta and the
 per-frame UI rendering cost have not been isolated. No image assets were added.
 
-Display regression checks cover the centered ¼×/1×/4× speed mapping, a fixed
+Display regression checks cover the ¼×/0.85×/4× speed mapping, a fixed
 right-hand newest sample, extended history capacity, and meter-fill bounds for
 all five curve shapes. Audio tests remain unchanged by the display settings.
 
@@ -180,3 +180,14 @@ crossover-slope/linear-phase choices and LMH Delay are not drawn. The existing
 editable transfer curve supplies the compression threshold/shape workflow.
 Software captures were inspected at 900×562 and 1448×1086. Native interaction
 and HiDPI legibility remain hands-on checks.
+
+Monitor/Bands buttons retain the selected view. Holding Low, High or Low Cut
+temporarily displays Bands, including the initial press; releasing returns to
+the selected view. While a knob is captured, moving over the plot cannot also
+drag a crossover boundary. Low Cut dims the log-frequency range below its cutoff
+and shortens the colored bass region; a fully covered low band has zero colored
+width. This is a schematic boundary cue, not a brick-wall filter response.
+The monitor speed center is now 0.85× (15% slower); endpoints remain ¼× and 4×.
+Audio timing and DSP are unchanged. Tests cover center/endpoints, history
+position and low-cut region bounds. Smoke scene 24 captures the band view with
+a 100 Hz low cut. Temporary knob override still needs native hands-on checking.

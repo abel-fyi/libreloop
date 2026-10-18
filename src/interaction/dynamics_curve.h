@@ -2,8 +2,9 @@
 #ifndef DYNAMICS_CURVE_EDIT_H
 #define DYNAMICS_CURVE_EDIT_H
 #include "dynamics.h"
-/* Display-only: bipolar speed -1..1, center = normal; newest history at right. */
+/* Display-only: bipolar speed -1..1, center = 0.85x; newest history at right. */
 float dynamics_monitor_speed(float control);
+void dynamics_band_bounds(float low,float high,float lowcut,float bounds[4]);
 float dynamics_monitor_position(unsigned age,float control);
 float dynamics_meter_height(const DynamicsBand *band,float input_db,float position);
 float dynamics_level_position(float db);
