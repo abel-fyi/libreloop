@@ -27,7 +27,7 @@ void ui_state_init(void){
     ui.ruler_last_click=-1;
     ui.rack_filters[0]="All";ui.rack_filters[1]="Audio";ui.rack_filters[2]="Unsorted";
     ui.route_drag=-1;
-    ui.mixer_selected=1;
+    ui.mixer_selected=0;
     ui.cable_drag=-1;
     ui.browser_progress=-1;
     ui.browser_focus=1;

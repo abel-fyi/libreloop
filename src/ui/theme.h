@@ -45,7 +45,6 @@ void theme_draw_close(void);
 /* Dark instrument display; dots are always beneath its content. */
 void ui_display_well(DrawContext *draw,DrawRect rect);
 void ui_graph_paper(DrawContext *draw,DrawRect rect);
-void ui_graph_dots(DrawContext *draw,DrawRect rect);
 void ui_graph_area(DrawContext *draw,DrawPoint a,DrawPoint b,float baseline);
 void ui_graph_handle(DrawContext *draw,DrawPoint point);
 void ui_lamp(DrawContext *draw,DrawPoint center,float radius,DrawColor color);

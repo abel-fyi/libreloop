@@ -203,7 +203,6 @@ void fm_envelope_graph(FMSettings *s,DrawRect plot) {
     DrawPoint release={plot.x+8+slot*2,handles[1].y};
     envelope_segment(handles[1],release,base); envelope_segment(release,handles[2],base);
     if(ui.studio_style) {
-        ui_graph_dots(host_draw(),(DrawRect){plot.x+3,plot.y+3,plot.width-6,plot.height-6});
         /* Stage boundaries follow actual handles; neither the plot nor its hits move. */
         float stages[]={handles[0].x,handles[1].x,release.x};
         for(int i=0;i<3;i++)host_draw_line_ex((DrawPoint){stages[i],plot.y+6},(DrawPoint){stages[i],base},1,(DrawColor){255,255,255,255});
@@ -354,7 +353,6 @@ void dx7_envelope_graph(FMSettings *s,int base,DrawRect plot) {
             DrawPoint a=points[i],b=points[i+1];
             ui_graph_area(host_draw(),a,b,baseline);
         }
-        ui_graph_dots(host_draw(),(DrawRect){plot.x+3,plot.y+3,plot.width-6,plot.height-6});
         for(int i=1;i<=4;i++)host_draw_line_ex((DrawPoint){points[i].x,plot.y+6},(DrawPoint){points[i].x,baseline},1,guide);
         if(!ui.profile_flat)ui_bevel(host_draw(),plot,1);
     }

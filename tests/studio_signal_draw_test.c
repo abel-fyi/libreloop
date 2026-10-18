@@ -64,5 +64,14 @@ int main(void) {
         for(int r=0;r<count;r++)if(!memcmp(&colors[r],&ui_theme.meter_low,sizeof(DrawColor))){fills++;height=rectangles[r].height;}
         CHECK(fills==1 && height>previous);previous=height;
     }
+    /* The fixed monitor follows selection, rather than always showing Master. */
+    ui.meter_level[0][0]=ui.meter_level[0][1]=0;
+    ui.meter_level[2][0]=.5f;ui.meter_level[2][1]=.25f;
+    ui.mixer_selected=2;count=0;studio_mixer_monitor(full);
+    int selected_fills=0;
+    for(int r=0;r<count;r++)if(!memcmp(&colors[r],&ui_theme.meter_low,sizeof(DrawColor)))selected_fills++;
+    CHECK(selected_fills==2);
+    ui.mixer_selected=0;count=0;studio_mixer_monitor(full);
+    for(int r=0;r<count;r++)CHECK(memcmp(&colors[r],&ui_theme.meter_low,sizeof(DrawColor)));
     puts("All 96 FFT bins retain independent fractional heights; mixer fills respond continuously without segment steps.");return 0;
 }

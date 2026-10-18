@@ -8,16 +8,12 @@
 Theme ui_theme;
 DesktopSkin ui_skin;
 static int classic_style;
-static DrawTexture *skin_patterns,*skin_knobs,*skin_graph_large;
-static int graph_step;
+static DrawTexture *skin_knobs;
 static const unsigned char skin_bayer[4][4]={{0,8,2,10},{12,4,14,6},{3,11,1,9},{15,7,13,5}};
 static const int skin_knob_radii[]={8,9,10,12};
-static DrawColor graph_pixel(int x,int y){return !(x%4) && !(y%4)?(DrawColor){0,146,207,48}:(DrawColor){0,0,0,0};}
 int theme_draw_init(DrawContext *draw) {
-    if(skin_patterns && skin_knobs)return 1;
-    /* Graph paper is separate from palette-limited material shading. */
-    DrawColor pixels[64*64]={0},knobs[128*32]={0};
-    for(int y=0;y<64;y++)for(int x=0;x<64;x++)pixels[y*64+x]=graph_pixel(x,y);
+    if(skin_knobs)return 1;
+    DrawColor knobs[128*32]={0};
     /* Small pixel-shaded faces use their own compact atlas. Angle/pointer and
        interaction remain continuous; only the decorative body is a bitmap. */
     for(int k=0;k<4;k++)for(int y=0;y<32;y++)for(int x=0;x<32;x++) {
@@ -33,36 +29,18 @@ int theme_draw_init(DrawContext *draw) {
         }
         knobs[y*128+k*32+x]=c;
     }
-    skin_patterns=draw_texture_create(draw,64,64,pixels,0);
     skin_knobs=draw_texture_create(draw,128,32,knobs,0);
-    if(!skin_patterns || !skin_knobs){theme_draw_close();return 0;}
-    draw_texture_filter(skin_patterns,0);draw_texture_filter(skin_knobs,0);
+    if(!skin_knobs){theme_draw_close();return 0;}
+    draw_texture_filter(skin_knobs,0);
     return 1;
 }
-void theme_draw_close(void) { draw_texture_destroy(skin_patterns);draw_texture_destroy(skin_knobs);draw_texture_destroy(skin_graph_large);skin_patterns=skin_knobs=skin_graph_large=NULL;graph_step=0; }
-static void skin_pattern(DrawContext *draw,DrawRect r) {
-    if(!skin_patterns || r.width<=0 || r.height<=0)return;
-    int step=draw_pattern_pixel_size(draw);
-    if(step>1 && (!skin_graph_large || graph_step!=step)){
-        int size=64*step;DrawColor *pixels=malloc((size_t)size*size*sizeof *pixels);
-        if(pixels){
-            for(int y=0;y<size;y++)for(int x=0;x<size;x++)pixels[y*size+x]=graph_pixel(x/step,y/step);
-            DrawTexture *next=draw_texture_create(draw,size,size,pixels,0);free(pixels);
-            if(next){draw_texture_filter(next,0);draw_texture_destroy(skin_graph_large);skin_graph_large=next;graph_step=step;}
-        }
-    }
-    if(step>1 && skin_graph_large && graph_step==step)
-        draw_texture_tiled_pixels(draw,skin_graph_large,(DrawRect){0,0,64*step,64*step},r,(DrawColor){255,255,255,255});
-    else draw_texture_tiled_pixels(draw,skin_patterns,(DrawRect){0,0,64,64},r,(DrawColor){255,255,255,255});
-}
+void theme_draw_close(void) { draw_texture_destroy(skin_knobs);skin_knobs=NULL; }
 void ui_display_well(DrawContext *draw,DrawRect r) {
     ui_graph_paper(draw,r);
 }
 void ui_graph_paper(DrawContext *draw,DrawRect r) {
     draw_rect(draw,r,ui_skin.graph);
-    ui_graph_dots(draw,r);
 }
-void ui_graph_dots(DrawContext *draw,DrawRect r) { if(classic_style)skin_pattern(draw,r); }
 void ui_graph_area(DrawContext *draw,DrawPoint a,DrawPoint b,float baseline) {
     DrawColor top=ui_skin.graph_fill,bottom=draw_palette_enabled(draw)?top:(DrawColor){0,31,49,255};
     DrawVertex v[]={{a,0,0,top},{{a.x,baseline},0,0,bottom},{{b.x,baseline},0,0,bottom},

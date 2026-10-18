@@ -869,6 +869,10 @@ static void studio_mixer_scale(MixerView v) {
         if(fits){label(host_text_format("%d",ticks[i]),3,positions[i]-8,UI_TEXT_SIZE,muted);drawn[count++]=positions[i];}
     }
 }
+/* Fixed selected-bus monitor; strip meters remain independent. */
+static void studio_mixer_monitor(MixerView v) {
+    meter_draw(ui.mixer_selected,48,v.fader_top,v.fader_bottom,10);
+}
 static void studio_mixer_strip(MixerView v,int bus) {
     int over=hover(0,v.fx_top,MIXER_STRIDE-4,v.height-v.fx_top-18);
     if(over && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT))ui.mixer_selected=bus;
@@ -996,6 +1000,7 @@ static void mixer_studio(float width,float height) {
     ui.input_enabled=add_enabled;
     for(int bus=0;bus<=v.count;bus++){int count=effect_chain_list(&ui.project,bus).count;ui.mixer_fx_scroll[bus]=fmaxf(0,fminf(fmaxf(0,count*22-mixer_fx_list_height(v,count)),ui.mixer_fx_scroll[bus]));}
     studio_mixer_scale(v);
+    studio_mixer_monitor(v);
     DrawPoint pointer=ui.mouse,origin=ui.text_origin;int enabled=ui.input_enabled;
     for(int bus=0;bus<=v.count;bus++) {
         if(!mixer_bus_visible(v,bus))continue;

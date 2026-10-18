@@ -376,7 +376,6 @@ void playlist(float width,float height,float scale) {
         else mute_light(gx-18,y+rowh-10,ui.project.lane_mute,LANES,l,host_text_format("Playlist track %d",l+1));
         host_begin_scissor_mode((rect.x+gx)*scale,(rect.y+gy)*scale,gridw*scale,track_area*scale);
         host_draw_rectangle_rec((DrawRect){gx,y,gridw,rowh},ui_theme.track);
-        if(ui.studio_style)ui_graph_dots(host_draw(),(DrawRect){gx,y,gridw,rowh-1});
         timeline_grid_choice(ui.playlist_grid,ui.arrangement.view_start*STEPS,span*STEPS,gx,y,gridw,rowh-1);
         for(int b=0;b<CLIPS;b++) if(ui.project.clips[l][b]) {
             int pat=ui.project.clips[l][b]-1; float x=gx+(ui.project.clip_starts[l][b]-ui.arrangement.view_start)*barw,w=playlist_clip_length(l,b)*barw/STEPS;

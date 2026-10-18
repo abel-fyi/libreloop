@@ -17,7 +17,7 @@ int main(void) {
     ui.mixer_offset=37*112+0.5f;
     Rect frame=desktop_editor_rect(3);
     MixerView view=mixer_view(frame.w,frame.h,ui.project.insert_count,ui.mixer_offset,0);
-    DrawPoint master={frame.x+55,frame.y+view.route+6};
+    DrawPoint master={frame.x+view.master_x+13,frame.y+view.route+6};
     DrawPoint insert={frame.x+view.insert_x+12.5f,master.y};
     CHECK(mixer_input_at(master)==0);
     CHECK(mixer_input_at(insert)==38);

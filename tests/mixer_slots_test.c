@@ -17,7 +17,7 @@ int main(void) {
     for(int width=652;width<=1800;width+=37)for(int count=1;count<=INSERTS;count++) {
         ui.windows.editors[3].rect.w=width;ui.project.insert_count=count;
         MixerView view=mixer_view(width,360,count,0,0);
-        CHECK(mixer_strip_width()==112 && view.viewport==width-162);
+        CHECK(mixer_strip_width()==112 && view.viewport==width-204);
         CHECK(view.maximum==fmaxf(0,count*112-view.viewport));
 
     }

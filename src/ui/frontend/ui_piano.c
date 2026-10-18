@@ -216,7 +216,6 @@ void piano(float width,float height) {
         if(partial>end) { float left=fmaxf(gx,gx+(end-view)*cw),right=fminf(gx+gridw,gx+(partial-view)*cw); if(right>left) host_draw_rectangle_rec((DrawRect){left,y,right-left,rh-1},ui_theme.disabled); }
         if(pc==0) host_draw_line_ex((DrawPoint){gx,y+rh},(DrawPoint){gx+gridw,y+rh},1,ui_theme.grid_major);
     }
-    if(ui.studio_style)ui_graph_dots(host_draw(),(DrawRect){gx,gy,gridw,rh*piano_visible_rows()});
     timeline_grid_choice(ui.piano_grid,view,extent,gx,gy,gridw,rh*piano_visible_rows());
     if(ui.windows.workspace.enabled)for(int c=0;c<ui.project.channel_count;c++)if(c!=channel)for(int i=0;i<NOTES;i++) {
         Note n=ui.project.notes[ui.pattern][c][i];
@@ -285,7 +284,6 @@ void piano(float width,float height) {
     label(ui.studio_style?"VEL":"Velocity",6,vy+4,10,muted);
     host_begin_scissor_mode((r.x+gx)*scale,(r.y+vy)*scale,gridw*scale,vh*scale);
     host_draw_rectangle(gx,vy,gridw,vh,ui.studio_style?ui_skin.graph:ui_theme.piano_row[0]);
-    if(ui.studio_style)ui_graph_dots(host_draw(),(DrawRect){gx,vy,gridw,vh});
     for(int line=1;line<5;line++) host_draw_line(gx,vy+line*vh/5,gx+gridw,vy+line*vh/5,host_fade(ui_theme.grid_minor,.6f));
     timeline_grid_choice(ui.piano_grid,view,extent,gx,vy,gridw,vh);
     if(partial>end) { float left=fmaxf(gx,gx+(end-view)*cw),right=fminf(gx+gridw,gx+(partial-view)*cw); if(right>left) host_draw_rectangle(left,vy,right-left,vh,ui_theme.disabled); }

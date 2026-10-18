@@ -18,7 +18,7 @@ track identities and avoiding cross-hue dithering.
 Shared panels, buttons, title bars, clips and graph-area fills use flat palette
 colors. Meter zones use discrete color bands while preserving continuous level
 length. There are no material gradients or decorative grain overlays. Knob/icon
-pixel shading and graph-paper dots remain separate details. Do not introduce a
+pixel shading remains; display backgrounds have no decorative dot texture. Do not introduce a
 per-window gradient or local palette; use the shared flat surface helpers.
 
 This is a paint/material constraint, not an indexed framebuffer. SDL still
@@ -32,8 +32,8 @@ there is no CPU framebuffer readback or full-screen postfilter.
 ## Rendering and scaling
 
 Flat materials use ordinary renderer fills; there is no gradient texture cache
-or material generation/upload step. The graph and knob atlases occupy 32 KiB of
-RGBA storage, plus a graph-density variant (64 KiB at 2×, 144 KiB at 3×). The
+or material generation/upload step. The knob atlas occupies 16 KiB of RGBA
+storage. The graph-dot atlas and its display-density variants are removed. The
 previous 8 MiB gradient cache has been removed. Audio and interaction logic are
 unchanged except for the explicitly requested FM window height increase of 32 UI
 units, assigned to its envelope display.
@@ -53,7 +53,7 @@ Rendering tests assert that flat material output uses only the fixed palette
 at 75%, 100%, 125%, 150% and 200% UI scale, both legacy gradient-helper directions
 and fractional placement, without intermediate shading. Every palette entry
 is unchanged by dithering. Piano minor lines must retain at least 1.5:1 contrast
-against both mapped row colors. Existing graph-density checks remain. Native
+against both mapped row colors. Flat display checks cover simulated display densities of 1×, 2× and 3×. Native
 Retina appearance, mixed-DPI transitions and hardware rendering cost remain
 unverified.
 
@@ -106,9 +106,9 @@ studio capture was reviewed, including the first light/dark pairs.
 
 ## Uniform display material
 
-Numeric and meter wells now call the same graph-paper surface helper as the
-master frequency spectrum. Their background, dot color, density and pixel phase
-are identical; the display background token also aliases the graph background.
+Numeric and meter wells call the same flat display surface helper as the
+master frequency spectrum. Their background colors are identical; the display
+background token also aliases the graph background.
 The former near-black readout face is removed. Spectrum graticules remain
 specific to graph content, and readings and meter bars remain above the surface.
 
@@ -147,3 +147,22 @@ larger saved splits. Software captures were reviewed for the full scale and
 twelve patterns with light/dark pairs. All 158 Release tests pass; the final
 startup preference change also passed its targeted rerun. Native display
 appearance remains a hands-on check.
+
+
+## Selected-track monitor and flat displays
+
+A fixed stereo output meter sits to the left of Master, beside the full dBFS
+scale. It follows the selected bus using the same level and peak-hold state as
+its strip meter. Startup and project reset select Master. The fixed column is
+42 logical units wider; scrolling, routing ports and strip hit areas derive
+from the updated geometry. Individual strip meters remain available.
+
+Decorative graph dots are removed from all displays, including Arrangement,
+Piano Roll, envelopes, waveforms, spectra and numeric/meter wells. Real grid
+lines, signal traces, palette colors and bitmap knob/icon shading remain.
+There is no replacement LCD digit design in this change.
+
+Release build and all 158 tests pass, including selection-following meter draw
+checks, routing/scroll geometry and flat display checks across UI scales and
+simulated display densities. A software showcase capture was reviewed. Native
+Retina appearance and hands-on interaction remain unverified.

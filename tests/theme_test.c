@@ -101,13 +101,12 @@ static int check_skin(float scale) {
     ui_titlebar(draw,(DrawRect){2,28,48,10},1);
     ui_graph_paper(draw,(DrawRect){2,42,48,18});
     ui_graph_area(draw,(DrawPoint){3,43},(DrawPoint){48,43},59);
-    ui_graph_dots(draw,(DrawRect){2,42,48,18});
     ui_graph_handle(draw,(DrawPoint){40,55});
     ui_knob_face(draw,65,16,9,-1.5707963f,0);
     ui_knob_face(draw,65,44,9,0,1);
     ui_lamp(draw,(DrawPoint){65,60},3,(DrawColor){255,33,47,255});
     ui_text_well(draw,(DrawRect){54,26,24,9},1);
-    /* A real curve is drawn above the paper, never clipped into dot cells. */
+    /* A real curve remains visible above the display surface. */
     draw_line(draw,(DrawPoint){3,50},(DrawPoint){48,50},2,ui_skin.graph_line);
     unsigned char pixels[240*192*4];if(!draw_read_rgba(draw,pixels,w,h))return 0;
     DrawColor top=skin_pixel(pixels,w,scale,10,7);
@@ -116,16 +115,11 @@ static int check_skin(float scale) {
     by-=(by-ty)%4;const unsigned char *bp=pixels+(by*w+tx)*4;
     DrawColor bottom={bp[0],bp[1],bp[2],bp[3]};
     DrawColor raised=skin_pixel(pixels,w,scale,2,10),sunken=skin_pixel(pixels,w,scale,28,10);
-    /* Check the gray title material between cyan dots. */
+    /* Check the gray title material. */
     int title_x=(int)(12.5f*scale),title_y=(int)(32.5f*scale);
     if(!(title_x%4) && !(title_y%4))title_x++;
     const unsigned char *title_pixel=pixels+(title_y*w+title_x)*4;
     DrawColor title={title_pixel[0],title_pixel[1],title_pixel[2],title_pixel[3]},center=skin_pixel(pixels,w,scale,65,16),edge=skin_pixel(pixels,w,scale,72,21);
-    /* Paper dots have a fixed four-physical-pixel period at every UI scale. */
-    int dot=0,empty=255;
-    for(int y=(int)ceilf(44*scale);y<(int)ceilf(44*scale)+4;y++)for(int x=(int)ceilf(4*scale);x<(int)ceilf(4*scale)+4;x++) {
-        int blue=pixels[(y*w+x)*4+2];if(blue>dot)dot=blue;if(blue<empty)empty=blue;
-    }
     const unsigned char *line=pixels+((int)(50*scale)*w+(int)(6*scale))*4;
     DrawColor curve={line[0],line[1],line[2],line[3]};
     DrawColor fill_top=skin_pixel(pixels,w,scale,11,44),fill_bottom=skin_pixel(pixels,w,scale,11,57);
@@ -133,14 +127,14 @@ static int check_skin(float scale) {
     DrawColor arrow=skin_pixel(pixels,w,scale,42,13),arrow_face=skin_pixel(pixels,w,scale,42,6);
     DrawColor field=skin_pixel(pixels,w,scale,65,30);
     DrawColor knob_shadow=skin_pixel(pixels,w,scale,70,24),button_shadow=skin_pixel(pixels,w,scale,25,12);
-    /* Faint paper remains visible without competing with the real curve. */
-    int ok=top.r>bottom.r+15 && raised.r>sunken.r+80 && abs(title.b-title.r)<25 && dot>empty+8 && dot<empty+35 &&
+    /* Flat displays preserve the real curve and control shading. */
+    int ok=top.r>bottom.r+15 && raised.r>sunken.r+80 && abs(title.b-title.r)<25 &&
         curve.g>150 && curve.b>220 && center.r>edge.r+20 && fill_top.b>fill_bottom.b+25 &&
         handle.r>180 && handle.g>200 && lamp.r>lamp.g+40 && arrow.r<25 && arrow_face.r>100 &&
         same(field,ui_skin.field) && contrast(theme_foreground(field),field)>=4.5f &&
         knob_shadow.r<ui_theme.surface.r-20 && button_shadow.r<ui_theme.surface.r-20;
     if(!ok)fprintf(stderr,"field=%d/%d shadow=%d/%d arrow=%d/%d lamp=%d/%d fill=%d/%d\n",field.r,ui_skin.field.r,knob_shadow.r,button_shadow.r,arrow.r,arrow_face.r,lamp.r,lamp.g,fill_top.b,fill_bottom.b);
-    if(!ok)fprintf(stderr,"Skin scale %.2f: gradient %d/%d, bevel %d/%d, title %d/%d, dots %d/%d, curve %d/%d, knob %d/%d\n",scale,top.r,bottom.r,raised.r,sunken.r,title.r,title.b,dot,empty,curve.g,curve.b,center.r,edge.r);
+    if(!ok)fprintf(stderr,"Skin scale %.2f: gradient %d/%d, bevel %d/%d, title %d/%d, curve %d/%d, knob %d/%d\n",scale,top.r,bottom.r,raised.r,sunken.r,title.r,title.b,curve.g,curve.b,center.r,edge.r);
     draw_transform(draw,1,0,0);draw_target(draw,NULL);draw_texture_destroy(target);theme_draw_close();return ok;
 }
 /* A pattern texel must stay on the same output pixel across scale/translation. */
@@ -171,7 +165,7 @@ static int check_material_density(void){
         if(graph)ui_graph_paper(draw,(DrawRect){0,0,100,100});else ui_surface(draw,(DrawRect){0,0,100,100},(DrawColor){128,128,128,255});draw_flush(draw);
         if(!draw_read_rgba(draw,reference,80,64))return 0;
         int low=255,high=0;for(int i=0;i<80*64;i++){int c=reference[i*4+(graph?2:0)];if(c<low)low=c;if(c>high)high=c;}
-        if(graph?high-low<8:high!=low)return 0;
+        if(high!=low)return 0;
         for(int density=1;density<=3;density++)for(unsigned i=0;i<sizeof scales/sizeof *scales;i++)for(int moved=0;moved<2;moved++){
             draw_pattern_density(draw,density);draw_transform(draw,scales[i],moved?.37f:0,moved?.83f:0);draw_clear(draw,(DrawColor){0,0,0,255});
             if(graph)ui_graph_paper(draw,(DrawRect){0,0,100,100});else ui_surface(draw,(DrawRect){0,0,100,100},(DrawColor){128,128,128,255});draw_flush(draw);

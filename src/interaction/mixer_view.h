@@ -9,7 +9,7 @@ typedef struct {
     int count,fx_rows;
 } MixerView;
 static inline MixerView mixer_view(float width,float height,int count,float offset,int fx_hidden) {
-    MixerView v={.width=width,.height=height,.master_x=42,.insert_x=158,.fx_top=48,.count=count};
+    MixerView v={.width=width,.height=height,.master_x=84,.insert_x=200,.fx_top=48,.count=count};
     v.viewport=fmaxf(1,width-v.insert_x-4);
     v.maximum=fmaxf(0,count*MIXER_STRIDE-v.viewport);
     v.offset=fmaxf(0,fminf(v.maximum,offset));

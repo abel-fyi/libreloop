@@ -17,12 +17,12 @@ int main(void) {
         CHECK(scroll==0); /* Fixed add row is outside the scrolling list. */
     }
     MixerView v=mixer_view(1200,354,99,37*112+.5f,0);
-    CHECK(v.master_x==42 && v.insert_x==158 && v.fx_rows==3);
-    CHECK(NEAR(mixer_bus_x(v,38),157.5f));
+    CHECK(v.master_x==84 && v.insert_x==200 && v.fx_rows==3);
+    CHECK(NEAR(mixer_bus_x(v,38),199.5f));
     CHECK(mixer_bus_visible(v,38) && !mixer_bus_visible(v,37));
-    CHECK(mixer_route_hit(v,170.5f,v.route+6)==38);
-    CHECK(mixer_route_hit(v,55,v.route+6)==0);
-    CHECK(mixer_route_hit(v,157.9f,v.route+6)==-1);
+    CHECK(mixer_route_hit(v,212.5f,v.route+6)==38);
+    CHECK(mixer_route_hit(v,97,v.route+6)==0);
+    CHECK(mixer_route_hit(v,199.9f,v.route+6)==-1);
     MixerView clipped=mixer_view(1200,354,99,37*112+40,0);
     CHECK(mixer_bus_visible(clipped,38) && !mixer_port_visible(clipped,38,35));
     CHECK(mixer_port_visible(clipped,0,13));
