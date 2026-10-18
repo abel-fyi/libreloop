@@ -67,3 +67,18 @@ frames after 40 warm-up frames: render plus flush p50 4.583458 ms, p99 5.019917 
 maximum 5.112917 ms, aggregate render CPU 0.965459 seconds. Raw local output:
 `/tmp/libreloop-luice-profile/results.log`. This is not an isolated before/after
 comparison and does not establish hardware GPU cost or startup/upload latency.
+
+## Display wells
+
+Dark instrument displays share `ui_display_well`: a flat dark face with the
+existing cached graph-dot texture inset inside its edge. Tempo, playback
+position, master L/R meter wells, mixer meters and mixer gain readouts use it.
+Digits, labels, level fills and peak markers are painted afterwards. Panels,
+buttons and colored clips remain flat. Existing spectrum, waveform, envelope,
+piano-roll and arrangement display textures remain unchanged.
+
+This adds no texture assets, generation path, timer or audio-thread work.
+Additional covered areas submit cached texture tiles; their isolated GPU cost
+has not been measured. The executable is 5,739,648 bytes (+48 bytes). A software
+showcase screenshot was reviewed; native Retina appearance remains unverified.
+All 158 Release tests pass for the shared display-well revision.

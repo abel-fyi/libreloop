@@ -168,7 +168,8 @@ float meter_height(float level) { return level>.001f?fader_position(level):0; }
 void meter_draw(int id,int x,int top,int bottom,int bar_width) {
     int height=bottom-top,spacing=bar_width+2;
     float orange=meter_height(powf(10,-12.f/20)),zero=meter_height(1);
-    host_draw_rectangle(x-1,top,spacing*2,height,ui.studio_style?ui_skin.display:bg);
+    if(ui.studio_style)ui_display_well(host_draw(),(DrawRect){x-1,top,spacing*2,height});
+    else host_draw_rectangle(x-1,top,spacing*2,height,bg);
     if(ui.studio_style) {
         ui_bevel(host_draw(),(DrawRect){x-3,top-2,spacing*2+4,height+4},1);
         const int scale[]={-48,-24,-12,-6,0};
@@ -692,7 +693,7 @@ static void mixer_legacy(float width,float height) {
                 float y=fader_top+(fader_bottom-fader_top)*tick/8;
                 host_draw_line(x+(tick%2?24:20),y,x+28,y,muted);
             }
-            ui_surface(host_draw(),(DrawRect){x+20,height-51,46,18},ui_skin.display);
+            ui_display_well(host_draw(),(DrawRect){x+20,height-51,46,18});
             ui_bevel(host_draw(),(DrawRect){x+20,height-51,46,18},1);
             label(host_text_format("%.1f",gain_db(*v)),x+24,height-49,10,ui_theme.signal);
         }

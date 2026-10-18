@@ -598,7 +598,7 @@ int main(int argc,char **argv) {
         int tempo_clicked;
         if(ui.studio_style) {
             /* Numeric display keeps its dark face during hover/capture. */
-            ui_surface(host_draw(),(DrawRect){tempo_x,tempo_y,tempo_w,tempo_h},ui_skin.display);
+            ui_display_well(host_draw(),(DrawRect){tempo_x,tempo_y,tempo_w,tempo_h});
             if(!ui.profile_flat)ui_bevel(host_draw(),(DrawRect){tempo_x,tempo_y,tempo_w,tempo_h},1);
             int over=hover(tempo_x,tempo_y,tempo_w,tempo_h);
             if(over || ui.control_drag==&ui.project.bpm) {
@@ -617,7 +617,8 @@ int main(int argc,char **argv) {
         uint64_t position_frames=audio_position();
         uint64_t step=(uint64_t)(position_frames/(RATE*60.0/ui.project.bpm/4));
         if(hover(position_x,position_y,position_w,position_h) && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT))ui.position_seconds^=1;
-        ui_surface(host_draw(),(DrawRect){position_x,position_y,position_w,position_h},ui.studio_style?ui_skin.display:bg);
+        if(ui.studio_style)ui_display_well(host_draw(),(DrawRect){position_x,position_y,position_w,position_h});
+        else ui_surface(host_draw(),(DrawRect){position_x,position_y,position_w,position_h},bg);
         if(ui.studio_style && !ui.profile_flat)ui_bevel(host_draw(),(DrawRect){position_x,position_y,position_w,position_h},1);
         const char *position=host_text_format("%03llu:%02llu",(unsigned long long)(step/16+1),(unsigned long long)(step%16+1));
         char seconds_position[32];
@@ -660,7 +661,7 @@ int main(int argc,char **argv) {
                 if(ui.studio_style) {
                     int row=ty+3+side*18;
                     label(side?"R":"L",mx+3,row-3,UI_TEXT_SIZE,ui_theme.signal);
-                    host_draw_rectangle(mx+14,row,fill_width,13,ui_skin.display);
+                    ui_display_well(host_draw(),(DrawRect){mx+14,row,fill_width,13});
                     ui_level_fill(host_draw(),(DrawRect){mx+14,row,fill_width,13},level,.8f,1,0);
                     float hold=fmaxf(0,fminf(1,(20*log10f(fmaxf(.001f,ui.meter_hold[0][side]))+60)/60));
                     if(hold>0)host_draw_line(mx+14+hold*fill_width,row,mx+14+hold*fill_width,row+13,ui_theme.signal);

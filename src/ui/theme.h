@@ -40,6 +40,8 @@ void ui_titlebar(DrawContext *draw,DrawRect rect,int focused);
 void ui_knob_face(DrawContext *draw,float x,float y,float radius,float angle,int active);
 int theme_draw_init(DrawContext *draw);
 void theme_draw_close(void);
+/* Dark instrument display; dots are always beneath its content. */
+void ui_display_well(DrawContext *draw,DrawRect rect);
 void ui_graph_paper(DrawContext *draw,DrawRect rect);
 void ui_graph_dots(DrawContext *draw,DrawRect rect);
 void ui_graph_area(DrawContext *draw,DrawPoint a,DrawPoint b,float baseline);

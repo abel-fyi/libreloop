@@ -54,6 +54,10 @@ static void skin_pattern(DrawContext *draw,DrawRect r) {
         draw_texture_tiled_pixels(draw,skin_graph_large,(DrawRect){0,0,64*step,64*step},r,(DrawColor){255,255,255,255});
     else draw_texture_tiled_pixels(draw,skin_patterns,(DrawRect){0,0,64,64},r,(DrawColor){255,255,255,255});
 }
+void ui_display_well(DrawContext *draw,DrawRect r) {
+    draw_rect(draw,r,ui_skin.display);
+    if(r.width>2 && r.height>2)ui_graph_dots(draw,(DrawRect){r.x+1,r.y+1,r.width-2,r.height-2});
+}
 void ui_graph_paper(DrawContext *draw,DrawRect r) {
     draw_rect(draw,r,ui_skin.graph);
     ui_graph_dots(draw,r);
