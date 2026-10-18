@@ -70,9 +70,14 @@ compared with linear interpolation; it still has frequency-dependent loss.
 
 Diffuser delays are `{143,211,347,557,421,683}` samples on Left and
 `{163,239,373,601,449,709}` on Right. Input allpass gain is 0.72; output gain is
-0.6. Early-reflection times are `{5,9,14,22,35,51}` ms and
-`{7,12,18,29,43,61}` ms before the same size scale and pre-delay. Their differing
-time/polarity patterns help spread a mono source into stereo.
+0.6. Early-reflection times are `{5,11,18,29,43,61}` ms in both ears before
+size scaling and pre-delay, with matching signed weights. This keeps a centered
+transient's onset centered; the differing diffusers and network pickups provide
+the stereo tail. Previously the first reflection always led on the left (5 vs
+7 ms), producing a fixed onset bias. Regression tests now require equal first
+arrival and less than 0.5 dB L/R energy difference over the first 50 ms for all
+four presets with centered impulses, decaying noise and 100 Hz decaying tones.
+These synthetic checks do not establish subjective localization for every source.
 
 Size and pre-delay changes crossfade old/new read taps for 20 ms, including
 early reflections. Continuous gains, damping, width, modulation and wet level

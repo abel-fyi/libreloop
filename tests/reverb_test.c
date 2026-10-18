@@ -23,6 +23,22 @@ int main(void) {
     s=reverb_default();
     for(int i=0;i<RATE;i++) {float frame[2]={0};reverb_process(r,s,1,frame);if(frame[0]!=0 || frame[1]!=0)fprintf(stderr,"Silence leak at %d: %g %g\n",i,frame[0],frame[1]);CHECK(frame[0]==0 && frame[1]==0);}
     reverb_reset(r);for(int i=0;i<1000;i++){float frame[2]={.3f,-.2f};reverb_process(r,s,0,frame);CHECK(frame[0]==.3f && frame[1]==-.2f);}
+    /* Centered transients must not acquire a left-leading early reflection.
+       Exercise every factory size/width with impulse, noise-snare and low tone. */
+    for(unsigned preset=0;preset<REVERB_FACTORY_COUNT;preset++)for(int kind=0;kind<3;kind++) {
+        s=reverb_factory(preset);reverb_reset(r);unsigned seed=1;double l=0,rr=0;int first[2]={-1,-1};
+        for(int i=0;i<RATE/20;i++) {
+            seed=seed*1664525u+1013904223u;
+            float noise=(float)((double)seed/2147483648.0-1);
+            float x=kind==0?(i==0):kind==1?noise*expf(-i/800.f):sinf(i*6.2831853f*100/RATE)*expf(-i/800.f);
+            float frame[2]={x,x};reverb_process(r,s,1,frame);
+            for(int side=0;side<2;side++)if(first[side]<0 && fabsf(frame[side])>1e-7f)first[side]=i;
+            l+=frame[0]*frame[0];rr+=frame[1]*frame[1];
+        }
+        CHECK(first[0]>=0 && first[0]==first[1]);
+        CHECK(l>0 && rr>0 && fabs(10*log10(l/rr))<.5);
+    }
+    s=reverb_default();
     s.predelay=0;s.mod=0;s.damping=20000;render_impulse(r,s);
     double cross=0,left=0,right=0,side_energy=0,peak=0;int dense=0;
     for(int i=0;i<FRAMES;i++) {

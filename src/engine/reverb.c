@@ -137,10 +137,12 @@ void reverb_process(Reverb *r,ReverbSettings s,float wet,float stereo[2]) {
         r->gain[i]+=r->gain_step[i];
         r->pcm.line[i][r->cursor]=flush(mixed[i]*.3535533905932738f*r->gain[i]+.18f*(input[0]*inject[0][i]+input[1]*inject[1][i]));
     }
-    static const float times[2][6]={{5,9,14,22,35,51},{7,12,18,29,43,61}},weights[6]={.35f,.28f,-.23f,.2f,-.17f,.14f};
+    /* Match early arrival times and polarity across ears: stereo spread comes
+       from the diffuse tail, rather than a fixed left-ear timing advantage. */
+    static const float times[6]={5,11,18,29,43,61},weights[6]={.35f,.28f,-.23f,.2f,-.17f,.14f};
     float predelay=r->old_pre+(r->new_pre-r->old_pre)*r->transition;
     for(unsigned side=0;side<2;side++)for(unsigned i=0;i<6;i++) {
-        float old_delay=r->old_pre+times[side][i]*48*r->old_size,new_delay=r->new_pre+times[side][i]*48*r->new_size;
+        float old_delay=r->old_pre+times[i]*48*r->old_size,new_delay=r->new_pre+times[i]*48*r->new_size;
         float a=.8f*pre_read(r,old_delay,side,source[side])+.2f*pre_read(r,old_delay,1-side,source[1-side]);
         float b=.8f*pre_read(r,new_delay,side,source[side])+.2f*pre_read(r,new_delay,1-side,source[1-side]);
         early[side]+=weights[i]*(a+(b-a)*(float)r->transition);
