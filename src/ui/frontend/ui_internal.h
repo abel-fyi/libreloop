@@ -367,6 +367,7 @@ int mixer_effect_window(int bus,int slot);
 void mixer_effect_open(int bus,int slot,int toggle);
 void mixer_effect_add(int bus,int slot,int type);
 void mixer_effect_remove(int bus,int slot);
+void mixer_effect_replace(int bus,int slot,int type);
 void fonts_update(float scale);
 int text_width(const char *text,int size);
 float raster_position(float value,float origin);

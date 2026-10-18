@@ -38,6 +38,12 @@ Settings, wet/dry, bypass, automation, MIDI bindings, pending MIDI learn/control
 targets and open editors follow the effect. Undo records the finished move.
 Reordering restarts DSP history on that bus; unrelated buses keep their tails.
 
+Right-click an occupied effect and choose **Replace effect...**, then select a
+built-in effect. The replacement keeps the same processing slot, opens its
+editor and starts with its own defaults. Old slot automation and MIDI bindings
+are removed; pending MIDI learn for that slot is cancelled. Other effects and
+routing remain in place. Dismissing the chooser leaves the effect untouched.
+
 ## Geometry and preferences
 
 At 1448x1086, an empty Mixer is 294 high and the page is 702 high. One/two/three
@@ -64,7 +70,8 @@ or its numbered left edge for channel actions.
 Dragging an output to an input adds a unity-gain destination without replacing
 existing ones. Inputs sum all their sources. Duplicate routes are ignored;
 self-connections and cycles through any branch are blocked. Right-click a port
-to remove individual connections or all its cables. Selecting a strip shows
+to remove individual connections or all its cables. **Remove all cables** is
+the last entry, after the individual connections. Selecting a strip shows
 its visible incoming/outgoing cables; dragging shows a new preview cable.
 
 The optional typed `x-insert-sends` project field stores extra destinations and

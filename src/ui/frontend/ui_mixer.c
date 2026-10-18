@@ -256,6 +256,17 @@ void mixer_effect_remove(int bus,int slot) {
         if(parameter_is_effect(t.parameter) && t.owner==(unsigned)bus && t.slot==(unsigned)slot)automation_delete(&ui.project,a);}
     ui.control_drag=NULL;ui.automation_selected=ui.automation_node=-1;ui.picker_drag=-1;ui.eq_drag=-1;
 }
+void mixer_effect_replace(int bus,int slot,int type) {
+    if(bus<0 || bus>ui.project.insert_count || slot<0 || slot>=EFFECT_SLOTS || !effect_descriptor(type))return;
+    ui.fx_add_pending=0;
+    for(int i=ui.project.midi_binding_count-1;i>=0;i--) {
+        ParameterTarget t=ui.project.midi_bindings[i].target;
+        if(parameter_is_effect(t.parameter) && t.owner==(unsigned)bus && t.slot==(unsigned)slot)midi_unbind(&ui.project,t);
+    }
+    if(parameter_is_effect(ui.midi_learn_target.parameter) && ui.midi_learn_target.owner==(unsigned)bus && ui.midi_learn_target.slot==(unsigned)slot)ui.midi_learning=0;
+    mixer_effect_remove(bus,slot);
+    mixer_effect_add(bus,slot,type);
+}
 void effect_slot_menu(int bus,int slot) {
     ui.fx_add_pending=0;
     ui.eq_bus=bus;ui.eq_slot=slot;ui.effect_slot=slot;

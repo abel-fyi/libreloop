@@ -529,7 +529,7 @@ void draw_context_content(void) {
         for(int id=ui.context_kind==26?0:1;id<=ui.project.insert_count;id++)
             if(ui.context_kind==26?insert_has_send(&ui.project,ui.context_target,id):insert_has_send(&ui.project,id,ui.context_target))route_rows[route_count++]=id;
     }
-    int w=ui.context_kind==14 || ui.context_kind==16?160:(ui.context_kind==5 || ui.context_kind==8 || ui.context_kind==12)?304:228,h=(ui.context_kind==26 || ui.context_kind==27)?8+25*(int)fminf(8,route_count+1):ui.context_kind==25?(ui.project.effect_type[ui.eq_bus][ui.context_target]?133:209):ui.context_kind==24?8+25*GRID_CHOICES:ui.context_kind==9?133:ui.context_kind==21?8+25*FM_FACTORY_COUNT:ui.context_kind==22?83:ui.context_kind==23?108:ui.context_kind==19?108:ui.context_kind==20?58:ui.context_kind==17?8+25*(int)fminf(8,instrument_count):ui.context_kind==18?58:ui.context_kind==4?108:ui.context_kind==16?32:ui.context_kind==15?58:ui.context_kind==14?8+EQ_SHAPES*25:ui.context_kind==13?58:ui.context_kind==2?183:ui.context_kind==7?133:(ui.context_kind==5 || ui.context_kind==8 || ui.context_kind==12)?76:ui.context_kind==3 && !ui.context_target?32:82,x=fmaxf(0,fminf(host_get_screen_width()/scale-w,ui.context_position.x)),y=fmaxf(0,fminf(host_get_screen_height()/scale-h,ui.context_position.y));
+    int w=ui.context_kind==14 || ui.context_kind==16?160:(ui.context_kind==5 || ui.context_kind==8 || ui.context_kind==12)?304:228,h=(ui.context_kind==26 || ui.context_kind==27)?8+25*(int)fminf(8,route_count+1):ui.context_kind==28?209:ui.context_kind==25?(ui.project.effect_type[ui.eq_bus][ui.context_target]?158:209):ui.context_kind==24?8+25*GRID_CHOICES:ui.context_kind==9?133:ui.context_kind==21?8+25*FM_FACTORY_COUNT:ui.context_kind==22?83:ui.context_kind==23?108:ui.context_kind==19?108:ui.context_kind==20?58:ui.context_kind==17?8+25*(int)fminf(8,instrument_count):ui.context_kind==18?58:ui.context_kind==4?108:ui.context_kind==16?32:ui.context_kind==15?58:ui.context_kind==14?8+EQ_SHAPES*25:ui.context_kind==13?58:ui.context_kind==2?183:ui.context_kind==7?133:(ui.context_kind==5 || ui.context_kind==8 || ui.context_kind==12)?76:ui.context_kind==3 && !ui.context_target?32:82,x=fmaxf(0,fminf(host_get_screen_width()/scale-w,ui.context_position.x)),y=fmaxf(0,fminf(host_get_screen_height()/scale-h,ui.context_position.y));
     ui.input_enabled=1;
     if(host_is_key_pressed(HOST_KEY_ESCAPE) || (!ui.context_opened && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT) && !hover(x,y,w,h))) { ui.context_kind=0; return; }
     ui_frame(host_draw(),(DrawRect){x,y,w,h});
@@ -539,28 +539,29 @@ void draw_context_content(void) {
         if(hover(x,y,w,h))ui.route_menu_scroll=fmaxf(0,fminf(route_count+1-visible,ui.route_menu_scroll-host_get_mouse_wheel_move()));
         for(int row=0;row<visible;row++) {
             int index=row+ui.route_menu_scroll;
-            const char *name=index?host_text_format("Remove %s %s",kind==26?"to":"from",mixer_name(route_rows[index-1])):"Remove all cables";
+            const char *name=index==route_count?"Remove all cables":host_text_format("Remove %s %s",kind==26?"to":"from",mixer_name(route_rows[index]));
             if(button(name,x+4,y+4+row*25,w-8,24,0)) {
-                for(int i=0;i<route_count;i++)if(!index || i==index-1) {
+                for(int i=0;i<route_count;i++)if(index==route_count || i==index) {
                     if(kind==26)insert_send_remove(&ui.project,target,route_rows[i]);else insert_send_remove(&ui.project,route_rows[i],target);
                 }
                 ui.context_kind=0;return;
             }
         }
-    } else if(kind==25) {
+    } else if(kind==25 || kind==28) {
         int bus=ui.eq_bus,slot=target,type=ui.project.effect_type[bus][slot];
-        if(!type){
-            if(button("Add Chorus",x+4,y+4,w-8,24,0)){mixer_effect_add(bus,slot,EFFECT_CHORUS);ui.context_kind=0;}
-            if(button("Add Equalizer",x+4,y+29,w-8,24,0)){mixer_effect_add(bus,slot,EFFECT_EQ);ui.context_kind=0;}
-            if(button("Add Delay",x+4,y+54,w-8,24,0)){mixer_effect_add(bus,slot,EFFECT_DELAY);ui.context_kind=0;}
-            if(button("Add Tube",x+4,y+79,w-8,24,0)){mixer_effect_add(bus,slot,EFFECT_TUBE);ui.context_kind=0;}
-            if(button("Add Phaser",x+4,y+155,w-8,24,0)){mixer_effect_add(bus,slot,EFFECT_PHASER);ui.context_kind=0;}
-            if(button("Add Flanger",x+4,y+180,w-8,24,0)){mixer_effect_add(bus,slot,EFFECT_FLANGER);ui.context_kind=0;}
-            if(button("Add Dynamics",x+4,y+130,w-8,24,0)){mixer_effect_add(bus,slot,EFFECT_DYNAMICS);ui.context_kind=0;}
-            if(button("Add Reverb",x+4,y+104,w-8,24,0)){mixer_effect_add(bus,slot,EFFECT_REVERB);ui.context_kind=0;}
+        if(!type || kind==28){
+            const int types[]={EFFECT_CHORUS,EFFECT_EQ,EFFECT_DELAY,EFFECT_TUBE,EFFECT_REVERB,EFFECT_DYNAMICS,EFFECT_PHASER,EFFECT_FLANGER};
+            for(unsigned row=0;row<sizeof types/sizeof *types;row++) {
+                int next=types[row];
+                if(button(host_text_format("%s %s",kind==28?"Replace with":"Add",effect_descriptor(next)->name),x+4,y+4+row*25,w-8,24,0)) {
+                    if(kind==28)mixer_effect_replace(bus,slot,next);else mixer_effect_add(bus,slot,next);
+                    ui.context_kind=0;return;
+                }
+            }
         } else {
             if(button("Open effect",x+4,y+4,w-8,24,0)){mixer_effect_open(bus,slot,0);ui.context_kind=0;}
             if(button("Bypass",x+4,y+29,w-8,24,ui.project.effect_bypass[bus][slot])){ui.project.effect_bypass[bus][slot]^=1;ui.context_kind=0;}
+            if(button("Replace effect...",x+4,y+129,w-8,24,0)){open_context(28,slot,(DrawPoint){x,y});return;}
             if(button("Remove effect",x+4,y+54,w-8,24,0)){mixer_effect_remove(bus,slot);ui.context_kind=0;}
             if(button("Load preset",x+4,y+79,w-8,24,0)){preset_action(type==EFFECT_PHASER?PRESET_PHASER:type==EFFECT_FLANGER?PRESET_FLANGER:type==EFFECT_DYNAMICS?PRESET_DYNAMICS:type==EFFECT_REVERB?PRESET_REVERB:type==EFFECT_TUBE?PRESET_TUBE:type==EFFECT_DELAY?PRESET_DELAY:type==EFFECT_EQ?PRESET_EQ:PRESET_CHORUS,bus,slot,0);ui.context_kind=0;}
             if(button("Save preset",x+4,y+104,w-8,24,0)){preset_action(type==EFFECT_PHASER?PRESET_PHASER:type==EFFECT_FLANGER?PRESET_FLANGER:type==EFFECT_DYNAMICS?PRESET_DYNAMICS:type==EFFECT_REVERB?PRESET_REVERB:type==EFFECT_TUBE?PRESET_TUBE:type==EFFECT_DELAY?PRESET_DELAY:type==EFFECT_EQ?PRESET_EQ:PRESET_CHORUS,bus,slot,1);ui.context_kind=0;}

@@ -102,5 +102,21 @@ int main(void) {
         before_remove=ui.project.automation_count;mixer_effect_remove(4,0);
         CHECK(!ui.windows.editors[window].visible && !ui.project.effect_type[4][0] && ui.project.automation_count==before_remove-1);
     }
+    mixer_effect_add(4,0,EFFECT_TUBE);
+    CHECK(automation_create(&ui.project,(ParameterTarget){PARAM_TUBE_DRIVE,4,0},"Old Tube drive",16)>=0);
+    CHECK(midi_bind(&ui.project,0,7,(ParameterTarget){PARAM_EFFECT_MIX,4,0}));
+    CHECK(midi_bind(&ui.project,0,8,(ParameterTarget){PARAM_CHANNEL_VOLUME,0,0}));
+    int old_bindings=ui.project.midi_binding_count;
+    ui.midi_learning=1;ui.midi_learn_target=(ParameterTarget){PARAM_TUBE_DRIVE,4,0};
+    int old_count=ui.project.automation_count;
+    ui.project.effect_bypass[4][0]=1;ui.fx_add_pending=1;ui.eq_bus=4;ui.eq_slot=0;
+    mixer_effect_replace(4,0,EFFECT_REVERB);
+    CHECK(ui.project.effect_type[4][0]==EFFECT_REVERB && !ui.project.effect_bypass[4][0]);
+    CHECK(ui.project.automation_count==old_count-1 && !ui.fx_add_pending);
+    CHECK(ui.project.midi_binding_count==old_bindings-1 && !ui.midi_learning);
+    CHECK(reverb_valid(ui.project.reverb[4][0]) && ui.project.effect_mix[4][0]==.25f);
+    int replacement=mixer_effect_window(4,0);CHECK(replacement>=5 && ui.windows.editors[replacement].visible);
+    CHECK(ui.project.effect_type[3][0]==EFFECT_EQ && ui.project.effect_type[3][1]==EFFECT_CHORUS);
+    mixer_effect_replace(4,0,999);CHECK(ui.project.effect_type[4][0]==EFFECT_REVERB);
     return 0;
 }
