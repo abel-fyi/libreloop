@@ -10,7 +10,8 @@
 #include "parameter.h"
 #define SAMPLE_EMPTY "@empty" /* stored in paths for an unloaded sampler */
 #define CHANNELS 32
-#define PATTERNS 8
+#define PATTERNS 64
+#define LEGACY_PATTERNS 8
 #define PATTERN_NAME 48
 #define COLOR_HUES 12
 #define COLOR_COUNT (COLOR_HUES*2)
@@ -27,6 +28,7 @@ typedef struct { unsigned channel,controller; ParameterTarget target; } MidiBind
 #define AUTOMATION_POINTS 64
 #define AUTOMATION_SOURCE (PATTERNS+CHANNELS)
 #define SOURCES (AUTOMATION_SOURCE+AUTOMATIONS)
+_Static_assert(SOURCES<=UINT8_MAX,"Clip source IDs must fit in one byte");
 #define AUDIO_SOURCE(s) ((s)>=PATTERNS && (s)<AUTOMATION_SOURCE)
 typedef struct { float step,value; } AutomationPoint;
 typedef struct { ParameterTarget target; float steps; int count; uint32_t color; char name[48]; AutomationPoint points[AUTOMATION_POINTS]; } Automation;
@@ -128,6 +130,7 @@ void project_new(Project *p);
 void project_demo(Project *p);
 int insert_reset(Project *p,int id);
 int insert_add(Project *p,int count);
+int pattern_add(Project *p);
 int pattern_delete(Project *p,int pattern);
 /* Preserve notes, routing, sample data/settings and names; remove unsupported FM automation. */
 int channel_replace_instrument(Project *project,int channel,int type);

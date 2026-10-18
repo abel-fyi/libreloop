@@ -5,7 +5,8 @@ static void snapshot(const char *name) {
     char file[64];snprintf(file,sizeof file,"project-%02d.llp",stage++);
     if(!project_save(file,&ui.project))exit(2);
     fprintf(trace,"%s %d %d %d %d %d %d %.9g %.9g %d %s\n",name,ui.edit_history.count,ui.edit_history.cursor,ui.edit_clipboard.kind,ui.edit_clipboard.count,ui.pattern,ui.piano_channel,ui.piano_start[0],ui.arrangement.source_steps,ui.piano_top,ui.status);
-    fwrite(ui.note_selected,sizeof ui.note_selected,1,selections);fwrite(ui.arrangement.selected,sizeof ui.arrangement.selected,1,selections);
+    /* Keep the frozen selection encoding at its original eight-pattern width. */
+    fwrite(ui.note_selected,LEGACY_PATTERNS*sizeof ui.note_selected[0],1,selections);fwrite(ui.arrangement.selected,sizeof ui.arrangement.selected,1,selections);
 }
 static void sequence(void) {
     history_checkpoint();snapshot("initial");edit_selection(3);snapshot("select-all");

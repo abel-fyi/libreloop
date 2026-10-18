@@ -56,8 +56,8 @@ int automation_create(Project *p,ParameterTarget target,const char *name,float s
     float v,lo,hi;
     if(p->automation_count<0 || p->automation_count>=AUTOMATIONS || !isfinite(steps) || steps<=0 || !parameter_info(p,target,&v,&lo,&hi)) return -1;
     int index=p->automation_count++; Automation *a=&p->automations[index]; memset(a,0,sizeof *a);
-    a->target=target; a->steps=steps; a->color=pattern_palette[index%PATTERNS];
-    for(int color=0;color<PATTERNS;color++) {
+    a->target=target; a->steps=steps; a->color=pattern_palette[index%COLOR_COUNT];
+    for(int color=0;color<COLOR_COUNT;color++) {
         int used=0; for(int i=0;i<index;i++) if(p->automations[i].color==pattern_palette[color]) used=1;
         if(!used) { a->color=pattern_palette[color]; break; }
     }

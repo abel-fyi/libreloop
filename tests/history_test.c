@@ -32,5 +32,11 @@ int main(void) {
     p.volume[0]=.5f; CHECK(history_capture(&h,&p,sources,stamps));
     CHECK(history_peek(&h,-1,&restored,saved) && restored.audio_seconds[0]==12 && !saved[0].frames);
     history_clear(&h);
+    project_new(&p);p.pattern_count=PATTERNS;p.notes[PATTERNS-1][0][0]=(Note){72,100,0,4};
+    CHECK(history_capture(&h,&p,sources,stamps));p.notes[PATTERNS-1][0][0].pitch=74;
+    CHECK(history_capture(&h,&p,sources,stamps));
+    CHECK(history_peek(&h,-1,&restored,saved) && restored.pattern_count==PATTERNS && restored.notes[PATTERNS-1][0][0].pitch==72);
+    CHECK(!restored.notes[8][0][0].velocity && h.bytes<sizeof(Project));
+    history_clear(&h);CHECK(!h.bytes);
     puts("Undo/redo branching, retained stereo PCM, shared buffers, derived fields, restoration and bounds passed."); return 0;
 }

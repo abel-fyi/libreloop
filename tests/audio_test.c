@@ -263,6 +263,17 @@ int main(void) {
     fixture.lane_mute[0]=0; audio_update(&fixture,1,0,0,1,1,0,0,0); test_callback(NULL,out,NULL,64);
     audio_pattern_activity(0,activity); CHECK(activity[0][0]);
     audio_stop(); audio_pattern_activity(0,activity); CHECK(!activity[0][0]);
+    /* Extended patterns keep note highlights across byte boundaries without
+       growing the callback's publication buffer beyond its old size. */
+    CHECK(sizeof view.pattern_notes==LEGACY_PATTERNS*CHANNELS*NOTES);
+    fixture.pattern_count=PATTERNS;memset(fixture.notes,0,sizeof fixture.notes);
+    fixture.notes[PATTERNS-1][0][7]=(Note){60,100,0,2};
+    fixture.notes[PATTERNS-1][0][8]=(Note){64,100,0,2};
+    fixture.notes[PATTERNS-1][0][NOTES-1]=(Note){67,100,0,2};
+    audio_update(&fixture,1,0,PATTERNS-1,1,1,0,0,0);test_callback(NULL,out,NULL,64);
+    audio_pattern_activity(PATTERNS-1,activity);CHECK(activity[0][7] && activity[0][8] && activity[0][NOTES-1] && !activity[0][0]);
+    audio_pattern_activity(0,activity);CHECK(!activity[0][7] && !activity[0][8] && !activity[0][NOTES-1]);
+    audio_stop();audio_pattern_activity(PATTERNS-1,activity);CHECK(!activity[0][7] && !activity[0][8] && !activity[0][NOTES-1]);
     /* Placed/dragged note previews expose their actual pitch, not a UI timer. */
     setup((Sample){pcm,1024,2});audio_update(&fixture,0,0,0,1,1,0,0,0);
     ready=1;ma_atomic_device_state_set(&device.state,ma_device_state_started);

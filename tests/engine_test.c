@@ -393,5 +393,15 @@ int main(void) {
     CHECK(insert_add(&p,INSERTS-p.insert_count)==12 && p.insert_count==INSERTS);
     CHECK(!insert_add(&p,1) && p.insert_count==INSERTS);
 
+    project_new(&p);
+    for(int i=1;i<PATTERNS;i++)CHECK(pattern_add(&p)==i);
+    CHECK(p.pattern_count==64 && pattern_add(&p)==-1 && p.pattern_count==64);
+    CHECK(note_add(&p,63,0,0,60,4));p.clips[0][0]=64;p.clip_steps[0][0]=16;
+    CHECK(project_save("many-patterns.llp",&p) && project_load("many-patterns.llp",&q));
+    CHECK(q.pattern_count==64 && q.notes[63][0][0].velocity && q.clips[0][0]==64);
+    CHECK(pattern_delete(&q,8) && q.pattern_count==63 && q.notes[62][0][0].velocity && q.clips[0][0]==63);
+    CHECK(pattern_add(&q)==63 && !q.notes[63][0][0].velocity);
+    remove("many-patterns.llp");
+
     puts("Project persistence, master pitch, clip lengths, extended patterns, chords and gates, routing, render consistency, mute and WAV duration passed."); return 0;
 }

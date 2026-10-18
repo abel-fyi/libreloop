@@ -106,6 +106,19 @@ int main(void) {
     char *unchanged=read_file(); CHECK(unchanged && !strcmp(unchanged,saved)); free(unchanged); original.master=1;
     memset(original.paths[0],'x',sizeof original.paths[0]); CHECK(!project_save(path,&original));
     CHECK(write_file("HOMEBEAT 41\n",12) && !project_load(path,&loaded));
+    /* Old eight-pattern files retain their audio/automation source meaning. */
+    project_new(&original);original.channel_audio[0]=1;original.audio_seconds[0]=1;
+    original.clips[0][0]=PATTERNS+1;original.clip_steps[0][0]=1;
+    CHECK(automation_create(&original,(ParameterTarget){PARAM_CHANNEL_VOLUME,0,0},"Volume",16)==0);
+    original.clips[1][0]=AUTOMATION_SOURCE+1;original.clip_steps[1][0]=16;
+    CHECK(project_save(path,&original));char *legacy=read_file();CHECK(legacy && strstr(legacy,"LIBRELOOP_PROJECT 1\n"));free(legacy);
+    CHECK(project_load(path,&loaded) && project_equal(&original,&loaded));
+    for(int i=1;i<PATTERNS;i++)CHECK(pattern_add(&original)==i);
+    CHECK(note_add(&original,PATTERNS-1,0,0,72,4));
+    original.clips[2][0]=PATTERNS;original.clip_steps[2][0]=16;
+    CHECK(project_save(path,&original));char *extended=read_file();CHECK(extended && strstr(extended,"LIBRELOOP_PROJECT 2\n"));free(extended);
+    CHECK(project_load(path,&loaded) && project_equal(&original,&loaded));
+    CHECK(loaded.clips[0][0]==PATTERNS+1 && loaded.clips[1][0]==AUTOMATION_SOURCE+1 && loaded.clips[2][0]==PATTERNS);
     printf("Named LLP fields, full round-trip/PCM equality, malformed input and atomic failure passed (%zu bytes).\n",n);
     free(saved); unlink(path); return 0;
 }

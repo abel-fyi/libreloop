@@ -5,7 +5,7 @@ UiState ui;
 static FILE *out;
 static void press(int id,int pattern,int button,float at,double time,DrawPoint point){ui.pattern=pattern;desktop_ruler_press(id,button,at,time,point);}
 static void drag(int pattern,float at,int cancel,int pressed,int held){ui.pattern=pattern;desktop_ruler_drag(at,cancel,pressed,held);}
-static void snapshot(const char *name){fprintf(out,"%s %d %d %d %d %d %.17g %.9g %.9g %d %d %d %d %.9g %.9g %.9g %.9g\n",name,ui.ruler_last_id,ui.ruler_last_pattern,ui.ruler_last_button,ui.marker_drag,ui.ruler_loop_drag,ui.ruler_last_click,ui.ruler_last_position.x,ui.ruler_last_position.y,ui.stop_armed,ui.song,ui.reset,ui.playing,ui.ruler_anchor,ui.playlist_start,ui.song_loop[0],ui.song_loop[1]);for(int i=0;i<PATTERNS;i++)fprintf(out,"%.9g %.9g %.9g\n",ui.piano_start[i],ui.pattern_loop[i][0],ui.pattern_loop[i][1]);}
+static void snapshot(const char *name){fprintf(out,"%s %d %d %d %d %d %.17g %.9g %.9g %d %d %d %d %.9g %.9g %.9g %.9g\n",name,ui.ruler_last_id,ui.ruler_last_pattern,ui.ruler_last_button,ui.marker_drag,ui.ruler_loop_drag,ui.ruler_last_click,ui.ruler_last_position.x,ui.ruler_last_position.y,ui.stop_armed,ui.song,ui.reset,ui.playing,ui.ruler_anchor,ui.playlist_start,ui.song_loop[0],ui.song_loop[1]);/* Frozen replay covers the original eight slots. */for(int i=0;i<LEGACY_PATTERNS;i++)fprintf(out,"%.9g %.9g %.9g\n",ui.piano_start[i],ui.pattern_loop[i][0],ui.pattern_loop[i][1]);}
 #define PRESS press
 #define DRAG drag
 #define SNAP snapshot

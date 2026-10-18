@@ -33,6 +33,11 @@ with tempfile.TemporaryDirectory(prefix="libreloop-visual-review-") as temporary
     default_root.mkdir()
     subprocess.run([str(exe), "--smoke", "--visual-preview", "--smoke-new-project"], cwd=default_root, env=env, check=True, timeout=30)
     assert b"insert_count i32 1\n1 8\n" in (default_root / "libreloop-smoke.llp").read_bytes(), "New studio project must have eight inserts"
+    expanded_root = root / "expanded-patterns"
+    expanded_root.mkdir()
+    subprocess.run([str(exe), "--smoke", "--visual-preview", "--smoke-new-project", "--smoke-patterns", "12"], cwd=expanded_root, env=env, check=True, timeout=30)
+    expanded = (expanded_root / "libreloop-smoke.llp").read_bytes()
+    assert expanded.startswith(b"LIBRELOOP_PROJECT 2\n") and b"pattern_count i32 1\n1 12\n" in expanded
     # UI scale is a view preference: project content must remain identical.
     for percent in (75, 150, 200):
         directory = root / f"scale-{percent}"

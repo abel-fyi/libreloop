@@ -247,13 +247,31 @@ static int structure_valid(const Project *p) {
 static int equal_value(const unsigned char *a,const unsigned char *b,const Field *f) {
     return f->type==STRING?!strcmp((const char *)a,(const char *)b):!memcmp(a,b,f->width);
 }
+/* Version 1 reserves eight pattern IDs; preserve its compact encoding whenever
+   the extended pattern slots still have their default state. */
+static size_t pattern_field_count(const Field *f,int patterns){
+    if(!strcmp(f->name,"pattern_steps") || !strcmp(f->name,"pattern_names") || !strcmp(f->name,"pattern_colors"))return patterns;
+    if(!strncmp(f->name,"notes.",6))return (size_t)patterns*CHANNELS*NOTES;
+    return f->count;
+}
+static int legacy_patterns(const Project *p){
+    if(p->pattern_count>LEGACY_PATTERNS)return 0;
+    for(int pat=LEGACY_PATTERNS;pat<PATTERNS;pat++){
+        char name[PATTERN_NAME];snprintf(name,sizeof name,"Pattern %d",pat+1);
+        if(p->pattern_steps[pat]!=STEPS || p->pattern_colors[pat]!=pattern_palette[pat%COLOR_COUNT] || strcmp(p->pattern_names[pat],name))return 0;
+        for(int c=0;c<CHANNELS;c++)for(int n=0;n<NOTES;n++){Note v=p->notes[pat][c][n];if(v.pitch || v.velocity || v.start || v.length)return 0;}
+    }
+    return 1;
+}
 int project_save(const char *path,const Project *p) {
     if(!structure_valid(p)) return 0;
     AtomicFile out; if(!atomic_file_open(&out,path)) return 0;
     FILE *file=out.file;
-    fprintf(file,PROJECT_FORMAT_MAGIC " %d\n",PROJECT_FORMAT_VERSION);
+    int version=legacy_patterns(p)?1:PROJECT_FORMAT_VERSION;
+    fprintf(file,PROJECT_FORMAT_MAGIC " %d\n",version);
     for(size_t n=0;n<FIELD_COUNT;n++) {
-        const Field *f=&fields[n];
+        Field stored=fields[n];if(version==1)stored.count=pattern_field_count(&stored,LEGACY_PATTERNS);
+        const Field *f=&stored;
         if(!strncmp(f->name,"x-phaser.",9)){int any=0;for(int bus=0;bus<=INSERTS;bus++)for(int slot=0;slot<EFFECT_SLOTS;slot++)any|=p->effect_type[bus][slot]==EFFECT_PHASER;if(!any)continue;}
         if(!strncmp(f->name,"x-flanger.",10)){int any=0;for(int bus=0;bus<=INSERTS;bus++)for(int slot=0;slot<EFFECT_SLOTS;slot++)any|=p->effect_type[bus][slot]==EFFECT_FLANGER;if(!any)continue;}
         if(!strncmp(f->name,"x-dynamics.",11)){int any=0;for(int bus=0;bus<=INSERTS;bus++)for(int slot=0;slot<EFFECT_SLOTS;slot++)any|=p->effect_type[bus][slot]==EFFECT_DYNAMICS;if(!any)continue;}
@@ -274,6 +292,12 @@ int project_save(const char *path,const Project *p) {
             if(!any)continue;
         }
         fprintf(file,"%s %s %zu\n",f->name,type_names[f->type],f->count);
+        if(version==1 && !strcmp(f->name,"clips")){
+            uint8_t encoded[LANES*CLIPS];
+            for(size_t i=0;i<f->count;i++){uint8_t v=((const uint8_t *)p->clips)[i];encoded[i]=v>PATTERNS?v-(PATTERNS-LEGACY_PATTERNS):v;}
+            for(size_t i=0;i<f->count;){size_t run=1;while(i+run<f->count && encoded[i+run]==encoded[i])run++;fprintf(file,"%zu %u\n",run,encoded[i]);i+=run;}
+            continue;
+        }
         for(size_t i=0;i<f->count;) {
             const unsigned char *value=address((Project *)p,f,i); size_t run=1;
             while(i+run<f->count && equal_value(value,address((Project *)p,f,i+run),f)) run++;
@@ -358,9 +382,13 @@ int project_load(const char *path,Project *p) {
     if(fseek(file,0,SEEK_END) || ftell(file)<0 || ftell(file)>32*1024*1024 || fseek(file,0,SEEK_SET)) { fclose(file); return 0; }
     char text[256],magic[64]; size_t version; int consumed=0;
     int ok=p && line(file,text,sizeof text) && sscanf(text,"%63s %n",magic,&consumed)==1 &&
-        !strcmp(magic,PROJECT_FORMAT_MAGIC) && count_token(text+consumed,&version,PROJECT_FORMAT_VERSION) && version==PROJECT_FORMAT_VERSION;
+        !strcmp(magic,PROJECT_FORMAT_MAGIC) && count_token(text+consumed,&version,PROJECT_FORMAT_VERSION) && version>=1;
     Project *next=ok?calloc(1,sizeof *next):NULL;
     if(next)for(int bus=0;bus<=INSERTS;bus++)for(int slot=0;slot<EFFECT_SLOTS;slot++){next->delay[bus][slot]=delay_default();next->tube[bus][slot]=tube_default();next->reverb[bus][slot]=reverb_default();next->dynamics[bus][slot]=dynamics_default();next->flanger[bus][slot]=flanger_default();next->phaser[bus][slot]=phaser_default();}
+    if(next)for(int pat=0;pat<PATTERNS;pat++){
+        next->pattern_steps[pat]=STEPS;next->pattern_colors[pat]=pattern_palette[pat%COLOR_COUNT];
+        snprintf(next->pattern_names[pat],PATTERN_NAME,"Pattern %d",pat+1);
+    }
     char (*names)[64]=ok?calloc(MAX_FIELDS,sizeof *names):NULL;
     if(ok && (!next || !names)) ok=0;
     unsigned char seen[FIELD_COUNT]={0}; size_t records=0; int ended=0;
@@ -376,7 +404,7 @@ int project_load(const char *path,Project *p) {
         int type=-1; for(int t=0;t<=STRING;t++) if(!strcmp(kind,type_names[t])) type=t;
         const Field *field=NULL;
         for(size_t i=0;i<FIELD_COUNT;i++) if(!strcmp(name,fields[i].name)) { field=&fields[i]; seen[i]=1; break; }
-        ok=type>=0 && (field?field->type==(FieldType)type && field->count==count:!strncmp(name,"x-",2));
+        ok=type>=0 && (field?field->type==(FieldType)type && pattern_field_count(field,version==1?LEGACY_PATTERNS:PATTERNS)==count:!strncmp(name,"x-",2));
         if(ok) ok=read_values(file,next,field,(FieldType)type,count);
     }
     int delay_model_present=0;
@@ -392,6 +420,13 @@ int project_load(const char *path,Project *p) {
         DynamicsSettings *s=&next->dynamics[bus][slot];
         if(s->lowcut>80 && s->lowcut<=200)s->lowcut=80;
         if(isfinite(s->low) && s->lowcut>=0 && s->lowcut<=80)s->low=fmaxf(s->low,s->lowcut);
+    }
+    if(ok && version==1){
+        if(next->pattern_count>LEGACY_PATTERNS)ok=0;
+        for(int l=0;l<LANES;l++)for(int b=0;b<CLIPS;b++){
+            unsigned v=next->clips[l][b];if(v>LEGACY_PATTERNS+CHANNELS+AUTOMATIONS)ok=0;
+            else if(v>LEGACY_PATTERNS)next->clips[l][b]=v+(PATTERNS-LEGACY_PATTERNS);
+        }
     }
     ok=ok && !ferror(file) && structure_valid(next);
     if(ok) *p=*next;

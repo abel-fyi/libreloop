@@ -63,7 +63,7 @@ float fader_gain(float position) {
 }
 void project_default(Project *p) {
     memset(p, 0, sizeof *p); p->bpm=120; p->master=1; p->master_width=1; p->pattern_count=1; p->channel_count=4; snprintf(p->audio_io[0][1],128,"@default");
-    for(int pat=0;pat<PATTERNS;pat++) { p->pattern_colors[pat]=pattern_palette[pat]; p->pattern_steps[pat]=STEPS; snprintf(p->pattern_names[pat],PATTERN_NAME,"Pattern %d",pat+1); }
+    for(int pat=0;pat<PATTERNS;pat++) { p->pattern_colors[pat]=pattern_palette[pat%COLOR_COUNT]; p->pattern_steps[pat]=STEPS; snprintf(p->pattern_names[pat],PATTERN_NAME,"Pattern %d",pat+1); }
     for(int id=0;id<=INSERTS;id++) for(int slot=0;slot<10;slot++) { p->effect_mix[id][slot]=1; device_descriptor(DEVICE_CHORUS)->defaults(&p->chorus[id][slot]); device_descriptor(DEVICE_EQ)->defaults(&p->eq[id][slot]); p->delay[id][slot]=delay_default(); p->tube[id][slot]=tube_default(); p->reverb[id][slot]=reverb_default(); p->dynamics[id][slot]=dynamics_default();p->phaser[id][slot]=phaser_default();p->flanger[id][slot]=flanger_default(); }
     for(int l=0;l<LANES;l++) snprintf(p->track_names[l],PATTERN_NAME,"Track %d",l+1);
     const char *names[]={"Kick","Snare","Hat","Tone"};
@@ -151,6 +151,18 @@ int channel_delete(Project *p,int c) {
     for(int pat=0;pat<PATTERNS;pat++) memset(p->notes[pat][last],0,sizeof p->notes[pat][last]);
     return 1;
 }
+int pattern_add(Project *p){
+    if(!p || p->pattern_count<1 || p->pattern_count>=PATTERNS)return -1;
+    int pattern=p->pattern_count++;
+    memset(p->notes[pattern],0,sizeof p->notes[pattern]);p->pattern_steps[pattern]=STEPS;
+    for(int n=1;n<=PATTERNS+1;n++){
+        snprintf(p->pattern_names[pattern],PATTERN_NAME,"Pattern %d",n);
+        int duplicate=0;for(int i=0;i<pattern;i++)if(!strcmp(p->pattern_names[i],p->pattern_names[pattern]))duplicate=1;
+        if(!duplicate)break;
+    }
+    p->pattern_colors[pattern]=next_source_color(p->pattern_colors,pattern);
+    return pattern;
+}
 int pattern_delete(Project *p,int pattern) {
     if(pattern<0 || pattern>=p->pattern_count) return 0;
     for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) {
@@ -163,7 +175,7 @@ int pattern_delete(Project *p,int pattern) {
         p->pattern_steps[i]=p->pattern_steps[i+1]; p->pattern_colors[i]=p->pattern_colors[i+1];
     }
     int last=p->pattern_count>1?--p->pattern_count:0;
-    memset(p->notes[last],0,sizeof p->notes[last]); p->pattern_steps[last]=STEPS; p->pattern_colors[last]=pattern_palette[last];
+    memset(p->notes[last],0,sizeof p->notes[last]); p->pattern_steps[last]=STEPS; p->pattern_colors[last]=pattern_palette[last%COLOR_COUNT];
     snprintf(p->pattern_names[last],PATTERN_NAME,"Pattern %d",last+1);
     return 1;
 }

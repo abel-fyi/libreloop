@@ -658,15 +658,8 @@ void playlist_picker(Rect rect,float height) {
     if(ui.picker_tab==1 && !audio_count) { label("No audio clips",8,gy+8,12,muted); label("Drop on Playlist",8,gy+28,11,muted); }
     if(ui.picker_tab==0 && button("+",4,height-picker_bottom()+4,picker_width(),20,0)) {
         if(ui.project.pattern_count<PATTERNS) {
-            ui.pattern=ui.project.pattern_count++; ui.arrangement.source_pattern=ui.pattern; ui.arrangement.source_steps=STEPS; memset(ui.project.notes[ui.pattern],0,sizeof ui.project.notes[ui.pattern]);
-            ui.project.pattern_steps[ui.pattern]=STEPS; memset(ui.piano_channels[ui.pattern],0,sizeof ui.piano_channels[ui.pattern]);
-            for(int n=1;n<=PATTERNS+1;n++) {
-                snprintf(ui.project.pattern_names[ui.pattern],PATTERN_NAME,"Pattern %d",n);
-                int duplicate=0;
-                for(int i=0;i<ui.pattern;i++) if(!strcmp(ui.project.pattern_names[i],ui.project.pattern_names[ui.pattern])) duplicate=1;
-                if(!duplicate) break;
-            }
-            ui.project.pattern_colors[ui.pattern]=next_source_color(ui.project.pattern_colors,ui.pattern);
+            ui.pattern=pattern_add(&ui.project);ui.arrangement.source_pattern=ui.pattern;ui.arrangement.source_steps=STEPS;
+            memset(ui.piano_channels[ui.pattern],0,sizeof ui.piano_channels[ui.pattern]);
             ui.rack_view[ui.pattern]=ui.rack_range[ui.pattern]=0; ui.reset=1;
             ui.picker_scroll=fmaxf(0,ui.project.pattern_count-picker_visible);
         } else snprintf(ui.status,sizeof ui.status,"This prototype supports %d patterns.",PATTERNS);

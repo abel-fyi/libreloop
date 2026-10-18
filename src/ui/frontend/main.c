@@ -85,9 +85,11 @@ int main(int argc,char **argv) {
     float smoke_velocity=0,smoke_mixer_offset=0,smoke_fx_scroll=0;int smoke_seconds=0,smoke_fx_hidden=0,smoke_inserts=0,smoke_routing=0,smoke_fx_count=0;
     float smoke_ui_scale=0;
     float smoke_rack_zoom=0;int smoke_grid_menu=0,smoke_grid=-1,smoke_workspace=0,smoke_fill=0,smoke_count=0;
+    int smoke_patterns=0;
     int smoke=0,visual_preview=0,legacy_ui=0,smoke_scene=0,smoke_width=0,smoke_height=0,smoke_popup=0,profile_frames=0,profile_motion=0;
     for(int i=1;i<argc;i++) {
         if(!strcmp(argv[i],"--smoke")) smoke=1;
+        else if(!strcmp(argv[i],"--smoke-patterns") && i+1<argc)smoke_patterns=atoi(argv[++i]);
         else if(!strcmp(argv[i],"--smoke-fx-count") && i+1<argc)smoke_fx_count=atoi(argv[++i]);
         else if(!strcmp(argv[i],"--smoke-routing"))smoke_routing=1;
         else if(!strcmp(argv[i],"--smoke-mixer-offset") && i+1<argc)smoke_mixer_offset=atof(argv[++i]);
@@ -117,6 +119,7 @@ int main(int argc,char **argv) {
         else if(!strcmp(argv[i],"--version")) { printf("LibreLoop %s\n",LIBRELOOP_VERSION); return 0; }
     }
     if((smoke_mixer_offset || smoke_fx_scroll || smoke_fx_hidden || smoke_inserts || smoke_routing || smoke_fx_count) && !smoke)return 1;
+    if(smoke_patterns && (!smoke || smoke_patterns<1 || smoke_patterns>PATTERNS))return 1;
     if(smoke_fx_count<0 || smoke_fx_count>EFFECT_SLOTS)return 1;
     if(!isfinite(smoke_mixer_offset) || !isfinite(smoke_fx_scroll) || smoke_inserts<0 || smoke_inserts>INSERTS)return 1;
     if((smoke_playing || smoke_piano_maximized) && !smoke)return 1;
@@ -176,7 +179,7 @@ int main(int argc,char **argv) {
     int audio_ok=audio_start(&ui.project,ui.samples);
     if(!audio_ok) snprintf(ui.status,sizeof ui.status,"Audio device unavailable. Editing and WAV export are available.");
     ui.app_window=host_window();
-    browser_init(&ui.browser,ui.samples_path);if(!smoke && ui.studio_style)ui_scale_load(); midi_initialize(); theme_init(); if(ui.studio_style){theme_studio();ui.browser_width=238;ui.last_sidebar=238;} file_chooser_locations(ui.browser.config); if(smoke){new_project(smoke_new_project?0:1);smoke_scene_prepare(smoke_scene);if(smoke_playing){ui.playing=1;ui.reset=1;}} int frames=0,initialized=0;
+    browser_init(&ui.browser,ui.samples_path);if(!smoke && ui.studio_style)ui_scale_load(); midi_initialize(); theme_init(); if(ui.studio_style){theme_studio();ui.browser_width=238;ui.last_sidebar=238;} file_chooser_locations(ui.browser.config); if(smoke){new_project(smoke_new_project?0:1);smoke_scene_prepare(smoke_scene);while(ui.project.pattern_count<smoke_patterns)if(pattern_add(&ui.project)<0)return 1;if(smoke_playing){ui.playing=1;ui.reset=1;}} int frames=0,initialized=0;
     float studio_piano_width=0,studio_arrangement_width=0,last_ui_scale=0;
     double last_activity=host_get_time();
     while(!ui.document.quit) {

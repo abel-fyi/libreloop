@@ -76,24 +76,24 @@ int project_save_assets(const char *path,Project *project,const Sample originals
 }
 
 int project_load_assets(const char *path,Project *project,Sample originals[CHANNELS],Sample processed[CHANNELS],ProjectSampleLoad load,int *missing) {
-    Project next;
+    Project *next=malloc(sizeof *next);
     memset(originals,0,CHANNELS*sizeof *originals); memset(processed,0,CHANNELS*sizeof *processed);
-    if(!load || !project_load(path,&next)) return 0;
+    if(!next || !load || !project_load(path,next)){free(next);return 0;}
     samples_default(originals); int absent=0;
     for(int c=0;c<CHANNELS;c++) {
-        if(!strcmp(next.paths[c],SAMPLE_EMPTY)) { sample_free(originals[c]); originals[c]=(Sample){0}; }
-        else if(next.paths[c][0]) {
+        if(!strcmp(next->paths[c],SAMPLE_EMPTY)) { sample_free(originals[c]); originals[c]=(Sample){0}; }
+        else if(next->paths[c][0]) {
             char resolved[LL_PATH_CAPACITY]; Sample decoded={0};
-            if(!project_sample_path(path,next.paths[c],resolved,sizeof resolved) || strlen(resolved)>=sizeof next.paths[c]) goto failed;
-            memcpy(next.paths[c],resolved,strlen(resolved)+1);
+            if(!project_sample_path(path,next->paths[c],resolved,sizeof resolved) || strlen(resolved)>=sizeof next->paths[c]) goto failed;
+            memcpy(next->paths[c],resolved,strlen(resolved)+1);
             sample_free(originals[c]); originals[c]=(Sample){0};
             if(load(resolved,&decoded)) originals[c]=decoded;
-            else if(c<next.channel_count) absent++;
-        } else if(c<next.channel_count && c<4 && !originals[c].data) goto failed;
+            else if(c<next->channel_count) absent++;
+        } else if(c<next->channel_count && c<4 && !originals[c].data) goto failed;
     }
-    for(int c=0;c<CHANNELS;c++) if(!sample_process(originals[c],next.sampler[c],&processed[c])) goto failed;
-    *project=next; if(missing) *missing=absent; return 1;
+    for(int c=0;c<CHANNELS;c++) if(!sample_process(originals[c],next->sampler[c],&processed[c])) goto failed;
+    *project=*next;free(next); if(missing) *missing=absent; return 1;
 failed:
     for(int c=0;c<CHANNELS;c++) { sample_free(originals[c]); sample_free(processed[c]); originals[c]=processed[c]=(Sample){0}; }
-    return 0;
+    free(next);return 0;
 }

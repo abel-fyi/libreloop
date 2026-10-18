@@ -53,7 +53,7 @@ typedef struct {
     unsigned preview_end,preview_remaining;
     VoiceView voices[128];
     uint8_t instrument[CHANNELS];
-    uint8_t pattern_notes[PATTERNS][CHANNELS][NOTES];
+    uint8_t pattern_notes[PATTERNS][CHANNELS][(NOTES+7)/8];
     unsigned sample_frames[CHANNELS],live_frames,visual_frames;
     double speeds[CHANNELS],live_time,visual_frame,visual_time,visual_start,visual_end;
     uint64_t note_serial;
@@ -264,7 +264,7 @@ static void publish_view(void) {
     if(playing) for(int i=0;i<128;i++) {
         const Voice *v=&player.voices[i];
         if(v->gain>0 && v->note_id>0 && v->note_id<=NOTES && v->pattern>=0 && v->pattern<PATTERNS && v->channel>=0 && v->channel<CHANNELS && player.channel_active[v->channel] && (v->lane<0 || (v->lane<LANES && player.lane_active[v->lane])))
-            target->pattern_notes[v->pattern][v->channel][v->note_id-1]=1;
+            target->pattern_notes[v->pattern][v->channel][(v->note_id-1)/8]|=1u<<((v->note_id-1)%8);
     }
     target->note_serial=note_preview_serial;target->note_channel=note_preview_channel;target->note_pitch=note_preview_pitch;target->note_active=0;
     if(note_preview_channel>=0 && note_preview_channel<project.channel_count) {
@@ -683,7 +683,7 @@ void audio_channel_activity(uint8_t active[CHANNELS],uint8_t triggered[CHANNELS]
 }
 void audio_pattern_activity(int pattern,uint8_t notes[CHANNELS][NOTES]) {
     refresh_view();
-    if(pattern>=0 && pattern<PATTERNS) memcpy(notes,view.pattern_notes[pattern],CHANNELS*NOTES);
+    if(pattern>=0 && pattern<PATTERNS)for(int c=0;c<CHANNELS;c++)for(int n=0;n<NOTES;n++)notes[c][n]=(view.pattern_notes[pattern][c][n/8]>>(n%8))&1;
     else memset(notes,0,CHANNELS*NOTES);
     
 }

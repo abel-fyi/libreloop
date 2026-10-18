@@ -29,6 +29,11 @@ old_stop = '"Play from ruler / stop all audio, including previews (Space)"'
 new_stop = '"Play from ruler / stop sources, preserving effect tails (Space)"'
 assert actual[new_stop] == expected[old_stop] == 1
 expected[new_stop] += expected.pop(old_stop)
+# Pattern naming moved intact into the shared engine creation operation.
+engine = (root / "src/engine/engine.c").read_text()
+pattern_add = engine.split("int pattern_add(", 1)[1].split("int pattern_delete(", 1)[0]
+assert pattern_add.count('"Pattern %d"') == 1
+actual['"Pattern %d"'] += 1
 missing = expected - actual
 assert not missing, f"Original frontend literals changed or disappeared: {dict(missing)}"
 print(f"All {sum(expected.values())} original UI literal occurrences preserved")
