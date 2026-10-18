@@ -11,22 +11,12 @@ static DrawTexture *skin_patterns,*skin_knobs,*skin_graph_large;
 static int graph_step;
 static const unsigned char skin_bayer[4][4]={{0,8,2,10},{12,4,14,6},{3,11,1,9},{15,7,13,5}};
 static const int skin_knob_radii[]={8,9,10,12};
-enum { SKIN_PANEL,SKIN_GRAPH,SKIN_CONTROL,SKIN_CLIP };
 static DrawColor graph_pixel(int x,int y){return !(x%4) && !(y%4)?(DrawColor){0,146,207,48}:(DrawColor){0,0,0,0};}
-static DrawColor material_pixel(int x,int y,int kind){
-    if(kind==SKIN_GRAPH)return graph_pixel(x,y);
-    if(kind==SKIN_CONTROL)return skin_bayer[y&3][x&3]<8?(DrawColor){0,0,0,12}:(DrawColor){255,255,255,12};
-    int mark=kind==SKIN_CLIP?!(y%4) && !((x+2*(y/4))%8):!(x%4) && !(y%4);
-    if(!mark)return (DrawColor){0,0,0,0};
-    int alpha=kind==SKIN_CLIP?48:64;
-    return ((x/4+y/4)&1)?(DrawColor){255,255,255,alpha}:(DrawColor){0,0,0,alpha};
-}
 int theme_draw_init(DrawContext *draw) {
     if(skin_patterns && skin_knobs)return 1;
-    /* Separate cached materials: fine panel dots, native-density graph paper,
-       subtle control grain, and staggered clip stipple. All are drawn below text. */
-    DrawColor pixels[256*64]={0},knobs[128*32]={0};
-    for(int y=0;y<64;y++)for(int x=0;x<256;x++)pixels[y*256+x]=material_pixel(x%64,y,x/64);
+    /* One shared dotted material across graph paper and UI surfaces, below text. */
+    DrawColor pixels[64*64]={0},knobs[128*32]={0};
+    for(int y=0;y<64;y++)for(int x=0;x<64;x++)pixels[y*64+x]=graph_pixel(x,y);
     /* Small pixel-shaded faces use their own compact atlas. Angle/pointer and
        interaction remain continuous; only the decorative body is a bitmap. */
     for(int k=0;k<4;k++)for(int y=0;y<32;y++)for(int x=0;x<32;x++) {
@@ -42,16 +32,16 @@ int theme_draw_init(DrawContext *draw) {
         }
         knobs[y*128+k*32+x]=c;
     }
-    skin_patterns=draw_texture_create(draw,256,64,pixels,0);
+    skin_patterns=draw_texture_create(draw,64,64,pixels,0);
     skin_knobs=draw_texture_create(draw,128,32,knobs,0);
     if(!skin_patterns || !skin_knobs){theme_draw_close();return 0;}
     draw_texture_filter(skin_patterns,0);draw_texture_filter(skin_knobs,0);
     return 1;
 }
 void theme_draw_close(void) { draw_texture_destroy(skin_patterns);draw_texture_destroy(skin_knobs);draw_texture_destroy(skin_graph_large);skin_patterns=skin_knobs=skin_graph_large=NULL;graph_step=0; }
-static void skin_pattern(DrawContext *draw,DrawRect r,int kind) {
+static void skin_pattern(DrawContext *draw,DrawRect r) {
     if(!skin_patterns || r.width<=0 || r.height<=0)return;
-    int step=kind==SKIN_GRAPH?draw_pattern_pixel_size(draw):1;
+    int step=draw_pattern_pixel_size(draw);
     if(step>1 && (!skin_graph_large || graph_step!=step)){
         int size=64*step;DrawColor *pixels=malloc((size_t)size*size*sizeof *pixels);
         if(pixels){
@@ -62,13 +52,13 @@ static void skin_pattern(DrawContext *draw,DrawRect r,int kind) {
     }
     if(step>1 && skin_graph_large && graph_step==step)
         draw_texture_tiled_pixels(draw,skin_graph_large,(DrawRect){0,0,64*step,64*step},r,(DrawColor){255,255,255,255});
-    else draw_texture_tiled_pixels(draw,skin_patterns,(DrawRect){kind*64,0,64,64},r,(DrawColor){255,255,255,255});
+    else draw_texture_tiled_pixels(draw,skin_patterns,(DrawRect){0,0,64,64},r,(DrawColor){255,255,255,255});
 }
 void ui_graph_paper(DrawContext *draw,DrawRect r) {
     draw_rect(draw,r,ui_skin.graph);
     ui_graph_dots(draw,r);
 }
-void ui_graph_dots(DrawContext *draw,DrawRect r) { if(classic_style)skin_pattern(draw,r,SKIN_GRAPH); }
+void ui_graph_dots(DrawContext *draw,DrawRect r) { if(classic_style)skin_pattern(draw,r); }
 void ui_graph_area(DrawContext *draw,DrawPoint a,DrawPoint b,float baseline) {
     DrawColor top=ui_skin.graph_fill,bottom={0,31,49,255};
     DrawVertex v[]={{a,0,0,top},{{a.x,baseline},0,0,bottom},{{b.x,baseline},0,0,bottom},
@@ -223,7 +213,7 @@ void ui_gradient(DrawContext *draw,DrawRect r,DrawColor base,float strength,int 
         {{r.x,r.y},0,0,light},{{r.x,r.y+r.height},0,0,bl},{{r.x+r.width,r.y+r.height},0,0,dark},
         {{r.x,r.y},0,0,light},{{r.x+r.width,r.y+r.height},0,0,dark},{{r.x+r.width,r.y},0,0,tr}};
     draw_triangles(draw,NULL,vertices,6);
-    if(classic_style)skin_pattern(draw,r,SKIN_CLIP);
+    if(classic_style)skin_pattern(draw,r);
 }
 /* Explicit endpoints for the skin: unlike source-colour clip gradients these
    are not contrast-clamped. Text is chosen against the darkest endpoint. */
@@ -239,7 +229,7 @@ static DrawColor skin_offset(DrawColor c,int amount) {
 void ui_panel(DrawContext *draw,DrawRect r,DrawColor color) {
     if(!classic_style){draw_rect(draw,r,color);return;}
     skin_gradient(draw,r,skin_offset(color,9),skin_offset(color,-12));
-    skin_pattern(draw,r,SKIN_PANEL);
+    skin_pattern(draw,r);
 }
 void ui_button_face(DrawContext *draw,DrawRect r,DrawColor color,int pressed) {
     if(!classic_style){draw_rect(draw,r,color);return;}
@@ -249,7 +239,7 @@ void ui_button_face(DrawContext *draw,DrawRect r,DrawColor color,int pressed) {
         draw_rect(draw,(DrawRect){r.x+r.width,r.y+2,2,r.height-2},shadow);
     }
     skin_gradient(draw,r,skin_offset(color,pressed?-13:23),skin_offset(color,pressed?4:-22));
-    skin_pattern(draw,r,SKIN_CONTROL);
+    skin_pattern(draw,r);
     ui_bevel(draw,r,pressed);
     if(r.width>8 && r.height>8 && !pressed)
         draw_hairline(draw,(DrawPoint){r.x+3,r.y+3},(DrawPoint){r.x+r.width-4,r.y+3},skin_offset(color,40));
@@ -311,7 +301,7 @@ void ui_titlebar(DrawContext *draw,DrawRect r,int focused) {
     DrawColor c=focused?ui_theme.title_focus:ui_theme.title;
     if(!classic_style){draw_rect(draw,r,c);return;}
     skin_gradient(draw,r,skin_offset(c,23),skin_offset(c,-10));
-    skin_pattern(draw,r,SKIN_CONTROL);
+    skin_pattern(draw,r);
     draw_hairline(draw,(DrawPoint){r.x+2,r.y+1},(DrawPoint){r.x+r.width-3,r.y+1},(DrawColor){184,189,195,255});
     draw_hairline(draw,(DrawPoint){r.x,r.y+r.height-1},(DrawPoint){r.x+r.width-1,r.y+r.height-1},(DrawColor){44,48,53,255});
 }
@@ -397,7 +387,7 @@ void ui_scrollbar(DrawContext *draw,DrawRect rail,DrawRect thumb,int active) {
     if(classic_style)ui_button_face(draw,thumb,ui_theme.control,active);
     else draw_rect(draw,thumb,active?ui_theme.highlight:ui_theme.secondary);
 }
-void ui_surface(DrawContext *draw,DrawRect rect,DrawColor color) { draw_rect(draw,rect,color);if(classic_style)skin_pattern(draw,rect,SKIN_PANEL); }
+void ui_surface(DrawContext *draw,DrawRect rect,DrawColor color) { draw_rect(draw,rect,color);if(classic_style)skin_pattern(draw,rect); }
 void ui_frame(DrawContext *draw,DrawRect rect) {
     ui_panel(draw,rect,ui_theme.surface);
     if(classic_style)draw_border(draw,rect,1,ui_theme.border);

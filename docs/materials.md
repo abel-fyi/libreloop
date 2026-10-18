@@ -154,3 +154,27 @@ physical pixel stability at 75–200% UI scale, fractional movement, and simulat
 Native Retina appearance, compositor scaling and display transitions remain
 unverified hands-on checks. Earlier timing numbers describe earlier revisions.
 All 158 Release tests pass for this revision, including both theme checks.
+
+## One dotted material throughout
+
+The user preferred the arrangement/browser finish over the separate material
+roles. All shared surface paths now use the graph-paper dot tile: cyan
+(0,146,207), alpha 48, one dot per 4×4 cell. Panels, buttons, title bars and
+colored clip gradients therefore share the same dot spacing, phase and native
+DPI sizing as graph displays. Background colors and gradients remain intact;
+labels and data are drawn above the material. The preceding distinct-role
+section describes the superseded iteration.
+
+Removing the other tiles reduces base RGBA atlas storage from 80 KiB to 32 KiB
+(16 KiB dots plus 16 KiB knob faces). The single cached native-density variant
+still adds 64 KiB at 2× or 144 KiB at 3×. No additional rendering pass, dependency
+or per-frame texture generation was introduced. Executable size is unchanged
+at 5,739,296 bytes. Rendering overhead has not been measured for this revision.
+
+The screenshot review used the software-rendered showcase at 150% UI scale.
+Pixel checks require both panels and graphs to keep the same native-density dot
+size across 75–200% UI scale and fractional movement, at simulated 1×/2×/3× DPI.
+Native Retina appearance and compositor/display transitions remain unverified.
+All 158 Release tests pass across the full run and targeted theme rerun. The
+initial theme check sampled a new cyan dot when checking gray title color;
+it now samples between dots, preserving the original neutrality assertion.

@@ -115,7 +115,11 @@ static int check_skin(float scale) {
     by-=(by-ty)%4;const unsigned char *bp=pixels+(by*w+tx)*4;
     DrawColor bottom={bp[0],bp[1],bp[2],bp[3]};
     DrawColor raised=skin_pixel(pixels,w,scale,2,10),sunken=skin_pixel(pixels,w,scale,28,10);
-    DrawColor title=skin_pixel(pixels,w,scale,12,32),center=skin_pixel(pixels,w,scale,65,16),edge=skin_pixel(pixels,w,scale,72,21);
+    /* Check the gray title material between cyan dots. */
+    int title_x=(int)(12.5f*scale),title_y=(int)(32.5f*scale);
+    if(!(title_x%4) && !(title_y%4))title_x++;
+    const unsigned char *title_pixel=pixels+(title_y*w+title_x)*4;
+    DrawColor title={title_pixel[0],title_pixel[1],title_pixel[2],title_pixel[3]},center=skin_pixel(pixels,w,scale,65,16),edge=skin_pixel(pixels,w,scale,72,21);
     /* Paper dots have a fixed four-physical-pixel period at every UI scale. */
     int dot=0,empty=255;
     for(int y=(int)ceilf(44*scale);y<(int)ceilf(44*scale)+4;y++)for(int x=(int)ceilf(4*scale);x<(int)ceilf(4*scale)+4;x++) {
@@ -166,12 +170,12 @@ static int check_material_density(void){
         if(graph)ui_graph_paper(draw,(DrawRect){0,0,100,100});else ui_surface(draw,(DrawRect){0,0,100,100},(DrawColor){128,128,128,255});draw_flush(draw);
         if(!draw_read_rgba(draw,reference,80,64))return 0;
         int low=255,high=0;for(int i=0;i<80*64;i++){int c=reference[i*4+(graph?2:0)];if(c<low)low=c;if(c>high)high=c;}
-        if(high-low<(graph?8:48))return 0;
+        if(high-low<8)return 0;
         for(int density=1;density<=3;density++)for(unsigned i=0;i<sizeof scales/sizeof *scales;i++)for(int moved=0;moved<2;moved++){
             draw_pattern_density(draw,density);draw_transform(draw,scales[i],moved?.37f:0,moved?.83f:0);draw_clear(draw,(DrawColor){0,0,0,255});
             if(graph)ui_graph_paper(draw,(DrawRect){0,0,100,100});else ui_surface(draw,(DrawRect){0,0,100,100},(DrawColor){128,128,128,255});draw_flush(draw);
             if(!draw_read_rgba(draw,actual,80,64))return 0;
-            int step=graph?density:1;
+            int step=density;
             for(int y=10;y<54;y++)for(int x=10;x<62;x++)if(memcmp(actual+(y*80+x)*4,reference+((y/step)*80+x/step)*4,4))return 0;
         }
     }
