@@ -11,7 +11,7 @@ struct DrawTexture {DrawColor *pixels;int width,height,linear;};
 struct DrawContext {
     SDL_Renderer *renderer;SDL_Texture *present;
     DrawColor *frame,*previous;int width,height,have_previous;
-    DrawTexture *target;float scale,x,y;
+    DrawTexture *target;float scale,x,y;int pattern_step;
     int left,top,right,bottom,clipped;
     DrawCpuStats stats;
 };
@@ -43,6 +43,8 @@ static DrawColor blend(DrawColor dst,DrawColor src) {
 }
 DrawContext *draw_create(void *native){if(!native)return NULL;DrawContext *d=calloc(1,sizeof *d);if(!d)return NULL;d->renderer=native;d->scale=1;if(!dimensions(d)){draw_destroy(d);return NULL;}return d;}
 void draw_destroy(DrawContext *d){if(d){free(d->frame);free(d->previous);if(d->present)SDL_DestroyTexture(d->present);free(d);}}
+void draw_pattern_density(DrawContext *d,float density){d->pattern_step=isfinite(density)?(int)roundf(fmaxf(1,fminf(8,density))):1;}
+int draw_pattern_pixel_size(const DrawContext *d){return d->pattern_step>0?d->pattern_step:1;}
 void draw_transform(DrawContext *d,float scale,float x,float y){d->scale=scale;d->x=x;d->y=y;}
 void draw_clear(DrawContext *d,DrawColor c){if(!dimensions(d))return;int w,h;DrawColor *p=pixels(d,&w,&h);if(p)for(size_t i=0;i<(size_t)w*h;i++)p[i]=c;}
 void draw_clip(DrawContext *d,const DrawRect *r){d->clipped=r!=NULL;if(r){d->left=(int)r->x;d->top=(int)r->y;d->right=d->left+(int)r->width;d->bottom=d->top+(int)r->height;}}

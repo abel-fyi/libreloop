@@ -99,7 +99,7 @@ const char *host_get_clipboard_text(void){free(clipboard);clipboard=platform_cli
 int host_is_file_dropped(void){return drops.count>0;}
 WindowDrops host_load_dropped_files(void){WindowDrops result=drops;drops=(WindowDrops){0};return result;}
 void host_unload_dropped_files(WindowDrops d){platform_window_drops_free(d);}
-void host_begin_mode2_d(HostCamera c){camera_zoom=c.zoom;WindowGeometry g=platform_window_geometry(window);float density=target?1:g.width>0?g.pixel_width/(float)g.width:1;draw_transform(draw,c.zoom*density,(c.offset.x-c.target.x*c.zoom)*density,(c.offset.y-c.target.y*c.zoom)*density);}
+void host_begin_mode2_d(HostCamera c){camera_zoom=c.zoom;WindowGeometry g=platform_window_geometry(window);float density=target?1:g.width>0?g.pixel_width/(float)g.width:1;draw_pattern_density(draw,density);draw_transform(draw,c.zoom*density,(c.offset.x-c.target.x*c.zoom)*density,(c.offset.y-c.target.y*c.zoom)*density);}
 void host_end_mode2_d(void){host_begin_mode2_d((HostCamera){.zoom=1});}
 void host_begin_scissor_mode(int x,int y,int w,int h){DrawRect r=ui_render_scissor(platform_window_geometry(window),x,y,w,h);draw_clip(draw,&r);}
 void host_end_scissor_mode(void){draw_clip(draw,NULL);}
@@ -139,7 +139,7 @@ void host_set_texture_filter(HostTexture t,int filter){draw_texture_filter(t.id,
 void host_set_texture_wrap(HostTexture t,int wrap){(void)t;(void)wrap;/* SDL texture sampling clamps. */}
 HostTarget host_load_render_texture(int w,int h){DrawTexture *t=draw_texture_create(draw,w,h,NULL,1);return (HostTarget){t,{t,w,h}};}
 void host_unload_render_texture(HostTarget t){draw_texture_destroy(t.id);}
-void host_begin_texture_mode(HostTarget t){target=t.id;draw_target(draw,target);draw_transform(draw,1,0,0);}
+void host_begin_texture_mode(HostTarget t){target=t.id;draw_target(draw,target);draw_pattern_density(draw,1);draw_transform(draw,1,0,0);}
 void host_end_texture_mode(void){target=NULL;draw_target(draw,NULL);draw_transform(draw,1,0,0);}
 void host_take_screenshot(const char *path){WindowGeometry g=platform_window_geometry(window);void *p=malloc((size_t)g.pixel_width*g.pixel_height*4);if(p && draw_read_rgba(draw,p,g.pixel_width,g.pixel_height))stbi_write_png(path,g.pixel_width,g.pixel_height,4,p,g.pixel_width*4);free(p);}
 void host_mesh_settexture(DrawTexture *t){mesh_texture=t;}

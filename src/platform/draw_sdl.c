@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
-struct DrawContext { SDL_Renderer *renderer; float scale,x,y; };
+struct DrawContext { SDL_Renderer *renderer; float scale,x,y;int pattern_step; };
 struct DrawTexture { SDL_Texture *texture; int width,height; };
 static SDL_FColor color(DrawColor c) { return (SDL_FColor){c.r/255.f,c.g/255.f,c.b/255.f,c.a/255.f}; }
 static SDL_FPoint point(DrawContext *d,DrawPoint p) { return (SDL_FPoint){p.x*d->scale+d->x,p.y*d->scale+d->y}; }
@@ -16,6 +16,8 @@ DrawContext *draw_create(void *renderer) {
     d->renderer=renderer;d->scale=1;SDL_SetRenderDrawBlendMode(d->renderer,SDL_BLENDMODE_BLEND);return d;
 }
 void draw_destroy(DrawContext *d) { free(d); }
+void draw_pattern_density(DrawContext *d,float density){d->pattern_step=isfinite(density)?(int)roundf(fmaxf(1,fminf(8,density))):1;}
+int draw_pattern_pixel_size(const DrawContext *d){return d->pattern_step>0?d->pattern_step:1;}
 void draw_transform(DrawContext *d,float scale,float x,float y) { d->scale=scale;d->x=x;d->y=y; }
 void draw_clear(DrawContext *d,DrawColor c) { SDL_SetRenderDrawColor(d->renderer,c.r,c.g,c.b,c.a);SDL_RenderClear(d->renderer); }
 void draw_rect(DrawContext *d,DrawRect r,DrawColor c) { SDL_FRect area=rect(d,r);SDL_SetRenderDrawColor(d->renderer,c.r,c.g,c.b,c.a);SDL_RenderFillRect(d->renderer,&area); }

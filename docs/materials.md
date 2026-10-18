@@ -91,3 +91,34 @@ visibility differs with UI scale, so this is not an isolated material-cost
 comparison and cannot establish GPU overhead. Raw local data:
 `/tmp/libreloop-pixel-material-profile/results.json`. Earlier before/after
 measurements in this document describe the preceding material pass.
+
+## Visible panel grain on HiDPI
+
+Single-framebuffer-pixel checkerboard grain became visually averaged on a dense
+display. Panel material now uses sparse Bayer light/dark marks (two dark and two
+light texels per 4×4 cell, alpha 32, remaining texels transparent). Graph dots
+retain their finer one-physical-pixel appearance.
+
+The platform supplies framebuffer density separately from camera/UI zoom. Panel
+material rounds that density to whole-pixel steps: a 2× display uses 2×2 physical
+pixels per grain texel. This approximates the same apparent size without
+fractional texture sampling. Fractional display density rounds to the nearest
+whole step; physical size cannot be identical across every monitor/PPI setting.
+UI zoom never changes the grain cell size or its framebuffer-origin phase.
+
+To avoid runtime magnification, the theme creates and caches a native-size
+material tile when display density changes. The 2× tile adds 64 KiB of pixel
+storage (3×: 144 KiB), in addition to the existing 48 KiB atlases. Only one
+additional density variant is retained. Generation/upload runs on the UI thread
+on first use or a density change; subsequent frames reuse it. No audio-thread
+work, dependencies or bitmap assets were added. GPU/driver overhead and upload
+time have not been measured. The executable is 5,739,296 bytes (+160 bytes).
+
+Rendering checks verify actual material pixels against the 1× reference at
+1×/2×/3× display density across 75–200% UI zoom and fractional movement. A contrast
+assertion also ensures the test is rendering visible grain. The previous full
+suite passed 157 tests; its new material test initially lacked atlas setup.
+After correcting that setup, both theme checks pass on rerun. The experimental
+CPU backend passes a syntax check. Native Retina appearance and display changes
+remain hands-on checks. Earlier timing probes describe earlier revisions; no
+new native rendering-cost measurement is claimed for this adjustment.

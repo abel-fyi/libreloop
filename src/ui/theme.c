@@ -2,21 +2,26 @@
 #include "theme.h"
 #include "signal_palette.h"
 #include <math.h>
+#include <stdlib.h>
 
 Theme ui_theme;
 DesktopSkin ui_skin;
 static int classic_style;
-static DrawTexture *skin_patterns,*skin_knobs;
+static DrawTexture *skin_patterns,*skin_knobs,*skin_material;
+static int material_step;
 static const unsigned char skin_bayer[4][4]={{0,8,2,10},{12,4,14,6},{3,11,1,9},{15,7,13,5}};
 static const int skin_knob_radii[]={8,9,10,12};
+static DrawColor material_pixel(int x,int y){
+    int order=skin_bayer[y&3][x&3];
+    return order<2?(DrawColor){0,0,0,32}:order>=14?(DrawColor){255,255,255,32}:(DrawColor){0,0,0,0};
+}
 int theme_draw_init(DrawContext *draw) {
     if(skin_patterns && skin_knobs)return 1;
-    /* Left tile: ordered two-tone face dither. Right: cyan one-pixel dots.
-       Generated once, nearest filtered, tiled at physical-pixel size with target-origin phase. */
+    /* Left tile: sparse ordered light/dark grain. Right: cyan one-pixel dots.
+       Generated once, nearest filtered, tiled at whole-pixel display density; graph dots stay one physical pixel. */
     DrawColor pixels[128*64]={0},knobs[128*32]={0};
     for(int y=0;y<64;y++)for(int x=0;x<128;x++) {
-        int order=skin_bayer[y&3][x&3];
-        if(x<64)pixels[y*128+x]=order<8?(DrawColor){0,0,0,18}:(DrawColor){255,255,255,18};
+        if(x<64)pixels[y*128+x]=material_pixel(x,y);
         else pixels[y*128+x]=!(x%4) && !(y%4)?(DrawColor){0,146,207,48}:(DrawColor){0,0,0,0};
     }
     /* Small pixel-shaded faces use their own compact atlas. Angle/pointer and
@@ -40,10 +45,21 @@ int theme_draw_init(DrawContext *draw) {
     draw_texture_filter(skin_patterns,0);draw_texture_filter(skin_knobs,0);
     return 1;
 }
-void theme_draw_close(void) { draw_texture_destroy(skin_patterns);draw_texture_destroy(skin_knobs);skin_patterns=skin_knobs=NULL; }
+void theme_draw_close(void) { draw_texture_destroy(skin_patterns);draw_texture_destroy(skin_knobs);draw_texture_destroy(skin_material);skin_patterns=skin_knobs=skin_material=NULL;material_step=0; }
 static void skin_pattern(DrawContext *draw,DrawRect r,int dots) {
     if(!skin_patterns || r.width<=0 || r.height<=0)return;
-    draw_texture_tiled_pixels(draw,skin_patterns,(DrawRect){dots?64:0,0,64,64},r,(DrawColor){255,255,255,255});
+    int step=dots?1:draw_pattern_pixel_size(draw);
+    if(step>1 && (!skin_material || material_step!=step)){
+        int size=64*step;DrawColor *pixels=malloc((size_t)size*size*sizeof *pixels);
+        if(pixels){
+            for(int y=0;y<size;y++)for(int x=0;x<size;x++)pixels[y*size+x]=material_pixel(x/step,y/step);
+            DrawTexture *next=draw_texture_create(draw,size,size,pixels,0);free(pixels);
+            if(next){draw_texture_filter(next,0);draw_texture_destroy(skin_material);skin_material=next;material_step=step;}
+        }
+    }
+    if(step>1 && skin_material && material_step==step)
+        draw_texture_tiled_pixels(draw,skin_material,(DrawRect){0,0,64*step,64*step},r,(DrawColor){255,255,255,255});
+    else draw_texture_tiled_pixels(draw,skin_patterns,(DrawRect){dots?64:0,0,64,64},r,(DrawColor){255,255,255,255});
 }
 void ui_graph_paper(DrawContext *draw,DrawRect r) {
     draw_rect(draw,r,ui_skin.graph);

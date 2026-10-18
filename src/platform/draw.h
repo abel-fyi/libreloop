@@ -16,6 +16,8 @@ typedef struct { DrawPoint point; float u,v; DrawColor color; } DrawVertex;
 DrawContext *draw_create(void *native_renderer);
 void draw_destroy(DrawContext *draw);
 void draw_transform(DrawContext *draw,float scale,float x,float y);
+void draw_pattern_density(DrawContext *draw,float framebuffer_density);
+int draw_pattern_pixel_size(const DrawContext *draw);
 void draw_clear(DrawContext *draw,DrawColor color);
 void draw_rect(DrawContext *draw,DrawRect rect,DrawColor color);
 void draw_border(DrawContext *draw,DrawRect rect,float thickness,DrawColor color);
