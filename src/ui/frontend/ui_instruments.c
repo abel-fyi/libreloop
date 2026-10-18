@@ -185,6 +185,13 @@ void fm_envelope_graph(FMSettings *s,DrawRect plot) {
         handles[i]=(DrawPoint){plot.x+8+slot*i+.9f*slot*t,i==0?base-range:i==1?base-sustain*range:base};
         if(!ui.studio_style)host_draw_line_ex((DrawPoint){plot.x+8+slot*i,plot.y+8},(DrawPoint){plot.x+8+slot*i,base},1,ui_theme.grid_minor);
     }
+    /* Horizontal reference lines stay behind the opaque envelope fill. */
+    if(ui.studio_style){
+        for(int i=0;i<=4;i++) {
+            float y=base-range*i/4;
+            host_draw_line_ex((DrawPoint){plot.x+8,y},(DrawPoint){plot.x+plot.width-8,y},1,(DrawColor){58,91,121,255});
+        }
+    }
     envelope_segment((DrawPoint){plot.x+8,base},handles[0],base);
     DrawPoint previous=handles[0];
     for(int i=1;i<=40;i++) {
@@ -198,12 +205,8 @@ void fm_envelope_graph(FMSettings *s,DrawRect plot) {
     if(ui.studio_style) {
         ui_graph_dots(host_draw(),(DrawRect){plot.x+3,plot.y+3,plot.width-6,plot.height-6});
         /* Stage boundaries follow actual handles; neither the plot nor its hits move. */
-        for(int i=0;i<=4;i++) {
-            float y=base-range*i/4;
-            host_draw_line_ex((DrawPoint){plot.x+8,y},(DrawPoint){plot.x+plot.width-8,y},1,(DrawColor){58,91,121,255});
-        }
         float stages[]={handles[0].x,handles[1].x,release.x};
-        for(int i=0;i<3;i++)host_draw_line_ex((DrawPoint){stages[i],plot.y+6},(DrawPoint){stages[i],base},1,(DrawColor){108,151,179,255});
+        for(int i=0;i<3;i++)host_draw_line_ex((DrawPoint){stages[i],plot.y+6},(DrawPoint){stages[i],base},1,(DrawColor){255,255,255,255});
         /* Repaint the contour over the grid without changing its coordinates. */
         DrawColor edge=ui_skin.graph_line;
         smooth_line((DrawPoint){plot.x+8,base},handles[0],2,edge);
@@ -342,16 +345,16 @@ void dx7_envelope_graph(FMSettings *s,int base,DrawRect plot) {
     }
     if(ui.studio_style) {
         float baseline=plot.y+6+height;
-        DrawColor grid={18,61,83,255},guide={47,106,137,255};
+        DrawColor grid={18,61,83,255},guide={255,255,255,255};
+        for(int i=0;i<=4;i++) {
+            float y=plot.y+6+height*i/4;
+            host_draw_line_ex((DrawPoint){plot.x+8,y},(DrawPoint){plot.x+plot.width-8,y},1,grid);
+        }
         for(int i=0;i<4;i++) {
             DrawPoint a=points[i],b=points[i+1];
             ui_graph_area(host_draw(),a,b,baseline);
         }
         ui_graph_dots(host_draw(),(DrawRect){plot.x+3,plot.y+3,plot.width-6,plot.height-6});
-        for(int i=0;i<=4;i++) {
-            float y=plot.y+6+height*i/4;
-            host_draw_line_ex((DrawPoint){plot.x+8,y},(DrawPoint){plot.x+plot.width-8,y},1,grid);
-        }
         for(int i=1;i<=4;i++)host_draw_line_ex((DrawPoint){points[i].x,plot.y+6},(DrawPoint){points[i].x,baseline},1,guide);
         if(!ui.profile_flat)ui_bevel(host_draw(),plot,1);
     }
