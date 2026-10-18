@@ -217,3 +217,30 @@ Draw-command checks cover selected and mouse-held icon offsets, disabled icon
 opacity and absence of a depressed disabled state. Software captures cover
 playback and full insert/FX capacity. Native display appearance remains a
 hands-on check.
+
+## Dropdown and menu consistency
+
+Synth choices, grid selectors and mixer device selectors use one recessed choice
+face. Arrow keys are square, centered within the existing field height, and use
+the shared raised/pressed button material. Field captions remain stationary
+while the arrow depresses. Their bounds, popup anchors and actions are unchanged.
+
+Menu rows share a 24-unit text inset and a leading icon gutter, including rows
+without an icon. The current choice has a trailing check mark; hover/keyboard
+focus retains the shared selection fill. Captions are fitted before the check
+column so the two cannot overlap. Icons supplement text, including distinct
+Save and Save As captions. Menu navigation and selection handling are unchanged.
+
+The Release build and all 158 tests pass, including the existing menu navigation,
+frontend interaction and theme rendering checks. Software captures of the File
+menu and Arrangement/Mixer selectors were reviewed. Native display appearance
+remains a hands-on check.
+
+The sampler uses its existing stacked compact controls below 520 logical units
+wide (formerly 440). This keeps the mode field wide enough for the full
+Resample/Stretch captions. Its subsequent control rows and waveform follow the
+existing compact layout, with the same minimum waveform height guarantee.
+
+The sampler title identifies the channel; the repeated interior channel caption
+is omitted in the studio UI. The sample label above the waveform remains, as
+does the interior missing-sample warning when applicable.

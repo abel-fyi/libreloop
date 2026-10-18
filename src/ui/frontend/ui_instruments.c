@@ -547,11 +547,11 @@ void fm_editor(float width,float height) {
 void sampler(float width,float height) {
     int c=ui.instrument_channel;
     Sampler *settings=&ui.project.sampler[c];
-    label(fit_text(channel_caption(c),width-298,14),12,30,14,ink);
+    if(!ui.studio_style || channel_missing(c))label(fit_text(channel_caption(c),width-298,14),12,30,14,ink);
     channel_controls(c,width);
 
     float right=width/2+6,groupw=width/2-18;
-    int compact=ui.studio_style && width<440;
+    int compact=ui.studio_style && width<SAMPLER_COMPACT_WIDTH;
     int mode_x=compact?right+8:right+116,mode_y=compact?146:98;
     int mode_w=compact?groupw-16:groupw-128,fit_y=compact?174:146;
     int region_y=compact?206:182,region_knob_y=compact?236:212;

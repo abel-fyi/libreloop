@@ -4,8 +4,9 @@
 /* The compact sampler puts its waveform below the last control row at 280.
    A 420-unit outer frame leaves 110 units of waveform after the studio
    caption translation (6) and bottom margin (24), at every supported width. */
+enum { SAMPLER_COMPACT_WIDTH=520 };
 static inline float sampler_min_height(int studio) { return studio?420:300; }
-static inline int sampler_wave_top(float width,int studio) { return studio && width<440?280:252; }
+static inline int sampler_wave_top(float width,int studio) { return studio && width<SAMPLER_COMPACT_WIDTH?280:252; }
 /* Concrete six-op control rows in the carried editor's content coordinates.
    No device/render types; geometry can be supplied to interaction replays. */
 typedef struct {

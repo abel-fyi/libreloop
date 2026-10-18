@@ -9,6 +9,9 @@ int main(void) {
         float content_height=sampler_min_height(1)-6;
         CHECK(content_height-sampler_wave_top(width,1)-24>=110);
         CHECK(sampler_wave_top(width,0)==252);
+        float groupw=width/2.f-18;
+        float mode_width=width<SAMPLER_COMPACT_WIDTH?groupw-16:groupw-128;
+        CHECK(mode_width>=112); /* Full Resample caption plus padding and arrow. */
     }
     SixOpLayout reference=sixop_layout(376,640,1);
     CHECK(reference.spacious && reference.preset==72 && reference.tabs==108);

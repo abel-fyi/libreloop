@@ -298,9 +298,16 @@ static int button_color_state(const char *text,int x,int y,int w,int h,int activ
     } else ui_surface(host_draw(),(DrawRect){x,y,w,h},surface);
     DrawColor foreground=(menu_item>=0?focused:active || highlighted)?theme_foreground(surface):ui.studio_style?theme_foreground(surface):ink;
     if(!enabled)foreground=ui_theme.secondary;
-    int offset=ui.studio_style && pressed?1:0;
+    int offset=ui.studio_style && menu_item<0 && pressed?1:0;
     int action=ui.studio_style && !list_row?icon_action(text):-1;
-    if(action>=0 && w>=56) {
+    if(ui.studio_style && menu_item>=0 && w>=56) {
+        /* Every menu row shares one icon gutter, including rows without icons. */
+        if(action>=0)icon(action,x+12,y+h/2,16,foreground);
+        const char *caption=fit_text(!strncmp(text,"+ ",2)?text+2:text,w-44,UI_TEXT_SIZE);
+        label(caption,x+24,y+(h-UI_TEXT_SIZE)/2,UI_TEXT_SIZE,foreground);
+        if(active)icon(ICON_CHECK,x+w-10,y+h/2,16,foreground);
+    }
+    else if(action>=0 && w>=56) {
         icon(action,x+12+offset,y+h/2+offset,16,enabled?foreground:host_fade(foreground,.4f));
         const char *caption=fit_text(!strncmp(text,"+ ",2)?text+2:text,w-28,UI_TEXT_SIZE);
         label(caption,x+24+offset,y+(h-UI_TEXT_SIZE)/2+offset,UI_TEXT_SIZE,foreground);
@@ -331,10 +338,10 @@ int choice_button(const char *text,int x,int y,int w,int h) {
     if(!ui.studio_style)return button(text,x,y,w,h,0);
     int clicked=button("",x,y,w,h,0);
     int pressed=hover(x,y,w,h) && host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT);
-    int size=10,available=w-(w<66?14:22)-12;
+    ui_choice_face(host_draw(),(DrawRect){x,y,w,h},pressed);
+    int size=10,available=w-(int)fminf(h,fminf(22,w/3.f))-12;
     const char *caption=fit_text(text,available,size);
-    label(caption,x+6+pressed,y+(h-caption_size(size))/2+pressed,size,ink);
-    ui_dropdown_arrow(host_draw(),(DrawRect){x,y,w,h},pressed);
+    label(caption,x+6,y+(h-caption_size(size))/2,size,theme_foreground(ui_skin.field));
     return clicked;
 }
 
@@ -589,11 +596,13 @@ void label_key(const char *text,DrawRect bounds,DrawColor color) {
 
 void grid_selector(int id,int x,int y,int width,int height) {
     int choice=id==1?ui.playlist_grid:ui.piano_grid;
-    if(button("",x,y,width,height,0))
-        open_context(24,id,(DrawPoint){ui.mouse.x+desktop_editor_rect(id).x,ui.mouse.y+desktop_editor_rect(id).y});
-    label(fit_text(grid_choice_name(choice),width-26,10),x+6,y+(height-(ui.studio_style?UI_TEXT_SIZE:12))/2,10,ink);
-    if(ui.studio_style)ui_dropdown_arrow(host_draw(),(DrawRect){x,y,width,height},hover(x,y,width,height) && host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT));
-    else {
+    if(ui.studio_style) {
+        if(choice_button(grid_choice_name(choice),x,y,width,height))
+            open_context(24,id,(DrawPoint){ui.mouse.x+desktop_editor_rect(id).x,ui.mouse.y+desktop_editor_rect(id).y});
+    } else {
+        if(button("",x,y,width,height,0))
+            open_context(24,id,(DrawPoint){ui.mouse.x+desktop_editor_rect(id).x,ui.mouse.y+desktop_editor_rect(id).y});
+        label(fit_text(grid_choice_name(choice),width-26,10),x+6,y+(height-12)/2,10,ink);
         float arrow=x+width-11,mid=y+height/2;
         host_draw_triangle((DrawPoint){arrow-3,mid-2},(DrawPoint){arrow,mid+2},(DrawPoint){arrow+3,mid-2},ink);
     }

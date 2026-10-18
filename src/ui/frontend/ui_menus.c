@@ -87,7 +87,10 @@ const char *device_caption(const char *name) { return !*name?"None":!strcmp(name
 
 void device_button(int io,int x,int y,int width) {
     const char *selected=ui.project.audio_io[ui.mixer_selected][io];
-    if(button_color(fit_text(host_text_format("%s: %s",io?"Out":"In",device_caption(selected)),width-30,13),x,y,width,22,0,ui_theme.browser) && !recording_active()) {
+    const char *caption=host_text_format("%s: %s",io?"Out":"In",device_caption(selected));
+    int clicked=ui.studio_style?choice_button(caption,x,y,width,22):
+        button_color(fit_text(caption,width-30,13),x,y,width,22,0,ui_theme.browser);
+    if(clicked && !recording_active()) {
         ui.device_target=ui.mixer_selected; ui.device_io=io; ui.device_scroll=0;
         ui.device_count=audio_devices(!io,ui.device_names,64);
         open_popup(8);
@@ -95,8 +98,7 @@ void device_button(int io,int x,int y,int width) {
         ui.popup_position[8]=(DrawPoint){r.x+x,r.y+y+24};
     }
     if(hover(x,y,width,22)) snprintf(ui.status,sizeof ui.status,io?"Output device choice is saved; external-output routing is not implemented yet":"Input device for recording this mixer track; None records its internal audio");
-    if(ui.studio_style)ui_dropdown_arrow(host_draw(),(DrawRect){x,y,width,22},hover(x,y,width,22) && host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT));
-    else host_draw_triangle((DrawPoint){x+width-16,y+8},(DrawPoint){x+width-12,y+14},(DrawPoint){x+width-8,y+8},muted);
+    if(!ui.studio_style)host_draw_triangle((DrawPoint){x+width-16,y+8},(DrawPoint){x+width-12,y+14},(DrawPoint){x+width-8,y+8},muted);
 }
 
 void help_group(int x,int *y,const char *title) {

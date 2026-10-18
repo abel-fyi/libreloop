@@ -50,6 +50,7 @@ void ui_graph_area(DrawContext *draw,DrawPoint a,DrawPoint b,float baseline);
 void ui_graph_handle(DrawContext *draw,DrawPoint point);
 void ui_lamp(DrawContext *draw,DrawPoint center,float radius,DrawColor color);
 /* Paint the arrow cell inside an existing choice control; no new hit target. */
+void ui_choice_face(DrawContext *draw,DrawRect rect,int pressed);
 void ui_dropdown_arrow(DrawContext *draw,DrawRect control,int pressed);
 void ui_text_well(DrawContext *draw,DrawRect rect,int focused);
 void ui_folder_icon(DrawContext *draw,float x,float y);

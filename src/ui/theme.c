@@ -254,11 +254,11 @@ void ui_check_face(DrawContext *draw,DrawRect r,int active,DrawColor mark) {
     }
 }
 void ui_dropdown_arrow(DrawContext *draw,DrawRect r,int pressed) {
-    float w=fminf(22,r.width/3);
+    float w=fminf(r.height,fminf(22,r.width/3));
     if(w<8 || r.height<10)return;
-    DrawRect cell={r.x+r.width-w,r.y,w,r.height};
+    DrawRect cell={r.x+r.width-w,r.y+(r.height-w)/2,w,w};
     ui_button_face(draw,cell,ui_theme.control,pressed);
-    float x=cell.x+w/2+(pressed?1:0),y=cell.y+r.height/2+(pressed?1:0);
+    float x=cell.x+w/2+(pressed?1:0),y=cell.y+w/2+(pressed?1:0);
     DrawColor edge={222,229,232,255},ink={5,9,13,255};
     DrawVertex v[]={{{x-4,y-2},0,0,ink},{{x,y+3},0,0,ink},{{x+4,y-2},0,0,ink}};
     draw_line(draw,(DrawPoint){x-3,y-3},(DrawPoint){x+4,y-3},1,edge);
@@ -271,6 +271,10 @@ void ui_text_well(DrawContext *draw,DrawRect r,int focused) {
         if(focused && r.width>6 && r.height>6)
             draw_border(draw,(DrawRect){r.x+2,r.y+2,r.width-4,r.height-4},1,ui_theme.highlight);
     } else draw_border(draw,r,1,focused?ui_theme.highlight:ui_theme.border);
+}
+void ui_choice_face(DrawContext *draw,DrawRect r,int pressed) {
+    ui_text_well(draw,r,0);
+    ui_dropdown_arrow(draw,r,pressed);
 }
 void ui_folder_icon(DrawContext *draw,float x,float y) {
     draw_rect(draw,(DrawRect){x,y,7,3},(DrawColor){248,230,122,255});
