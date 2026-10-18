@@ -53,7 +53,7 @@ static int flanger_check(const void *s){return s && flanger_valid(*(const Flange
 static const float *flanger_device_parameter(const void *s,unsigned id){return id>=PARAM_FLANGER_FIRST && id<=PARAM_FLANGER_LAST?flanger_parameter(s,id-PARAM_FLANGER_FIRST):NULL;}
 static const DeviceDescriptor devices[]={
     {"Sampler",sizeof(Sampler),sampler_defaults,sampler_check,NULL,{{0,0},{0,0}}},
-    {"FM Synth",sizeof(FMSettings),fm_defaults,fm_check,fm_parameter,{{PARAM_FM_RATIO,PARAM_FM_LAST},{PARAM_DX7_FIRST,PARAM_DX7_LAST}}},
+    {"FM Synth",sizeof(FMSettings),fm_defaults,fm_check,fm_parameter,{{PARAM_FM_RATIO,PARAM_FM_LAST},{PARAM_DX7_FIRST,PARAM_DX7_LAST},{PARAM_VA_FIRST,PARAM_VA_LAST}}},
     {"Chorus",sizeof(ChorusSettings),chorus_defaults,chorus_check,chorus_parameter,{{PARAM_CHORUS_RATE,PARAM_CHORUS_DEPTH},{PARAM_EFFECT_MIX,PARAM_EFFECT_MIX}}},
     {"Equalizer",sizeof(EQSettings),eq_defaults,eq_check,eq_parameter,{{PARAM_EQ_FIRST,PARAM_EQ_LAST},{PARAM_EFFECT_MIX,PARAM_EFFECT_MIX}}},
     {"Delay",sizeof(DelaySettings),delay_defaults,delay_check,delay_parameter,{{PARAM_DELAY_FIRST,PARAM_DELAY_LAST},{PARAM_EFFECT_MIX,PARAM_EFFECT_MIX}}},
@@ -74,7 +74,7 @@ const DeviceDescriptor *effect_descriptor(unsigned type) {
 }
 int device_has_parameter(const DeviceDescriptor *device,unsigned id) {
     if(!device || !id) return 0;
-    for(unsigned i=0;i<2;i++) if(id>=device->parameters[i].first && id<=device->parameters[i].last) return 1;
+    for(unsigned i=0;i<3;i++) if(id>=device->parameters[i].first && id<=device->parameters[i].last) return 1;
     return 0;
 }
 

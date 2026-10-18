@@ -169,7 +169,25 @@ static const ParameterDescriptor descriptors[]={
     {PARAM_PITCH_RANGE,"Pitch range",1,48,2,PARAMETER_INTEGER},
     {PARAM_MASTER_PAN,"Master pan",-1,1,0,PARAMETER_CONTINUOUS},
 };
+static const ParameterDescriptor analog_descriptors[]={
+    {PARAM_VA_FIRST+0,"Osc 1 shape",0,3,0,PARAMETER_CONTINUOUS},
+    {PARAM_VA_FIRST+1,"Osc 1 tune",-24,24,0,PARAMETER_INTEGER},
+    {PARAM_VA_FIRST+2,"Osc 1 fine",-100,100,0,PARAMETER_CONTINUOUS},
+    {PARAM_VA_FIRST+3,"Osc 1 level",0,1,0.5,PARAMETER_CONTINUOUS},
+    {PARAM_VA_FIRST+4,"Osc 2 shape",0,3,0,PARAMETER_CONTINUOUS},
+    {PARAM_VA_FIRST+5,"Osc 2 tune",-24,24,0,PARAMETER_INTEGER},
+    {PARAM_VA_FIRST+6,"Osc 2 fine",-100,100,0,PARAMETER_CONTINUOUS},
+    {PARAM_VA_FIRST+7,"Osc 2 level",0,1,0.5,PARAMETER_CONTINUOUS},
+    {PARAM_VA_FIRST+8,"Osc 3 shape",0,3,0,PARAMETER_CONTINUOUS},
+    {PARAM_VA_FIRST+9,"Osc 3 tune",-24,24,0,PARAMETER_INTEGER},
+    {PARAM_VA_FIRST+10,"Osc 3 fine",-100,100,0,PARAMETER_CONTINUOUS},
+    {PARAM_VA_FIRST+11,"Osc 3 level",0,1,0.5,PARAMETER_CONTINUOUS},
+    {PARAM_VA_FIRST+12,"Mixer drive",0,24,6,PARAMETER_CONTINUOUS},
+    {PARAM_VA_FIRST+13,"Oscillator drift",0,1,0.15,PARAMETER_CONTINUOUS},
+    {PARAM_VA_FIRST+14,"Filter key tracking",0,1,0.5,PARAMETER_CONTINUOUS},
+};
 const ParameterDescriptor *parameter_descriptor(unsigned id) {
+    if(id>=PARAM_VA_FIRST && id<=PARAM_VA_LAST)return &analog_descriptors[id-PARAM_VA_FIRST];
     if(id>=PARAM_DX7_FIRST && id<=PARAM_DX7_LAST) return dx7_parameter_descriptor(id-PARAM_DX7_FIRST);
     for(size_t i=0;i<sizeof descriptors/sizeof *descriptors;i++) if(descriptors[i].id==id) return &descriptors[i];
     return NULL;
@@ -204,6 +222,10 @@ static const float *parameter_pointer(const Project *p,ParameterTarget t,float *
     if(t.parameter>=PARAM_EQ_FIRST && t.parameter<=PARAM_EQ_LAST) {
         if(t.owner>(unsigned)p->insert_count || t.slot>=EFFECT_SLOTS || p->effect_type[t.owner][t.slot]!=EFFECT_EQ) return NULL;
         return device_parameter(effect_descriptor(EFFECT_EQ),&p->eq[t.owner][t.slot],t.parameter);
+    }
+    if(t.parameter>=PARAM_VA_FIRST && t.parameter<=PARAM_VA_LAST) {
+        if(t.owner>=(unsigned)p->channel_count || t.slot || p->instrument[t.owner]!=INSTRUMENT_FM || p->fm[t.owner].engine!=2 || !p->fm[t.owner].analog.model)return NULL;
+        return fm_parameter_pointer(&p->fm[t.owner],t.parameter);
     }
     if(t.parameter>=PARAM_DX7_FIRST && t.parameter<=PARAM_DX7_LAST) {
         if(t.owner>=(unsigned)p->channel_count || t.slot || p->instrument[t.owner]!=INSTRUMENT_FM || p->fm[t.owner].engine!=1) return NULL;
@@ -285,6 +307,10 @@ int parameter_from_pointer(const Project *p,const void *ptr,ParameterTarget *t) 
         if(id==PARAM_INSERT_MUTE) address=&p->insert_mute[owner];
         if(id==PARAM_MASTER_MUTE) address=&p->master_mute;
         if(address==ptr) { *t=candidate; return 1; }
+    }
+    for(unsigned id=PARAM_VA_FIRST;id<=PARAM_VA_LAST;id++)for(unsigned owner=0;owner<(unsigned)p->channel_count;owner++){
+        ParameterTarget candidate={id,owner,0};float lo,hi;
+        if(parameter_pointer(p,candidate,&lo,&hi)==ptr){*t=candidate;return 1;}
     }
     for(unsigned id=PARAM_FM_RATIO;id<=PARAM_FM_LAST;id++) for(unsigned owner=0;owner<(unsigned)p->channel_count;owner++) {
         ParameterTarget candidate={id,owner,0}; float lo,hi;

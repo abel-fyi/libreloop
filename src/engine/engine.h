@@ -135,6 +135,11 @@ int insert_add(Project *p,int count);
 int pattern_add(Project *p);
 int pattern_delete(Project *p,int pattern);
 /* Preserve notes, routing, sample data/settings and names; remove unsupported FM automation. */
+enum { CHOICE_SAMPLER,CHOICE_DX7,CHOICE_ANALOG,CHOICE_CUSTOM_FM,INSTRUMENT_CHOICES };
+const char *instrument_choice_name(int choice);
+int channel_instrument_choice(const Project *project,int channel);
+const char *channel_instrument_name(const Project *project,int channel);
+int channel_replace_choice(Project *project,int channel,int choice);
 int channel_replace_instrument(Project *project,int channel,int type);
 int channel_delete(Project *p,int channel);
 int insert_connect(Project *p,int source,int destination);

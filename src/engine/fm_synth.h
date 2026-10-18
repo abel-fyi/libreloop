@@ -24,6 +24,11 @@ typedef struct {
 } FMVoice;
 enum { FM_FACTORY_COUNT=9 };
 FMSettings fm_default(void);
+FMSettings fm_analog_factory(int preset);
+const char *fm_analog_factory_name(int preset);
+int fm_family_factory_count(int engine);
+FMSettings fm_family_factory(int engine,int index);
+const char *fm_family_factory_name(int engine,int index);
 FMSettings fm_epiano(void);
 FMSettings fm_factory(int preset);
 const char *fm_factory_name(int preset);

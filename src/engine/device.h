@@ -14,7 +14,7 @@ typedef struct {
     void (*defaults)(void *settings);
     int (*valid)(const void *settings);
     const float *(*parameter)(const void *settings,unsigned id);
-    DeviceParameterRange parameters[2];
+    DeviceParameterRange parameters[3];
 } DeviceDescriptor;
 const DeviceDescriptor *device_descriptor(unsigned kind);
 const DeviceDescriptor *instrument_descriptor(unsigned type);

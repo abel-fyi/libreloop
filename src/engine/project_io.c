@@ -76,6 +76,8 @@ typedef struct { const char *name; FieldType type; size_t offset,count,inner,out
 #define TEXT(m,n,w) {#m,STRING,offsetof(Project,m),n,1,w,0,w}
 #define MEMBER(m,t,f,k,n) {#m "." #f,k,offsetof(Project,m)+offsetof(t,f),n,1,sizeof(t),0,sizeof(((t *)0)->f)}
 #define SUB(m,t,s,u,f,k,n) {#m "." #s "." #f,k,offsetof(Project,m)+offsetof(t,s)+offsetof(u,f),n,1,sizeof(t),0,sizeof(((u *)0)->f)}
+#define ANALOG_NEW(member,name) {name,F32,offsetof(Project,fm)+offsetof(FMSettings,analog)+offsetof(AnalogSettings,member),CHANNELS,1,sizeof(FMSettings),0,sizeof(float)}
+#define ANALOG_ARRAY(member,name) {name,F32,offsetof(Project,fm)+offsetof(FMSettings,analog)+offsetof(AnalogSettings,member),CHANNELS*3,3,sizeof(FMSettings),sizeof(float),sizeof(float)}
 /* Stable file schema; offsets/strides map logical values without saving padding. */
 static const Field fields[]={
     SCALAR(bpm,float,F32),
@@ -163,6 +165,10 @@ static const Field fields[]={
     MEMBER(fm,FMSettings,lfo_fade,F32,CHANNELS),
     MEMBER(fm,FMSettings,body_pitch,F32,CHANNELS),
     MEMBER(fm,FMSettings,engine,F32,CHANNELS),
+    ANALOG_NEW(model,"x-analog.model"),
+    ANALOG_ARRAY(osc_wave,"x-analog.wave"),ANALOG_ARRAY(osc_tune,"x-analog.tune"),
+    ANALOG_ARRAY(osc_fine,"x-analog.fine"),ANALOG_ARRAY(osc_level,"x-analog.level"),
+    ANALOG_NEW(drive,"x-analog.drive"),ANALOG_NEW(drift,"x-analog.drift"),ANALOG_NEW(keytrack,"x-analog.keytrack"),
     SUB(fm,FMSettings,analog,AnalogSettings,wave,F32,CHANNELS),
     SUB(fm,FMSettings,analog,AnalogSettings,detune,F32,CHANNELS),
     SUB(fm,FMSettings,analog,AnalogSettings,mix,F32,CHANNELS),
@@ -273,6 +279,10 @@ int project_save(const char *path,const Project *p) {
     for(size_t n=0;n<FIELD_COUNT;n++) {
         Field stored=fields[n];if(version==1)stored.count=pattern_field_count(&stored,LEGACY_PATTERNS);
         const Field *f=&stored;
+        if(!strncmp(f->name,"x-analog.",9)){
+            int any=0;for(size_t i=0;i<f->count;i++){float value;memcpy(&value,address((Project *)p,f,i),sizeof value);any|=value!=0;}
+            if(!any)continue;
+        }
         if(!strcmp(f->name,"x-master-pan") && p->master_pan==0)continue;
         if(!strncmp(f->name,"x-phaser.",9)){int any=0;for(int bus=0;bus<=INSERTS;bus++)for(int slot=0;slot<EFFECT_SLOTS;slot++)any|=p->effect_type[bus][slot]==EFFECT_PHASER;if(!any)continue;}
         if(!strncmp(f->name,"x-flanger.",10)){int any=0;for(int bus=0;bus<=INSERTS;bus++)for(int slot=0;slot<EFFECT_SLOTS;slot++)any|=p->effect_type[bus][slot]==EFFECT_FLANGER;if(!any)continue;}

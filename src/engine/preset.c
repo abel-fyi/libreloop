@@ -24,7 +24,7 @@ int preset_save(const char *path,const DevicePreset *p) {
         } else snprintf(reference,sizeof reference,"%s",p->sample_path);
     }
     AtomicFile out; if(!atomic_file_open(&out,path)) return 0;
-    fprintf(out.file,"LIBRELOOP_PRESET %d %d\n",p->kind==PRESET_TUBE?8:p->kind==PRESET_DELAY?7:6,p->kind);
+    fprintf(out.file,"LIBRELOOP_PRESET %d %d\n",p->kind==PRESET_FM && p->fm.analog.model?9:p->kind==PRESET_TUBE?8:p->kind==PRESET_DELAY?7:6,p->kind);
     if(p->kind==PRESET_FM) {
         FMSettings s=p->fm; fprintf(out.file,"%.9g %.9g %.9g %.9g %.9g %.9g\n",s.ratio,s.depth,s.attack,s.decay,s.sustain,s.release);
         fprintf(out.file,"%.9g %.9g %.9g %.9g %.9g %.9g\n",s.mod_decay,s.mod_sustain,s.velocity,s.lfo_rate,s.vibrato,s.tremolo);
@@ -32,6 +32,7 @@ int preset_save(const char *path,const DevicePreset *p) {
         fputc('\n',out.file);
         for(unsigned id=PARAM_FM_ENGINE;id<=PARAM_FM_LAST;id++) fprintf(out.file,"%.9g ",*fm_parameter_pointer(&s,id));
         for(int i=0;i<DX7_PARAMETERS;i++) fprintf(out.file,"%.9g ",s.dx7.value[i]);
+        if(s.analog.model){fprintf(out.file,"%.9g ",s.analog.model);for(unsigned id=PARAM_VA_FIRST;id<=PARAM_VA_LAST;id++)fprintf(out.file,"%.9g ",*fm_parameter_pointer(&s,id));}
         fputc('\n',out.file);
     } else if(p->kind==PRESET_CHORUS) fprintf(out.file,"%.9g %.9g %.9g\n",p->chorus.rate,p->chorus.depth,p->mix);
     else if(p->kind==PRESET_PHASER){for(unsigned i=0;i<6;i++)fprintf(out.file,"%.9g ",*phaser_parameter(&p->phaser,i));fprintf(out.file,"%.9g\n",p->mix);}
@@ -54,7 +55,7 @@ int preset_save(const char *path,const DevicePreset *p) {
 int preset_load(const char *path,DevicePreset *p) {
     FILE *f=platform_file_open(path,"r"); if(!f) return 0;
     DevicePreset next={0}; char magic[32]; int version;
-    int ok=fscanf(f,"%31s %d %d",magic,&version,&next.kind)==3 && !strcmp(magic,"LIBRELOOP_PRESET") && (version>=1 && version<=8);
+    int ok=fscanf(f,"%31s %d %d",magic,&version,&next.kind)==3 && !strcmp(magic,"LIBRELOOP_PRESET") && (version>=1 && version<=9);
     if(ok && next.kind==PRESET_FM) {
         next.fm=fm_legacy(); FMSettings *s=&next.fm; ok=fscanf(f,"%f %f %f %f %f %f",&s->ratio,&s->depth,&s->attack,&s->decay,&s->sustain,&s->release)==6;
         if(ok && version>=3) ok=fscanf(f,"%f %f %f %f %f %f",&s->mod_decay,&s->mod_sustain,&s->velocity,&s->lfo_rate,&s->vibrato,&s->tremolo)==6;
@@ -64,6 +65,7 @@ int preset_load(const char *path,DevicePreset *p) {
             for(unsigned id=PARAM_FM_ENGINE;ok && id<=PARAM_FM_LAST;id++) ok=fscanf(f,"%f",(float *)fm_parameter_pointer(s,id))==1;
             for(int i=0;ok && i<(version>=6?DX7_PARAMETERS:DX7_NATIVE_PARAMETERS);i++) ok=fscanf(f,"%f",&s->dx7.value[i])==1;
             if(version<6) dx7_legacy_tracking(&s->dx7);
+            if(ok && version>=9){ok=fscanf(f,"%f",&s->analog.model)==1;for(unsigned id=PARAM_VA_FIRST;ok && id<=PARAM_VA_LAST;id++)ok=fscanf(f,"%f",(float *)fm_parameter_pointer(s,id))==1;}
         }
     } else if(ok && next.kind==PRESET_CHORUS) ok=fscanf(f,"%f %f %f",&next.chorus.rate,&next.chorus.depth,&next.mix)==3;
     else if(ok && next.kind==PRESET_PHASER){for(unsigned i=0;ok && i<6;i++)ok=fscanf(f,"%f",(float *)phaser_parameter(&next.phaser,i))==1;ok=ok && fscanf(f,"%f",&next.mix)==1;}

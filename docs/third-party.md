@@ -117,3 +117,12 @@ The now-unused DotGothic16 asset/license were removed; Liberation remains for
 original parity fixtures. The new font retains studio's common 16-unit size
 and nearest atlas sampling. No new runtime or build dependency, no build-time
 network fetching and no installed-system-font requirement.
+
+## Polyphonic Analog design references
+
+The new ladder/oscillator implementation is original GPL-3.0-only C. Its design
+references are Huovilainen's DAFx-2004 ladder analysis and Zavalishin's *The Art
+of VA Filter Design*. VK-1 supplies a listening/design reference. No code or
+binary assets were imported from these references, and no new dependency was
+added. See [Analog design and verification](analog-synth.md) for source links,
+implementation scope and measurements. Existing DX7 notices remain unchanged.

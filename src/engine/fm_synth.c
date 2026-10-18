@@ -44,8 +44,26 @@ FMSettings fm_factory(int preset) {
 }
 const char *fm_factory_name(int preset) { return preset==8?"Better Chime":preset==7?"Chime EP":preset<5?dx7_factory_name(preset==4?-1:preset):preset==5?"Juno-inspired Pad":"Juno-inspired Bass"; }
 FMSettings fm_default(void) { return fm_factory(0); }
+FMSettings fm_analog_factory(int preset) {
+    FMSettings s=fm_epiano();s.engine=2;s.analog=analog_modern_default();s.carrier_ratio=1;
+    s.attack=.008f;s.decay=.35f;s.sustain=.65f;s.release=.35f;
+    s.mod_attack=.004f;s.mod_decay=.4f;s.mod_sustain=.15f;s.mod_release=.3f;
+    s.vibrato=s.tremolo=0;s.lfo_rate=.5f;s.velocity=.25f;
+    if(preset==1){s.analog.cutoff=180;s.analog.filter_env=4;s.analog.drive=9;s.analog.resonance=.28f;s.analog.osc_tune[0]=s.analog.osc_tune[1]=-12;s.analog.osc_tune[2]=-24;s.attack=.001f;s.decay=.25f;s.sustain=.6f;s.release=.12f;s.mod_decay=.22f;s.mod_sustain=0;}
+    if(preset==2){s.analog.cutoff=2500;s.analog.filter_env=1;s.analog.drive=3;s.analog.osc_level[2]=.4f;s.analog.osc_tune[2]=7;s.analog.drift=.35f;s.attack=.25f;s.decay=1;s.sustain=.8f;s.release=1.2f;s.mod_attack=.5f;s.mod_decay=1.5f;s.mod_sustain=.5f;s.mod_release=1;}
+    return s;
+}
+const char *fm_analog_factory_name(int preset){return preset==1?"Round Bass":preset==2?"Soft Pad":"Warm Brass";}
+int fm_family_factory_count(int engine){return engine==1?7:engine==2?3:2;}
+FMSettings fm_family_factory(int engine,int index){return engine==2?fm_analog_factory(index):engine==0?(index?fm_legacy():fm_epiano()):fm_factory(index<5?index:index+2);}
+const char *fm_family_factory_name(int engine,int index){return engine==2?fm_analog_factory_name(index):engine==0?(index?"Simple FM":"Electric Piano"):fm_factory_name(index<5?index:index+2);}
 const float *fm_parameter_pointer(const FMSettings *s,unsigned id) {
     if(id>=PARAM_DX7_FIRST && id<=PARAM_DX7_LAST) return &s->dx7.value[id-PARAM_DX7_FIRST];
+    if(id>=PARAM_VA_FIRST && id<=PARAM_VA_LAST) {
+        unsigned n=id-PARAM_VA_FIRST;
+        if(n<12){unsigned osc=n/4;return n%4==0?&s->analog.osc_wave[osc]:n%4==1?&s->analog.osc_tune[osc]:n%4==2?&s->analog.osc_fine[osc]:&s->analog.osc_level[osc];}
+        return n==12?&s->analog.drive:n==13?&s->analog.drift:&s->analog.keytrack;
+    }
     switch(id) {
 #define FIELD(id,field) case id: return &s->field;
     FIELD(PARAM_FM_RATIO,ratio) FIELD(PARAM_FM_DEPTH,depth) FIELD(PARAM_FM_ATTACK,attack)
@@ -115,9 +133,34 @@ static void mod_envelope(float *value,int *stage,float attack,float decay,float 
         if(fabsf(*value-sustain)<.000001f) { *value=sustain; *stage=SUSTAIN; }
     } else if(*stage==RELEASE) { *value=fmaxf(0,*value-release_step); if(!*value) *stage=OFF; }
 }
+static void analog_envelope_tick(float *value,int *stage,float attack,float decay,float sustain,float release) {
+    if(*stage==ATTACK){*value=1.01f+(*value-1.01f)*attack;if(*value>=1){*value=1;*stage=DECAY;}}
+    else if(*stage==DECAY || *stage==SUSTAIN){*value=sustain+(*value-sustain)*decay;if(fabsf(*value-sustain)<1e-6f){*value=sustain;*stage=SUSTAIN;}}
+    else if(*stage==RELEASE){*value*=release;if(*value<1e-5f){*value=0;*stage=OFF;}}
+}
+static float render_analog_modern(FMVoice *v,const FMSettings *s,double pitch) {
+    const float times[]={s->attack,s->decay,s->release,s->mod_attack,s->mod_decay,s->mod_release};
+    for(int i=0;i<6;i++)if(v->analog.env_time[i]!=times[i] || !v->analog.env_factor[i]){
+        v->analog.env_time[i]=times[i];v->analog.env_factor[i]=times[i]>0?expf(-(i%3==2?9.2103404f:4.6151205f)/(times[i]*RATE)):0;
+    }
+    float *f=v->analog.env_factor;
+    analog_envelope_tick(&v->envelope,&v->stage,f[0],f[1],s->sustain,f[2]);
+    analog_envelope_tick(&v->mod_envelope,&v->body_stage,f[3],f[4],s->mod_sustain,f[5]);
+    if(v->stage==OFF)return 0;
+    const float slew=1.f/(RATE*.02f);
+    v->lfo_rate+=(s->lfo_rate-v->lfo_rate)*slew;v->vibrato+=(s->vibrato-v->vibrato)*slew;v->tremolo+=(s->tremolo-v->tremolo)*slew;
+    float lfo=fm_lfo_value(v->lfo_phase/6.283185307179586f,(int)s->lfo_shape),fade=s->lfo_fade?fminf(1,v->lfo_age/s->lfo_fade):1;
+    double hz=fmax(1,fmin(RATE*.45,v->frequency*pitch*s->carrier_ratio));v->current_frequency+=(hz-v->current_frequency)*slew;
+    hz=v->current_frequency*exp2(lfo*v->vibrato*fade/1200);
+    float velocity=1-s->velocity*(1-v->velocity);
+    float out=analog_sample(&v->analog,s->analog,hz,lfo,v->mod_envelope*velocity);
+    v->lfo_phase+=6.283185307179586*v->lfo_rate/RATE;if(v->lfo_phase>=6.283185307179586)v->lfo_phase-=6.283185307179586;v->lfo_age+=1.f/RATE;
+    return out*.35f*v->envelope*velocity*(1-v->tremolo*fade*(.5f-.5f*lfo));
+}
 static float render_mono(FMVoice *v,const FMSettings *s,double pitch) {
     if(!v->stage) return 0;
     if(v->engine!=(int)s->engine) { v->stage=OFF; return 0; }
+    if(v->engine==2 && s->analog.model)return render_analog_modern(v,s,pitch);
     if(v->engine==1) return dx7_sample(&v->dx7,&s->dx7,pitch)*.75f;
     const float slew=1.f/(RATE*.02f);
 #define SLEW(field) v->field+=(s->field-v->field)*slew

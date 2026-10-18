@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "engine.h"
 #include "playback_plan.h"
+#include "midi.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -111,9 +112,35 @@ int channel_replace_instrument(Project *p,int c,int type) {
     if(p->instrument[c]==type) return 1;
     if(type!=INSTRUMENT_FM) for(int a=p->automation_count-1;a>=0;a--) {
         ParameterTarget target=p->automations[a].target;
-        if(target.owner==(unsigned)c && ((target.parameter>=PARAM_FM_RATIO && target.parameter<=PARAM_FM_LAST) || (target.parameter>=PARAM_DX7_FIRST && target.parameter<=PARAM_DX7_LAST))) automation_delete(p,a);
+        if(target.owner==(unsigned)c && parameter_is_synth(target.parameter)) automation_delete(p,a);
     }
     p->instrument[c]=type; return 1;
+}
+const char *instrument_choice_name(int choice) {
+    static const char *names[]={"Sampler","DX7","Analog","Custom FM"};
+    return choice>=0 && choice<INSTRUMENT_CHOICES?names[choice]:"Instrument";
+}
+int channel_instrument_choice(const Project *p,int c) {
+    if(c<0 || c>=p->channel_count || p->instrument[c]==INSTRUMENT_SAMPLER)return CHOICE_SAMPLER;
+    return p->fm[c].engine==1?CHOICE_DX7:p->fm[c].engine==2?CHOICE_ANALOG:CHOICE_CUSTOM_FM;
+}
+const char *channel_instrument_name(const Project *p,int c) {
+    int choice=channel_instrument_choice(p,c);
+    if(choice==CHOICE_ANALOG && !p->fm[c].analog.model)return "Analog (Legacy)";
+    return instrument_choice_name(choice);
+}
+int channel_replace_choice(Project *p,int c,int choice) {
+    if(choice<0 || choice>=INSTRUMENT_CHOICES || c<0 || c>=p->channel_count)return 0;
+    int old=channel_instrument_choice(p,c);
+    if(choice==old && !(choice==CHOICE_ANALOG && !p->fm[c].analog.model))return 1;
+    if(!channel_replace_instrument(p,c,choice==CHOICE_SAMPLER?INSTRUMENT_SAMPLER:INSTRUMENT_FM))return 0;
+    for(int a=p->automation_count-1;a>=0;a--)if(p->automations[a].target.owner==(unsigned)c && parameter_is_synth(p->automations[a].target.parameter))automation_delete(p,a);
+    for(int i=0;i<p->midi_binding_count;) {
+        ParameterTarget t=p->midi_bindings[i].target;
+        if(t.owner==(unsigned)c && parameter_is_synth(t.parameter))midi_unbind(p,t);else i++;
+    }
+    if(choice!=CHOICE_SAMPLER)p->fm[c]=choice==CHOICE_ANALOG?fm_analog_factory(0):choice==CHOICE_DX7?fm_default():fm_epiano();
+    return 1;
 }
 int channel_delete(Project *p,int c) {
     if(c<0 || c>=p->channel_count) return 0;
@@ -133,7 +160,7 @@ int channel_delete(Project *p,int c) {
     }
     for(int i=p->automation_count-1;i>=0;i--) {
         ParameterTarget *t=&p->automations[i].target;
-        if(t->parameter==PARAM_CHANNEL_VOLUME || t->parameter==PARAM_CHANNEL_PAN || t->parameter==PARAM_CHANNEL_PITCH || t->parameter==PARAM_CHANNEL_MUTE || t->parameter==PARAM_PITCH_RANGE || ((t->parameter>=PARAM_FM_RATIO && t->parameter<=PARAM_FM_LAST) || (t->parameter>=PARAM_DX7_FIRST && t->parameter<=PARAM_DX7_LAST))) {
+        if(t->parameter==PARAM_CHANNEL_VOLUME || t->parameter==PARAM_CHANNEL_PAN || t->parameter==PARAM_CHANNEL_PITCH || t->parameter==PARAM_CHANNEL_MUTE || t->parameter==PARAM_PITCH_RANGE || parameter_is_synth(t->parameter)) {
             if(t->owner==(unsigned)c) automation_delete(p,i);
             else if(t->owner>(unsigned)c) t->owner--;
         }
@@ -141,7 +168,7 @@ int channel_delete(Project *p,int c) {
     for(int i=p->midi_binding_count-1;i>=0;i--) {
         ParameterTarget *t=&p->midi_bindings[i].target;
         if(t->parameter<=PARAM_CHANNEL_PITCH || t->parameter==PARAM_CHANNEL_MUTE || t->parameter==PARAM_PITCH_RANGE ||
-           (t->parameter>=PARAM_FM_RATIO && t->parameter<=PARAM_FM_LAST) || (t->parameter>=PARAM_DX7_FIRST && t->parameter<=PARAM_DX7_LAST)) {
+           parameter_is_synth(t->parameter)) {
             if(t->owner==(unsigned)c) {memmove(&p->midi_bindings[i],&p->midi_bindings[i+1],(--p->midi_binding_count-i)*sizeof p->midi_bindings[0]);memset(&p->midi_bindings[p->midi_binding_count],0,sizeof p->midi_bindings[0]);}
             else if(t->owner>(unsigned)c)t->owner--;
         }
@@ -515,7 +542,7 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
         for(int a=0;a<pr->automation_count;a++) {
             ParameterTarget t=pr->automations[a].target; unsigned id=t.parameter,c=t.owner;
             if(!parameter_info(pr,t,&baseline[a],&low[a],&high[a])) continue;
-            if((id>=PARAM_FM_RATIO && id<=PARAM_FM_LAST) || (id>=PARAM_DX7_FIRST && id<=PARAM_DX7_LAST)) {
+            if(parameter_is_synth(id)) {
                 FMSettings *settings=&fm_updates[c];
                 bindings[a]=(float *)fm_parameter_pointer(settings,id);
             }
