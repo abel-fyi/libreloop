@@ -21,7 +21,7 @@ add_library(engine STATIC
   ${ENGINE_DIR}/audio_timing.c ${ENGINE_DIR}/automation.c ${ENGINE_DIR}/parameter.c
   ${ENGINE_DIR}/sampler.c ${ENGINE_DIR}/sampler_voice.c ${ENGINE_DIR}/fm_synth.c
   ${ENGINE_DIR}/dx7.c ${ENGINE_DIR}/analog.c ${ENGINE_DIR}/chorus.c
-  ${ENGINE_DIR}/tube.c ${ENGINE_DIR}/delay.c ${ENGINE_DIR}/equalizer.c ${ENGINE_DIR}/spectrum.c ${ENGINE_DIR}/effects.c ${ENGINE_DIR}/waveform.c)
+  ${ENGINE_DIR}/reverb.c ${ENGINE_DIR}/tube.c ${ENGINE_DIR}/delay.c ${ENGINE_DIR}/equalizer.c ${ENGINE_DIR}/spectrum.c ${ENGINE_DIR}/effects.c ${ENGINE_DIR}/waveform.c)
 set(NATIVE_FILES ${PLATFORM_DIR}/files_posix.c ${PLATFORM_DIR}/browser_files_posix.c ${PLATFORM_DIR}/atomic_file.c)
 if(WIN32)
   set(NATIVE_FILES ${PLATFORM_DIR}/files_windows.c ${PLATFORM_DIR}/windows_path_math.c ${PLATFORM_DIR}/browser_files_windows.c ${PLATFORM_DIR}/file_io_windows.c ${PLATFORM_DIR}/atomic_file_windows.c)
@@ -71,7 +71,7 @@ function(libreloop_test name library)
     add_test(NAME ${name} COMMAND ${name}_test)
   endif()
 endfunction()
-foreach(name tube tube_integration magnetic_knob delay delay_integration engine midi instrument_replace automation pitch_automation audio_clip clip_trim sampler device_baseline chorus equalizer spectrum fm_synth fm_layers dx7 analog preset tempo stereo recording atomic_file project_assets project_document project_format playback_plan device_contract recording_writer waveform)
+foreach(name reverb tube tube_integration magnetic_knob delay delay_integration engine midi instrument_replace automation pitch_automation audio_clip clip_trim sampler device_baseline chorus equalizer spectrum fm_synth fm_layers dx7 analog preset tempo stereo recording atomic_file project_assets project_document project_format playback_plan device_contract recording_writer waveform)
   libreloop_test(${name} interaction)
 endforeach()
 foreach(name arrangement edit_clipboard navigation history file_chooser)
