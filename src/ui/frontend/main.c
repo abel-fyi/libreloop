@@ -53,6 +53,7 @@ static void smoke_showcase_prepare(void) {
 
 /* Development capture states use only existing instruments/effects. */
 static void smoke_scene_prepare(int scene) {
+    if(scene>=25 && scene<=28){channel_replace_choice(&ui.project,0,CHOICE_ANALOG);ui.fm_analog_tab=scene-25;return;}
     if(scene==24){ui.project.effect_type[1][0]=EFFECT_DYNAMICS;ui.project.dynamics[1][0]=dynamics_default();ui.project.dynamics[1][0].lowcut=80;ui.project.effect_mix[1][0]=1;ui.eq_bus=1;ui.eq_slot=0;return;}
     if(scene==23){ui.project.effect_type[1][0]=EFFECT_TUBE;ui.project.tube[1][0]=tube_default();ui.project.tube[1][0].natural=1;ui.project.effect_mix[1][0]=1;ui.eq_bus=1;ui.eq_slot=0;return;}
     if(scene==21 || scene==22){ui.project.effect_type[1][0]=scene==21?EFFECT_PHASER:EFFECT_FLANGER;ui.project.effect_mix[1][0]=.5f;ui.eq_bus=1;ui.eq_slot=0;return;}
@@ -128,7 +129,7 @@ int main(int argc,char **argv) {
     if(smoke_count<0 || smoke_count>4096)return 1;
     if(smoke_workspace<0 || smoke_workspace>9)return 1;
     if(smoke_grid_menu<0 || smoke_grid_menu>2 || smoke_grid>=GRID_CHOICES)return 1;
-    if(smoke_scene<0 || smoke_scene>24 || (smoke_scene && !smoke))return 1;
+    if(smoke_scene<0 || smoke_scene>28 || (smoke_scene && !smoke))return 1;
     if(smoke_width && (!smoke || smoke_width<900 || smoke_height<562 || smoke_width>3840 || smoke_height>2160))return 1;
     if(smoke_new_project && !smoke)return 1;
     if(!isfinite(smoke_ui_scale) || (smoke_ui_scale && (!smoke || smoke_ui_scale<75 || smoke_ui_scale>200)))return 1;

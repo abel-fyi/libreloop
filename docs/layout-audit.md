@@ -53,3 +53,13 @@ Before/after software captures were inspected, including a 900×562 window with
 compact FM controls and footer fit. Native Retina rendering, physical-pointer
 feel and listening to Master balance on hardware remain hands-on checks. No
 new hardware performance measurements are claimed.
+
+## Dedicated synth follow-up
+
+Studio synth identity now comes from the instrument chooser. The compact
+engine dropdown described above is replaced by a static voice description;
+preset/channel-caption separation remains. New Analog has its own aligned
+oscillator strips and separate Filter/Amplitude/Motion pages, reviewed at the
+same compact window size. Existing DX7, Custom FM and legacy Analog editing
+surfaces remain available. Details and verification are in
+[Analog design](analog-synth.md).

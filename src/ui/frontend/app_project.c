@@ -140,6 +140,25 @@ void replace_instrument(int c,int type) {
     snprintf(ui.status,sizeof ui.status,"%s now uses %s; notes and routing kept across all patterns.",ui.project.channel_names[c],instrument_descriptor(type)->name);
 }
 
+void add_instrument_choice(int choice) {
+    if(choice<0 || choice>=INSTRUMENT_CHOICES)return;
+    int c=ui.project.channel_count;add_instrument(choice==CHOICE_SAMPLER?INSTRUMENT_SAMPLER:INSTRUMENT_FM);
+    if(ui.project.channel_count==c)return;
+    if(choice==CHOICE_ANALOG)ui.project.fm[c]=fm_analog_factory(0);
+    else if(choice==CHOICE_CUSTOM_FM)ui.project.fm[c]=fm_epiano();
+    snprintf(ui.project.channel_names[c],PATTERN_NAME,"%s",instrument_choice_name(choice));
+    ui.fm_analog_tab=ui.fm_tab=ui.fm_dx_operator=ui.fm_dx_page=0;
+}
+void replace_instrument_choice(int c,int choice) {
+    if(recording_active() || !sampler_flush()){snprintf(ui.status,sizeof ui.status,"Finish recording / sample processing before replacing an instrument.");return;}
+    int automatic=!strcmp(ui.project.channel_names[c],"FM Synth");
+    for(int i=0;i<INSTRUMENT_CHOICES;i++)automatic|=!strcmp(ui.project.channel_names[c],instrument_choice_name(i));
+    if(!channel_replace_choice(&ui.project,c,choice)){snprintf(ui.status,sizeof ui.status,"Audio clip channels require a Sampler.");return;}
+    if(automatic)snprintf(ui.project.channel_names[c],PATTERN_NAME,"%s",instrument_choice_name(choice));
+    ui.automation_selected=ui.automation_node=-1;ui.control_drag=ui.menu_value=NULL;ui.fm_graph_drag=-1;
+    ui.channel=ui.instrument_channel=c;ui.browser_focus=0;ui.fm_analog_tab=ui.fm_tab=ui.fm_dx_operator=ui.fm_dx_page=0;windows_focus(&ui.windows,4);
+    snprintf(ui.status,sizeof ui.status,"%s: %s; notes and routing retained.",ui.project.channel_names[c],instrument_choice_name(choice));
+}
 int pattern_instruments(int pat,int rows[CHANNELS]) {
     int count=0;
     if(pat<0 || pat>=ui.project.pattern_count) return 0;
@@ -408,7 +427,10 @@ int preset_commit(const char *chosen,int save) {
         int ok=preset_save(chosen,&preset); snprintf(ui.status,sizeof ui.status,ok?"Preset saved: %.180s":"Cannot save preset: %.180s",chosen); return ok;
     }
     if(!preset_load(chosen,&preset) || preset.kind!=ui.preset_kind) { snprintf(ui.status,sizeof ui.status,"Invalid preset or wrong device type"); return 0; }
-    if(ui.preset_kind==PRESET_FM) ui.project.fm[owner]=preset.fm;
+    if(ui.preset_kind==PRESET_FM) {
+        if(ui.studio_style && ui.project.fm[owner].engine!=preset.fm.engine){snprintf(ui.status,sizeof ui.status,"Preset belongs to a different instrument; use Replace instrument first.");return 0;}
+        ui.project.fm[owner]=preset.fm;
+    }
     else if(ui.preset_kind==PRESET_PHASER){ui.project.phaser[owner][slot]=preset.phaser;ui.project.effect_mix[owner][slot]=preset.mix;ui.project.effect_bypass[owner][slot]=0;}
     else if(ui.preset_kind==PRESET_FLANGER){ui.project.flanger[owner][slot]=preset.flanger;ui.project.effect_mix[owner][slot]=preset.mix;ui.project.effect_bypass[owner][slot]=0;}
     else if(ui.preset_kind==PRESET_DYNAMICS){ui.project.dynamics[owner][slot]=preset.dynamics;ui.project.effect_mix[owner][slot]=preset.mix;ui.project.effect_bypass[owner][slot]=0;}

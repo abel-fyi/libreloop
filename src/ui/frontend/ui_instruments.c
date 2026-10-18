@@ -21,7 +21,7 @@ static void instrument_hint(const char *text,float width,int y,int size) {
 }
 static void instrument_preset_at(float width,const char *name,float y,float h) {
     int compact=ui.studio_style && y<70;
-    float field_width=width-(compact?300:160);
+    float field_width=width-(compact?300:ui.studio_style?24:160);
     if(compact)y=30;
     if(ui.studio_style) {
         ui_surface(host_draw(),(DrawRect){12,y,field_width,h},ui_skin.display);
@@ -88,7 +88,15 @@ void fm_graph_update(void) {
 
 static const char *fm_value_caption(FMSettings *s,unsigned id,float display) {
     const char *shown;
-    if(id>=PARAM_DX7_FIRST && id<=PARAM_DX7_LAST) {
+    if(id>=PARAM_VA_FIRST && id<=PARAM_VA_LAST) {
+        unsigned n=id-PARAM_VA_FIRST;
+        if(n<12 && n%4==0){static const char *waves[]={"Saw","Pulse","Triangle","Sine"};int wave=(int)roundf(display);shown=fabsf(display-wave)<.03f?waves[wave]:host_text_format("%.2f",display);}
+        else if(n<12 && n%4==1)shown=host_text_format("%+.0f st",display);
+        else if(n<12 && n%4==2)shown=host_text_format("%+.0f ct",display);
+        else if(n==12)shown=host_text_format("%.1f dB",display);
+        else shown=host_text_format("%.0f%%",display*100);
+    }
+    else if(id>=PARAM_DX7_FIRST && id<=PARAM_DX7_LAST) {
         int index=id-PARAM_DX7_FIRST,field=index%21;
         if(index>=DX7_NATIVE_PARAMETERS) shown=host_text_format("%.1f%%",display);
         else if(index<126 && field==18) {
@@ -109,6 +117,8 @@ static const char *fm_value_caption(FMSettings *s,unsigned id,float display) {
         else if(index==144) shown=host_text_format("%+.0f st",display-24);
         else shown=host_text_format("%.0f",display);
     }
+    else if(s->engine==2 && s->analog.model && (id==PARAM_FM_ANALOG_NOISE || id==PARAM_FM_ANALOG_PULSE || id==PARAM_FM_ANALOG_PWM || id==PARAM_FM_FILTER_RESONANCE || id==PARAM_FM_SUSTAIN || id==PARAM_FM_MOD_SUSTAIN))shown=host_text_format("%.0f%%",display*100);
+    else if(s->engine==2 && s->analog.model && id==PARAM_FM_FILTER_ENV)shown=host_text_format("%+.1f oct",display);
     else if(id==PARAM_FM_FILTER_CUTOFF) shown=host_text_format(display>=1000?"%.2g kHz":"%.0f Hz",display>=1000?display/1000:display);
     else if(id==PARAM_FM_CARRIER_RATIO || id==PARAM_FM_ATTACK_RATIO) shown=host_text_format("%.2gx",display);
     else if(id==PARAM_FM_BODY_PITCH) shown=host_text_format("%+.1f st",display);
@@ -177,7 +187,19 @@ static void lfo_display(const FMSettings *s,DrawRect plot,float cycles) {
     host_draw_line_ex((DrawPoint){plot.x+3,mid},(DrawPoint){plot.x+plot.width-4,mid},1,(DrawColor){112,149,128,255});
 }
 
+static void analog_envelope_segment(DrawPoint a,DrawPoint b,float base,int attack,int filled) {
+    DrawPoint previous=a;
+    for(int i=1;i<=40;i++) {
+        float t=i/40.f,progress=attack?1.01f*(1-expf(-4.6151205f*t)):1-expf(-9.2103404f*t);
+        if(i==40)progress=1;
+        DrawPoint next={a.x+(b.x-a.x)*t,a.y+(b.y-a.y)*progress};
+        if(filled)envelope_segment(previous,next,base);else smooth_line(previous,next,2,ui_skin.graph_line);
+        previous=next;
+    }
+}
+
 void fm_envelope_graph(FMSettings *s,DrawRect plot) {
+    int modern=ui.studio_style && s->engine==2 && s->analog.model;
     host_draw_rectangle_rec(plot,ui.studio_style?ui_skin.graph:bg);
     float slot=(plot.width-24)/3,base=plot.y+plot.height-22,range=plot.height-34;
     float times[3]={*fm_parameter_pointer(s,ui.fm_envelope_ids[ui.fm_tab][0]),*fm_parameter_pointer(s,ui.fm_envelope_ids[ui.fm_tab][1]),*fm_parameter_pointer(s,ui.fm_envelope_ids[ui.fm_tab][3])};
@@ -196,30 +218,34 @@ void fm_envelope_graph(FMSettings *s,DrawRect plot) {
             host_draw_line_ex((DrawPoint){plot.x+8,y},(DrawPoint){plot.x+plot.width-8,y},1,(DrawColor){58,91,121,255});
         }
     }
-    envelope_segment((DrawPoint){plot.x+8,base},handles[0],base);
+    if(modern)analog_envelope_segment((DrawPoint){plot.x+8,base},handles[0],base,1,1);
+    else envelope_segment((DrawPoint){plot.x+8,base},handles[0],base);
     DrawPoint previous=handles[0];
     for(int i=1;i<=40;i++) {
-        float t=i/40.f,level=ui.fm_tab?sustain+(1-sustain)*expf(-4.6051702f*t):1-(1-sustain)*t;
+        float t=i/40.f,level=(ui.fm_tab || modern)?sustain+(1-sustain)*expf(-4.6051702f*t):1-(1-sustain)*t;
         DrawPoint point={handles[0].x+(handles[1].x-handles[0].x)*t,base-level*range};
         envelope_segment(previous,point,base); previous=point;
     }
     envelope_segment(previous,handles[1],base);
     DrawPoint release={plot.x+8+slot*2,handles[1].y};
-    envelope_segment(handles[1],release,base); envelope_segment(release,handles[2],base);
+    envelope_segment(handles[1],release,base);
+    if(modern)analog_envelope_segment(release,handles[2],base,0,1);else envelope_segment(release,handles[2],base);
     if(ui.studio_style) {
         /* Stage boundaries follow actual handles; neither the plot nor its hits move. */
         float stages[]={handles[0].x,handles[1].x,release.x};
         for(int i=0;i<3;i++)host_draw_line_ex((DrawPoint){stages[i],plot.y+6},(DrawPoint){stages[i],base},1,(DrawColor){255,255,255,255});
         /* Repaint the contour over the grid without changing its coordinates. */
         DrawColor edge=ui_skin.graph_line;
-        smooth_line((DrawPoint){plot.x+8,base},handles[0],2,edge);
+        if(modern)analog_envelope_segment((DrawPoint){plot.x+8,base},handles[0],base,1,0);
+        else smooth_line((DrawPoint){plot.x+8,base},handles[0],2,edge);
         DrawPoint prior=handles[0];
         for(int i=1;i<=40;i++) {
-            float t=i/40.f,level=ui.fm_tab?sustain+(1-sustain)*expf(-4.6051702f*t):1-(1-sustain)*t;
+            float t=i/40.f,level=(ui.fm_tab || modern)?sustain+(1-sustain)*expf(-4.6051702f*t):1-(1-sustain)*t;
             DrawPoint point={handles[0].x+(handles[1].x-handles[0].x)*t,base-level*range};
             smooth_line(prior,point,2,edge);prior=point;
         }
-        smooth_line(prior,handles[1],2,edge);smooth_line(handles[1],release,2,edge);smooth_line(release,handles[2],2,edge);
+        smooth_line(prior,handles[1],2,edge);smooth_line(handles[1],release,2,edge);
+        if(modern)analog_envelope_segment(release,handles[2],base,0,0);else smooth_line(release,handles[2],2,edge);
         ui_graph_handle(host_draw(),(DrawPoint){plot.x+8,base});
         ui_graph_handle(host_draw(),release);
         if(!ui.profile_flat)ui_bevel(host_draw(),plot,1);
@@ -314,6 +340,7 @@ void fm_legacy_editor(float width,float height) {
 }
 
 const char *fm_sound_name(const FMSettings *s) {
+    if(s->engine==2 && s->analog.model)for(int i=0;i<3;i++){FMSettings factory=fm_analog_factory(i);if(!memcmp(s,&factory,sizeof factory))return fm_analog_factory_name(i);}
     for(int i=0;i<FM_FACTORY_COUNT;i++) { FMSettings factory=fm_factory(i); if(!memcmp(s,&factory,sizeof factory)) return fm_factory_name(i); }
     return "Edited sound";
 }
@@ -546,9 +573,46 @@ void fm_analog_editor(float width,float height) {
     fm_footer(c,width,height);
 }
 
+/* Dedicated polyphonic Analog panel. Legacy Analog keeps its carried editor. */
+static void analog_modern_editor(float width,float height) {
+    int c=ui.instrument_channel;FMSettings *s=&ui.project.fm[c];
+    channel_controls(c,width);instrument_preset_field(width,fm_sound_name(s));
+    const char *tabs[]={"Oscs","Filter","Amplitude","Motion"};float tab=(width-24)/4;
+    for(int i=0;i<4;i++)if(button(tabs[i],12+i*tab,78,tab-3,26,ui.fm_analog_tab==i))ui.fm_analog_tab=i;
+    if(ui.fm_analog_tab==0) {
+        const char *names[]={"Shape","Tune","Fine","Level"};
+        for(int osc=0;osc<3;osc++){
+            float y=108+osc*70;instrument_group(12,y,width-24,68," ");
+            label(host_text_format("%d",osc+1),22,y+12,UI_TEXT_SIZE,muted);
+            unsigned ids[4];for(int i=0;i<4;i++)ids[i]=PARAM_VA_FIRST+osc*4+i;
+            fm_spaced_row(s,ids,names,4,width,y+20,0);
+        }
+        unsigned ids[]={PARAM_VA_FIRST+12,PARAM_FM_ANALOG_NOISE,PARAM_VA_FIRST+13,PARAM_FM_ANALOG_PULSE};
+        const char *names2[]={"Drive","Noise","Drift","Pulse"};fm_spaced_row(s,ids,names2,4,width,344,0);
+    } else if(ui.fm_analog_tab==1 || ui.fm_analog_tab==2) {
+        int filter=ui.fm_analog_tab==1;ui.fm_tab=filter?1:0;
+        instrument_group(12,108,width-24,height-150," ");
+        label(filter?"Ladder filter / envelope":"Amplitude envelope",20,113,12,muted);
+        if(filter){unsigned ids[]={PARAM_FM_FILTER_CUTOFF,PARAM_FM_FILTER_RESONANCE,PARAM_FM_FILTER_ENV,PARAM_VA_FIRST+14};const char *names[]={"Cutoff","Resonance","Env depth","Key track"};fm_spaced_row(s,ids,names,4,width,139,0);}
+        unsigned ids[4];for(int i=0;i<4;i++)ids[i]=ui.fm_envelope_ids[ui.fm_tab][i];
+        const char *names[]={"Attack","Decay","Sustain","Release"};fm_spaced_row(s,ids,names,4,width,filter?207:139,0);
+        fm_envelope_graph(s,(DrawRect){12,filter?252:184,width-24,height-(filter?294:226)});
+    } else {
+        instrument_group(12,108,width-24,68," ");
+        unsigned ids[]={PARAM_FM_LFO_RATE,PARAM_FM_VIBRATO,PARAM_FM_TREMOLO,PARAM_FM_LFO_FADE,PARAM_FM_ANALOG_PWM};
+        const char *names[]={"Rate","Pitch amt","Vol. amt","Fade","PWM"};fm_spaced_row(s,ids,names,5,width,136,0);
+        const char *waves[]={"Sine","Triangle","Saw","Square"};
+        if(choice_button(waves[(int)s->lfo_shape],12,184,112,24))open_context(19,c,(DrawPoint){ui.mouse.x+desktop_editor_rect(4).x,ui.mouse.y+desktop_editor_rect(4).y});
+        instrument_hint("Per-voice motion. Mixer drive feeds the ladder; chorus is not needed for the basic sound.",width,222,11);
+        lfo_display(s,(DrawRect){12,280,width-24,height-322},s->lfo_rate*.5f);
+    }
+    fm_footer(c,width,height);
+}
+
 void fm_editor(float width,float height) {
     FMSettings *s=&ui.project.fm[ui.instrument_channel];
-    if(s->engine==1) fm_dx_editor(width,height); else if(s->engine==2) fm_analog_editor(width,height); else fm_legacy_editor(width,height);
+    if(s->engine==1) fm_dx_editor(width,height); else if(s->engine==2 && s->analog.model && ui.studio_style)analog_modern_editor(width,height);else if(s->engine==2) fm_analog_editor(width,height); else fm_legacy_editor(width,height);
+    if(ui.studio_style){label(s->engine==1?"6 operators":s->engine==2?(s->analog.model?"3 oscillators":"Legacy voice"):"3 operators",16,55,10,muted);return;}
     const char *engines[]={"Custom FM","Six-op FM","Analog"};
     SixOpLayout layout=sixop_layout(width,height,ui.studio_style);
     int compact=ui.studio_style && !(s->engine==1 && layout.spacious);

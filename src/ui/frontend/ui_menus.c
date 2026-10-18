@@ -182,7 +182,7 @@ void draw_popup_content(void) {
         if(button("Cancel",x+252,y+100,100,28,0) || host_is_key_pressed(HOST_KEY_ESCAPE)) { ui.document.pending_action=0; ui.pattern_popup=0; }
         return;
     }
-    int picker=ui.pattern_popup==11,folder=ui.pattern_popup==3,help=ui.pattern_popup==4,number=ui.pattern_popup==5,w=ui.pattern_popup==14?400:ui.pattern_popup==13?460:picker?700:ui.pattern_popup==6?320:help?660:number?360:folder?620:260,h=ui.pattern_popup==14?208:ui.pattern_popup==13?390:picker?(ui.file_confirm?180:500):help?645:116;
+    int picker=ui.pattern_popup==11,folder=ui.pattern_popup==3,help=ui.pattern_popup==4,number=ui.pattern_popup==5,w=ui.pattern_popup==14?400:ui.pattern_popup==13?460:picker?700:ui.pattern_popup==6?320:help?660:number?360:folder?620:260,h=ui.pattern_popup==14?208:ui.pattern_popup==13?390:picker?(ui.file_confirm?180:500):help?645:ui.pattern_popup==6 && ui.studio_style?188:116;
     int title=ui.studio_style?STUDIO_TITLE:TITLE,pad=title-TITLE;
     h+=pad;
     float scale=ui_scale();
@@ -247,6 +247,10 @@ void draw_popup_content(void) {
     }
     if(ui.pattern_popup==6) {
         popup_caption("Add instrument",x,y,w);
+        if(ui.studio_style){
+            for(int choice=0;choice<INSTRUMENT_CHOICES;choice++)if(button(instrument_choice_name(choice),x+12,y+30+choice*36,w-24,30,0)){add_instrument_choice(choice);ui.pattern_popup=0;}
+            return;
+        }
         if(button(instrument_descriptor(INSTRUMENT_SAMPLER)->name,x+12,y+30,w-24,30,0)) { add_instrument(INSTRUMENT_SAMPLER); ui.pattern_popup=0; }
         if(button(instrument_descriptor(INSTRUMENT_FM)->name,x+12,y+66,w-24,30,0)) { add_instrument(INSTRUMENT_FM); ui.pattern_popup=0; }
         return;
@@ -388,7 +392,7 @@ void preset_action(int kind,int owner,int slot,int save) {
     ui.preset_kind=kind; ui.preset_owner=owner; ui.preset_slot=slot;
     char initial[LL_PATH_CAPACITY],directory[LL_PATH_CAPACITY];
     if(!preset_directory(directory,sizeof directory,kind)) snprintf(directory,sizeof directory,"%s",host_get_working_directory());
-    const char *name=device_descriptor(kind)->name;
+    const char *name=kind==PRESET_FM && ui.studio_style?channel_instrument_name(&ui.project,owner):device_descriptor(kind)->name;
     if(snprintf(initial,sizeof initial,"%s/%s.llpreset",directory,name)>=(int)sizeof initial || !file_chooser_begin_recent(&ui.file_picker,initial,"llpreset",save,save?FILE_PRESET_SAVE:FILE_PRESET_OPEN)) {
         snprintf(ui.status,sizeof ui.status,"Cannot open preset chooser"); return;
     }
@@ -548,6 +552,9 @@ void delete_pattern(int target) {
     snprintf(ui.status,sizeof ui.status,"Deleted pattern and its Playlist clips%s",old_count==1?"; kept one blank pattern":"");
 }
 
+static int studio_factory_count(int c){return c<0 || c>=ui.project.channel_count?0:fm_family_factory_count(ui.project.fm[c].engine);}
+static FMSettings studio_factory(int c,int index){return fm_family_factory(ui.project.fm[c].engine,index);}
+static const char *studio_factory_name(int c,int index){return fm_family_factory_name(ui.project.fm[c].engine,index);}
 void draw_context_content(void) {
     if(!ui.context_kind) return;
     if(ui.windows.workspace.enabled && (ui.context_kind==14 || ui.context_kind==16) && ui.effect_context_window>=5){ui.eq_bus=ui.effect_windows[ui.effect_context_window].bus;ui.eq_slot=ui.effect_windows[ui.effect_context_window].slot;}
@@ -558,7 +565,7 @@ void draw_context_content(void) {
         for(int id=ui.context_kind==26?0:1;id<=ui.project.insert_count;id++)
             if(ui.context_kind==26?insert_has_send(&ui.project,ui.context_target,id):insert_has_send(&ui.project,id,ui.context_target))route_rows[route_count++]=id;
     }
-    int w=ui.context_kind==14 || ui.context_kind==16?160:ui.context_kind==28 || (ui.context_kind==25 && !ui.project.effect_type[ui.eq_bus][ui.context_target])?344:(ui.context_kind==5 || ui.context_kind==8 || ui.context_kind==12)?304:228,h=ui.context_kind==29?58:(ui.context_kind==26 || ui.context_kind==27)?8+25*(int)fminf(8,route_count+1):ui.context_kind==28?209:ui.context_kind==25?(ui.project.effect_type[ui.eq_bus][ui.context_target]?158:209):ui.context_kind==24?8+25*GRID_CHOICES:ui.context_kind==9?133:ui.context_kind==21?8+25*FM_FACTORY_COUNT:ui.context_kind==22?83:ui.context_kind==23?108:ui.context_kind==19?108:ui.context_kind==20?58:ui.context_kind==17?8+25*(int)fminf(8,instrument_count):ui.context_kind==18?58:ui.context_kind==4?108:ui.context_kind==16?32:ui.context_kind==15?58:ui.context_kind==14?8+EQ_SHAPES*25:ui.context_kind==13?58:ui.context_kind==2?183:ui.context_kind==7?133:(ui.context_kind==5 || ui.context_kind==8 || ui.context_kind==12)?76:ui.context_kind==3 && !ui.context_target?32:82,x=fmaxf(0,fminf(host_get_screen_width()/scale-w,ui.context_position.x)),y=fmaxf(0,fminf(host_get_screen_height()/scale-h,ui.context_position.y));
+    int w=ui.context_kind==14 || ui.context_kind==16?160:ui.context_kind==28 || (ui.context_kind==25 && !ui.project.effect_type[ui.eq_bus][ui.context_target])?344:(ui.context_kind==5 || ui.context_kind==8 || ui.context_kind==12)?304:228,h=ui.context_kind==29?58:(ui.context_kind==26 || ui.context_kind==27)?8+25*(int)fminf(8,route_count+1):ui.context_kind==28?209:ui.context_kind==25?(ui.project.effect_type[ui.eq_bus][ui.context_target]?158:209):ui.context_kind==24?8+25*GRID_CHOICES:ui.context_kind==9?133:ui.context_kind==21?8+25*(ui.studio_style?studio_factory_count(ui.context_target):FM_FACTORY_COUNT):ui.context_kind==22?83:ui.context_kind==23?108:ui.context_kind==19?108:ui.context_kind==20?58:ui.context_kind==17?8+25*(int)fminf(8,instrument_count):ui.context_kind==18?(ui.studio_style?108:58):ui.context_kind==4?108:ui.context_kind==16?32:ui.context_kind==15?58:ui.context_kind==14?8+EQ_SHAPES*25:ui.context_kind==13?58:ui.context_kind==2?183:ui.context_kind==7?133:(ui.context_kind==5 || ui.context_kind==8 || ui.context_kind==12)?76:ui.context_kind==3 && !ui.context_target?32:82,x=fmaxf(0,fminf(host_get_screen_width()/scale-w,ui.context_position.x)),y=fmaxf(0,fminf(host_get_screen_height()/scale-h,ui.context_position.y));
     ui.input_enabled=1;
     if(host_is_key_pressed(HOST_KEY_ESCAPE) || (!ui.context_opened && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT) && !hover(x,y,w,h))) { ui.context_kind=0; return; }
     ui_frame(host_draw(),(DrawRect){x,y,w,h});
@@ -604,9 +611,9 @@ void draw_context_content(void) {
     } else if(kind==21 || kind==22 || kind==23) {
         if(target<0 || target>=ui.project.channel_count || ui.project.instrument[target]!=INSTRUMENT_FM) { ui.context_kind=0; return; }
         const char *engines[]={"Custom FM","Six-operator FM","Analog"},*waves[]={"Saw","Pulse","Triangle","Sine"};
-        int count=kind==21?FM_FACTORY_COUNT:kind==22?3:4;
-        for(int i=0;i<count;i++) if(button(kind==21?fm_factory_name(i):kind==22?engines[i]:waves[i],x+4,y+4+i*25,w-8,24,0)) {
-            if(kind==21) ui.project.fm[target]=fm_factory(i);
+        int count=kind==21?(ui.studio_style?studio_factory_count(target):FM_FACTORY_COUNT):kind==22?3:4;
+        for(int i=0;i<count;i++) if(button(kind==21?(ui.studio_style?studio_factory_name(target,i):fm_factory_name(i)):kind==22?engines[i]:waves[i],x+4,y+4+i*25,w-8,24,0)) {
+            if(kind==21) ui.project.fm[target]=ui.studio_style?studio_factory(target,i):fm_factory(i);
             else if(kind==22) ui.project.fm[target].engine=i;
             else ui.project.fm[target].analog.wave=i;
             ui.fm_graph_drag=-1; ui.context_kind=0; return;
@@ -628,6 +635,12 @@ void draw_context_content(void) {
         if(hover(x,y,w,h)) snprintf(ui.status,sizeof ui.status,"Choose the pattern's instrument to replace; the change applies across all patterns. Scroll for more instruments.");
     } else if(kind==18) {
         if(target<0 || target>=ui.project.channel_count) { ui.context_kind=0; return; }
+        if(ui.studio_style){
+            for(int choice=0;choice<INSTRUMENT_CHOICES;choice++)if(button_available(instrument_choice_name(choice),x+4,y+4+choice*25,w-8,24,channel_instrument_choice(&ui.project,target)==choice,choice==CHOICE_SAMPLER || !ui.project.channel_audio[target])){
+                ui.context_kind=0;replace_instrument_choice(target,choice);return;
+            }
+            return;
+        }
         for(int type=INSTRUMENT_SAMPLER;type<=INSTRUMENT_FM;type++) {
             int enabled=ui.input_enabled;
             if(type==INSTRUMENT_FM && ui.project.channel_audio[target]) ui.input_enabled=0;

@@ -259,3 +259,24 @@ Existing parameter IDs remain stable. Engine checks cover partial and full pan,
 parameter lookup/write, automation playback, project round trips and invalid
 values. All 158 Release checks, including frozen audio fixtures and real-time
 callback checks, pass.
+
+## Dedicated synth editors
+
+The instrument chooser offers Sampler, DX7, Analog and Custom FM. The synth
+engine-switching dropdown is removed from studio editors. Each instrument has
+its own title, factory list and preset directory; a static voice description
+occupies the former engine selector area. Existing patches retain their DSP
+family, including Analog (Legacy).
+
+New Analog has four compact pages: Oscs, Filter, Amplitude and Motion. Three
+oscillator strips align Shape/Tune/Fine/Level controls; mixer Drive/Noise/Drift/
+Pulse sit below them. Filter and amp envelopes use the existing graph editing
+interface, with exponential contours for the new voice. All pages use the same
+knobs, buttons, fields, palette and font as the rest of Luice. Instrument-choice
+icons reuse the bundled sprite set.
+
+The chooser grows to four rows. Replacement remains explicit, preserving notes
+and routing while clearing incompatible synth-only automation/MIDI links. The
+shared synth window keeps its established compact dimensions. See
+[Analog design and verification](analog-synth.md) for DSP, persistence, audio
+fixtures, sanitizer results, CPU measurements and listening limitations.

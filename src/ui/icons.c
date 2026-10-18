@@ -164,6 +164,7 @@ void icons_destroy(UIIcons *icons){draw_texture_destroy(icons->texture);*icons=(
    readable. The frontend retains the caption for hover/keyboard descriptions. */
 int icon_action(const char *caption) {
     static const struct { const char *caption;int icon; } actions[]={
+        {"DX7",ICON_KEYS},{"Analog",ICON_WAVE},{"Custom FM",ICON_SETTINGS},{"Oscs",ICON_WAVE},
         {"FILE",ICON_FILE},
         {"EDIT",ICON_PENCIL},
         {"VIEW",ICON_VIEW},

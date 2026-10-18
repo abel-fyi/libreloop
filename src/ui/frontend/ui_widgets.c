@@ -478,6 +478,8 @@ int preset_directory(char *out,size_t capacity,int kind) {
     char root[LL_PATH_CAPACITY];
     if(snprintf(root,sizeof root,"%.*s/presets",(int)(slash-ui.browser.config),ui.browser.config)>=(int)sizeof root || host_make_directory(root)) return 0;
     const char *device=kind==PRESET_PHASER?"Phaser":kind==PRESET_FLANGER?"Flanger":kind==PRESET_DYNAMICS?"Multiband Compressor":kind==PRESET_REVERB?"Reverb":kind==PRESET_TUBE?"Tube":kind==PRESET_DELAY?"Delay":kind==PRESET_FM?"FM Synth":kind==PRESET_EQ?"Equalizer":kind==PRESET_CHORUS?"Chorus":"Sampler";
+    if(kind==PRESET_FM && ui.studio_style && ui.preset_owner>=0 && ui.preset_owner<ui.project.channel_count && ui.project.instrument[ui.preset_owner]==INSTRUMENT_FM)
+        device=channel_instrument_name(&ui.project,ui.preset_owner);
     if(snprintf(out,capacity,"%s/%s",root,device)>=(int)capacity || host_make_directory(out)) return 0;
     if(kind==PRESET_PHASER)for(unsigned i=0;i<3;i++){char factory[LL_PATH_CAPACITY];if(snprintf(factory,sizeof factory,"%s/%s.llpreset",out,phaser_factory_name(i))<(int)sizeof factory && !host_file_exists(factory)){DevicePreset preset={.kind=PRESET_PHASER,.phaser=phaser_factory(i),.mix=.5f};preset_save(factory,&preset);}}
     if(kind==PRESET_FLANGER)for(unsigned i=0;i<3;i++){char factory[LL_PATH_CAPACITY];if(snprintf(factory,sizeof factory,"%s/%s.llpreset",out,flanger_factory_name(i))<(int)sizeof factory && !host_file_exists(factory)){DevicePreset preset={.kind=PRESET_FLANGER,.flanger=flanger_factory(i),.mix=.5f};preset_save(factory,&preset);}}
@@ -488,10 +490,11 @@ int preset_directory(char *out,size_t capacity,int kind) {
             DevicePreset preset={.kind=PRESET_REVERB,.reverb=reverb_factory(i),.mix=reverb_factory_mix(i)};preset_save(factory,&preset);
         }
     }
-    if(kind==PRESET_FM) for(int i=0;i<FM_FACTORY_COUNT;i++) {
+    int synth_engine=ui.project.fm[ui.preset_owner>=0 && ui.preset_owner<ui.project.channel_count?ui.preset_owner:0].engine;
+    if(kind==PRESET_FM) for(int i=0;i<(ui.studio_style?fm_family_factory_count(synth_engine):FM_FACTORY_COUNT);i++) {
         char factory[LL_PATH_CAPACITY];
-        if(snprintf(factory,sizeof factory,"%s/%s.llpreset",out,fm_factory_name(i))<(int)sizeof factory && !host_file_exists(factory)) {
-            DevicePreset preset={.kind=PRESET_FM,.fm=fm_factory(i)}; preset_save(factory,&preset);
+        if(snprintf(factory,sizeof factory,"%s/%s.llpreset",out,ui.studio_style?fm_family_factory_name(synth_engine,i):fm_factory_name(i))<(int)sizeof factory && !host_file_exists(factory)) {
+            DevicePreset preset={.kind=PRESET_FM,.fm=ui.studio_style?fm_family_factory(synth_engine,i):fm_factory(i)}; preset_save(factory,&preset);
         }
     }
     return 1;

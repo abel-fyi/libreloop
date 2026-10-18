@@ -433,6 +433,8 @@ int import_sample(const char *path,int c);
 void audition_entry(int entry);
 void rack_reveal_last(void);
 void add_instrument(int type);
+void add_instrument_choice(int choice);
+void replace_instrument_choice(int channel,int choice);
 void replace_instrument(int c,int type);
 int pattern_instruments(int pat,int rows[CHANNELS]);
 DrawColor source_rgb(uint32_t rgb);
