@@ -49,7 +49,7 @@ let peaks pass; this version does not promise an absolute output ceiling.
 
 Pre/Post: ±24 dB. Attack: 0–200 ms. Release/Release 2: 0–2000 ms. Sustain:
 0–1000 ms. Width: 0–200%. Saturation: 0–100%. Saturation ceiling: −24 to +12 dB.
-Crossovers: Low 40–1000 Hz, High 1000–16000 Hz. Cut: Off to 200 Hz.
+Crossovers: Low 40–1000 Hz, High 1000–16000 Hz. Low Cut: Off to 80 Hz.
 
 The gray fill beneath the curve is one live **band input-level meter**, not a
 histogram or frequency display. Its right edge follows the current band level;
@@ -184,10 +184,36 @@ and HiDPI legibility remain hands-on checks.
 Monitor/Bands buttons retain the selected view. Holding Low, High or Low Cut
 temporarily displays Bands, including the initial press; releasing returns to
 the selected view. While a knob is captured, moving over the plot cannot also
-drag a crossover boundary. Low Cut dims the log-frequency range below its cutoff
-and shortens the colored bass region; a fully covered low band has zero colored
-width. This is a schematic boundary cue, not a brick-wall filter response.
+drag a crossover boundary. Low Cut draws the high-pass magnitude response as the colored regions’ height,
+including its transition below the cutoff. The cutoff marker is not a brick wall.
 The monitor speed center is now 0.85× (15% slower); endpoints remain ¼× and 4×.
 Audio timing and DSP are unchanged. Tests cover center/endpoints, history
 position and low-cut region bounds. Smoke scene 24 captures the band view with
-a 100 Hz low cut. Temporary knob override still needs native hands-on checking.
+an 80 Hz low cut. Temporary knob override still needs native hands-on checking.
+
+## Steep low cut
+
+Low Cut now uses an eighth-order Butterworth high-pass (48 dB/octave), built
+from four biquads with distinct pole-pair Q values and double-precision filter
+histories. The maximum is 80 Hz; zero is Off. At cutoff the steady-state response
+is −3.01 dB; one octave below is approximately −48.16 dB, two below −96.33 dB.
+The display uses the corresponding bilinear-transform magnitude response.
+This is a steep minimum-phase filter with phase shift and transient ringing,
+not an ideal brick wall or a linear-phase processor.
+
+Low crossover cannot fall below Low Cut in the UI; raising Low Cut moves Low up
+when needed. The engine also constrains the effective crossover for automation.
+At equality, filter transition regions still overlap; the low band is not muted.
+Coefficient targets follow the existing 32-sample/20 ms smoothing mechanism,
+and enabling/disabling the cut crossfades over approximately 20 ms. The high-pass
+remains in the wet path before the crossover and the parallel Band Mix signal.
+The outer Wet control and Bypass can still restore unfiltered input.
+
+Older projects/presets with Low Cut between 80 and the former 200 Hz maximum
+load at 80 Hz and raise Low if needed; saved field layout and parameter IDs are
+unchanged. Tests compare actual rendered tone levels against the displayed
+response, sweep cutoff/Off repeatedly, and exercise enabled low cut through
+the rack, callback, export and preset migration. Live listening remains unverified.
+Earlier CPU/storage measurements above describe the previous processor. The
+additional filter CPU cost has not been measured. Current instance storage is
+19,416 bytes on macOS arm64 (528 bytes more than the earlier measurement).

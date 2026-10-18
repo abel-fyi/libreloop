@@ -344,7 +344,7 @@ int main(void) {
     ready=1;ma_atomic_device_state_set(&device.state,ma_device_state_started);
     test_callback(NULL,out,NULL,64);for(int i=0;i<128;i++)CHECK(out[i]==0);
     ready=0;ma_atomic_device_state_set(&device.state,ma_device_state_uninitialized);audio_stop();reverb_free(reverb_expected);
-    fixture.effect_type[0][0]=EFFECT_DYNAMICS;fixture.dynamics[0][0]=dynamics_factory(1);fixture.effect_mix[0][0]=1;
+    fixture.effect_type[0][0]=EFFECT_DYNAMICS;fixture.dynamics[0][0]=dynamics_factory(1);fixture.dynamics[0][0].lowcut=80;fixture.effect_mix[0][0]=1;
     audio_update(&fixture,1,1,0,1,1,0,0,0);CHECK(!audio_effect_memory_failed());Dynamics *dynamics_expected=dynamics_create();CHECK(dynamics_expected);
     ready=1;ma_atomic_device_state_set(&device.state,ma_device_state_started);
     for(int block=0;block<32;block++){

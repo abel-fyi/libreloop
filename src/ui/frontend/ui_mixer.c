@@ -348,6 +348,7 @@ static void dynamics_editor(float width,float height,int bus,int slot){
     static const char *bands[]={"LOW","MID","HIGH","MASTER"};
     int window=ui.knob_context,selected=ui.dynamics_band[window];if(selected<0 || selected>3)selected=3;
     DynamicsSettings *s=&ui.project.dynamics[bus][slot];DynamicsBand *b=&s->band[selected];DrawColor color=colors[selected],graph_ink={151,167,162,255};
+    s->lowcut=fminf(80,s->lowcut);s->low=fmaxf(s->low,s->lowcut);
     DynamicsMonitor *m=&monitor[window];if(!ui.dynamics_pause[window])audio_dynamics_monitor(bus,slot,m);
     float graph_h=fmaxf(180,height-320),left_w=width*.36f;
     DrawRect curve={32,49,left_w-42,graph_h},history={left_w+8,49,width-left_w-40,graph_h};
@@ -397,18 +398,17 @@ static void dynamics_editor(float width,float height,int bus,int slot){
     if(ui.dynamics_view[window] || knob_hold){
         float lo=logf(s->low/20)/logf(1000),hi=logf(s->high/20)/logf(1000);
         float bounds[4];dynamics_band_bounds(s->low,s->high,s->lowcut,bounds);
-        if(bounds[0]>0) {
-            host_draw_rectangle(history.x,history.y,history.width*bounds[0],history.height,(DrawColor){25,30,30,255});
-            float x=history.x+history.width*bounds[0];host_draw_line(x,history.y,x,history.y+history.height,graph_ink);
-            label("CUT",history.x+4,history.y+history.height-18,12,graph_ink);
+        for(int px=0;px<(int)history.width;px++){
+            float position=(px+.5f)/history.width,hz=20*powf(1000,position);
+            int band=position<lo?0:position<hi?1:2;
+            float gain=dynamics_lowcut_gain(s->lowcut,hz);DrawColor fill=colors[band];fill.a=90;
+            host_draw_rectangle(history.x+px,history.y+history.height*(1-gain),1,history.height*gain,fill);
         }
-        for(int i=0;i<3;i++){
-            DrawColor fill=colors[i];fill.a=90;float region=history.width*(bounds[i+1]-bounds[i]);
-            if(region<=0)continue;
-            host_draw_rectangle(history.x+history.width*bounds[i],history.y,region,history.height,fill);
-            if(region>=text_width(bands[i],12)+12)label(bands[i],history.x+history.width*bounds[i]+6,history.y+8,12,colors[i]);
-        }
-        for(int i=0;i<2;i++){float x=history.x+history.width*(i?hi:lo);host_draw_line(x,history.y,x,history.y+history.height,ink);if(!knob_hold && hover(x-8,history.y,16,history.height) && host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT)){float hz=20*powf(1000,(ui.mouse.x-history.x)/history.width);if(i)s->high=fmaxf(fmaxf(1000,s->low+1),fminf(16000,hz));else s->low=fmaxf(40,fminf(fminf(1000,s->high-1),hz));}}
+        const float starts[]={0,lo,hi},ends[]={lo,hi,1};
+        for(int i=0;i<3;i++)if(history.width*(ends[i]-starts[i])>=text_width(bands[i],12)+12)
+            label(bands[i],history.x+history.width*starts[i]+6,history.y+8,12,colors[i]);
+        if(s->lowcut>0){float x=history.x+history.width*bounds[0];host_draw_line(x,history.y,x,history.y+history.height,graph_ink);}
+        for(int i=0;i<2;i++){float x=history.x+history.width*(i?hi:lo);host_draw_line(x,history.y,x,history.y+history.height,ink);if(!knob_hold && hover(x-8,history.y,16,history.height) && host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT)){float hz=20*powf(1000,(ui.mouse.x-history.x)/history.width);if(i)s->high=fmaxf(fmaxf(1000,s->low+1),fminf(16000,hz));else s->low=fmaxf(fmaxf(40,s->lowcut),fminf(fminf(1000,s->high-1),hz));}}
         label("20 Hz",history.x,history.y+history.height+3,12,graph_ink);label("20 kHz",history.x+history.width-54,history.y+history.height+3,12,graph_ink);
     }else{
         if(hover(history.x,history.y,history.width,history.height) && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT))ui.dynamics_pause[window]^=1;
@@ -451,7 +451,7 @@ static void dynamics_editor(float width,float height,int bus,int slot){
         int bottom=i==4 || (i>=6 && i!=9 && i!=10);
         float x=width*positions[i],ky=tabs+(bottom?116:50);
         if(i==6)ky=tabs+122;
-        knob_sized(x,ky,values[i],info->low,info->high,info->initial,info->name,i==6?KNOB_WIDTH:info->kind==PARAMETER_LOGARITHMIC?KNOB_LOGARITHMIC:KNOB_NORMAL,PANEL_KNOB_RADIUS);
+        knob_sized(x,ky,values[i],i==9?fmaxf(40,s->lowcut):info->low,info->high,info->initial,info->name,i==6?KNOB_WIDTH:info->kind==PARAMETER_LOGARITHMIC?KNOB_LOGARITHMIC:KNOB_NORMAL,PANEL_KNOB_RADIUS);
         label(names[i],x-text_width(names[i],12)/2,ky+20,12,ink);
         float shown=displayed_value(values[i],*values[i]);
         const char *number=i==0 || i==1 || i==8?host_text_format("%+.1f",shown):i>=2 && i<=5?host_text_format("%.0fms",shown):i==9 || i==10 || i==11?(shown>=1000?host_text_format("%.2gkHz",shown/1000):host_text_format("%.0fHz",shown)):host_text_format("%.0f%%",shown*100);
@@ -459,6 +459,7 @@ static void dynamics_editor(float width,float height,int bus,int slot){
         if(i==6 && hover(x-14,ky-14,28,28))snprintf(ui.status,sizeof ui.status,"Stereo width: 0%% = mono, 100%% = unchanged stereo; higher widens this band");
         if(i==12 && hover(x-14,ky-14,28,28))snprintf(ui.status,sizeof ui.status,"Band Mix: blend compressed low/mid/high bands with phase-aligned uncompressed audio before Master");
     }
+    s->low=fmaxf(s->low,s->lowcut);
     float footer=height-30;
     if(button("Bypass",8,footer,92,24,ui.project.effect_bypass[bus][slot]))ui.project.effect_bypass[bus][slot]^=1;
     if(button("Reset curve",108,footer,112,24,0)){DynamicsSettings reset=dynamics_default();memcpy(b->points,reset.band[selected].points,sizeof b->points);b->count=3;}

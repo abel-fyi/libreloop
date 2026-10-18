@@ -94,6 +94,10 @@ int preset_load(const char *path,DevicePreset *p) {
             }
         }
     } else ok=0;
+    if(ok && next.kind==PRESET_DYNAMICS){
+        if(next.dynamics.lowcut>80 && next.dynamics.lowcut<=200)next.dynamics.lowcut=80;
+        if(next.dynamics.lowcut>=0 && next.dynamics.lowcut<=80 && next.dynamics.low<next.dynamics.lowcut)next.dynamics.low=next.dynamics.lowcut;
+    }
     ok=ok && valid(&next);
     fclose(f); if(ok) *p=next; return ok;
 }

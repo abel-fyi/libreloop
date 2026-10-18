@@ -5,7 +5,24 @@
 #include <stdio.h>
 #include <string.h>
 #define CHECK(x) do{if(!(x)){fprintf(stderr,"line %d: %s\n",__LINE__,#x);return 1;}}while(0)
+static float lowcut_response(float hz,float cutoff){
+    DynamicsSettings s=dynamics_default();s.lowcut=cutoff;
+    Dynamics *d=dynamics_create();double power=0;
+    for(int i=0;i<96000;i++){
+        float x=.02f*(float)sin(6.283185307179586*hz*i/48000),f[2]={x,x};
+        dynamics_process(d,&s,1,f);if(i>=48000)power+=(double)f[0]*f[0];
+    }
+    dynamics_free(d);return sqrt(power/48000)*1.4142135623730951/.02;
+}
 int main(void){
+    const float tones[]={20,40,80,160};
+    for(unsigned i=0;i<4;i++){
+        float measured=lowcut_response(tones[i],80),expected=dynamics_lowcut_gain(80,tones[i]);
+        printf("Low Cut 80 Hz / %.0f Hz: %.3f dB\n",tones[i],20*log10f(measured));
+        CHECK(fabsf(20*log10f(measured/expected))<.2f);
+    }
+    CHECK(lowcut_response(40,80)<.0041f && lowcut_response(160,80)>.999f);
+    DynamicsSettings cutoff_settings=dynamics_default();cutoff_settings.lowcut=81;CHECK(!dynamics_valid(cutoff_settings));
     for(int db=-72;db<=12;db++)CHECK(fabsf(dynamics_level_db(dynamics_level_position(db))-db)<.001f);
     CHECK(dynamics_level_position(0)>.49f && dynamics_level_position(0)<.51f);
     DynamicsSettings s=dynamics_default();CHECK(dynamics_valid(s));for(int i=0;i<3;i++)CHECK(dynamics_valid(dynamics_factory(i)));
@@ -43,6 +60,13 @@ int main(void){
     CHECK(dynamics_meter_height(&s.band[0],-24,dynamics_level_position(-18))==0);
     s=dynamics_default();
     Dynamics *d=dynamics_create(),*other=dynamics_create();CHECK(d && other);float reference[4096][2];
+    DynamicsSettings crossed=dynamics_default(),limited=dynamics_default();
+    crossed.low=40;crossed.lowcut=80;crossed.band[0].solo=1;limited=crossed;limited.low=80;
+    for(int i=0;i<4096;i++){
+        float a[2]={.1f*sinf(i*.01f),.1f*cosf(i*.02f)},b[2];memcpy(b,a,sizeof a);
+        dynamics_process(d,&crossed,1,a);dynamics_process(other,&limited,1,b);CHECK(!memcmp(a,b,sizeof a));
+    }
+    dynamics_reset(d);dynamics_reset(other);
     for(int i=0;i<48000;i++){float f[2]={0};dynamics_process(d,&s,1,f);CHECK(f[0]==0 && f[1]==0);}
     /* LR4 complementary split: unity magnitude across the spectrum. */
     const float frequencies[]={30,100,200,500,1000,2500,5000,15000};
@@ -58,7 +82,7 @@ int main(void){
     dynamics_reset(d);dynamics_monitor(d,&m);CHECK(!m.count);float silence[2]={0};dynamics_process(d,&s,1,silence);CHECK(!silence[0] && !silence[1]);
     /* RMS/dual-release response and repeated crossover sweeps stay finite. */
     s=dynamics_factory(1);s.band[3].rms=1;s.band[3].release2=450;dynamics_reset(d);
-    for(int i=0;i<48000;i++){if(!(i%127)){s.low=40+(i%960);s.high=1100+(i%14000);}float x=i<24000?.5f*sinf(i*.17f):0;float f[2]={x,x};dynamics_process(d,&s,1,f);CHECK(isfinite(f[0]) && isfinite(f[1]) && fabsf(f[0])<4 && f[0]==f[1]);}
+    for(int i=0;i<48000;i++){if(!(i%127)){s.low=40+(i%960);s.high=1100+(i%14000);s.lowcut=(i/127)%3==0?0:(i/127)%3==1?80:20;}float x=i<24000?.5f*sinf(i*.17f):0;float f[2]={x,x};dynamics_process(d,&s,1,f);CHECK(isfinite(f[0]) && isfinite(f[1]) && fabsf(f[0])<4 && f[0]==f[1]);}
     s=dynamics_default();s.band[3].saturation=1;s.band[3].ceiling=-6;dynamics_reset(d);
     for(int i=0;i<1000;i++){float f[2]={2*sinf(i*.13f),2*sinf(i*.13f)};dynamics_process(d,&s,1,f);CHECK(fabsf(f[0])<=powf(10,-6.f/20)+1e-6f);}
     s=dynamics_default();s.band[3].mode=2;dynamics_reset(d);for(int i=0;i<1000;i++){float f[2]={.3f,.3f};dynamics_process(d,&s,1,f);CHECK(f[0]==0 && f[1]==0);}

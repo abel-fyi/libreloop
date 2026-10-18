@@ -10,19 +10,27 @@
 static Project project,loaded;
 static float pcm[48000],out[8192];
 int main(void){
-    project_new(&project);project.effect_type[0][0]=EFFECT_DYNAMICS;project.dynamics[0][0]=dynamics_factory(1);
+    project_new(&project);project.effect_type[0][0]=EFFECT_DYNAMICS;project.dynamics[0][0]=dynamics_factory(1);project.dynamics[0][0].lowcut=80;
     CHECK(effect_descriptor(EFFECT_DYNAMICS) && device_descriptor(DEVICE_DYNAMICS));
     for(unsigned id=PARAM_DYNAMICS_FIRST;id<=PARAM_DYNAMICS_LAST;id++){CHECK(parameter_descriptor(id));ParameterTarget t={id,0,0};float value,lo,hi;CHECK(parameter_info(&project,t,&value,&lo,&hi));ParameterTarget found;CHECK(parameter_from_pointer(&project,dynamics_parameter(&project.dynamics[0][0],id-PARAM_DYNAMICS_FIRST),&found));CHECK(found.parameter==id && found.owner==0 && found.slot==0);}
     CHECK(project_save("dynamics-test.llp",&project));CHECK(project_load("dynamics-test.llp",&loaded));CHECK(!memcmp(&loaded.dynamics[0][0],&project.dynamics[0][0],sizeof(DynamicsSettings)));remove("dynamics-test.llp");
     DevicePreset preset={.kind=PRESET_DYNAMICS,.dynamics=project.dynamics[0][0],.mix=.7f},back;
     CHECK(preset_save("dynamics-test.llpreset",&preset));CHECK(preset_load("dynamics-test.llpreset",&back));CHECK(back.kind==PRESET_DYNAMICS && back.mix==.7f && !memcmp(&back.dynamics,&preset.dynamics,sizeof preset.dynamics));remove("dynamics-test.llpreset");
+    /* Old settings above the new limit migrate rather than refusing the preset. */
+    FILE *legacy=fopen("old-lowcut.llpreset","w");CHECK(legacy);
+    DynamicsSettings old=dynamics_default();old.low=40;old.lowcut=120;
+    float old_values[sizeof old/sizeof(float)];memcpy(old_values,&old,sizeof old);
+    fprintf(legacy,"LIBRELOOP_PRESET 6 %d\n",PRESET_DYNAMICS);
+    for(unsigned i=0;i<sizeof old_values/sizeof *old_values;i++)fprintf(legacy,"%.9g ",old_values[i]);
+    fprintf(legacy,"1\n");fclose(legacy);
+    CHECK(preset_load("old-lowcut.llpreset",&back) && back.dynamics.lowcut==80 && back.dynamics.low==80);remove("old-lowcut.llpreset");
     EffectRack *rack=effects_create(1);CHECK(rack && effects_prepare(rack,&project.effect_type[0][0],EFFECT_SLOTS));Dynamics *reference=dynamics_create();CHECK(reference);
     const DynamicsSettings *settings[EFFECT_SLOTS];for(int i=0;i<EFFECT_SLOTS;i++)settings[i]=&project.dynamics[0][i];
     for(int i=0;i<4800;i++){float f[2]={.4f*sinf(i*.03f),.2f*sinf(i*.03f)},expected[2];memcpy(expected,f,sizeof f);dynamics_process(reference,&project.dynamics[0][0],1,expected);effects_process_all(rack,0,project.effect_type[0],project.chorus[0],project.eq[0],project.delay[0],project.tube[0],project.reverb[0],settings,NULL,NULL,120,project.effect_mix[0],project.effect_bypass[0],f);CHECK(!memcmp(f,expected,sizeof f));}
     DynamicsMonitor m;effects_dynamics_monitor(rack,0,0,&m);CHECK(m.count>0);effects_reset(rack);float silence[2]={0};effects_process_all(rack,0,project.effect_type[0],project.chorus[0],project.eq[0],project.delay[0],project.tube[0],project.reverb[0],settings,NULL,NULL,120,project.effect_mix[0],project.effect_bypass[0],silence);CHECK(!silence[0] && !silence[1]);
     dynamics_free(reference);effects_free(rack);
     /* Actual engine and offline export use the same prepared processor. */
-    project_new(&project);project.effect_type[0][0]=EFFECT_DYNAMICS;project.dynamics[0][0]=dynamics_factory(1);
+    project_new(&project);project.effect_type[0][0]=EFFECT_DYNAMICS;project.dynamics[0][0]=dynamics_factory(1);project.dynamics[0][0].lowcut=80;
     for(int i=0;i<48000;i++)pcm[i]=.2f*sinf(6.28318530718f*440*i/48000);
     project.notes[0][0][0]=(Note){60,127,0,16};project.clips[0][0]=1;Sample samples[CHANNELS]={{.data=pcm,.frames=48000,.channels=1}};
     rack=effects_create(INSERTS+1);CHECK(rack && effects_prepare(rack,&project.effect_type[0][0],(INSERTS+1)*EFFECT_SLOTS));

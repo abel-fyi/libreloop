@@ -388,6 +388,11 @@ int project_load(const char *path,Project *p) {
     ok=ok && ended && !ferror(file);
     for(size_t i=0;ok && i<FIELD_COUNT;i++) if(!seen[i] && strncmp(fields[i].name,"x-",2)) ok=0;
     for(int ch;ok && (ch=fgetc(file))!=EOF;) if(!isspace((unsigned char)ch)) ok=0;
+    if(ok)for(int bus=0;bus<=INSERTS;bus++)for(int slot=0;slot<EFFECT_SLOTS;slot++){
+        DynamicsSettings *s=&next->dynamics[bus][slot];
+        if(s->lowcut>80 && s->lowcut<=200)s->lowcut=80;
+        if(isfinite(s->low) && s->lowcut>=0 && s->lowcut<=80)s->low=fmaxf(s->low,s->lowcut);
+    }
     ok=ok && !ferror(file) && structure_valid(next);
     if(ok) *p=*next;
     free(next); free(names); fclose(file); return ok;

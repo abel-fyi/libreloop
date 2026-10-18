@@ -53,7 +53,7 @@ static void smoke_showcase_prepare(void) {
 
 /* Development capture states use only existing instruments/effects. */
 static void smoke_scene_prepare(int scene) {
-    if(scene==24){ui.project.effect_type[1][0]=EFFECT_DYNAMICS;ui.project.dynamics[1][0]=dynamics_default();ui.project.dynamics[1][0].lowcut=100;ui.project.effect_mix[1][0]=1;ui.eq_bus=1;ui.eq_slot=0;return;}
+    if(scene==24){ui.project.effect_type[1][0]=EFFECT_DYNAMICS;ui.project.dynamics[1][0]=dynamics_default();ui.project.dynamics[1][0].lowcut=80;ui.project.effect_mix[1][0]=1;ui.eq_bus=1;ui.eq_slot=0;return;}
     if(scene==23){ui.project.effect_type[1][0]=EFFECT_TUBE;ui.project.tube[1][0]=tube_default();ui.project.tube[1][0].natural=1;ui.project.effect_mix[1][0]=1;ui.eq_bus=1;ui.eq_slot=0;return;}
     if(scene==21 || scene==22){ui.project.effect_type[1][0]=scene==21?EFFECT_PHASER:EFFECT_FLANGER;ui.project.effect_mix[1][0]=.5f;ui.eq_bus=1;ui.eq_slot=0;return;}
     if(scene==19 || scene==20){ui.project.effect_type[1][0]=EFFECT_DYNAMICS;ui.project.dynamics[1][0]=dynamics_factory(scene==20?0:1);ui.project.effect_mix[1][0]=1;ui.eq_bus=1;ui.eq_slot=0;return;}

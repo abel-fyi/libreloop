@@ -10,9 +10,9 @@ _Static_assert(sizeof(DynamicsSettings)==184*sizeof(float),"Dynamics saved float
 _Static_assert(ATOMIC_INT_LOCK_FREE==2,"Dynamics meters need lock-free atomics");
 typedef struct {double a[3],b[3],target_a[3],target_b[3],z[2][2];float frequency;} Biquad;
 struct Dynamics {
-    Biquad split[2][2][2],align[2][2];
-    float hp[2],previous[2],rms[4],envelope[4],gain[4],slow_gain[4],width[4],pre[4],post[4],wet;
-    float attack[4],release[4],release2[4],average[4],sat[4],ceil[4],target_pre[4],target_post[4],lowcut;
+    Biquad split[2][2][2],align[2][2],cut[4];
+    float cut_mix,rms[4],envelope[4],gain[4],slow_gain[4],width[4],pre[4],post[4],wet;
+    float attack[4],release[4],release2[4],average[4],sat[4],ceil[4],target_pre[4],target_post[4];
     float peak_in[4],peak_out[4],peak_gain[4];
     DynamicsPoint curve_cache[4][DYNAMICS_POINTS];
     float curve_count[4];unsigned curve_slew[4];
@@ -37,7 +37,7 @@ const char *dynamics_factory_name(unsigned i){static const char *names[]={"0 dB 
 const float *dynamics_parameter(const DynamicsSettings *s,unsigned n){if(n<4){switch(n){case 0:return &s->low;case 1:return &s->high;case 2:return &s->lowcut;default:return &s->blend;}}n-=4;if(n>=48)return NULL;const DynamicsBand *b=&s->band[n/12];switch(n%12){case 0:return &b->pre;case 1:return &b->post;case 2:return &b->attack;case 3:return &b->release;case 4:return &b->release2;case 5:return &b->sustain;case 6:return &b->width;case 7:return &b->mode;case 8:return &b->solo;case 9:return &b->rms;case 10:return &b->ceiling;default:return &b->saturation;}}
 int dynamics_valid(DynamicsSettings s){
     for(unsigned i=0;i<DYNAMICS_PARAMETERS;i++){float v=*dynamics_parameter(&s,i);if(!isfinite(v))return 0;}
-    if(s.low<40 || s.low>1000 || s.high<1000 || s.high>16000 || s.high<s.low || s.lowcut<0 || s.lowcut>200 || s.blend<0 || s.blend>1)return 0;
+    if(s.low<40 || s.low>1000 || s.high<1000 || s.high>16000 || s.high<s.low || s.lowcut<0 || s.lowcut>80 || s.blend<0 || s.blend>1)return 0;
     for(int i=0;i<4;i++){DynamicsBand *b=&s.band[i];if(b->pre< -24 || b->pre>24 || b->post< -24 || b->post>24 || b->attack<0 || b->attack>200 || b->release<0 || b->release>2000 || b->release2<0 || b->release2>2000 || b->sustain<0 || b->sustain>1000 || b->width<0 || b->width>2 || b->mode<0 || b->mode>3 || b->mode!=floorf(b->mode) || (b->solo!=0 && b->solo!=1) || (b->rms!=0 && b->rms!=1) || b->ceiling< -24 || b->ceiling>12 || b->saturation<0 || b->saturation>1 || !isfinite(b->count) || b->count<2 || b->count>DYNAMICS_POINTS || b->count!=floorf(b->count))return 0;
         for(int j=0;j<DYNAMICS_POINTS;j++){DynamicsPoint p=b->points[j];if(!isfinite(p.x)||!isfinite(p.y)||!isfinite(p.bend)||!isfinite(p.shape))return 0;if(j<(int)b->count && (p.x< -72 || p.x>12 || p.y< -72 || p.y>12 || p.bend< -1 || p.bend>1 || p.shape<0 || p.shape>4 || p.shape!=floorf(p.shape) || (j && p.x<=b->points[j-1].x)))return 0;}
         if(b->points[0].x!=-72 || b->points[(int)b->count-1].x!=12)return 0;
@@ -64,15 +64,31 @@ static void filter(Biquad *f,float hz,int high){
     if(f->frequency!=hz){double w=2*PI*hz/RATE,c=cos(w),a=sin(w)/sqrt(2.),denom=1+a;f->target_a[1]=-2*c/denom;f->target_a[2]=(1-a)/denom;f->target_b[0]=(1+(high?c:-c))*.5/denom;f->target_b[1]=(high?-2:2)*f->target_b[0];f->target_b[2]=f->target_b[0];f->frequency=hz;}
     double slew=initial?1:.0327838995;for(int i=0;i<3;i++){f->a[i]+=(f->target_a[i]-f->a[i])*slew;f->b[i]+=(f->target_b[i]-f->b[i])*slew;}
 }
+/* Eighth-order Butterworth high-pass, four distinct pole pairs: 48 dB/oct. */
+static void cut_filter(Biquad *f,float hz,double q){
+    int initial=f->frequency==0;
+    if(f->frequency!=hz){double w=2*PI*hz/RATE,c=cos(w),a=sin(w)/(2*q),denom=1+a;
+        f->target_a[1]=-2*c/denom;f->target_a[2]=(1-a)/denom;
+        f->target_b[0]=(1+c)*.5/denom;f->target_b[1]=-2*f->target_b[0];f->target_b[2]=f->target_b[0];f->frequency=hz;}
+    double slew=initial?1:.0327838995;
+    for(int i=0;i<3;i++){f->a[i]+=(f->target_a[i]-f->a[i])*slew;f->b[i]+=(f->target_b[i]-f->b[i])*slew;}
+}
+float dynamics_lowcut_gain(float cutoff,float hz){
+    if(cutoff<=0)return 1;if(hz<=0)return 0;
+    double r=tan(PI*fminf(80,cutoff)/RATE)/tan(PI*hz/RATE);
+    double p=r*r;p*=p;p*=p;p*=p;return (float)(1/sqrt(1+p));
+}
 static float run(Biquad *f,int side,float x){double y=f->b[0]*x+f->z[side][0];f->z[side][0]=f->b[1]*x-f->a[1]*y+f->z[side][1];f->z[side][1]=f->b[2]*x-f->a[2]*y;if(fabs(f->z[side][0])<1e-25)f->z[side][0]=0;if(fabs(f->z[side][1])<1e-25)f->z[side][1]=0;return (float)y;}
 Dynamics *dynamics_create(void){Dynamics *d=calloc(1,sizeof *d);if(d){atomic_init(&d->serial,0);for(int b=0;b<4;b++)for(int i=0;i<DYNAMICS_HISTORY;i++)atomic_init(&d->history[b][i],0);}return d;}
 void dynamics_free(Dynamics *d){free(d);}
 void dynamics_reset(Dynamics *d){if(!d)return;/* Meter atomics may be concurrently read: never memset them. */memset(d,0,offsetof(Dynamics,serial));atomic_store_explicit(&d->serial,0,memory_order_release);}
 size_t dynamics_storage_bytes(void){return sizeof(Dynamics);}
 static void coefficients(Dynamics *d,const DynamicsSettings *s){
-    for(int x=0;x<2;x++)for(int h=0;h<2;h++)for(int stage=0;stage<2;stage++)filter(&d->split[x][h][stage],x?s->high:s->low,h);
+    for(int x=0;x<2;x++)for(int h=0;h<2;h++)for(int stage=0;stage<2;stage++)filter(&d->split[x][h][stage],x?s->high:fmaxf(s->low,clamp(s->lowcut,0,80)),h);
     for(int h=0;h<2;h++)for(int stage=0;stage<2;stage++)filter(&d->align[h][stage],s->high,h);
-    d->lowcut=s->lowcut?expf(-2*PI*s->lowcut/RATE):0;
+    static const double q[]={.5097955791041592,.6013448869350453,.8999762231364156,2.5629154477415064};
+    float cut=clamp(s->lowcut,0,80);
+    for(int i=0;i<4;i++)cut_filter(&d->cut[i],cut>0?fmaxf(.1f,cut):80,q[i]);
     for(int b=0;b<4;b++){const DynamicsBand *p=&s->band[b];
         if(d->curve_count[b]!=p->count || memcmp(d->curve_cache[b],p->points,sizeof p->points)){memcpy(d->curve_cache[b],p->points,sizeof p->points);d->curve_count[b]=p->count;if(d->ready)d->curve_slew[b]=960;}
         d->attack[b]=time_coefficient(p->attack);d->release[b]=time_coefficient(p->release);d->release2[b]=time_coefficient(p->release2);d->average[b]=time_coefficient(fmaxf(.1f,p->sustain));d->target_pre[b]=amp(p->pre);d->target_post[b]=amp(p->post);d->sat[b]=p->saturation;d->ceil[b]=amp(p->ceiling);}
@@ -95,11 +111,13 @@ static float process_band(Dynamics *d,const DynamicsBand *p,int b,float f[2]){
 static unsigned encode(float x){return (unsigned)lroundf(clamp((x+72)*255/96,0,255));}
 void dynamics_process(Dynamics *d,const DynamicsSettings *s,float wet,float f[2]){
     if(!d || !s)return;
-    if(!d->ready){coefficients(d,s);for(int b=0;b<4;b++){d->width[b]=s->band[b].width;d->pre[b]=amp(s->band[b].pre);d->post[b]=amp(s->band[b].post);d->gain[b]=d->slow_gain[b]=1;}d->wet=wet;d->ready=1;}
+    if(!d->ready){coefficients(d,s);for(int b=0;b<4;b++){d->width[b]=s->band[b].width;d->pre[b]=amp(s->band[b].pre);d->post[b]=amp(s->band[b].post);d->gain[b]=d->slow_gain[b]=1;}d->wet=wet;d->cut_mix=s->lowcut>0?1:0;d->ready=1;}
     if(!(d->tick%32))coefficients(d,s);
+    d->cut_mix+=((s->lowcut>0?1.f:0.f)-d->cut_mix)/960;
     float band[3][2],aligned[2],original[2]={f[0],f[1]};
     for(int side=0;side<2;side++){
-        float x=f[side];if(s->lowcut){float hp=x-d->previous[side]+d->lowcut*d->hp[side];d->hp[side]=hp;d->previous[side]=x;x=hp;}else{d->previous[side]=x;d->hp[side]=x;}
+        float x=f[side],hp=x;for(int i=0;i<4;i++)hp=run(&d->cut[i],side,hp);
+        x+=(hp-x)*d->cut_mix;
         float lo=run(&d->split[0][0][1],side,run(&d->split[0][0][0],side,x));
         float rest=run(&d->split[0][1][1],side,run(&d->split[0][1][0],side,x));
         band[0][side]=run(&d->align[0][1],side,run(&d->align[0][0],side,lo))+run(&d->align[1][1],side,run(&d->align[1][0],side,lo));

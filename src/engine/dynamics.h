@@ -18,6 +18,7 @@ DynamicsSettings dynamics_default(void);
 DynamicsSettings dynamics_factory(unsigned index);
 const char *dynamics_factory_name(unsigned index);
 int dynamics_valid(DynamicsSettings settings);
+float dynamics_lowcut_gain(float cutoff,float frequency);
 float dynamics_curve(const DynamicsBand *band,float input_db);
 const float *dynamics_parameter(const DynamicsSettings *settings,unsigned offset);
 Dynamics *dynamics_create(void);
