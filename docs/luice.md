@@ -166,3 +166,18 @@ Release build and all 158 tests pass, including selection-following meter draw
 checks, routing/scroll geometry and flat display checks across UI scales and
 simulated display densities. A software showcase capture was reviewed. Native
 Retina appearance and hands-on interaction remain unverified.
+
+## Bitmap transport numerals
+
+Tempo and playback position use compact 5×7 bitmap numerals instead of thin
+seven-segment digits. Their faces retain the shared recessed display treatment.
+The glyph rows are drawn as solid rectangle runs directly from a ten-digit
+constant table: no new font, texture, dependency or decorative dot background.
+Normal numerals are 14 logical units high; clock centiseconds are 10.5 units,
+aligned to the same baseline. Long values scale down to fit their existing
+readout bounds. Transport input areas and editing behavior are unchanged.
+The legacy presentation retains its original seven-segment renderer.
+
+Draw-command checks cover the smaller centisecond baseline, long-value bounds
+and readable stroke dimensions at 75% UI scale. A software-rendered showcase
+capture was reviewed. Native Retina appearance remains a hands-on check.

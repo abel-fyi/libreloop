@@ -4,9 +4,9 @@
 UiState ui;
 Theme ui_theme;
 DesktopSkin ui_skin;
-static DrawRect rectangles[160],icon_source,icon_destination;
+static DrawRect rectangles[512],icon_source,icon_destination;
 static int count;
-void host_draw_rectangle_rec(DrawRect r,DrawColor c){(void)c;if(count<160)rectangles[count++]=r;}
+void host_draw_rectangle_rec(DrawRect r,DrawColor c){(void)c;if(count<512)rectangles[count++]=r;}
 void host_draw_texture_pro(HostTexture t,DrawRect source,DrawRect destination,DrawPoint origin,float angle,DrawColor color){(void)t;(void)origin;(void)angle;(void)color;icon_source=source;icon_destination=destination;}
 static float test_scale=1;
 float ui_scale(void){return test_scale;}
@@ -17,15 +17,17 @@ int host_is_mouse_button_down(int button){(void)button;return 0;}
 #define CHECK(x) do{if(!(x)){fprintf(stderr,"%d: %s\n",__LINE__,#x);return 1;}}while(0)
 int main(void) {
     ui.studio_style=1;
+    bitmap_digits("00:00:",10,20,14,(DrawColor){255,255,255,255});
+    int whole_count=count;count=0;
     lcd_time("00:00:00",10,20,80,(DrawColor){255,255,255,255});
-    CHECK(count==40);
+    CHECK(count>whole_count);
     float large_top=100,small_top=100,large_bottom=0,small_bottom=0;
     for(int i=0;i<count;i++) {
-        DrawRect r=rectangles[i];CHECK(r.x>=10 && r.x+r.width<=90 && r.y>=20 && r.y+r.height<=36.001f);
-        if(i<28){large_top=fminf(large_top,r.y);large_bottom=fmaxf(large_bottom,r.y+r.height);}
+        DrawRect r=rectangles[i];CHECK(r.x>=10 && r.x+r.width<=90 && r.y>=20 && r.y+r.height<=34.001f);
+        if(i<whole_count){large_top=fminf(large_top,r.y);large_bottom=fmaxf(large_bottom,r.y+r.height);}
         else{small_top=fminf(small_top,r.y);small_bottom=fmaxf(small_bottom,r.y+r.height);}
     }
-    CHECK(large_top==20 && small_top==25 && large_bottom==36 && small_bottom==36);
+    CHECK(large_top==20 && small_top==23.5f && large_bottom==34 && small_bottom==34);
     count=0;lcd_time("123456:59:99",10,20,80,(DrawColor){255,255,255,255});
     for(int i=0;i<count;i++)CHECK(rectangles[i].x+rectangles[i].width<=90.001f);
     ui.font_scale=1;ui.icon_large=28;ui.icon_medium=20;ui.icon_small=16;

@@ -31,7 +31,40 @@ void label(const char *text,float x,float y,int size,DrawColor color) {
     label_moving(text,raster_position(x,ui.text_origin.x),raster_position(y,ui.text_origin.y),size,color);
 }
 
-/* Original procedural seven-segment numerals, only for numeric readouts. */
+/* Compact 5×7 bitmap numerals for the hardware-style transport. Each row is
+   emitted as solid runs; no font asset, texture filtering or dot overlay. */
+static float bitmap_units(const char *text) {
+    float units=0;
+    for(;*text;text++)units+=*text=='.' || *text==':'?3.f/7:6.f/7;
+    return units;
+}
+static void bitmap_digits(const char *text,float x,float y,float h,DrawColor color) {
+    static const unsigned char digits[10][7]={
+        {14,17,19,21,25,17,14},{4,12,4,4,4,4,14},
+        {14,17,1,2,4,8,31},{30,1,1,14,1,1,30},
+        {2,6,10,18,31,2,2},{31,16,16,30,1,1,30},
+        {14,16,16,30,17,17,14},{31,1,2,4,8,8,8},
+        {14,17,17,14,17,17,14},{14,17,17,15,1,1,14}};
+    float pixel_size=h/7;
+    for(;*text;text++) {
+        if(*text==':' || *text=='.') {
+            host_draw_rectangle_rec((DrawRect){x,y+(*text==':'?2:6)*pixel_size,pixel_size,pixel_size},color);
+            if(*text==':')host_draw_rectangle_rec((DrawRect){x,y+5*pixel_size,pixel_size,pixel_size},color);
+            x+=3*pixel_size;continue;
+        }
+        for(int row=0;row<7;row++) {
+            unsigned bits=*text>='0' && *text<='9'?digits[*text-'0'][row]:*text=='-' && row==3?14:0;
+            for(int col=0;col<5;) {
+                if(!(bits&(16u>>col))){col++;continue;}
+                int start=col++;
+                while(col<5 && (bits&(16u>>col)))col++;
+                host_draw_rectangle_rec((DrawRect){x+start*pixel_size,y+row*pixel_size,(col-start)*pixel_size,pixel_size},color);
+            }
+        }
+        x+=6*pixel_size;
+    }
+}
+/* Keep the original renderer for the legacy presentation. */
 static float lcd_units(const char *text) {
     float units=0;
     for(const char *p=text;*p;p++)units+=*p=='.' || *p==':'?.32f:.70f;
@@ -58,7 +91,8 @@ static void lcd_digits(const char *text,float x,float y,float h,DrawColor color)
 }
 
 void lcd_number(const char *text,float x,float y,float width,float height,DrawColor color) {
-    lcd_digits(text,x,y,ui.studio_style?UI_TEXT_SIZE:fminf(height,width/fmaxf(.1f,lcd_units(text))),color);
+    if(ui.studio_style)bitmap_digits(text,x,y,fminf(14,width/fmaxf(.1f,bitmap_units(text))),color);
+    else lcd_digits(text,x,y,fminf(height,width/fmaxf(.1f,lcd_units(text))),color);
 }
 void lcd_time(const char *text,float x,float y,float width,DrawColor color) {
     const char *last=strrchr(text,':');
@@ -66,6 +100,14 @@ void lcd_time(const char *text,float x,float y,float width,DrawColor color) {
     char whole[32];size_t count=(size_t)(last-text)+1;
     if(count>=sizeof whole)count=sizeof whole-1;
     memcpy(whole,text,count);whole[count]=0;
+    if(ui.studio_style) {
+        float large=14,small=10.5f;
+        float used=bitmap_units(whole)*large+bitmap_units(last+1)*small;
+        float fit=fminf(1,width/fmaxf(1,used));large*=fit;small*=fit;
+        bitmap_digits(whole,x,y,large,color);
+        bitmap_digits(last+1,x+bitmap_units(whole)*large,y+large-small,small,color);
+        return;
+    }
     float large=UI_TEXT_SIZE,small=11;
     float used=lcd_units(whole)*large+lcd_units(last+1)*small;
     float fit=fminf(1,width/fmaxf(1,used));large*=fit;small*=fit;
