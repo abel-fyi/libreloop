@@ -353,6 +353,7 @@ static void dynamics_editor(float width,float height,int bus,int slot){
     float graph_h=fmaxf(180,height-320),left_w=width*.36f;
     DrawRect curve={32,49,left_w-42,graph_h},history={left_w+8,49,width-left_w-40,graph_h};
     host_draw_rectangle(8,29,width-16,graph_h+48,(DrawColor){32,40,40,255});
+    if(ui.studio_style){ui_graph_paper(host_draw(),curve);ui_graph_paper(host_draw(),history);}
     const int ticks[]={-18,-12,-9,-6,-3,0,3,6,9,12};
     for(unsigned ti=0;ti<sizeof ticks/sizeof *ticks;ti++){int db=ticks[ti];float y=dyn_y(db,curve);host_draw_line(curve.x,y,curve.x+curve.width,y,ui_theme.grid_minor);host_draw_line(dyn_x(db,curve),curve.y,dyn_x(db,curve),curve.y+curve.height,ui_theme.grid_minor);label(host_text_format("%d",db),9,y-6,12,graph_ink);host_draw_line(history.x,y,history.x+history.width,y,ui_theme.grid_minor);}
     label("OUT",curve.x,32,12,graph_ink);label("IN",curve.x+curve.width-20,curve.y+curve.height+3,12,graph_ink);

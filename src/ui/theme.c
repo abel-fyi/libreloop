@@ -16,7 +16,7 @@ int theme_draw_init(DrawContext *draw) {
     DrawColor pixels[128*64]={0},knobs[128*32]={0};
     for(int y=0;y<64;y++)for(int x=0;x<128;x++) {
         int order=skin_bayer[y&3][x&3];
-        if(x<64)pixels[y*128+x]=order<8?(DrawColor){0,0,0,12}:(DrawColor){255,255,255,12};
+        if(x<64)pixels[y*128+x]=order<8?(DrawColor){0,0,0,18}:(DrawColor){255,255,255,18};
         else pixels[y*128+x]=!(x%4) && !(y%4)?(DrawColor){0,146,207,48}:(DrawColor){0,0,0,0};
     }
     /* Small pixel-shaded faces use their own compact atlas. Angle/pointer and
