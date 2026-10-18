@@ -3,7 +3,7 @@
 #define LIBRELOOP_DYNAMICS_H
 #include <stddef.h>
 #define DYNAMICS_POINTS 8
-#define DYNAMICS_HISTORY 256
+#define DYNAMICS_HISTORY 1024
 #define DYNAMICS_PARAMETERS 52
 /* All saved members are floats; field order is part of the project format. */
 typedef struct {float x,y,bend,shape;} DynamicsPoint;

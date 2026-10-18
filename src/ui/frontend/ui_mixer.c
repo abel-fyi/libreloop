@@ -330,12 +330,15 @@ static void dynamics_editor(float width,float height,int bus,int slot){
     for(unsigned ti=0;ti<sizeof ticks/sizeof *ticks;ti++){int db=ticks[ti];float y=dyn_y(db,curve);host_draw_line(curve.x,y,curve.x+curve.width,y,ui_theme.grid_minor);host_draw_line(dyn_x(db,curve),curve.y,dyn_x(db,curve),curve.y+curve.height,ui_theme.grid_minor);label(host_text_format("%d",db),9,y-6,12,graph_ink);host_draw_line(history.x,y,history.x+history.width,y,ui_theme.grid_minor);}
     label("OUT",curve.x,32,12,graph_ink);label("IN",curve.x+curve.width-20,curve.y+curve.height+3,12,graph_ink);
     host_draw_line_ex((DrawPoint){curve.x,curve.y+curve.height},(DrawPoint){curve.x+curve.width,curve.y},1,graph_ink);
-    /* Real input-level occupancy behind the curve: no fabricated waveform. */
-    unsigned bins[42]={0},max_bin=1;
-    for(unsigned i=0;i<m->count;i++){int bin=(int)(dynamics_level_position(m->input[selected][i])*42);if(m->input[selected][i]>-71.5f && bin>=0 && bin<42){bins[bin]++;if(bins[bin]>max_bin)max_bin=bins[bin];}}
-    for(int i=0;i<42;i++)if(bins[i])host_draw_rectangle(curve.x+i*curve.width/42,curve.y+curve.height*(1-.45f*bins[i]/max_bin),curve.width/42,curve.height*.45f*bins[i]/max_bin,(DrawColor){66,76,75,255});
-    DrawPoint previous={dyn_x(-72,curve),dyn_y(dynamics_curve(b,-72),curve)};
-    for(int i=1;i<=256;i++){float x=-72+84*i/256.f;DrawPoint next={dyn_x(x,curve),dyn_y(dynamics_curve(b,x),curve)};host_draw_line_ex(previous,next,2,color);previous=next;}
+    /* One live band-level meter: horizontal extent follows input level, and
+       each filled column ends at the transfer curve rather than crossing it. */
+    float live_level=m->count?m->input[selected][m->count-1]:-72;
+    for(int px=0;px<(int)curve.width;px++){
+        float at=(px+.5f)/curve.width,h=dynamics_meter_height(b,live_level,at);
+        if(h>0){float top=ceilf(curve.y+curve.height*(1-h));host_draw_line(curve.x+px,top,curve.x+px,curve.y+curve.height,(DrawColor){66,76,75,255});}
+    }
+    DrawPoint previous={curve.x,dyn_y(dynamics_curve(b,-72),curve)};
+    for(int px=1;px<=(int)curve.width;px++){float x=dynamics_level_db(px/curve.width);DrawPoint next={curve.x+px,dyn_y(dynamics_curve(b,x),curve)};host_draw_line_ex(previous,next,2,color);previous=next;}
     int point_hit=-1,bend_hit=-1;
     for(int i=0;i<(int)b->count;i++){
         DrawPoint p={dyn_x(b->points[i].x,curve),dyn_y(b->points[i].y,curve)};circle(p.x,p.y,4,color);
@@ -366,14 +369,22 @@ static void dynamics_editor(float width,float height,int bus,int slot){
     }else{
         if(hover(history.x,history.y,history.width,history.height) && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT))ui.dynamics_pause[window]^=1;
         for(unsigned i=1;i<m->count;i++){
-            float x0=history.x+(i-1)*history.width/(DYNAMICS_HISTORY-1),x1=history.x+i*history.width/(DYNAMICS_HISTORY-1);
-            host_draw_line(x1,dyn_y(m->input[selected][i],history),x1,history.y+history.height,(DrawColor){72,80,79,255});
+            float at0=dynamics_monitor_position(m->count-i,ui.dynamics_speed[window]),at1=dynamics_monitor_position(m->count-1-i,ui.dynamics_speed[window]);
+            if(at0<0 || at1>1)continue;
+            float x0=history.x+at0*history.width,x1=history.x+at1*history.width;
+            DrawPoint a={x0,dyn_y(m->input[selected][i-1],history)},z={x1,dyn_y(m->input[selected][i],history)},bottom0={x0,history.y+history.height},bottom1={x1,history.y+history.height};
+            host_draw_triangle(a,bottom0,z,(DrawColor){72,80,79,255});host_draw_triangle(z,bottom0,bottom1,(DrawColor){72,80,79,255});
             host_draw_line_ex((DrawPoint){x0,dyn_y(m->output[selected][i-1],history)},(DrawPoint){x1,dyn_y(m->output[selected][i],history)},1,color);
             host_draw_line_ex((DrawPoint){x0,dyn_y(m->gain[selected][i-1],history)},(DrawPoint){x1,dyn_y(m->gain[selected][i],history)},1.5f,(DrawColor){128,204,220,255});
         }
         label("INPUT / OUTPUT / GAIN",history.x+5,32,12,graph_ink);
         float gain=m->count?m->gain[selected][m->count-1]:0;label(host_text_format("Gain %+.1f dB",fabsf(gain)<.25f?0:gain),history.x+history.width-128,32,12,accent);
     }
+    float speed_x=history.x+history.width-112,speed_y=history.y+history.height+17;
+    knob_sized(speed_x,speed_y,&ui.dynamics_speed[window],-1,1,0,"Monitor speed (center = normal)",KNOB_CENTER,10);
+    label("SPEED",speed_x-65,speed_y-6,12,graph_ink);
+    label(host_text_format("%.2fx",dynamics_monitor_speed(ui.dynamics_speed[window])),speed_x+18,speed_y-6,12,graph_ink);
+    if(hover(speed_x-12,speed_y-12,24,24) || ui.control_drag==&ui.dynamics_speed[window])snprintf(ui.status,sizeof ui.status,"Monitor speed: left = slower / more history; center = 1x; right = faster / more detail; audio is unchanged");
     float tabs=graph_h+81;
     for(int i=0;i<4;i++)if(button(bands[i],8,tabs+i*29,78,25,i==selected)){ui.dynamics_band[window]=i;ui.dynamics_drag=0;}
     if(button("Monitor",width-264,tabs,84,23,!ui.dynamics_view[window]))ui.dynamics_view[window]=0;

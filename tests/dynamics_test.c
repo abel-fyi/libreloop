@@ -14,6 +14,20 @@ int main(void){
     for(int i=0;i<8;i++)dynamics_curve_insert(b,-60+i*8,-60+i*8);CHECK(b->count==8);CHECK(dynamics_curve_insert(b,-10,-10)<0);CHECK(dynamics_valid(s));
     s=dynamics_default();s.band[3].points[1]=(DynamicsPoint){-12,-12,0,0};s.band[3].points[2].y=-6;CHECK(fabsf(dynamics_curve(&s.band[3],0)+9)<.001f);
     s.band[3].points[1].x=NAN;CHECK(!dynamics_valid(s));s=dynamics_default();
+    CHECK(dynamics_monitor_speed(0)==1 && dynamics_monitor_speed(-1)==.25f && dynamics_monitor_speed(1)==4);
+    CHECK(dynamics_monitor_position(0,-1)==1 && dynamics_monitor_position(0,1)==1);
+    CHECK(fabsf(dynamics_monitor_position(255,0))<1e-6f);
+    CHECK(dynamics_monitor_position(255,-1)>.7f && dynamics_monitor_position(255,1)<0);
+    /* A single input level fills from the origin only as far as its x value,
+       with every column capped by the drawn curve, including held segments. */
+    s=dynamics_default();s.band[0].points[1]=(DynamicsPoint){-12,-12,0,0};s.band[0].points[2].y=-12;
+    for(int shape=0;shape<5;shape++){s.band[0].points[0].shape=shape;s.band[0].points[0].bend=.4f;
+        for(int i=0;i<=1000;i++){float at=i/1000.f,h=dynamics_meter_height(&s.band[0],0,at);CHECK(h>=0 && h<=dynamics_level_position(dynamics_curve(&s.band[0],dynamics_level_db(at)))+1e-6f);if(at>dynamics_level_position(0))CHECK(h==0);}
+    }
+    CHECK(dynamics_meter_height(&s.band[0],-72,.1f)==0);
+    CHECK(dynamics_meter_height(&s.band[0],-6,dynamics_level_position(-18))>0);
+    CHECK(dynamics_meter_height(&s.band[0],-24,dynamics_level_position(-18))==0);
+    s=dynamics_default();
     Dynamics *d=dynamics_create(),*other=dynamics_create();CHECK(d && other);float reference[4096][2];
     for(int i=0;i<48000;i++){float f[2]={0};dynamics_process(d,&s,1,f);CHECK(f[0]==0 && f[1]==0);}
     /* LR4 complementary split: unity magnitude across the spectrum. */
@@ -34,5 +48,8 @@ int main(void){
     s=dynamics_default();s.band[3].saturation=1;s.band[3].ceiling=-6;dynamics_reset(d);
     for(int i=0;i<1000;i++){float f[2]={2*sinf(i*.13f),2*sinf(i*.13f)};dynamics_process(d,&s,1,f);CHECK(fabsf(f[0])<=powf(10,-6.f/20)+1e-6f);}
     s=dynamics_default();s.band[3].mode=2;dynamics_reset(d);for(int i=0;i<1000;i++){float f[2]={.3f,.3f};dynamics_process(d,&s,1,f);CHECK(f[0]==0 && f[1]==0);}
+    dynamics_reset(d);s=dynamics_default();for(int i=0;i<48000*6;i++){float f[2]={0};dynamics_process(d,&s,1,f);}
+    dynamics_monitor(d,&m);CHECK(m.count==DYNAMICS_HISTORY && m.serial==1125);
+    CHECK(dynamics_monitor_position(m.count-1,-1)<0 && dynamics_monitor_position(m.count-5,-1)>=0);
     dynamics_free(d);dynamics_free(other);printf("Dynamics: curve editing, unity crossovers, compression, stereo linking, meters, bypass, mono bass and deterministic replay passed (%zu bytes).\n",dynamics_storage_bytes());return 0;
 }

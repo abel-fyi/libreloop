@@ -48,11 +48,17 @@ Pre/Post: ±24 dB. Attack: 0–200 ms. Release/Release 2: 0–2000 ms. Sustain:
 0–1000 ms. Width: 0–200%. Saturation: 0–100%. Saturation ceiling: −24 to +12 dB.
 Crossovers: Low 40–1000 Hz, High 1000–16000 Hz. Cut: Off to 200 Hz.
 
-The gray occupancy behind the curve shows recently observed input **levels**,
-not frequency. The scrolling Monitor draws gray input peaks, band-colored output
+The gray fill beneath the curve is one live **band input-level meter**, not a
+histogram or frequency display. Its right edge follows the current band level;
+each filled column is capped by the transfer curve, including bent and stepped
+segments. Silence leaves the graph empty. The scrolling Monitor draws gray input peaks, band-colored output
 peaks and a cyan gain trace in dB. A flat gain trace at 0 dB means no gain change;
 negative means reduction, positive means boost. The numeric readout shows gain.
-Pause freezes the UI monitor; audio continues. Bands view shows the actual split.
+Pause freezes the UI monitor; audio continues. The centered Speed knob below
+the right graph runs from ¼× to 4×, with 1× at center. Slower shows more time,
+faster spreads transients out; the newest data stays at the right edge. Speed
+is a per-editor display preference and does not alter audio or presets. Bands
+view shows the actual split.
 
 Load opens the existing file chooser and creates Neutral, Drum Punch and Gentle
 Glue factory presets if absent. Neutral is a unity curve, without saturation or
@@ -84,9 +90,9 @@ curve law or detector response exactly.
 Runtime state is allocated and initialized on the control/export thread through
 `effects_prepare`, then published with a lock-free atomic pointer. Each prepared
 slot caches its state until rack destruction. No callback allocation, file I/O,
-locks, waiting, or logging. Telemetry is a separate 256-entry atomic ring with
+locks, waiting, or logging. Telemetry is a separate 1024-entry atomic ring with
 input/output peaks and applied gain per band, published every 256 samples.
-Approximate resolution is 0.38 dB, range −72…+24 dB, history about 1.37 seconds.
+Approximate resolution is 0.38 dB, range −72…+24 dB, up to about 5.46 seconds of history (about 1.36 seconds visible at 1×).
 The UI reads telemetry without modifying DSP state. Pause affects only drawing.
 
 Project settings use an optional `x-dynamics.settings` field, emitted only if a
@@ -127,11 +133,16 @@ captures. Curves remain editable and controls fit the smaller viewport; compact
 layout moves Copy/Paste to the footer. Strict app code-signature verification
 passes. These captures do not verify native input or real-device sound.
 
-A single-instance offline throughput probe with the Release `-O3 -DNDEBUG`
+Before the monitor-history extension, a single-instance offline throughput probe
+with the Release `-O3 -DNDEBUG`
 compiler settings processed ten seconds of a 48 kHz stereo sine (right at 70%
 of left) in 0.101 / 0.104 / 0.101 process CPU seconds for Neutral / Drum Punch /
 Gentle Glue. That corresponds to approximately 1.01 / 1.04 / 1.01% of one core
 for this controlled probe; it is not a live callback deadline or whole-app CPU
-measurement. Runtime storage is **6,600 bytes per prepared instance** on this
-ABI. The complete app executable is **5,589,200 bytes**; its size delta and the
+measurement. Runtime storage is **18,888 bytes per prepared instance** on this
+ABI. The complete app executable is **5,589,392 bytes**; its size delta and the
 per-frame UI rendering cost have not been isolated. No image assets were added.
+
+Display regression checks cover the centered ¼×/1×/4× speed mapping, a fixed
+right-hand newest sample, extended history capacity, and meter-fill bounds for
+all five curve shapes. Audio tests remain unchanged by the display settings.
