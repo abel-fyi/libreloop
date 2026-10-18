@@ -65,6 +65,7 @@ hardware and native trackpad/HiDPI acceptance remain incomplete. See
 ## Development
 
 - [Next work and priorities](docs/roadmap.md)
+- [Stereo Reverb](docs/reverb.md)
 - [Tube saturation](docs/tube.md)
 - [Delay](docs/delay.md)
 - [Behavior specification](docs/behavior-spec.md)

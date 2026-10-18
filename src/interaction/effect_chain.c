@@ -17,7 +17,7 @@ int effect_chain_move(Project *p,int bus,int from,int to) {
         int next=at+step;
 #define SWAP(field,type) do {type value=p->field[bus][at];p->field[bus][at]=p->field[bus][next];p->field[bus][next]=value;}while(0)
         SWAP(effect_type,uint8_t);SWAP(effect_bypass,uint8_t);SWAP(effect_mix,float);
-        SWAP(chorus,ChorusSettings);SWAP(eq,EQSettings);SWAP(delay,DelaySettings);SWAP(tube,TubeSettings);
+        SWAP(chorus,ChorusSettings);SWAP(eq,EQSettings);SWAP(delay,DelaySettings);SWAP(tube,TubeSettings);SWAP(reverb,ReverbSettings);
 #undef SWAP
     }
     for(int i=0;i<p->automation_count+p->midi_binding_count;i++) {

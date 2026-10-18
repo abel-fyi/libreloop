@@ -217,11 +217,11 @@ void mixer_effect_open(int bus,int slot,int toggle) {
     if(id>=5){if(toggle)studio_workspace_hide(&ui.windows,id);else windows_focus(&ui.windows,id);return;}
     for(id=5;id<WINDOW_CAPACITY && ui.windows.editors[id].visible;id++){}
     if(id==WINDOW_CAPACITY){snprintf(ui.status,sizeof ui.status,"Close an effect editor before opening another (16 open).");return;}
-    StudioWorkspace *s=&ui.windows.workspace;float width=type==EFFECT_TUBE?480:type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?740:420):type==EFFECT_CHORUS?360:620,height=type==EFFECT_TUBE?220:type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?220:340):type==EFFECT_CHORUS?280:380;
+    StudioWorkspace *s=&ui.windows.workspace;float width=type==EFFECT_REVERB?760:type==EFFECT_TUBE?480:type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?740:420):type==EFFECT_CHORUS?360:620,height=type==EFFECT_REVERB?220:type==EFFECT_TUBE?220:type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?220:340):type==EFFECT_CHORUS?280:380;
     width=fminf(width,s->width-s->sidebar-10);height=fminf(height,s->height-84);
     int count=0;for(int i=5;i<WINDOW_CAPACITY;i++)count+=ui.windows.editors[i].visible;
     ui.effect_windows[id].bus=bus;ui.effect_windows[id].slot=slot;ui.effect_windows[id].band=0;
-    ui.windows.editors[id].minw=type==EFFECT_TUBE?440:type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?620:400):type==EFFECT_CHORUS?330:480;ui.windows.editors[id].minh=type==EFFECT_TUBE?220:type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?220:340):type==EFFECT_CHORUS?280:330;
+    ui.windows.editors[id].minw=type==EFFECT_REVERB?640:type==EFFECT_TUBE?440:type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?620:400):type==EFFECT_CHORUS?330:480;ui.windows.editors[id].minh=type==EFFECT_REVERB?220:type==EFFECT_TUBE?220:type==EFFECT_DELAY?(ui.project.delay[bus][slot].model?220:340):type==EFFECT_CHORUS?280:330;
     ui.windows.editors[id].rect=(Rect){fmaxf(s->sidebar+6,s->width-width-12-count*20),fminf(70+count*22,s->height-24-height),width,height};
     ui.windows.workspace.floating[id]=1;ui.windows.editors[id].maximized=0;
     windows_focus(&ui.windows,id);
@@ -230,6 +230,7 @@ void mixer_effect_add(int bus,int slot,int type) {
     if(bus<0 || bus>ui.project.insert_count || slot<0 || slot>=EFFECT_SLOTS || !effect_descriptor(type))return;
     ui.project.effect_type[bus][slot]=type;ui.project.effect_bypass[bus][slot]=0;
     if(type==EFFECT_CHORUS){ui.project.chorus[bus][slot]=chorus_default();ui.project.effect_mix[bus][slot]=.5f;}
+    else if(type==EFFECT_REVERB){ui.project.reverb[bus][slot]=reverb_default();ui.project.effect_mix[bus][slot]=.25f;}
     else if(type==EFFECT_TUBE){ui.project.tube[bus][slot]=tube_default();ui.project.effect_mix[bus][slot]=1;}
     else if(type==EFFECT_DELAY){ui.project.delay[bus][slot]=delay_default();ui.project.effect_mix[bus][slot]=1;}
     else{ui.project.eq[bus][slot]=equalizer_default();ui.project.effect_mix[bus][slot]=1;}
@@ -312,8 +313,30 @@ static void delay_editor_compact(float width,float height,int bus,int slot) {
 void effect_editor(float width,float height) {
     int bus=ui.eq_bus,slot=ui.eq_slot;
     if(bus<0 || bus>ui.project.insert_count || slot<0 || slot>=EFFECT_SLOTS)return;
-    if(ui.windows.workspace.enabled)ui.windows.editors[ui.knob_context].minw=ui.project.effect_type[bus][slot]==EFFECT_TUBE?440:ui.project.effect_type[bus][slot]==EFFECT_DELAY?(ui.project.delay[bus][slot].model?620:400):ui.project.effect_type[bus][slot]==EFFECT_CHORUS?330:480;
+    if(ui.windows.workspace.enabled)ui.windows.editors[ui.knob_context].minw=ui.project.effect_type[bus][slot]==EFFECT_REVERB?640:ui.project.effect_type[bus][slot]==EFFECT_TUBE?440:ui.project.effect_type[bus][slot]==EFFECT_DELAY?(ui.project.delay[bus][slot].model?620:400):ui.project.effect_type[bus][slot]==EFFECT_CHORUS?330:480;
     if(!ui.project.effect_type[bus][slot]){label("Select an effect slot in the Mixer.",16,40,13,muted);return;}
+    if(ui.project.effect_type[bus][slot]==EFFECT_REVERB) {
+        ReverbSettings *r=&ui.project.reverb[bus][slot];
+        label("Reverb / diffuse stereo",12,32,13,ink);
+        float *values[]={&r->size,&r->decay,&r->damping,&r->predelay,&r->width,&r->mod,&r->gate,&ui.project.effect_mix[bus][slot]};
+        const unsigned ids[]={PARAM_REVERB_SIZE,PARAM_REVERB_DECAY,PARAM_REVERB_DAMPING,PARAM_REVERB_PREDELAY,PARAM_REVERB_WIDTH,PARAM_REVERB_MOD,PARAM_REVERB_GATE,PARAM_EFFECT_MIX};
+        const char *names[]={"SIZE","DECAY","DAMP","PRE","WIDTH","MOD","GATE","MIX"};
+        for(int i=0;i<8;i++) {
+            const ParameterDescriptor *info=parameter_descriptor(ids[i]);float x=width*(i+.5f)/8;
+            int style=i==1 || i==2?KNOB_LOGARITHMIC:i==4?KNOB_WIDTH:KNOB_NORMAL;
+            knob_sized(x,95,values[i],info->low,info->high,i==7?.25f:info->initial,info->name,style,22);
+            label(names[i],x-text_width(names[i],12)/2,132,12,ink);
+            float shown=displayed_value(values[i],*values[i]);
+            const char *number=i==1?host_text_format("%.2f s",shown):i==2?(shown>=19999?"Open":host_text_format("%.0f Hz",shown)):i==3 || i==6?(i==6 && shown==0?"Off":host_text_format("%.0f ms",shown)):host_text_format("%.0f%%",shown*100);
+            label(number,x-text_width(number,12)/2,153,12,muted);
+            if(i==6 && (hover(x-23,72,46,46) || ui.control_drag==values[i]))snprintf(ui.status,sizeof ui.status,"Reverb gate: wet-only hold after input above -48 dBFS; Off = natural decay");
+        }
+        float bottom=height-30;
+        if(button("Bypass",8,bottom,92,24,ui.project.effect_bypass[bus][slot]))ui.project.effect_bypass[bus][slot]^=1;
+        if(button("Load",width-172,bottom,78,24,0))preset_action(PRESET_REVERB,bus,slot,0);
+        if(button("Save",width-88,bottom,80,24,0))preset_action(PRESET_REVERB,bus,slot,1);
+        return;
+    }
     if(ui.project.effect_type[bus][slot]==EFFECT_TUBE) {
         TubeSettings *t=&ui.project.tube[bus][slot];
         label("Tube / warm saturation",12,32,13,(DrawColor){100,50,13,255});
@@ -543,6 +566,7 @@ static void mixer_legacy(float width,float height) {
         }
         if(button("+ Delay",fx+8,effect_button_y+27,MIXER_PANEL-16,24,0))mixer_effect_add(bus,slot,EFFECT_DELAY);
         if(button("+ Tube",fx+8,effect_button_y+54,MIXER_PANEL-16,24,0))mixer_effect_add(bus,slot,EFFECT_TUBE);
+        if(button("+ Reverb",fx+8,effect_button_y+81,MIXER_PANEL-16,24,0))mixer_effect_add(bus,slot,EFFECT_REVERB);
     } else {
         label(effect_descriptor(ui.project.effect_type[bus][slot])->name,fx+8,effect_y,12,ink);
         if(button("x",fx+MIXER_PANEL-28,ui.studio_style?effect_y-2:TITLE+144,20,ui.studio_style?20:22,0)) {
@@ -552,6 +576,8 @@ static void mixer_legacy(float width,float height) {
                 if(parameter_is_effect(t.parameter) && t.owner==(unsigned)bus && t.slot==(unsigned)slot) automation_delete(&ui.project,a);
             }
             ui.control_drag=NULL; ui.automation_selected=ui.automation_node=-1; ui.picker_drag=-1;
+        } else if(ui.project.effect_type[bus][slot]==EFFECT_REVERB) {
+            if(button("Open Reverb",fx+8,effect_button_y,MIXER_PANEL-16,24,0))mixer_effect_open(bus,slot,0);
         } else if(ui.project.effect_type[bus][slot]==EFFECT_TUBE) {
             if(button("Open Tube",fx+8,effect_button_y,MIXER_PANEL-16,24,0))mixer_effect_open(bus,slot,0);
         } else if(ui.project.effect_type[bus][slot]==EFFECT_DELAY) {

@@ -315,6 +315,14 @@ int main(void) {
     ready=1;ma_atomic_device_state_set(&device.state,ma_device_state_started);test_callback(NULL,out,NULL,64);
     for(int i=0;i<64;i++){float frame[2]={i==0?.2f:0,i==0?.2f:0};tube_process(&tube_expected,fixture.tube[0][0],1,frame);CHECK(!memcmp(frame,&out[i*2],sizeof frame));}
     ready=0;ma_atomic_device_state_set(&device.state,ma_device_state_uninitialized);audio_stop();
+    fixture.effect_type[0][0]=EFFECT_REVERB;fixture.reverb[0][0]=reverb_default();fixture.effect_mix[0][0]=1;
+    audio_update(&fixture,1,1,0,1,1,0,0,0);CHECK(!audio_effect_memory_failed());Reverb *reverb_expected=reverb_create();CHECK(reverb_expected);double reverb_energy=0;
+    ready=1;ma_atomic_device_state_set(&device.state,ma_device_state_started);
+    for(int block=0;block<32;block++) {
+        test_callback(NULL,out,NULL,64);
+        for(int i=0;i<64;i++){float frame[2]={!block && !i?.2f:0,!block && !i?.2f:0};reverb_process(reverb_expected,fixture.reverb[0][0],1,frame);CHECK(!memcmp(frame,&out[i*2],sizeof frame));reverb_energy+=frame[0]*frame[0]+frame[1]*frame[1];}
+    }
+    CHECK(reverb_energy>0);ready=0;ma_atomic_device_state_set(&device.state,ma_device_state_uninitialized);audio_stop();reverb_free(reverb_expected);
     effects_free(effects);effects=NULL;player.effects=live.effects=NULL;
     puts("Transparent output, capture, post-fader recording, ring bounds, mixing and ordered controls passed.");
     return 0;

@@ -86,5 +86,11 @@ int main(void) {
     int tube_automation=automation_create(&ui.project,(ParameterTarget){PARAM_TUBE_DRIVE,4,0},"Tube drive",16);CHECK(tube_automation>=0);
     before_remove=ui.project.automation_count;mixer_effect_remove(4,0);
     CHECK(!ui.windows.editors[tube_window].visible && !ui.project.effect_type[4][0] && ui.project.automation_count==before_remove-1);
+    mixer_effect_add(4,0,EFFECT_REVERB);int reverb_window=mixer_effect_window(4,0);
+    CHECK(reverb_window>=5 && reverb_valid(ui.project.reverb[4][0]) && ui.project.effect_mix[4][0]==.25f);
+    CHECK(ui.windows.editors[reverb_window].minw==640 && ui.windows.editors[reverb_window].minh==220);
+    int reverb_automation=automation_create(&ui.project,(ParameterTarget){PARAM_REVERB_SIZE,4,0},"Reverb size",16);CHECK(reverb_automation>=0);
+    before_remove=ui.project.automation_count;mixer_effect_remove(4,0);
+    CHECK(!ui.windows.editors[reverb_window].visible && !ui.project.effect_type[4][0] && ui.project.automation_count==before_remove-1);
     return 0;
 }

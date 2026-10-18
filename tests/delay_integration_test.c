@@ -27,17 +27,17 @@ int main(void) {
     for(int i=0;i<200;i++) {
         if(i==32)CHECK(effects_prepare(rack,&project.effect_type[0][0],(INSERTS+1)*EFFECT_SLOTS));
         float frame[2]={i==0,0};
-        effects_process_all(rack,0,project.effect_type[0],project.chorus[0],project.eq[0],project.delay[0],project.tube[0],120,project.effect_mix[0],project.effect_bypass[0],frame);
+        effects_process_all(rack,0,project.effect_type[0],project.chorus[0],project.eq[0],project.delay[0],project.tube[0],project.reverb[0],120,project.effect_mix[0],project.effect_bypass[0],frame);
         CHECK(frame[0]==(i==48?1:i==96?.5f:i==144?.25f:i==192?.125f:0) && frame[1]==0);
     }
     effects_reset_bus(rack,0);
     for(int i=0;i<200;i++) {
-        float frame[2]={0};effects_process_all(rack,0,project.effect_type[0],project.chorus[0],project.eq[0],project.delay[0],project.tube[0],120,project.effect_mix[0],project.effect_bypass[0],frame);
+        float frame[2]={0};effects_process_all(rack,0,project.effect_type[0],project.chorus[0],project.eq[0],project.delay[0],project.tube[0],project.reverb[0],120,project.effect_mix[0],project.effect_bypass[0],frame);
         CHECK(!frame[0] && !frame[1]);
     }
     /* Bypass must be unity dry, even when the delay output knob is at zero. */
     effects_reset(rack);project.delay[0][0].output=0;project.effect_bypass[0][0]=1;
-    float frame[2]={.2f,-.3f};effects_process_all(rack,0,project.effect_type[0],project.chorus[0],project.eq[0],project.delay[0],project.tube[0],120,project.effect_mix[0],project.effect_bypass[0],frame);
+    float frame[2]={.2f,-.3f};effects_process_all(rack,0,project.effect_type[0],project.chorus[0],project.eq[0],project.delay[0],project.tube[0],project.reverb[0],120,project.effect_mix[0],project.effect_bypass[0],frame);
     CHECK(frame[0]==.2f && frame[1]==-.3f);
     project.effect_bypass[0][0]=0;project.delay[0][0].output=1;
     /* Realtime engine and export use the exact same prepared rack path. */

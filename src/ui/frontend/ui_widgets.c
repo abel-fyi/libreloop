@@ -415,8 +415,14 @@ int preset_directory(char *out,size_t capacity,int kind) {
     if(!slash) return 0;
     char root[LL_PATH_CAPACITY];
     if(snprintf(root,sizeof root,"%.*s/presets",(int)(slash-ui.browser.config),ui.browser.config)>=(int)sizeof root || host_make_directory(root)) return 0;
-    const char *device=kind==PRESET_TUBE?"Tube":kind==PRESET_DELAY?"Delay":kind==PRESET_FM?"FM Synth":kind==PRESET_EQ?"Equalizer":kind==PRESET_CHORUS?"Chorus":"Sampler";
+    const char *device=kind==PRESET_REVERB?"Reverb":kind==PRESET_TUBE?"Tube":kind==PRESET_DELAY?"Delay":kind==PRESET_FM?"FM Synth":kind==PRESET_EQ?"Equalizer":kind==PRESET_CHORUS?"Chorus":"Sampler";
     if(snprintf(out,capacity,"%s/%s",root,device)>=(int)capacity || host_make_directory(out)) return 0;
+    if(kind==PRESET_REVERB)for(unsigned i=0;i<REVERB_FACTORY_COUNT;i++) {
+        char factory[LL_PATH_CAPACITY];
+        if(snprintf(factory,sizeof factory,"%s/%s.llpreset",out,reverb_factory_name(i))<(int)sizeof factory && !host_file_exists(factory)) {
+            DevicePreset preset={.kind=PRESET_REVERB,.reverb=reverb_factory(i),.mix=reverb_factory_mix(i)};preset_save(factory,&preset);
+        }
+    }
     if(kind==PRESET_FM) for(int i=0;i<FM_FACTORY_COUNT;i++) {
         char factory[LL_PATH_CAPACITY];
         if(snprintf(factory,sizeof factory,"%s/%s.llpreset",out,fm_factory_name(i))<(int)sizeof factory && !host_file_exists(factory)) {
