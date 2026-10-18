@@ -56,8 +56,7 @@ static void skin_pattern(DrawContext *draw,DrawRect r) {
     else draw_texture_tiled_pixels(draw,skin_patterns,(DrawRect){0,0,64,64},r,(DrawColor){255,255,255,255});
 }
 void ui_display_well(DrawContext *draw,DrawRect r) {
-    draw_rect(draw,r,ui_skin.display);
-    if(r.width>2 && r.height>2)ui_graph_dots(draw,(DrawRect){r.x+1,r.y+1,r.width-2,r.height-2});
+    ui_graph_paper(draw,r);
 }
 void ui_graph_paper(DrawContext *draw,DrawRect r) {
     draw_rect(draw,r,ui_skin.graph);
@@ -181,7 +180,7 @@ void theme_studio(void) {
     ui_theme.fader=(DrawColor){188,193,196,255};
     ui_theme.knob=(DrawColor){171,177,181,255};
     ui_theme.knob_track=(DrawColor){30,34,39,255};
-    ui_skin.display=(DrawColor){2,8,10,255};
+    ui_skin.display=ui_skin.graph;
     ui_skin.field=(DrawColor){195,201,205,255};
     ui_theme.selected_text=theme_foreground(ui_theme.highlight);
 }

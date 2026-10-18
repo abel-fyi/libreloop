@@ -182,6 +182,20 @@ static int check_material_density(void){
     }
     draw_pattern_density(draw,1);draw_transform(draw,1,0,0);return 1;
 }
+/* Numeric and meter wells must use the master spectrum's exact material. */
+static int check_display_finish(void){
+    unsigned char spectrum[80*64*4],well[80*64*4];const float scales[]={.75f,1,1.25f,1.5f,2};
+    if(!same(ui_skin.display,ui_skin.graph) || !theme_draw_init(draw))return 0;
+    draw_palette_enable(draw,1);
+    for(int density=1;density<=3;density++)for(unsigned i=0;i<sizeof scales/sizeof *scales;i++){
+        draw_pattern_density(draw,density);draw_transform(draw,scales[i],.37f,.83f);
+        draw_clear(draw,(DrawColor){0,0,0,255});ui_graph_paper(draw,(DrawRect){0,0,120,120});draw_flush(draw);
+        if(!draw_read_rgba(draw,spectrum,80,64))return 0;
+        draw_clear(draw,(DrawColor){0,0,0,255});ui_display_well(draw,(DrawRect){0,0,120,120});draw_flush(draw);
+        if(!draw_read_rgba(draw,well,80,64) || memcmp(spectrum,well,sizeof well))return 0;
+    }
+    draw_palette_enable(draw,0);draw_pattern_density(draw,1);draw_transform(draw,1,0,0);return 1;
+}
 static int check_luice_palette(void){
     unsigned char pixels[80*64*4];const float scales[]={.75f,1,1.25f,1.5f,2};
     theme_init();theme_studio();draw_palette_enable(draw,1);
@@ -265,6 +279,7 @@ int main(int argc,char **argv) {
     CHECK(contrast(ui_theme.signal,ui_skin.display)>=4.5f);
     if(render) {
         CHECK(check_material_density());
+        CHECK(check_display_finish());
         CHECK(check_bitmap_knobs());
         const float scales[]={1,1.25f,1.5f,2,3};
         for(unsigned i=0;i<sizeof scales/sizeof *scales;i++){CHECK(check_skin(scales[i]));CHECK(check_grips(scales[i],0));CHECK(check_grips(scales[i],1));}

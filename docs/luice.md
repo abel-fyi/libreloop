@@ -98,3 +98,16 @@ Rendering checks assert all 24 source swatches are distinct after palette
 mapping. A twelve-pattern studio screenshot was reviewed, including the first
 four source colors. See [pattern capacity](pattern-capacity.md) for the separate
 engine limit expansion and file compatibility checks.
+
+## Uniform display material
+
+Numeric and meter wells now call the same graph-paper surface helper as the
+master frequency spectrum. Their background, dot color, density and pixel phase
+are identical; the display background token also aliases the graph background.
+The former near-black readout face is removed. Spectrum graticules remain
+specific to graph content, and readings and meter bars remain above the surface.
+
+A rendering regression check compares the well and spectrum material pixels
+exactly at 75–200% UI scale, fractional placement and simulated 1×/2×/3× display
+density. Both theme tests and the continuous meter test pass. A software showcase
+screenshot was reviewed; native display appearance remains unverified.
