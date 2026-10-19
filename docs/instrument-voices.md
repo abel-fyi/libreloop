@@ -4,7 +4,8 @@ The Voice button beneath the instrument preset opens one channel-owned page for
 Sampler, DX7, Analog and Custom FM. Sound returns to the synthesis/sample page.
 The compact grouped layout follows `references/screenshots/subwindow.png`, using
 Luice's existing materials, bitmap font, knobs and checkbox controls. Channel
-pan, volume, playback pitch, range and routing retain their existing controls.
+pan, volume, playback pitch, range and routing remain in the common header;
+the Voice page does not repeat them. Its compact outer height is 288 logical units.
 
 The page implements:
 
@@ -22,6 +23,9 @@ The page implements:
   over a constant 0–2 second interval. Zero switches immediately. Returning to
   an older held note also glides. Legato independently controls retriggering.
   Sampler Stretch retains its existing duration-preserving pitch processing.
+  Note pitch is applied separately from channel/master control smoothing, so
+  Glide Off adds no hidden 20 ms pitch transition. DX7 still renders in its
+  existing 64-sample control blocks.
 
 Defaults are unrestricted Poly, Legato off and Glide off. The unchanged default
 DSP fixtures remain the reference. Arrangement audio clips bypass this voice
@@ -61,11 +65,14 @@ shared page. macOS SDL captures at 1448×1086 and a 900×675 Sampler capture wer
 reviewed for clipping and grouping. Physical MIDI, hands-on voice transitions,
 Linux/Windows behavior and perceived glide feel still need auditioning.
 
-The macOS Release suite passes all 164 tests; the expanded `voice_test` also
-passes AddressSanitizer/UBSan. The guarded mode-8 callback captures have the same
-SHA-256 at both buffer sizes:
-`493f348d35ddc859e544bea351691903e33bed3a08c4050856c72dfc8743aa21`.
-The tests also cover a finished Sampler one-shot retaining foreground priority
-until key-up and switching Mono/Glide off without changing the intended pitch.
-These checks establish deterministic behavior, not perceived glide quality or
-hardware latency.
+Rapid key-up/key-down commands in one callback and repeated key-slot reuse are
+covered with an older held note throughout, both within one pool and across the
+live/sequenced pools. Legato retains the foreground envelope and LFO state.
+Analog slot replacement keeps a 5 ms overlap with its retiring voice using a
+free slot in the fixed pool; the tail is excluded from note priority/voice-limit
+counts. No extra pool is allocated. At full pool capacity there is no spare
+slot for this overlap.
+
+See [instrument fixes](instrument-fixes.md) for the current regression and
+platform-verification results. These checks establish deterministic behavior,
+not perceived glide quality or hardware latency.

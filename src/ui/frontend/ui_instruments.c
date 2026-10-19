@@ -758,36 +758,25 @@ void sampler(float width,float height) {
 /* One channel-owned page shared by every instrument; synthesis pages remain separate. */
 void instrument_voice_editor(float width,float height) {
     int c=ui.instrument_channel;VoiceSettings *v=&ui.project.voice[c];
-    channel_controls(c,width);
-    label("Voice",16,31,12,ink);
+    channel_controls(c,width);label("Voice",16,31,12,ink);
     float half=(width-36)/2,right=24+half;
-    instrument_group(12,80,half,146,"Levels");
-    instrument_group(right,80,half,146,"Polyphony");
-    knob_style(12+half*.28f,139,&ui.project.pan[c],-1,1,0,"Channel pan",KNOB_PAN);
-    knob_style(12+half*.72f,139,&ui.project.volume[c],0,VOLUME_KNOB_MAX,1,"Channel volume",KNOB_VOLUME);
-    label("Pan",12+half*.28f-12,164,12,muted);label("Volume",12+half*.72f-24,164,12,muted);
-    label("Max",right+12,112,12,muted);
-    if(drag_button(v->limit?host_text_format("%.0f",v->limit):"All",right+56,108,54,24,ui.control_drag==&v->limit)){capture_control(&v->limit,0,128,0);ui.control_integer=1;}
-    if(hover(right+56,108,54,24)){
+    instrument_group(12,80,half,146,"Polyphony");
+    instrument_group(right,80,half,146,"Portamento");
+    label("Max",24,112,12,muted);
+    if(drag_button(v->limit?host_text_format("%.0f",v->limit):"All",68,108,54,24,ui.control_drag==&v->limit)){capture_control(&v->limit,0,128,0);ui.control_integer=1;}
+    if(hover(68,108,54,24)){
         v->limit=fmaxf(0,fminf(128,v->limit+roundf(host_get_mouse_wheel_move())));
         if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)){begin_number(&v->limit,0,128,0,"Voice limit (0 = all)");ui.number_integer=1;}
         snprintf(ui.status,sizeof ui.status,"Maximum simultaneous voices: 0 = all; oldest voices are replaced first. Mono uses last-note priority.");
     }
-    if(sampler_toggle(right+12,151,half-24,"Mono",v->mono))v->mono=!v->mono;
-    if(sampler_toggle(right+12,181,half-24,"Legato",v->legato))v->legato=!v->legato;
-    if(hover(right+12,151,half-24,52))snprintf(ui.status,sizeof ui.status,"Mono: last held note wins; releasing it returns to the previous held note. Legato keeps envelopes running across overlapping notes in Mono mode.");
-    instrument_group(12,238,half,148,"Pitch");
-    instrument_group(right,238,half,148,"Portamento");
-    knob_style(12+half*.28f,294,&ui.project.channel_pitch[c],-1,1,0,"Playback pitch",KNOB_CENTER);
-    label("Pitch",12+half*.28f-20,319,12,muted);
-    label("Range",12+half*.72f-20,265,12,muted);
-    if(drag_button(host_text_format("%.0f",ui.project.pitch_range[c]),12+half*.72f-22,290,44,24,ui.control_drag==&ui.project.pitch_range[c])){capture_control(&ui.project.pitch_range[c],1,48,0);ui.control_integer=1;}
-    label("semitones",12+half*.72f-36,321,10,muted);
-    knob_style(right+half*.5f,294,&v->glide,0,2,0,"Glide time (seconds)",KNOB_NORMAL);
-    label("Glide",right+half*.5f-20,319,12,muted);
+    if(sampler_toggle(24,151,half-24,"Mono",v->mono))v->mono=!v->mono;
+    if(sampler_toggle(24,181,half-24,"Legato",v->legato))v->legato=!v->legato;
+    if(hover(24,151,half-24,52))snprintf(ui.status,sizeof ui.status,"Mono: last held note wins. Legato keeps envelopes running across overlapping notes; Glide separately controls pitch movement.");
+    knob_style(right+half*.5f,139,&v->glide,0,2,0,"Glide time (seconds)",KNOB_NORMAL);
+    label("Glide",right+half*.5f-20,164,12,muted);
     const char *time=v->glide?host_text_format("%.0f ms",v->glide*1000):"Off";
-    label(time,right+(half-text_width(time,12))/2,345,12,ink);
-    if(hover(right+12,260,half-24,114))snprintf(ui.status,sizeof ui.status,"Glide: constant time between overlapping Mono notes, 0–2000 ms. Zero changes pitch immediately; Legato separately controls envelope retriggering.");
-    instrument_hint(ui.project.channel_audio[c]?"Audio clips keep their arrangement timing.":"Mono: last held note wins. Legato keeps envelopes running.",width,397,11);
+    label(time,right+(half-text_width(time,12))/2,190,12,ink);
+    if(hover(right+12,100,half-24,114))snprintf(ui.status,sizeof ui.status,"Glide: 0–2000 ms between overlapping Mono notes. Off changes pitch immediately; Legato controls envelope retriggering.");
+    instrument_hint(ui.project.channel_audio[c]?"Audio clips keep their arrangement timing.":"Legato preserves the envelope. Glide controls the slide.",width,242,11);
     (void)height;
 }

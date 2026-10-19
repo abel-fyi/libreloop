@@ -291,3 +291,10 @@ The channel-owned Voice page is shared by Sampler, DX7, Analog and Custom FM;
 see [instrument voices](instrument-voices.md). It reuses the existing grouped
 panels, knobs, checkboxes and numeric controls rather than defining another
 window or widget system.
+
+Studio envelope geometry uses linear seconds with a captured drag span; DX7
+converts native rates through its engine's envelope timing equations. Both
+models share readable time-axis labels and retain their own level/curve models.
+See [instrument fixes](instrument-fixes.md) for geometry fixture updates and
+verification. The shared Voice page keeps only Polyphony and Portamento;
+existing header level/pitch controls are not duplicated.
