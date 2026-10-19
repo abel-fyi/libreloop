@@ -210,9 +210,10 @@ static void lfo_filled_segment(DrawPoint a,DrawPoint b,float mid,DrawColor color
 /* Read-only illustration of the existing per-note LFO, never a new control. */
 static void lfo_display(const FMSettings *s,DrawRect plot,float cycles) {
     if(plot.width<20 || plot.height<12)return;
-    cycles=fmaxf(2,ceilf(cycles));
+    cycles=1+fmaxf(0,cycles-.05f);
     ui_display_grid(host_draw(),plot,4,4);
-    float mid=plot.y+plot.height/2,range=(plot.height-8)*.42f;
+    float amount=ui.fm_motion_target?s->tremolo:s->vibrato/100;
+    float mid=plot.y+plot.height/2,range=(plot.height-8)*.42f*amount;
     DrawPoint previous={plot.x+4,mid};
     int points=fminf(192,plot.width-8);
     for(int i=0;i<=points;i++) {
@@ -317,7 +318,7 @@ void fm_legacy_editor(float width,float height) {
         {PARAM_FM_ATTACK_RATIO,PARAM_FM_ATTACK_DETUNE,PARAM_FM_ATTACK_DEPTH,PARAM_FM_VELOCITY},
         {PARAM_FM_LFO_RATE,PARAM_FM_VIBRATO,PARAM_FM_TREMOLO,PARAM_FM_LFO_FADE}
     };
-    const char *captions[4][4]={{"Pitch","Fine","Velocity",""},{"Pitch","Fine","Harmonic","FM amount"},{"Pitch","Fine","FM amount","Velocity"},{"Speed",ui.studio_style?"Pitch amt":"Pitch motion",ui.studio_style?"Vol. amt":"Volume motion","Fade in"}};
+    const char *captions[4][4]={{"Pitch","Fine","Velocity",""},{"Pitch","Fine","Harmonic","FM amount"},{"Pitch","Fine","FM amount","Velocity"},{"Speed",ui.studio_style?"Pitch amt":"Pitch motion",ui.studio_style?"Vol. amt":"Volume motion","LFO attack"}};
     const char *descriptions[]={"Audible oscillator and volume envelope","Long-lived tone modulation","Short, bright attack modulation","A separate, per-note LFO for pitch and volume"};
     label(ui.studio_style?fit_text(descriptions[ui.fm_tab],width-40,12):descriptions[ui.fm_tab],20,113,12,muted);
     if(ui.studio_style && hover(20,110,width-40,18))snprintf(ui.status,sizeof ui.status,"%s",descriptions[ui.fm_tab]);
@@ -333,7 +334,7 @@ void fm_legacy_editor(float width,float height) {
         const char *names[]={"Attack","Decay","Sustain","Release"};
         label("Envelope",20,184,12,muted);
         for(int i=0;i<4;i++) fm_control(s,ui.fm_envelope_ids[ui.fm_tab][i],names[i],20+column*(i+.5f),207);
-        fm_envelope_graph(s,(DrawRect){12,252,width-24,height-294});
+        fm_envelope_graph(s,(DrawRect){12,ui.studio_style?instrument_envelope_top(height):252,width-24,ui.studio_style?INSTRUMENT_ENVELOPE_HEIGHT:height-294});
     } else {
         const char *shapes[]={"Sine","Triangle","Saw","Square"};
         if(choice_button(shapes[(int)s->lfo_shape],12,184,112,24)) open_context(19,c,(DrawPoint){ui.mouse.x+desktop_editor_rect(4).x,ui.mouse.y+desktop_editor_rect(4).y});
@@ -346,8 +347,8 @@ void fm_legacy_editor(float width,float height) {
         float amount=ui.fm_motion_target?s->tremolo:s->vibrato/100;
         DrawPoint previous={plot.x+8,mid};
         for(int i=0;i<=(int)plot.width-16;i++) {
-            float t=i/(plot.width-16)*fmaxf(2,ceilf(s->lfo_rate*.5f));
-            DrawPoint point={plot.x+8+i,mid-fm_lfo_value(t,(int)s->lfo_shape)*range*.42f};
+            float t=i/(plot.width-16)*(1+fmaxf(0,s->lfo_rate*.5f-.05f));
+            DrawPoint point={plot.x+8+i,mid-fm_lfo_value(t,(int)s->lfo_shape)*range*.42f*amount};
             if(i) {
                 DrawColor color=ui.studio_style?ui_theme.signal:host_fade(accent,.35f+amount*.65f);
                 if(ui.studio_style)lfo_filled_segment(previous,point,mid,color);
@@ -581,7 +582,7 @@ static void fm_analog_overview(float width,float height) {
     if(choice_button(shapes[(int)s->lfo_shape],170,628-compact,width-194,22))open_context(19,c,(DrawPoint){ui.mouse.x+desktop_editor_rect(4).x,ui.mouse.y+desktop_editor_rect(4).y});
     if(hover(170,628-compact,width-194,22) && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT))control_menu(&s->lfo_shape,0,3,0,"LFO shape");
     unsigned motion[]={PARAM_FM_LFO_RATE,PARAM_FM_VIBRATO,PARAM_FM_TREMOLO,PARAM_FM_LFO_FADE};
-    const char *motion_names[]={"Rate","Vibrato","Tremolo","Fade in"};
+    const char *motion_names[]={"Rate","Vibrato","Tremolo","LFO attack"};
     for(int i=0;i<4;i++)fm_slider(s,motion[i],motion_names[i],width,654-compact+i*22);
     fm_footer(c,width,height);
 }
@@ -614,9 +615,9 @@ void fm_analog_editor(float width,float height) {
             label("Filter",20,113,12,muted); fm_controls_row(s,a,names,4,width,136);
         } else label("Volume envelope",20,113,12,muted);
         unsigned ids[4]; for(int i=0;i<4;i++) ids[i]=ui.fm_envelope_ids[ui.fm_tab][i]; const char *names[]={"Attack","Decay","Sustain","Release"};
-        fm_controls_row(s,ids,names,4,width,amplitude?139:207); fm_envelope_graph(s,(DrawRect){12,amplitude?184:252,width-24,height-(amplitude?226:294)});
+        fm_controls_row(s,ids,names,4,width,amplitude?139:207); fm_envelope_graph(s,(DrawRect){12,ui.studio_style?instrument_envelope_top(height):amplitude?184:252,width-24,ui.studio_style?INSTRUMENT_ENVELOPE_HEIGHT:height-(amplitude?226:294)});
     } else {
-        unsigned ids[]={PARAM_FM_LFO_RATE,PARAM_FM_VIBRATO,PARAM_FM_TREMOLO,PARAM_FM_LFO_FADE}; const char *names[]={"Speed",ui.studio_style?"Pitch amt":"Pitch motion",ui.studio_style?"Vol. amt":"Volume motion","Fade in"};
+        unsigned ids[]={PARAM_FM_LFO_RATE,PARAM_FM_VIBRATO,PARAM_FM_TREMOLO,PARAM_FM_LFO_FADE}; const char *names[]={"Speed",ui.studio_style?"Pitch amt":"Pitch motion",ui.studio_style?"Vol. amt":"Volume motion","LFO attack"};
         label("Per-note modulation",20,113,12,muted); fm_controls_row(s,ids,names,4,width,136);
         const char *waves[]={"Sine","Triangle","Saw","Square"};
         if(choice_button(waves[(int)s->lfo_shape],12,184,112,24)) open_context(19,c,(DrawPoint){ui.mouse.x+desktop_editor_rect(4).x,ui.mouse.y+desktop_editor_rect(4).y});
@@ -650,14 +651,17 @@ static void analog_modern_editor(float width,float height) {
         if(filter){unsigned ids[]={PARAM_FM_FILTER_CUTOFF,PARAM_FM_FILTER_RESONANCE,PARAM_FM_FILTER_ENV,PARAM_VA_FIRST+14};const char *names[]={"Cutoff","Resonance","Env depth","Key track"};fm_spaced_row(s,ids,names,4,width,139,0);}
         unsigned ids[4];for(int i=0;i<4;i++)ids[i]=ui.fm_envelope_ids[ui.fm_tab][i];
         const char *names[]={"Attack","Decay","Sustain","Release"};fm_spaced_row(s,ids,names,4,width,filter?207:139,0);
-        fm_envelope_graph(s,(DrawRect){12,filter?252:184,width-24,height-(filter?294:226)});
+        fm_envelope_graph(s,(DrawRect){12,instrument_envelope_top(height),width-24,INSTRUMENT_ENVELOPE_HEIGHT});
     } else {
         instrument_group(12,108,width-24,68," ");
         unsigned ids[]={PARAM_FM_LFO_RATE,PARAM_FM_VIBRATO,PARAM_FM_TREMOLO,PARAM_FM_LFO_FADE,PARAM_FM_ANALOG_PWM};
-        const char *names[]={"Rate","Pitch amt","Vol. amt","Fade","PWM"};fm_spaced_row(s,ids,names,5,width,136,0);
+        const char *names[]={"Rate","Pitch amt","Vol. amt","LFO attack","PWM"};fm_spaced_row(s,ids,names,5,width,136,0);
         const char *waves[]={"Sine","Triangle","Saw","Square"};
         if(choice_button(waves[(int)s->lfo_shape],12,184,112,24))open_context(19,c,(DrawPoint){ui.mouse.x+desktop_editor_rect(4).x,ui.mouse.y+desktop_editor_rect(4).y});
-        instrument_hint("Per-voice motion. Mixer drive feeds the ladder; chorus is not needed for the basic sound.",width,222,11);
+        if(button("Pitch",132,184,72,24,!ui.fm_motion_target))ui.fm_motion_target=0;
+        if(button("Volume",208,184,80,24,ui.fm_motion_target))ui.fm_motion_target=1;
+        instrument_hint("PWM: LFO movement of pulse width; audible with Pulse oscillators.",width,222,11);
+        if(hover(12,108,width-24,68))snprintf(ui.status,sizeof ui.status,"Pitch = vibrato; Volume = tremolo; LFO attack fades motion in after note-on. PWM moves pulse width.");
         lfo_display(s,(DrawRect){12,280,width-24,height-322},s->lfo_rate*.5f);
     }
     fm_footer(c,width,height);

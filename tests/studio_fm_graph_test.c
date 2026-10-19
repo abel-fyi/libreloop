@@ -89,8 +89,10 @@ int main(void) {
     fm_envelope_graph(&ui.project.fm[0],(DrawRect){12,184,416,226});CHECK(handle_count==5);
     CHECK(fabsf((handles[3].x-handles[2].x)/(handles[2].x-handles[0].x)-.01f)<1e-6f);
     CHECK(!strcmp(fm_value_caption(&initial,PARAM_FM_VIBRATO,100),"100 ct"));
-    initial.lfo_shape=0;initial.lfo_rate=.1f;DrawRect motion={12,280,416,130};
+    initial.lfo_shape=0;initial.lfo_rate=.1f;initial.vibrato=100;ui.fm_motion_target=0;DrawRect motion={12,280,416,130};
     lfo_display(&initial,motion,.05f);CHECK(fabsf(last_contour.y-(motion.y+motion.height/2))<1e-3f && last_contour.x==motion.x+motion.width-4);
+    lfo_display(&initial,motion,.30f);CHECK(fabsf(last_contour.y-(motion.y+motion.height/2))>1);
+    initial.vibrato=0;lfo_display(&initial,motion,.30f);CHECK(fabsf(last_contour.y-(motion.y+motion.height/2))<1e-3f);
     puts("Linear-time envelopes, captured drag scale, C4 DX7 timing, complete LFO periods and plain pitch captions passed.");
     return 0;
 }
