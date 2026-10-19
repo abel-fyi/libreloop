@@ -442,7 +442,8 @@ Release build, four relevant theme/workspace/velocity tests and strict app
 signature verification passed. Capture: `../baseline-artifacts/shared-grips/uniform/`.
 
 Toolbar roadmap pass: labeled icon-first FILE/EDIT/VIEW/HELP controls, fitted
-transport sprites, and MM:SS:CS time with smaller bottom-aligned centiseconds.
+transport sprites, and MM:SS:CS time. Numeric readouts now use the shared font
+at the normal UI text size, including centiseconds.
 Compact clock/tempo wells reserve separate rows for digits and captions.
 See `toolbar-polish.md` for geometry changes, tests and screenshot locations.
 

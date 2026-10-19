@@ -622,7 +622,7 @@ int main(int argc,char **argv) {
             snprintf(ui.status,sizeof ui.status,"Tempo: drag up/down; right-click for Reset or Enter value");
             if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)) control_menu(&ui.project.bpm,30,300,120,"Tempo (BPM)");
         }
-        if(ui.studio_style)lcd_number(host_text_format("%.2f",ui.project.bpm),tempo_x+8,tempo_y+4,tempo_w-16,ui.studio_style && compact_toolbar?14:18,ui_theme.signal);
+        if(ui.studio_style)label(fit_text(host_text_format("%.2f",ui.project.bpm),tempo_w-16,UI_TEXT_SIZE),tempo_x+8,tempo_y+4,UI_TEXT_SIZE,ui_theme.signal);
         uint64_t position_frames=audio_position();
         uint64_t step=(uint64_t)(position_frames/(RATE*60.0/ui.project.bpm/4));
         if(hover(position_x,position_y,position_w,position_h) && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT))ui.position_seconds^=1;
@@ -633,8 +633,7 @@ int main(int argc,char **argv) {
         char seconds_position[32];
         if(ui.position_seconds){if(ui.studio_style)transport_clock(seconds_position,sizeof seconds_position,position_frames,RATE);else transport_seconds(seconds_position,sizeof seconds_position,position_frames,RATE);position=seconds_position;}
         if(ui.record_count_in.active)position=host_text_format("%d",record_count_in_remaining(&ui.record_count_in,midi_input_time()));
-        if(ui.studio_style && ui.position_seconds && !ui.record_count_in.active)lcd_time(position,position_x+10,position_y+6,position_w-20,ui_theme.signal);
-        else if(ui.studio_style)lcd_number(position,position_x+10,position_y+6,position_w-20,compact_toolbar?14:18,ui_theme.signal);
+        if(ui.studio_style)label(fit_text(position,position_w-20,UI_TEXT_SIZE),position_x+10,position_y+6,UI_TEXT_SIZE,ui_theme.signal);
         else label(position,position_x+10,position_y+3,18,ui_theme.signal);
         if(hover(position_x,position_y,position_w,position_h)) snprintf(ui.status,sizeof ui.status,ui.position_seconds?(ui.studio_style?"Playback position: minutes:seconds:centiseconds; click for bars and steps":"Playback position: seconds.milliseconds; click for bars and steps"):ui.studio_style?"Playback position: bar and sixteenth-note step; click for minutes:seconds:centiseconds":"Playback position: bar and sixteenth-note step");
         if(ui.studio_style) {

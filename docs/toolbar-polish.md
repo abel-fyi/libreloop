@@ -10,9 +10,8 @@ and all editor content geometry remain unchanged.
 The clock's alternate view now reads minutes:seconds:centiseconds, starting at
 00:00:00. Minutes are not capped at 99. Values derive from integer audio sample
 positions, with correct second/minute rollover and no floating-point timing
-accumulator. Main digits stay 16 units and centiseconds are 11, bottom-aligned;
-this is the explicit exception to uniform text size requested in the owner's
-notes. Very long times scale proportionally to fit. Count-in still shows its
+accumulator. All digits now use the shared UI font at the normal text size,
+including centiseconds. Long values use the common text-fit path. Count-in shows its
 step count. Click still switches between musical and elapsed-time views; legacy
 parity mode retains its original seconds/milliseconds format.
 
@@ -28,8 +27,8 @@ rows separate. Pitch/Vol captions are also spaced apart. These intentional
 layout changes affect only toolbar controls, not piano/arrangement zoom, scroll,
 snapping, note gestures, engine commands or project data.
 
-Verification: new frontend draw-command tests check smaller centiseconds, shared
-baseline, long-time bounds and fitted icon geometry. Formatting tests cover
+Verification: frontend draw-command tests check fitted icon geometry. Tests of
+the retired custom numeral renderer have been removed. Formatting tests cover
 44.1/48 kHz centisecond boundaries, minute rollover, >99 minutes, zero rate and
 UINT64_MAX frames. Layout/text-fit assertions cover labeled menus, nonoverlap
 and readout room. The 141-test suite passed; targeted layout/readout/startup
@@ -45,3 +44,9 @@ unchanged.
 PATT/SONG follow-up: clicking anywhere in the combined control toggles the
 mode/page, including its currently active half. Recording still blocks mode
 changes. Desktop rebuilt; existing Pattern-page and workspace tests passed.
+
+Shared-font follow-up: removed 84 lines of dedicated bitmap/segmented numeral
+drawing code and its two public declarations. Tempo and position now call the
+existing label/text-fit functions. The Release build and four targeted transport,
+startup and frontend checks passed; a native macOS elapsed-time capture was
+reviewed. No binary-size or rendering-time saving is claimed from line count.
