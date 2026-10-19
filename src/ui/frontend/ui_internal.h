@@ -262,6 +262,7 @@ typedef struct {
     DynamicsBand dynamics_copy;int dynamics_has_copy;
     int dynamics_band[32],dynamics_view[32],dynamics_pause[32],dynamics_drag,dynamics_drag_window,dynamics_drag_band,dynamics_drag_kind;
     float dynamics_drag_x,dynamics_drag_y,dynamics_speed[32];
+    uint8_t dynamics_magnet[32];
     Spectrum master_spectrum,eq_spectrum;
     int spectrum_active;
     unsigned fm_envelope_ids[3][4];

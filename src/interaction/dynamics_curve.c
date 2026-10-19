@@ -29,3 +29,19 @@ int dynamics_curve_insert(DynamicsBand *b,float x,float y){int n=(int)b->count;i
 int dynamics_curve_delete(DynamicsBand *b,int p){int n=(int)b->count;if(p<=0 || p>=n-1)return 0;memmove(&b->points[p],&b->points[p+1],(n-p-1)*sizeof *b->points);b->points[n-1]=(DynamicsPoint){0};b->count--;return 1;}
 void dynamics_curve_move(DynamicsBand *b,int p,float x,float y,int lock_x,int lock_y){int n=(int)b->count;if(p<0 || p>=n || !isfinite(x) || !isfinite(y))return;if(!lock_x && p>0 && p<n-1)b->points[p].x=clamp(x,b->points[p-1].x+.25f,b->points[p+1].x-.25f);if(!lock_y)b->points[p].y=clamp(y,-72,12);}
 void dynamics_curve_bend(DynamicsBand *b,int p,float bend){if(p>=0 && p<(int)b->count-1 && isfinite(bend))b->points[p].bend=clamp(bend,-1,1);}
+
+/* Shared by grid drawing and magnet editing; distance is measured in display
+   space because the dB axes are nonlinear. The quiet boundary is a grid edge. */
+const float *dynamics_grid_values(unsigned *count){static const float values[]={-72,-18,-12,-9,-6,-3,0,3,6,9,12};*count=sizeof values/sizeof *values;return values;}
+static float snap_between(float db,float low,float high,float fallback){
+    unsigned count;const float *grid=dynamics_grid_values(&count);float position=dynamics_level_position(db),distance=2,best=fallback;
+    for(unsigned i=0;i<count;i++)if(grid[i]>=low && grid[i]<=high){float d=fabsf(dynamics_level_position(grid[i])-position);if(d<distance){best=grid[i];distance=d;}}
+    return best;
+}
+float dynamics_grid_snap(float db){return snap_between(db,-72,12,db);}
+void dynamics_curve_move_grid(DynamicsBand *b,int point,float input,float output,int lock_x,int lock_y,int magnet){
+    if(!magnet){dynamics_curve_move(b,point,input,output,lock_x,lock_y);return;}
+    int count=(int)b->count;if(point<0 || point>=count || !isfinite(input) || !isfinite(output))return;
+    if(!lock_x && point>0 && point<count-1)b->points[point].x=snap_between(input,b->points[point-1].x+.25f,b->points[point+1].x-.25f,b->points[point].x);
+    if(!lock_y)b->points[point].y=dynamics_grid_snap(output);
+}

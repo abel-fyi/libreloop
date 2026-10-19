@@ -15,6 +15,21 @@ static float lowcut_response(float hz,float cutoff){
     dynamics_free(d);return sqrt(power/48000)*1.4142135623730951/.02;
 }
 int main(void){
+    /* Magnet uses the same nonlinear-axis intersections drawn by the editor. */
+    unsigned grid_count;const float *grid=dynamics_grid_values(&grid_count);CHECK(grid_count==11);
+    for(unsigned i=0;i<grid_count;i++)CHECK(dynamics_grid_snap(grid[i])==grid[i]);
+    CHECK(dynamics_grid_snap(-9.1f)==-9 && dynamics_grid_snap(-6.1f)==-6);
+    DynamicsSettings snapped=dynamics_default();DynamicsBand *curve=&snapped.band[0];
+    int point=dynamics_curve_insert(curve,-18,-18);CHECK(point==1);
+    dynamics_curve_move_grid(curve,point,-9.1f,-6.1f,0,0,1);CHECK(curve->points[point].x==-9 && curve->points[point].y==-6);
+    dynamics_curve_move_grid(curve,point,8,-3.1f,1,0,1);CHECK(curve->points[point].x==-9 && curve->points[point].y==-3);
+    dynamics_curve_move_grid(curve,point,-12.1f,9,0,1,1);CHECK(curve->points[point].x==-12 && curve->points[point].y==-3);
+    dynamics_curve_move_grid(curve,point,8,8,0,0,1);CHECK(curve->points[point].x==-3 && curve->points[point].y==9); /* no crossing the 0 dB neighbor */
+    dynamics_curve_move_grid(curve,point,-8.3f,-5.6f,0,0,0);CHECK(curve->points[point].x==-8.3f && curve->points[point].y==-5.6f);
+    dynamics_curve_move_grid(curve,0,-9,-6.1f,0,0,1);CHECK(curve->points[0].x==-72 && curve->points[0].y==-6);
+    dynamics_curve_move_grid(curve,(int)curve->count-1,-9,-6.1f,0,0,1);CHECK(curve->points[(int)curve->count-1].x==12);
+    DynamicsBand crowded={.count=5,.points={{-72,-72,0,0},{-11.9f,-12,0,0},{-11.5f,-12,0,0},{-11.1f,-12,0,0},{12,0,0,0}}};
+    dynamics_curve_move_grid(&crowded,2,-9,-3.1f,0,0,1);CHECK(crowded.points[2].x==-11.5f && crowded.points[2].y==-3);
     const float tones[]={20,40,80,160};
     for(unsigned i=0;i<4;i++){
         float measured=lowcut_response(tones[i],80),expected=dynamics_lowcut_gain(80,tones[i]);

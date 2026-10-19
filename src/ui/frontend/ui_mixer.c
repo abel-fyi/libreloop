@@ -316,14 +316,9 @@ static void delay_editor_compact(float width,float height,int bus,int slot) {
             float shown=displayed_value(values[i],*values[i]),ring=radius+7;
             for(unsigned dot=0;dot+1<count;dot++) {
                 float fraction=logf(marks[dot]/info->low)/logf(info->high/info->low);
-                float next=logf(marks[dot+1]/info->low)/logf(info->high/info->low);
                 float angle=-PI*.5f+fraction*2*PI;
                 int active=fabsf(shown-marks[dot])<marks[dot]*.00001f || (!dot && fabsf(shown-info->high)<info->high*.00001f);
                 /* Endpoints share the knob's existing full-turn position. */
-                if((next-fraction)*2*PI*ring>8) {
-                    float sub=-PI*.5f+(fraction+next)*PI;
-                    circle(x+cosf(sub)*ring,85+sinf(sub)*ring,.7f,muted);
-                }
                 circle(x+cosf(angle)*ring,85+sinf(angle)*ring,active?2.3f:1.7f,active?accent:muted);
             }
         }
@@ -357,8 +352,11 @@ static void dynamics_editor(float width,float height,int bus,int slot){
     DrawRect curve={32,49,left_w-42,graph_h},history={left_w+8,49,width-left_w-40,graph_h};
     host_draw_rectangle(8,29,width-16,graph_h+48,(DrawColor){32,40,40,255});
     if(ui.studio_style){ui_graph_paper(host_draw(),curve);ui_graph_paper(host_draw(),history);}
-    const int ticks[]={-18,-12,-9,-6,-3,0,3,6,9,12};
-    for(unsigned ti=0;ti<sizeof ticks/sizeof *ticks;ti++){int db=ticks[ti];float y=dyn_y(db,curve);host_draw_line(curve.x,y,curve.x+curve.width,y,ui_theme.grid_minor);host_draw_line(dyn_x(db,curve),curve.y,dyn_x(db,curve),curve.y+curve.height,ui_theme.grid_minor);label(host_text_format("%d",db),9,y-6,12,graph_ink);host_draw_line(history.x,y,history.x+history.width,y,ui_theme.grid_minor);}
+    unsigned tick_count;const float *ticks=dynamics_grid_values(&tick_count);
+    for(unsigned ti=1;ti<tick_count;ti++){int db=ticks[ti];float y=dyn_y(db,curve);host_draw_line(curve.x,y,curve.x+curve.width,y,ui_theme.grid_minor);host_draw_line(dyn_x(db,curve),curve.y,dyn_x(db,curve),curve.y+curve.height,ui_theme.grid_minor);label(host_text_format("%d",db),9,y-6,12,graph_ink);host_draw_line(history.x,y,history.x+history.width,y,ui_theme.grid_minor);}
+    int magnet_hover=hover(curve.x+12,curve.y+curve.height+3,112,22);
+    if(button("Magnet",curve.x+12,curve.y+curve.height+3,112,22,ui.dynamics_magnet[window]))ui.dynamics_magnet[window]^=1;
+    if(magnet_hover)snprintf(ui.status,sizeof ui.status,"Magnet: snap curve points to visible grid intersections; bend handles stay free");
     label("OUT",curve.x,32,12,graph_ink);label("IN",curve.x+curve.width-20,curve.y+curve.height+3,12,graph_ink);
     host_draw_line_ex((DrawPoint){curve.x,curve.y+curve.height},(DrawPoint){curve.x+curve.width,curve.y},1,graph_ink);
     /* One live band-level meter: horizontal extent follows input level, and
@@ -376,11 +374,11 @@ static void dynamics_editor(float width,float height,int bus,int slot){
         if(hover(p.x-8,p.y-8,16,16))point_hit=i;
         if(i<(int)b->count-1){float x=dynamics_curve_handle_input(b,i);DrawPoint h={dyn_x(x,curve),dyn_y(dynamics_curve(b,x),curve)};circle(h.x,h.y,4,color);circle(h.x,h.y,2,(DrawColor){32,40,40,255});if(hover(h.x-7,h.y-7,14,14))bend_hit=i;}
     }
-    int in_curve=hover(curve.x-8,curve.y-8,curve.width+16,curve.height+16);
+    int in_curve=hover(curve.x-8,curve.y-8,curve.width+16,curve.height+16) && !magnet_hover;
     float input=dynamics_level_db((ui.mouse.x-curve.x)/curve.width),output=dynamics_level_db(1-(ui.mouse.y-curve.y)/curve.height);
     if(in_curve){
-        snprintf(ui.status,sizeof ui.status,"Curve: right-click adds/deletes a point; drag hollow handles to bend; Shift locks Y, Ctrl locks X; wheel on a bend changes its shape");
-        if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)){if(point_hit>=0)dynamics_curve_delete(b,point_hit);else if(bend_hit>=0)dynamics_curve_bend(b,bend_hit,0);else dynamics_curve_insert(b,roundf(input),roundf(output));}
+        snprintf(ui.status,sizeof ui.status,"Curve: right-click adds/deletes a point; Magnet snaps points to grid; drag hollow handles to bend; Shift locks Y, Ctrl locks X; wheel changes bend shape");
+        if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)){if(point_hit>=0)dynamics_curve_delete(b,point_hit);else if(bend_hit>=0)dynamics_curve_bend(b,bend_hit,0);else dynamics_curve_insert(b,ui.dynamics_magnet[window]?dynamics_grid_snap(input):roundf(input),ui.dynamics_magnet[window]?dynamics_grid_snap(output):roundf(output));}
         if(bend_hit>=0 && point_hit<0){float wheel=host_get_mouse_wheel_move();if(wheel)b->points[bend_hit].shape=fmodf(b->points[bend_hit].shape+(wheel>0?1:4),5);}
         if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT) && (point_hit>=0 || bend_hit>=0)){
             ui.dynamics_drag=1+(point_hit>=0?point_hit:bend_hit);ui.dynamics_drag_kind=point_hit<0;ui.dynamics_drag_window=window;ui.dynamics_drag_band=selected;ui.dynamics_drag_y=ui.mouse.y;ui.dynamics_drag_x=point_hit>=0?0:b->points[bend_hit].bend;
@@ -389,7 +387,7 @@ static void dynamics_editor(float width,float height,int bus,int slot){
     if(ui.dynamics_drag && ui.dynamics_drag_window==window){
         if(!host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT) || ui.dynamics_drag_band!=selected)ui.dynamics_drag=0;
         else if(ui.dynamics_drag_kind)dynamics_curve_bend(b,ui.dynamics_drag-1,ui.dynamics_drag_x+(ui.dynamics_drag_y-ui.mouse.y)/(host_is_key_down(HOST_KEY_LEFT_CONTROL)?600:120));
-        else dynamics_curve_move(b,ui.dynamics_drag-1,input,output,host_is_key_down(HOST_KEY_LEFT_CONTROL),host_is_key_down(HOST_KEY_LEFT_SHIFT));
+        else dynamics_curve_move_grid(b,ui.dynamics_drag-1,input,output,host_is_key_down(HOST_KEY_LEFT_CONTROL) || host_is_key_down(HOST_KEY_RIGHT_CONTROL),host_is_key_down(HOST_KEY_LEFT_SHIFT) || host_is_key_down(HOST_KEY_RIGHT_SHIFT),ui.dynamics_magnet[window]);
     }
     int knob_hold=0;
     if(host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT)) {
