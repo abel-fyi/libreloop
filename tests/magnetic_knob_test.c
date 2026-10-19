@@ -24,6 +24,9 @@ int main(void) {
     wheel=(ControlWheel){0};*value=1;
     for(int i=0;i<20;i++)control_knob_wheel_fine(&wheel,&project,value,.125f,16,CONTROL_MAGNETIC,.1f,0);
     CHECK(*value>1.035f); /* Precise trackpad deltas also escape the magnet. */
+    control_capture(&drag,&project,&project.arp[0].time,.125f,16,0);CHECK(drag.magnetic==1 && drag.logarithmic);
+    control_drag_update_fine(&drag,&project,-.1f,1,0,0);CHECK(project.arp[0].time==1);
+    control_drag_update_fine(&drag,&project,-.1f,1,0,1);CHECK(project.arp[0].time>1);
     project.delay[0][0].feedback=.35f;control_capture(&drag,&project,&project.delay[0][0].feedback,0,1,0);CHECK(!drag.magnetic);
     float *tone=&project.tube[0][0].tone;project.effect_type[0][0]=EFFECT_TUBE;*tone=19999;
     control_capture(&drag,&project,tone,1200,TUBE_TONE_OFF,0);CHECK(drag.magnetic==2);

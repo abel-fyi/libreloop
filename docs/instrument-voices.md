@@ -5,7 +5,7 @@ Sampler, DX7, Analog and Custom FM. Sound returns to the synthesis/sample page.
 The compact grouped layout follows `references/screenshots/subwindow.png`, using
 Luice's existing materials, bitmap font, knobs and checkbox controls. Channel
 pan, volume, playback pitch, range and routing remain in the common header;
-the Voice page does not repeat them. Its compact outer height is 288 logical units.
+the Voice page does not repeat them. With the Arpeggiator group, its outer height is 480 logical units.
 
 The page implements:
 
@@ -47,8 +47,8 @@ policy bypasses voice-policy processing in the sample loop.
 
 The reference's modulation X/Y, gate/shift/swing transformations, cut groups,
 root-key editor, echo/fat mode and keyboard strip are deliberately absent.
-Arpeggiation remains a separate development task. No inactive decorative controls
-have been added to suggest these features exist.
+The real-time [arpeggiator](arpeggiator.md) now occupies the lower group. No inactive
+decorative controls have been added to suggest the other features exist.
 
 ## Verification
 

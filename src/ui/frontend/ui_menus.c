@@ -565,7 +565,7 @@ void draw_context_content(void) {
         for(int id=ui.context_kind==26?0:1;id<=ui.project.insert_count;id++)
             if(ui.context_kind==26?insert_has_send(&ui.project,ui.context_target,id):insert_has_send(&ui.project,id,ui.context_target))route_rows[route_count++]=id;
     }
-    int w=ui.context_kind==14 || ui.context_kind==16?160:ui.context_kind==28 || (ui.context_kind==25 && !ui.project.effect_type[ui.eq_bus][ui.context_target])?344:(ui.context_kind==5 || ui.context_kind==8 || ui.context_kind==12)?304:228,h=ui.context_kind==29?58:(ui.context_kind==26 || ui.context_kind==27)?8+25*(int)fminf(8,route_count+1):ui.context_kind==28?209:ui.context_kind==25?(ui.project.effect_type[ui.eq_bus][ui.context_target]?158:209):ui.context_kind==24?8+25*GRID_CHOICES:ui.context_kind==9?133:ui.context_kind==21?8+25*(ui.studio_style?studio_factory_count(ui.context_target):FM_FACTORY_COUNT):ui.context_kind==22?83:ui.context_kind==23?108:ui.context_kind==19?108:ui.context_kind==20?58:ui.context_kind==17?8+25*(int)fminf(8,instrument_count):ui.context_kind==18?(ui.studio_style?108:58):ui.context_kind==4?108:ui.context_kind==16?32:ui.context_kind==15?58:ui.context_kind==14?8+EQ_SHAPES*25:ui.context_kind==13?58:ui.context_kind==2?183:ui.context_kind==7?133:(ui.context_kind==5 || ui.context_kind==8 || ui.context_kind==12)?76:ui.context_kind==3 && !ui.context_target?32:82,x=fmaxf(0,fminf(host_get_screen_width()/scale-w,ui.context_position.x)),y=fmaxf(0,fminf(host_get_screen_height()/scale-h,ui.context_position.y));
+    int w=ui.context_kind==14 || ui.context_kind==16?160:ui.context_kind==28 || (ui.context_kind==25 && !ui.project.effect_type[ui.eq_bus][ui.context_target])?344:(ui.context_kind==5 || ui.context_kind==8 || ui.context_kind==12)?304:228,h=ui.context_kind==30?8+ARP_CHORDS*25:ui.context_kind==29?58:(ui.context_kind==26 || ui.context_kind==27)?8+25*(int)fminf(8,route_count+1):ui.context_kind==28?209:ui.context_kind==25?(ui.project.effect_type[ui.eq_bus][ui.context_target]?158:209):ui.context_kind==24?8+25*GRID_CHOICES:ui.context_kind==9?133:ui.context_kind==21?8+25*(ui.studio_style?studio_factory_count(ui.context_target):FM_FACTORY_COUNT):ui.context_kind==22?83:ui.context_kind==23?108:ui.context_kind==19?108:ui.context_kind==20?58:ui.context_kind==17?8+25*(int)fminf(8,instrument_count):ui.context_kind==18?(ui.studio_style?108:58):ui.context_kind==4?108:ui.context_kind==16?32:ui.context_kind==15?58:ui.context_kind==14?8+EQ_SHAPES*25:ui.context_kind==13?58:ui.context_kind==2?183:ui.context_kind==7?133:(ui.context_kind==5 || ui.context_kind==8 || ui.context_kind==12)?76:ui.context_kind==3 && !ui.context_target?32:82,x=fmaxf(0,fminf(host_get_screen_width()/scale-w,ui.context_position.x)),y=fmaxf(0,fminf(host_get_screen_height()/scale-h,ui.context_position.y));
     ui.input_enabled=1;
     if(host_is_key_pressed(HOST_KEY_ESCAPE) || (!ui.context_opened && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT) && !hover(x,y,w,h))) { ui.context_kind=0; return; }
     ui_frame(host_draw(),(DrawRect){x,y,w,h});
@@ -633,6 +633,9 @@ void draw_context_content(void) {
             }
         }
         if(hover(x,y,w,h)) snprintf(ui.status,sizeof ui.status,"Choose the pattern's instrument to replace; the change applies across all patterns. Scroll for more instruments.");
+    } else if(kind==30) {
+        if(target<0 || target>=ui.project.channel_count){ui.context_kind=0;return;}
+        for(int i=0;i<ARP_CHORDS;i++)if(button(arp_chord_name(i),x+4,y+4+i*25,w-8,24,ui.project.arp[target].chord==i)){ui.project.arp[target].chord=i;ui.context_kind=0;return;}
     } else if(kind==18) {
         if(target<0 || target>=ui.project.channel_count) { ui.context_kind=0; return; }
         if(ui.studio_style){

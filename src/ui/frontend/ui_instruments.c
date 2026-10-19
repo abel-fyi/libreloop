@@ -781,6 +781,36 @@ void instrument_voice_editor(float width,float height) {
     const char *time=v->glide?host_text_format("%.0f ms",v->glide*1000):"Off";
     label(time,right+(half-text_width(time,12))/2,190,12,ink);
     if(hover(right+12,100,half-24,114))snprintf(ui.status,sizeof ui.status,"Glide: 0–2000 ms between overlapping Mono notes. Off changes pitch immediately; Legato controls envelope retriggering.");
-    instrument_hint(ui.project.channel_audio[c]?"Audio clips keep their arrangement timing.":"Legato preserves the envelope. Glide controls the slide.",width,242,11);
+    ArpSettings *a=&ui.project.arp[c];
+    instrument_group(12,236,width-24,194,"Arpeggiator");
+    const char *directions[]={"Off","Up","Down","UpDn","Bounce","?"};
+    float direction_width=(width-40)/ARP_DIRECTIONS;
+    for(int i=0;i<ARP_DIRECTIONS;i++){
+        if(button(directions[i],20+i*direction_width,260,direction_width-2,24,a->direction==i))a->direction=i;
+        if(hover(20+i*direction_width,260,direction_width-2,24))snprintf(ui.status,sizeof ui.status,"Arpeggiator: %s%s",arp_direction_name(i),i==ARP_UP_DOWN?" (endpoints once)":i==ARP_BOUNCE?" (endpoints twice)":"");
+    }
+    float col=(width-40)/4;
+    knob_style(20+col*.5f,315,&a->time,.125f,16,1,"Arpeggiator time (steps); Ctrl = fine / unsnapped",KNOB_MAGNETIC);
+    label("TIME",20+col*.5f-16,337,12,muted);
+    const char *arp_time=host_text_format("%.3g",a->time);label(arp_time,20+(col-text_width(arp_time,12))*.5f,357,12,ink);
+    knob_style(20+col*1.5f,315,&a->gate,.01f,1,.8f,"Arpeggiator gate",KNOB_NORMAL);
+    label("GATE",20+col*1.5f-16,337,12,muted);
+    label(host_text_format("%.0f%%",a->gate*100),20+col*1.5f-16,357,12,ink);
+    float *values[]={&a->range,&a->repeat};const char *names[]={"Range","Repeat"};
+    for(int i=0;i<2;i++){
+        float x=20+col*(i+2);
+        label(names[i],x+(col-text_width(names[i],12))*.5f,300,12,muted);
+        if(drag_button(host_text_format("%.0f",*values[i]),x+8,323,col-16,24,ui.control_drag==values[i])){capture_control(values[i],1,i?8:4,0);ui.control_integer=1;}
+        if(hover(x+8,323,col-16,24)){
+            *values[i]=fmaxf(1,fminf(i?8:4,*values[i]+roundf(host_get_mouse_wheel_move())));
+            if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)){begin_number(values[i],1,i?8:4,1,names[i]);ui.number_integer=1;}
+            snprintf(ui.status,sizeof ui.status,i?"Repeat: repeat the note group before moving to the next octave":"Range: 1–4 octaves above the held notes");
+        }
+    }
+    if(sampler_toggle(24,390,104,"Slide",a->slide))a->slide=!a->slide;
+    if(hover(24,390,104,24))snprintf(ui.status,sizeof ui.status,"Slide preserves the envelope between connected arp notes; Glide sets pitch transition time. Gate below 100%% adds gaps.");
+    label("Chord",136,395,12,muted);
+    if(choice_button(arp_chord_name((unsigned)a->chord),184,388,width-208,26))open_context(30,c,(DrawPoint){ui.mouse.x+desktop_editor_rect(4).x,ui.mouse.y+desktop_editor_rect(4).y});
+    instrument_hint("Tempo-synced. Audio clips bypass the arp.",width,446,11);
     (void)height;
 }

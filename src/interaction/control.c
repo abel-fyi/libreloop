@@ -7,6 +7,7 @@ void control_capture(ControlDrag *s,Project *p,float *value,float low,float high
     s->integer=descriptor && descriptor->kind==PARAMETER_INTEGER;s->logarithmic=descriptor && descriptor->kind==PARAMETER_LOGARITHMIC;
     /* Existing rhythm detents (1), or the Tube Tone endpoint detent (2). */
     s->magnetic=descriptor?(target.parameter==PARAM_DELAY_STEPS?1:target.parameter==PARAM_TUBE_TONE?2:0):0;
+    for(int c=0;c<CHANNELS;c++)if(value==&p->arp[c].time){s->magnetic=1;s->logarithmic=1;}
     s->raw=*value;s->value=value;s->low=descriptor?descriptor->low:low;s->high=descriptor?descriptor->high:high;s->fader=fader;s->reverse=0;
 }
 static const float step_marks[]={.125f,1.f/6,.25f,1.f/3,.5f,2.f/3,.75f,1,4.f/3,1.5f,2,8.f/3,3,4,16.f/3,6,8,32.f/3,12,16};

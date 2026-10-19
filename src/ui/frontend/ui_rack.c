@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "ui_internal.h"
+#include "instrument_layout.h"
 #include "rack.h"
 
 static RackState desktop_rack_state(void) {
@@ -19,7 +20,10 @@ void channel_route(int c,int x,int y) {
 }
 
 void channel_controls(int c,float width) {
-    if(ui.studio_style && button(ui.instrument_voice_page[c]?"Sound":"Voice",12,52,110,22,ui.instrument_voice_page[c]))ui.instrument_voice_page[c]^=1;
+    if(ui.studio_style && button(ui.instrument_voice_page[c]?"Sound":"Voice",12,52,110,22,ui.instrument_voice_page[c])){
+        ui.instrument_voice_page[c]^=1;
+        ui.windows.editors[4].rect.h=studio_instrument_height(ui.instrument_voice_page[c],ui.project.instrument[c]==INSTRUMENT_FM,ui.project.fm[c].engine==1);
+    }
     int x=width-276;
     mute_light(x,36,ui.project.mute,ui.project.channel_count,c,ui.project.channel_names[c]);
     knob_style(x+28,36,&ui.project.pan[c],-1,1,0,"Channel pan",KNOB_PAN);

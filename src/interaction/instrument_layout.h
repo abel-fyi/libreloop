@@ -6,6 +6,7 @@
    caption translation (6) and bottom margin (24), at every supported width. */
 enum { SAMPLER_COMPACT_WIDTH=520, INSTRUMENT_ENVELOPE_HEIGHT=160 };
 static inline float instrument_envelope_top(float height){return height-42-INSTRUMENT_ENVELOPE_HEIGHT;}
+static inline float studio_instrument_height(int voice,int synth,int dx7){return voice?480:synth?(dx7?544:452):420;}
 static inline float sampler_min_height(int studio) { return studio?420:300; }
 static inline int sampler_wave_top(float width,int studio) { return studio && width<SAMPLER_COMPACT_WIDTH?280:252; }
 /* Concrete six-op control rows in the carried editor's content coordinates.
