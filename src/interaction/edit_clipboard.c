@@ -47,7 +47,7 @@ int clipboard_paste_clips(const EditClipboard *c,Project *p,int lane,float bar,u
     for(int i=0;i<c->count;i++) {
         CopiedClip n=c->clips[i]; int l=lane+n.lane,source=n.source-1; float at=bar+n.start;
         if(l<0 || l>=LANES || at<0 || !isfinite(at) || at>1e12f) return -4;
-        if(source<PATTERNS ? source>=p->pattern_count : source<AUTOMATION_SOURCE ? source-PATTERNS>=p->channel_count || !p->channel_audio[source-PATTERNS] : source-AUTOMATION_SOURCE>=p->automation_count) return -1;
+        if(source<PATTERNS ? source>=p->pattern_count : source<AUTOMATION_SOURCE ? !channel_has_audio(p,source-PATTERNS) : source-AUTOMATION_SOURCE>=p->automation_count) return -1;
         if(++needed[l]>free[l]) return -2;
         /* Reuse the engine duration mapping, including uncapped audio and source offsets. */
         int empty=0; while(empty<CLIPS && p->clips[l][empty]) empty++;

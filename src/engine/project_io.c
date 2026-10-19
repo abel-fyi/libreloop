@@ -44,7 +44,7 @@ static int project_valid(const Project *p) {
     for(int c=0;c<CHANNELS;c++) if(p->channel_audio[c]>1 || !isfinite(p->audio_seconds[c]) || p->audio_seconds[c]<0 || p->audio_seconds[c]>SAMPLE_MAX_FRAMES*4.0/RATE) return 0;
     for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) if(p->clips[l][b]>PATTERNS && p->clips[l][b]<=AUTOMATION_SOURCE) {
         int c=p->clips[l][b]-PATTERNS-1;
-        if(c>=p->channel_count || !p->channel_audio[c]) return 0;
+        if(!channel_has_audio(p,c)) return 0;
     }
     for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) if(p->clips[l][b]>AUTOMATION_SOURCE && p->clips[l][b]>AUTOMATION_SOURCE+p->automation_count) return 0;
     for(int c=0;c<CHANNELS;c++) if(!isfinite(p->channel_pitch[c]) || fabsf(p->channel_pitch[c])>1 || !isfinite(p->pitch_range[c]) || p->pitch_range[c]<1 || p->pitch_range[c]>48 || p->pitch_range[c]!=roundf(p->pitch_range[c])) return 0;

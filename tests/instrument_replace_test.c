@@ -35,6 +35,25 @@ int main(void) {
     CHECK(channel_replace_instrument(&project,0,INSTRUMENT_SAMPLER));
     CHECK(project.automation_count==1 && project.automations[0].target.parameter==PARAM_CHANNEL_VOLUME && !project.clips[1][0]);
     CHECK(project.notes[1][0][0].pitch==64 && project.clips[0][0]==1);
+    /* A Pattern sampler is also an arrangement source, without changing group
+       or losing notes/voice settings. The saved project must accept that clip. */
+    CHECK(channel_has_audio(&project,0));
+    CHECK(!channel_has_audio(&project,-1) && !channel_has_audio(&project,project.channel_count));
+    CHECK(!project.channel_audio[0] && !channel_uses_audio_clips(&project,0));
+    project.voice[0]=(VoiceSettings){.limit=4,.mono=1,.legato=1,.glide=.1f};
+    project.audio_seconds[0]=2;
+    project.clips[2][0]=PATTERNS+1;
+    CHECK(channel_uses_audio_clips(&project,0));
+    CHECK(project_save("pattern-sample.llp",&project) && project_load("pattern-sample.llp",&loaded));
+    CHECK(!loaded.channel_audio[0] && channel_has_audio(&loaded,0));
+    CHECK(loaded.clips[2][0]==PATTERNS+1 && loaded.notes[0][0][0].velocity==100);
+    CHECK(loaded.voice[0].mono && loaded.voice[0].legato && loaded.voice[0].glide==.1f);
+    remove("pattern-sample.llp");
+    before=project;CHECK(!channel_replace_instrument(&project,0,INSTRUMENT_FM) && !memcmp(&project,&before,sizeof project));
+    project.clips[2][0]=0;CHECK(!channel_uses_audio_clips(&project,0));
+    CHECK(channel_replace_instrument(&project,0,INSTRUMENT_FM) && !channel_has_audio(&project,0));
+    CHECK(channel_replace_instrument(&project,0,INSTRUMENT_SAMPLER));
+    strcpy(project.paths[0],SAMPLE_EMPTY);CHECK(!channel_has_audio(&project,0));
     project.channel_audio[0]=1; before=project;
     CHECK(!channel_replace_instrument(&project,0,INSTRUMENT_FM) && !memcmp(&project,&before,sizeof project));
     puts("Instrument replacement retains notes, clips, routing, samples, persistence and undo; Audio channels stay compatible."); return 0;

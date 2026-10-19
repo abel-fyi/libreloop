@@ -597,7 +597,7 @@ void playlist_picker(Rect rect,float height) {
         if(hover(4+t*(ui.studio_style?(picker_width()+2)/3:38),57,ui.studio_style?(picker_width()+2)/3-2:36,23)) snprintf(ui.status,sizeof ui.status,"%s%s",picker_names[t],"");
     }
     int audio_ids[CHANNELS],audio_count=0;
-    for(int c=0;c<ui.project.channel_count;c++) if(ui.project.channel_audio[c]) audio_ids[audio_count++]=c;
+    for(int c=0;c<ui.project.channel_count;c++) if(channel_has_audio(&ui.project,c)) audio_ids[audio_count++]=c;
     int picker_count=ui.picker_tab==0?ui.project.pattern_count:ui.picker_tab==1?audio_count:ui.project.automation_count;
     int picker_visible=fmaxf(1,(height-picker_bottom()-gy)/52);
     if(hover(4,gy,picker_width(),height-picker_bottom()-gy)) ui.picker_scroll-=host_get_mouse_wheel_move();

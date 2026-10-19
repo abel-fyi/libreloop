@@ -18,7 +18,8 @@ int main(void) {
     CHECK(clipboard_paste_notes(&c,&p,0,0,40,selected)==2 && p.pattern_steps[0]>=43);
     for(int i=0;i<NOTES;i++) p.notes[0][0][i].velocity=100;
     before=p; CHECK(clipboard_paste_notes(&c,&p,0,0,80,selected)==-2 && !memcmp(&before,&p,sizeof p));
-    project_new(&p); p.channel_count=2; p.channel_audio[1]=1; p.audio_seconds[1]=3;
+    project_new(&p); p.channel_count=2; strcpy(p.paths[1],"/samples/pattern.wav"); p.audio_seconds[1]=3;
+    CHECK(!p.channel_audio[1] && channel_has_audio(&p,1));
     p.clips[2][0]=1; p.clip_starts[2][0]=1; p.clip_steps[2][0]=4; p.clip_offsets[2][0]=2;
     p.clips[3][0]=PATTERNS+2; p.clip_starts[3][0]=2; p.clip_steps[3][0]=.5f; p.clip_offsets[3][0]=.2f;
     clips[2][0]=clips[3][0]=1; CHECK(clipboard_copy_clips(&c,&p,(const uint8_t (*)[CLIPS])clips)==2);

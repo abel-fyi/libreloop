@@ -154,6 +154,8 @@ const char *instrument_choice_name(int choice);
 int channel_instrument_choice(const Project *project,int channel);
 const char *channel_instrument_name(const Project *project,int channel);
 int channel_replace_choice(Project *project,int channel,int choice);
+int channel_has_audio(const Project *project,int channel);
+int channel_uses_audio_clips(const Project *project,int channel);
 int channel_replace_instrument(Project *project,int channel,int type);
 int channel_delete(Project *p,int channel);
 int insert_connect(Project *p,int source,int destination);

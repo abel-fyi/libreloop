@@ -9,7 +9,7 @@ static Project p,q;
 static float pcm[RATE],out[RATE*6],split[RATE*6];
 int main(void) {
     project_default(&p); memset(p.notes,0,sizeof p.notes);
-    p.channel_audio[0]=1; p.audio_seconds[0]=1; p.volume[0]=1; p.route[0]=0;
+    p.channel_audio[0]=0; p.audio_seconds[0]=1; p.volume[0]=1; p.route[0]=0;
     snprintf(p.paths[0],sizeof p.paths[0],"audio.wav");
     for(int i=0;i<RATE;i++) pcm[i]=.1f+.3f*i/RATE;
     Sample samples[CHANNELS]={{pcm,RATE}};
@@ -100,7 +100,8 @@ int main(void) {
     q.channel_audio[1]=1; q.audio_seconds[1]=2;
     int other=arrangement_place(&q,7,0,PATTERNS+1,16); CHECK(other>=0);
     CHECK(channel_delete(&q,0)); CHECK(!q.clips[3][moved] && q.clips[7][other]==PATTERNS+1 && q.audio_seconds[0]==2);
-    q.channel_audio[0]=0; CHECK(!project_save("invalid-audio.llp",&q));
+    q.channel_audio[0]=0; snprintf(q.paths[0],sizeof q.paths[0],"%s",SAMPLE_EMPTY);
+    CHECK(!project_save("invalid-audio.llp",&q));
     remove("audio-clips.llp"); remove("audio-clips.wav");
     puts("Audio clips: playback, seek, crop, move, brush, looping, mute, sequencing, persistence and export passed.");
     return 0;

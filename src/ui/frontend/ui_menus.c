@@ -636,20 +636,20 @@ void draw_context_content(void) {
     } else if(kind==18) {
         if(target<0 || target>=ui.project.channel_count) { ui.context_kind=0; return; }
         if(ui.studio_style){
-            for(int choice=0;choice<INSTRUMENT_CHOICES;choice++)if(button_available(instrument_choice_name(choice),x+4,y+4+choice*25,w-8,24,channel_instrument_choice(&ui.project,target)==choice,choice==CHOICE_SAMPLER || !ui.project.channel_audio[target])){
+            for(int choice=0;choice<INSTRUMENT_CHOICES;choice++)if(button_available(instrument_choice_name(choice),x+4,y+4+choice*25,w-8,24,channel_instrument_choice(&ui.project,target)==choice,choice==CHOICE_SAMPLER || !channel_uses_audio_clips(&ui.project,target))){
                 ui.context_kind=0;replace_instrument_choice(target,choice);return;
             }
             return;
         }
         for(int type=INSTRUMENT_SAMPLER;type<=INSTRUMENT_FM;type++) {
             int enabled=ui.input_enabled;
-            if(type==INSTRUMENT_FM && ui.project.channel_audio[target]) ui.input_enabled=0;
+            if(type==INSTRUMENT_FM && channel_uses_audio_clips(&ui.project,target)) ui.input_enabled=0;
             if(button(instrument_descriptor(type)->name,x+4,y+4+type*25,w-8,24,ui.project.instrument[target]==type)) {
                 ui.context_kind=0; replace_instrument(target,type); return;
             }
             ui.input_enabled=enabled;
             if(hover(x+4,y+4+type*25,w-8,24)) snprintf(ui.status,sizeof ui.status,
-                type==INSTRUMENT_FM && ui.project.channel_audio[target]?"Audio clips require a Sampler; FM Synth replaces pattern instruments":"Replace this channel's instrument; keep notes, sample settings, name and mixer routing across all patterns");
+                type==INSTRUMENT_FM && channel_uses_audio_clips(&ui.project,target)?"Audio clips require a Sampler; FM Synth replaces pattern instruments":"Replace this channel's instrument; keep notes, sample settings, name and mixer routing across all patterns");
         }
     } else if(kind==16) {
         if(ui.eq_bus>ui.project.insert_count || ui.project.effect_type[ui.eq_bus][ui.eq_slot]!=EFFECT_EQ || target<0 || target>=EQ_BANDS) { ui.context_kind=0; return; }
@@ -698,7 +698,7 @@ void draw_context_content(void) {
         if(button("Delete",x+4,y+54,w-8,24,0)) { ui.picker_drag=-1; delete_channel(target); ui.context_kind=0; }
         if(button(ui.project.instrument[target]==INSTRUMENT_FM?"Replace with sample...":"Relink sample...",x+4,y+79,w-8,24,0)) { ui.relink_channel=target; ui.context_kind=0; project_file_action(7); }
         if(button("Replace instrument...",x+4,y+104,w-8,24,0)) { open_context(18,target,ui.context_position); return; }
-        if(hover(x+4,y+54,w-8,24)) snprintf(ui.status,sizeof ui.status,"Delete this Audio channel and all its Playlist clips; the source file stays on disk");
+        if(hover(x+4,y+54,w-8,24)) snprintf(ui.status,sizeof ui.status,"%s",ui.project.channel_audio[target]?"Delete this Audio channel and all its Playlist clips; the source file stays on disk":"Delete this sampler channel, its Pattern notes and Arrangement clips; the source file stays on disk");
     } else if(kind==4) {
         if(button("Rename",x+4,y+4,w-8,24,0)) { ui.pattern=target; begin_rename(); ui.context_kind=0; }
         if(button("Color",x+4,y+29,w-8,24,0)) { ui.context_kind=5; ui.context_opened=1; }

@@ -106,9 +106,21 @@ void project_demo(Project *p) {
     for(int n=0;n<8;n++) p->notes[1][3][n]=(Note){pitches[n],85,n*4,3};
     for(int b=0;b<8;b+=b<2?1:2) { p->clips[0][b]=b<2?1:2; p->clip_steps[0][b]=b<2?16:32; }
 }
+/* Audio-list availability is independent of the Rack's Audio/Unsorted group.
+   A Pattern sampler and its arrangement clips share one sample and settings. */
+int channel_has_audio(const Project *p,int c) {
+    return c>=0 && c<p->channel_count && p->instrument[c]==INSTRUMENT_SAMPLER &&
+        (p->channel_audio[c] || (p->paths[c][0] && strcmp(p->paths[c],SAMPLE_EMPTY)));
+}
+int channel_uses_audio_clips(const Project *p,int c) {
+    if(c<0 || c>=p->channel_count)return 0;
+    if(p->channel_audio[c])return 1;
+    for(int l=0;l<LANES;l++)for(int b=0;b<CLIPS;b++)if(p->clips[l][b]==PATTERNS+c+1)return 1;
+    return 0;
+}
 int channel_replace_instrument(Project *p,int c,int type) {
     if(c<0 || c>=p->channel_count || !instrument_descriptor(type) ||
-       (type==INSTRUMENT_FM && p->channel_audio[c])) return 0;
+       (type==INSTRUMENT_FM && channel_uses_audio_clips(p,c))) return 0;
     if(p->instrument[c]==type) return 1;
     if(type!=INSTRUMENT_FM) for(int a=p->automation_count-1;a>=0;a--) {
         ParameterTarget target=p->automations[a].target;
