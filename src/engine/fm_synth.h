@@ -15,7 +15,7 @@ typedef struct {
     DX7Settings dx7;
 } FMSettings;
 typedef struct {
-    double carrier,modulator,frequency,current_frequency,lfo_phase,attack_modulator;
+    double carrier,modulator,frequency,current_frequency,lfo_phase,attack_modulator,note_pitch_ratio;
     float envelope,ratio,depth,release_step,mod_envelope,velocity,lfo_rate,vibrato,tremolo;
     float carrier_ratio,attack_ratio,attack_depth,carrier_detune,body_detune,attack_detune;
     float body_pitch,attack_envelope,body_release_step,attack_release_step,lfo_age;

@@ -107,7 +107,7 @@ float fm_lfo_value(float phase,int shape) {
     return sinf(phase*6.283185307179586f);
 }
 void fm_note_on_velocity(FMVoice *v,double frequency,FMSettings s,float velocity) {
-    *v=(FMVoice){.frequency=frequency,.current_frequency=frequency,.ratio=s.ratio,.depth=s.depth,.stage=ATTACK,
+    *v=(FMVoice){.frequency=frequency,.current_frequency=frequency,.note_pitch_ratio=1,.ratio=s.ratio,.depth=s.depth,.stage=ATTACK,
         .mod_envelope=s.mod_attack?0:1,.body_stage=s.mod_attack?ATTACK:DECAY,.attack_stage=ATTACK,
         .velocity=fmaxf(0,fminf(1,velocity)),.lfo_rate=s.lfo_rate,.vibrato=s.vibrato,.tremolo=s.tremolo,
         .body_pitch=s.body_pitch,.carrier_ratio=s.carrier_ratio,.attack_ratio=s.attack_ratio,.attack_depth=s.attack_depth,
@@ -151,7 +151,7 @@ static float render_analog_modern(FMVoice *v,const FMSettings *s,double pitch) {
     v->lfo_rate+=(s->lfo_rate-v->lfo_rate)*slew;v->vibrato+=(s->vibrato-v->vibrato)*slew;v->tremolo+=(s->tremolo-v->tremolo)*slew;
     float lfo=fm_lfo_value(v->lfo_phase/6.283185307179586f,(int)s->lfo_shape),fade=s->lfo_fade?fminf(1,v->lfo_age/s->lfo_fade):1;
     double hz=fmax(1,fmin(RATE*.45,v->frequency*pitch*s->carrier_ratio));v->current_frequency+=(hz-v->current_frequency)*slew;
-    hz=v->current_frequency*exp2(lfo*v->vibrato*fade/1200);
+    hz=fmax(1,fmin(RATE*.45,v->current_frequency*v->note_pitch_ratio))*exp2(lfo*v->vibrato*fade/1200);
     float velocity=1-s->velocity*(1-v->velocity);
     float out=analog_sample(&v->analog,s->analog,hz,lfo,v->mod_envelope*velocity);
     v->lfo_phase+=6.283185307179586*v->lfo_rate/RATE;if(v->lfo_phase>=6.283185307179586)v->lfo_phase-=6.283185307179586;v->lfo_age+=1.f/RATE;
@@ -161,7 +161,7 @@ static float render_mono(FMVoice *v,const FMSettings *s,double pitch) {
     if(!v->stage) return 0;
     if(v->engine!=(int)s->engine) { v->stage=OFF; return 0; }
     if(v->engine==2 && s->analog.model)return render_analog_modern(v,s,pitch);
-    if(v->engine==1) return dx7_sample(&v->dx7,&s->dx7,pitch)*.75f;
+    if(v->engine==1) {v->dx7.note_pitch_ratio=v->note_pitch_ratio;return dx7_sample(&v->dx7,&s->dx7,pitch)*.75f;}
     const float slew=1.f/(RATE*.02f);
 #define SLEW(field) v->field+=(s->field-v->field)*slew
     v->ratio+=(roundf(s->ratio)-v->ratio)*slew; SLEW(body_pitch); SLEW(depth); SLEW(carrier_ratio); SLEW(attack_ratio); SLEW(attack_depth);
@@ -177,7 +177,7 @@ static float render_mono(FMVoice *v,const FMSettings *s,double pitch) {
     else if(v->stage==DECAY) { v->envelope-=fmaxf(0,1-s->sustain)/(s->decay*RATE); if(v->envelope<=s->sustain) { v->envelope=s->sustain; v->stage=SUSTAIN; } }
     else if(v->stage==SUSTAIN) v->envelope+=(s->sustain-v->envelope)*slew;
     else { v->envelope-=v->release_step; if(v->envelope<=.000001f) { v->envelope=0; v->stage=OFF; return 0; } }
-    double root=v->current_frequency*(v->vibrato && fade?pow(2,lfo*v->vibrato*fade/1200):1),limit=RATE*.45;
+    double root=v->current_frequency*v->note_pitch_ratio*(v->vibrato && fade?pow(2,lfo*v->vibrato*fade/1200):1),limit=RATE*.45;
     if(v->engine==2) {
         float value=analog_sample(&v->analog,s->analog,root*v->carrier_ratio,lfo,v->mod_envelope*(1-s->velocity*(1-v->velocity)));
         float amp=v->tremolo?1-v->tremolo*fade*(.5f-.5f*lfo):1;

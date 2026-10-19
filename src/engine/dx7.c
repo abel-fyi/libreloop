@@ -179,7 +179,7 @@ void dx7_note_on(DX7Voice *v,double hz,float velocity,DX7Settings s) {
     memset(v,0,sizeof *v); for(int i=0;i<DX7_NATIVE_PARAMETERS;i++) v->patch[i]=(uint8_t)roundf(s.value[i]);
     for(int op=0;op<6;op++) v->key_tracking[op]=s.value[DX7_NATIVE_PARAMETERS+op];
     v->base_midi=(int)llround(69+12*log2(hz/440)); v->midi=v->base_midi+v->patch[144]-24;
-    v->velocity=max_int(1,min_int(127,(int)roundf(velocity*127))); v->note_frequency=hz; v->pitch_ratio=1; v->down=1; v->cursor=DX7_BLOCK; v->algorithm=v->patch[134];
+    v->velocity=max_int(1,min_int(127,(int)roundf(velocity*127))); v->note_frequency=hz; v->pitch_ratio=v->note_pitch_ratio=1; v->down=1; v->cursor=DX7_BLOCK; v->algorithm=v->patch[134];
     for(int op=0;op<6;op++) setup_operator(v,op,1);
     for(int i=0;i<4;i++) { v->pitch.rates[i]=v->patch[126+i]; v->pitch.levels[i]=v->patch[130+i]; }
     v->pitch.level=pitchenv_tab[v->pitch.levels[3]]*524288; v->pitch.down=1; pitch_advance(&v->pitch,0); setup_lfo(v,1);
@@ -230,7 +230,7 @@ static void render_block(DX7Voice *v,const DX7Settings *s,double pitch) {
     uint32_t depth=((v->patch[139]*165)>>6)*(uint32_t)delay;
     int32_t modulation=pitch_sample(&v->pitch)+(int32_t)(((int64_t)depth*sens)>>39);
     v->pitch_ratio+=(pitch-v->pitch_ratio)*(1-exp(-DX7_BLOCK/(RATE*.02)));
-    int32_t bend=llround(log2(fmax(1e-6,v->pitch_ratio))*Q24);
+    int32_t bend=llround(log2(fmax(1e-6,v->pitch_ratio*v->note_pitch_ratio))*Q24);
     int32_t amplitude=(int64_t)(((v->patch[140]*165)>>6)*(int64_t)delay)>>8;
     amplitude=((int64_t)amplitude*(Q24-lfo))>>24;
     memset(v->output,0,sizeof v->output); int contents[3]={1,0,0};

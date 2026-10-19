@@ -7,6 +7,7 @@
 #define CHECK(x) do{if(!(x)){fprintf(stderr,"%d: %s\n",__LINE__,#x);return 1;}}while(0)
 static Project p,q;static Player a,b;static float whole[24000],chunks[24000];
 static void on(Player *player,int slot,int note) {
+    player_voice_prepare(player,&p,slot);
     Voice *v=&player->voices[slot];*v=(Voice){.channel=0,.instrument=p.instrument[0],.gain=.8f,.remaining=-1,.lane=-1};
     instrument_start(&v->device,v->instrument,(InstrumentSettings){&p.sampler[0],&p.fm[0]},(InstrumentNote){.frequency=440*exp2((note-69)/12.),.speed=exp2((note-60)/12.),.velocity=.8f});
     player_voice_on(player,&p,slot,note);
@@ -63,6 +64,33 @@ int main(void) {
     p.voice[0]=(VoiceSettings){.mono=1,.legato=1,.glide=.01f};player_reset(&a);player_reset(&b);on(&b,0,60);on(&b,1,72);
     p.voice[0].glide=0;player_voice_tick(&b,&p);CHECK(b.voices[1].current_pitch==72 && !b.voices[1].glide_left);
     p.voice[0].mono=0;render_mixer(&a,&b,&p,empty,whole,1,0,0);CHECK(b.voices[1].current_pitch==72 && player_voice_pitch(&b.voices[1])==2);
+    /* Rapid release/repress in one callback stays legato over a held anchor. */
+    p.voice[0]=(VoiceSettings){.mono=1,.legato=1};player_reset(&a);player_reset(&b);on(&b,0,60);
+    render_mixer(&a,&b,&p,empty,whole,256,0,0);
+    for(int i=0;i<100;i++){
+        on(&b,1,64+i%12);render_mixer(&a,&b,&p,empty,whole,32,0,0);
+        FMVoice before=b.voices[1].fm;
+        player_voice_off(&b,&p,1);on(&b,1,67+i%12);
+        CHECK(b.voices[1].fm.envelope==before.envelope && b.voices[1].fm.lfo_age==before.lfo_age && b.voices[1].fm.stage==before.stage);
+        CHECK(b.voices[1].current_pitch==67+i%12 && !b.voices[1].glide_left);
+    }
+    /* Same-buffer replacement also keeps a held anchor in the other pool. */
+    player_reset(&a);player_reset(&b);on(&a,0,60);b.voice_order=a.voice_order;on(&b,1,67);player_voice_tick_pair(&a,&b,&p);
+    b.voices[1].fm.envelope=.72f;b.voices[1].fm.lfo_age=.5f;player_voice_off(&b,&p,1);on(&b,2,72);player_voice_tick_pair(&a,&b,&p);
+    CHECK(b.voices[2].fm.envelope==.72f && b.voices[2].fm.lfo_age==.5f && b.voices[2].selected);
+    /* Shared Mono pitch bypasses the synth's legacy smoothing. */
+    CHECK(channel_replace_choice(&p,0,CHOICE_ANALOG));p.voice[0]=(VoiceSettings){.mono=1,.legato=1};player_reset(&a);player_reset(&b);
+    on(&b,0,60);render_mixer(&a,&b,&p,empty,whole,256,0,0);on(&b,1,72);render_mixer(&a,&b,&p,empty,whole,1,0,0);
+    CHECK(fabs(b.voices[1].fm.current_frequency*b.voices[1].fm.note_pitch_ratio-523.2511306011972)<1e-6);
+    /* Reusing a nonzero Analog voice keeps a 5 ms retiring overlap. */
+    p.voice[0]=(VoiceSettings){0};p.fm[0].attack=.25f;player_reset(&a);player_reset(&b);on(&b,0,60);
+    for(int i=0;i<100;i++)render_mixer(&a,&b,&p,empty,whole,256,0,0);
+    FMVoice continuing=b.voices[0].fm;float expected_sample=fm_sample(&continuing,p.fm[0],1)*.8f*p.volume[0]*p.master;
+    on(&b,0,60);int retiring=-1;for(int i=0;i<128;i++)if(b.voices[i].fade_out)retiring=i;
+    CHECK(retiring>=0 && b.voices[retiring].fade_out==240 && b.voices[retiring].fm.envelope>.5f && b.voices[0].fm.envelope==0);
+    whole[0]=whole[1]=0; /* Live mixer adds to its caller-owned output buffer. */
+    render_mixer(&a,&b,&p,empty,whole,1,0,0);CHECK(fabsf(whole[0]-expected_sample)<.0002f);
+    render_mixer(&a,&b,&p,empty,whole,239,0,0);CHECK(!b.voices[retiring].gain);
     /* Shared settings follow channels when one is deleted. */
     p.channel_count=2;p.voice[1]=(VoiceSettings){.limit=3,.glide=.3f};CHECK(channel_delete(&p,0));CHECK(p.voice[0].limit==3 && p.voice[0].glide==.3f);
     return 0;

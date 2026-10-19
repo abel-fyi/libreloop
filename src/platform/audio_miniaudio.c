@@ -358,6 +358,7 @@ static void consume_commands(void) {
                 note_preview_channel=c->note.velocity && project.volume[c->channel]>0 && project.master>0 && (project.instrument[c->channel]==INSTRUMENT_FM || samples[c->channel].frames)?c->channel:-1;
                 note_preview_pitch=c->note.pitch;note_preview_serial=c->serial;
                 if(project.instrument[c->channel]==INSTRUMENT_FM) {
+                    player_voice_prepare(&live,&project,127);
                     Voice *voice=&live.voices[127]; uint32_t phase[6];
                     int retain=voice->instrument==INSTRUMENT_FM && voice->channel==c->channel && voice->fm.engine==1 && project.fm[c->channel].engine==1 && !project.fm[c->channel].dx7.value[136];
                     if(retain) memcpy(phase,voice->fm.dx7.phase,sizeof phase);
@@ -368,6 +369,7 @@ static void consume_commands(void) {
                     atomic_store(&channel_trigger[c->channel],1); break;
                 }
                 if(voice_policy_enabled(&project,c->channel)) {
+                    player_voice_prepare(&live,&project,127);
                     Voice *voice=&live.voices[127];
                     *voice=(Voice){.channel=c->channel,.instrument=INSTRUMENT_SAMPLER,.remaining=(c->note.length?c->note.length:1)*RATE*15/project.bpm,.gain=c->note.velocity/127.f,.lane=-1,.note_pitch=c->note.pitch,.base_pitch=c->note.pitch,.current_pitch=c->note.pitch};
                     instrument_start(&voice->device,INSTRUMENT_SAMPLER,(InstrumentSettings){&project.sampler[c->channel],&project.fm[c->channel]},(InstrumentNote){.speed=exp2((c->note.pitch-60)/12.),.velocity=c->note.velocity/127.f});
@@ -386,6 +388,7 @@ static void consume_commands(void) {
         case KEY:
             if(c->down && c->channel>=0 && c->channel<project.channel_count) {
                 if((samples[c->channel].frames || project.instrument[c->channel]==INSTRUMENT_FM) && project.volume[c->channel]>0 && !(project.mute[c->channel]&1)) atomic_store(&channel_trigger[c->channel],1);
+                player_voice_prepare(&live,&project,c->slot);
                 uint32_t phase[6]; Voice *old=&live.voices[c->slot];
                 int retain=old->instrument==INSTRUMENT_FM && old->channel==c->channel && old->fm.engine==1 && project.fm[c->channel].engine==1 && !project.fm[c->channel].dx7.value[136];
                 if(retain) memcpy(phase,old->fm.dx7.phase,sizeof phase);

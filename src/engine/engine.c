@@ -420,6 +420,7 @@ static void trigger(Player *p,const Project *pr,int pat,int64_t tick,float remai
         double speed=pow(2,((int)n.pitch-60)/12.0),frames_per_step=RATE*60.0/pr->bpm/4;
         uint32_t phase[6]; int retain_phase=p->voices[v].instrument==INSTRUMENT_FM && p->voices[v].channel==c && p->voices[v].fm.engine==1 && pr->instrument[c]==INSTRUMENT_FM && fm_settings[c].engine==1 && !fm_settings[c].dx7.value[136];
         if(retain_phase) memcpy(phase,p->voices[v].fm.dx7.phase,sizeof phase);
+        player_voice_prepare(p,pr,v);
         p->voices[v]=(Voice){.channel=c,.sampler={.position=elapsed*frames_per_step*(pr->sampler[c].stretch?1:speed*channel_speeds[c]*master_speed)*(pr->sampler[c].fit_bpm?pr->bpm/pr->sampler[c].fit_bpm:1),.speed=speed},.remaining=n.length?fmin(n.length-elapsed,remaining)*frames_per_step:-1,.gain=n.velocity/127.f,.lane=lane,.pattern=pat,.note_id=i+1,.note_pitch=n.pitch,.base_pitch=n.pitch,.current_pitch=n.pitch};
         if(pr->instrument[c]==INSTRUMENT_FM) {
             Voice *voice=&p->voices[v]; voice->instrument=INSTRUMENT_FM;
@@ -639,6 +640,7 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
                             double position=fmax(0,p->frame-pr->clip_starts[l][b]*STEPS*stepframes*96);
                             if(lane_enabled[l] && (gain_left[c]>0 || gain_right[c]>0)) p->lane_trigger[l]=1;
                             p->channel_trigger[c]=1;
+                            player_voice_prepare(p,pr,v);
                             p->voices[v]=(Voice){.channel=c,.sampler={.position=audio_clip_position(pr,l,b,p->frame/(stepframes*96)),.speed=1},.remaining=fmin(length*stepframes*96-position,end_frame-p->frame),.gain=1,.lane=l,.audio_clip=1};
                         }
                     } else if(tick && local>=0 && local<length*96 && local+pr->clip_offsets[l][b]*96<pr->pattern_steps[pat-1]*96) trigger(p,pr,pat-1,local+(int64_t)llround(pr->clip_offsets[l][b]*96),fminf(length-local/96.f,end-step/96.f),l,pr->clip_offsets[l][b]>0 && (local==0 || entered),master_controls[4],speed,pitch_speed,channel_mutes,fm_controls);
@@ -657,7 +659,7 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
             Voice *voice=active[v]; if(!voice->gain) continue;
             int c=voice->channel;
             if(c>=pr->channel_count || voice->instrument!=pr->instrument[c]) { voice->gain=0; continue; }
-            int policy=voice_policy_enabled(pr,c) && !voice->audio_clip;
+            int policy=voice_policy_enabled(pr,c) && !voice->audio_clip && !voice->fade_out;
             if(policy && pr->voice[c].mono && !voice->selected)continue;
             unsigned type=voice->instrument; int synth=type==INSTRUMENT_FM;
             if(!synth && voice->sampler.position>=s[c].frames) { if(!(policy && pr->voice[c].mono && voice->held>0))voice->gain=0; continue; }
@@ -678,15 +680,17 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
             if(gain>0 && !pr->master_mute && (gain_left[c]>0 || gain_right[c]>0)) p->channel_active[c]=1;
             int id=pr->route[c];
             float stereo[2];
-            if(!pr->voice[c].mono && voice->order){voice->current_pitch=voice->note_pitch;voice->glide_left=0;}
+            if(!pr->voice[c].mono && voice->order && !voice->fade_out){voice->current_pitch=voice->note_pitch;voice->glide_left=0;}
             double voice_tuning=policy || (voice->order && voice->current_pitch!=voice->base_pitch)?player_voice_pitch(voice):1;
             double rate=pr->sampler[c].fit_bpm?pr->bpm/pr->sampler[c].fit_bpm:1;
             /* Known types let the shared inline processor discard the other
                device path and its unused source/settings reads. */
             if(synth) {
-                instrument_process(&voice->device,INSTRUMENT_FM,(InstrumentSettings){&pr->sampler[c],&fm_controls[c]},s[c],pitch_speed*voice_tuning,speed[c],rate,stereo);
+                voice->fm.note_pitch_ratio=voice_tuning; /* Note glide is separate from control smoothing. */
+                instrument_process(&voice->device,INSTRUMENT_FM,(InstrumentSettings){&pr->sampler[c],&fm_controls[c]},s[c],pitch_speed,speed[c],rate,stereo);
                 if(!instrument_active(&voice->device,INSTRUMENT_FM,s[c]) && !(policy && pr->voice[c].mono && voice->held>0)) voice->gain=0;
             } else instrument_process(&voice->device,INSTRUMENT_SAMPLER,(InstrumentSettings){&pr->sampler[c],&fm_controls[c]},s[c],pitch_speed*voice_tuning,speed[c],rate,stereo);
+            if(voice->fade_out){gain*=voice->fade_out/(float)(RATE/200);if(!--voice->fade_out)voice->gain=0;}
             for(unsigned side=0;side<2;side++) buses[id][side]+=stereo[side]*gain*(side?gain_right[c]:gain_left[c]);
         }
         for(int at=0;at<buses_count;at++) {

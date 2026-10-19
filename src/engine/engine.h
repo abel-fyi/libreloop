@@ -95,7 +95,7 @@ typedef struct {
 typedef struct PlaybackPlan PlaybackPlan;
 /* Sequencing/mixing state wraps device-owned DSP state. */
 typedef struct { int channel; union { InstrumentVoice device; SamplerVoice sampler; FMVoice fm; }; uint8_t instrument; double remaining; float gain; int lane,audio_clip,pattern,note_id;
-    uint64_t order; int held,selected; float note_pitch,base_pitch,current_pitch,glide_step; unsigned glide_left;
+    uint64_t order; int held,selected,fresh; float note_pitch,base_pitch,current_pitch,glide_step; unsigned glide_left,fade_out;
 } Voice;
 typedef struct {
     EffectRack *effects; /* borrowed runtime rack; attach after player_reset */
@@ -114,6 +114,7 @@ typedef struct {
 /* Shared voice policy; fixed storage, no allocation or platform calls. */
 int voice_settings_valid(VoiceSettings s);
 int voice_policy_enabled(const Project *p,int c);
+void player_voice_prepare(Player *p,const Project *pr,int slot);
 void player_voice_on(Player *p,const Project *pr,int slot,float pitch);
 void player_voice_off(Player *p,const Project *pr,int slot);
 void player_voice_tick(Player *p,const Project *pr);

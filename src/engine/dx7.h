@@ -18,7 +18,7 @@ typedef struct {
     uint8_t patch[DX7_NATIVE_PARAMETERS];
     float key_tracking[6];
     int midi,base_midi,velocity,down,cursor,algorithm;
-    double note_frequency,pitch_ratio;
+    double note_frequency,pitch_ratio,note_pitch_ratio;
 } DX7Voice;
 void dx7_init(void); /* Call outside playback; tables become immutable. */
 DX7Settings dx7_factory(int preset); /* EP, Bass, Marimba, Tubular Bells; -1 brighter EP. */
