@@ -170,6 +170,20 @@ static void record_output(void *context,int bus,float left,float right) {
     for(int i=0;i<recording.count;i++) if(recording.buses[i]==bus) ring_push(&recording.takes[i],left,right);
 }
 static double monotonic_time(void) { return platform_native_time(); }
+/* All auditions enter the Master before its effects, fader, pan and meters. */
+static void audition_input(void *context,float buses[INSERTS+1][2],double pitch) {
+    (void)context;
+    if(preview_position>=preview_end || !preview_remaining)return;
+    int stretch=preview_channel>=0 && project.sampler[preview_channel].stretch;
+    float stereo[2];
+    if(stretch){preview_stretch.position=preview_position;sampler_voice_sample(&preview_stretch,preview,pitch*preview_speed,1,1,stereo);for(int side=0;side<2;side++)stereo[side]*=preview_gain;}
+    else {
+        preview_stretch.grain_ready=0;unsigned n=(unsigned)preview_position;
+        for(int side=0;side<2;side++){float a=sample_at(preview,n,side),b=sample_at(preview,n+1,side);stereo[side]=(a+(b-a)*(preview_position-n))*preview_gain;}
+    }
+    for(int side=0;side<2;side++)buses[0][side]+=stereo[side];
+    preview_position+=stretch?1:pitch*preview_speed;preview_remaining--;
+}
 static void callback(ma_device *d, void *out, const void *in, ma_uint32 frames) {
     (void)d; (void)in;
     memset(out,0,frames*2*sizeof(float));
@@ -178,6 +192,10 @@ static void callback(ma_device *d, void *out, const void *in, ma_uint32 frames) 
     callback_taps=0;
     callback_bus=atomic_load_explicit(&analyzer_bus,memory_order_relaxed);
     MixerIO taps=recording.active?recording.io:(MixerIO){0}; taps.output=record_output; taps.monitor_only=!(recording.active || atomic_load(&midi_recording));
+    live_time=monotonic_time();live_frames=frames;
+    if(preview_channel>=0)preview_speed=preview_note_pitch*channel_speed(&project,preview_channel);
+    if(preview_position<preview_end){preview_frame=preview_position;preview_time=live_time;preview_rate=preview_channel>=0 && project.sampler[preview_channel].stretch?1:exp2(project.master_pitch/12.)*preview_speed;}
+    taps.audition=audition_input;
     float peaks[INSERTS+1][2]={{0}};
     if(playing) {
         visual_frame=llround(player.frame*(player.clock_bpm?player.clock_bpm/project.bpm:1));
@@ -200,27 +218,7 @@ static void callback(ma_device *d, void *out, const void *in, ma_uint32 frames) 
         atomic_store_explicit(&channel_active[c],rendered->channel_active[c] || previewing,memory_order_relaxed);
         if(rendered->channel_trigger[c]) atomic_store_explicit(&channel_trigger[c],1,memory_order_relaxed);
     }
-    live_time=monotonic_time(); live_frames=frames;
     float *buffer=out;
-    double pitch_speed=pow(2,project.master_pitch/12.0);
-    if(preview_channel>=0)preview_speed=preview_note_pitch*channel_speed(&project,preview_channel);
-    int stretch_preview=preview_channel>=0 && project.sampler[preview_channel].stretch;
-    if(preview_position<preview_end) { preview_frame=preview_position; preview_time=live_time; preview_rate=stretch_preview?1:pitch_speed*preview_speed; }
-    for(unsigned i=0;i<frames && preview_position<preview_end && preview_remaining;i++,preview_position+=stretch_preview?1:pitch_speed*preview_speed,preview_remaining--) {
-        if(stretch_preview) {
-            float stereo[2];preview_stretch.position=preview_position;
-            sampler_voice_sample(&preview_stretch,preview,pitch_speed*preview_speed,1,1,stereo);
-            for(unsigned side=0;side<2;side++)buffer[i*2+side]+=stereo[side]*preview_gain;
-            continue;
-        }
-        preview_stretch.grain_ready=0;
-        unsigned n=(unsigned)preview_position;
-        for(unsigned side=0;side<2;side++) {
-            float a=sample_at(preview,n,side),b=sample_at(preview,n+1,side);
-            float x=(a+(b-a)*(preview_position-n))*preview_gain;
-            buffer[i*2+side]+=x;
-        }
-    }
     if(playing && atomic_load_explicit(&metronome,memory_order_relaxed)) {
         double beat_frames=RATE*60.0/project.bpm;
         for(unsigned i=0;i<frames;i++) {
@@ -378,7 +376,7 @@ static void consume_commands(void) {
                 preview=samples[c->channel]; preview_position=preview_frame=0; preview_time=monotonic_time();
                 preview_remaining=UINT_MAX;preview_note_pitch=pow(2,((int)c->note.pitch-60)/12.0);preview_speed=preview_note_pitch*channel_speed(&project,c->channel);
                 preview_rate=preview_speed*pow(2,project.master_pitch/12.0);
-                preview_gain=c->note.velocity/127.f*project.volume[c->channel]*project.master;
+                preview_gain=c->note.velocity/127.f*project.volume[c->channel];
                 preview_end=fmin(preview.frames,(project.sampler[c->channel].stretch?1:preview_speed)*RATE*60.0/project.bpm/4*(c->note.length?c->note.length:1));
                 sampler_voice_reset(&preview_stretch,0,1);
                 preview_channel=c->channel;

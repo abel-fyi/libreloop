@@ -197,6 +197,7 @@ typedef struct {
     void (*output)(void *context,int bus,float left,float right);
     void *context;
     int monitor_only; /* Analyzer taps preserve looping; recording taps suppress it. */
+    void (*audition)(void *context,float buses[INSERTS+1][2],double pitch); /* pre-Master preview */
 } MixerIO;
 void render_mixer_io(Player *p,Player *live,const Project *project,const Sample s[CHANNELS],float *out,unsigned frames,int sequence,float peaks[INSERTS+1][2],const MixerIO *io);
 int project_save(const char *path, const Project *p);

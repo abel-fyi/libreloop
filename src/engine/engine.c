@@ -694,7 +694,9 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
             for(unsigned side=0;side<2;side++) buses[id][side]+=stereo[side]*gain*(side?gain_right[c]:gain_left[c]);
         }
         for(int at=0;at<buses_count;at++) {
-            int id=order[at]; float stereo[2]={buses[id][0],buses[id][1]};
+            int id=order[at];
+            if(!id && io && io->audition)io->audition(io->context,buses,pitch_speed);
+            float stereo[2]={buses[id][0],buses[id][1]};
             effects_process_all(p->effects,id,pr->effect_type[id],effect_controls[id],eq_controls[id],delay_controls[id],tube_controls[id],reverb_controls[id],dynamics_controls[id],phaser_controls[id],flanger_controls[id],pr->bpm,effect_mixes[id],pr->effect_bypass[id],stereo);
             float l=effect_audible[id]?stereo[0]*bus_left[id]:0,r=effect_audible[id]?stereo[1]*bus_right[id]:0;
             if(bus_width[id]!=1) { float mid=(l+r)*.5f,side=(l-r)*.5f*bus_width[id]; l=mid+side; r=mid-side; }
