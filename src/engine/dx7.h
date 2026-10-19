@@ -27,6 +27,8 @@ int dx7_valid(DX7Settings settings);
 void dx7_legacy_tracking(DX7Settings *settings);
 const ParameterDescriptor *dx7_parameter_descriptor(unsigned index);
 void dx7_note_on(DX7Voice *v,double frequency,float velocity,DX7Settings settings);
+/* Read-only C4/velocity preview timings, using the same rate/level equations. */
+void dx7_envelope_times(const DX7Settings *settings,int base,int midi,float velocity,double seconds[4]);
 void dx7_note_off(DX7Voice *v);
 int dx7_active(const DX7Voice *v);
 float dx7_sample(DX7Voice *v,const DX7Settings *settings,double pitch);

@@ -220,6 +220,7 @@ typedef struct {
     uint8_t instrument_voice_page[CHANNELS];
     int fm_tab,fm_motion_target,fm_graph_drag,fm_graph_channel,fm_graph_tab;
     DrawRect fm_graph_area;
+    double fm_graph_seconds,fm_graph_stage_start;
     char status[256];
     ProjectDocument document;
     int help_scroll,relink_channel;

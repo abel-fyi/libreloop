@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "ui_internal.h"
 #include "control.h"
+#include "envelope_view.h"
 static void instrument_group(float x,float y,float width,float height,const char *title);
 static void instrument_hint(const char *text,float width,int y,int size) {
     if(!ui.studio_style){label(text,20,y,size,muted);return;}
@@ -56,7 +57,17 @@ void fm_graph_update_at(float x,float y) {
     if(ui.fm_graph_channel<0 || ui.fm_graph_channel>=ui.project.channel_count) return;
     FMSettings *s=&ui.project.fm[ui.fm_graph_channel];
     if(ui.fm_graph_drag>=4) {
-        int stage=ui.fm_graph_drag-4; float slot=(ui.fm_graph_area.width-16)/4;
+        int stage=ui.fm_graph_drag-4;
+        if(ui.studio_style && ui.fm_graph_seconds>0){
+            int base=ui.fm_dx_drag_base;
+            s->dx7.value[base+4+stage]=roundf(fmaxf(0,fminf(99,(1-(y-ui.fm_graph_area.y-12)/fmaxf(1,ui.fm_graph_area.height-34))*99)));
+            double wanted=fmax(0,(x-ui.fm_graph_area.x-8)/(ui.fm_graph_area.width-16)*ui.fm_graph_seconds-ui.fm_graph_stage_start),times[4];
+            int best=(int)s->dx7.value[base+stage];dx7_envelope_times(&s->dx7,base,60,100.f/127,times);double error=fabs(times[stage]-wanted);
+            DX7Settings trial=s->dx7;
+            for(int rate=0;rate<=99;rate++){trial.value[base+stage]=rate;dx7_envelope_times(&trial,base,60,100.f/127,times);double e=fabs(times[stage]-wanted);if(e<error){best=rate;error=e;}}
+            s->dx7.value[base+stage]=best;return;
+        }
+        float slot=(ui.fm_graph_area.width-16)/4;
         float position=fmaxf(0,fminf(1,(x-ui.fm_graph_area.x-8-slot*(stage+.1f))/(slot*.8f)));
         s->dx7.value[ui.fm_dx_drag_base+stage]=roundf((1-position)*99);
         s->dx7.value[ui.fm_dx_drag_base+4+stage]=roundf(fmaxf(0,fminf(99,(1-(y-ui.fm_graph_area.y-6)/fmaxf(1,ui.fm_graph_area.height-12))*99)));
@@ -72,6 +83,12 @@ void fm_graph_update_at(float x,float y) {
     int tab=ui.studio_style && ui.fm_graph_tab>=0?ui.fm_graph_tab:ui.fm_tab;
     int field=ui.fm_graph_drag==0?0:ui.fm_graph_drag==1?1:3;
     const ParameterDescriptor *info=parameter_descriptor(ui.fm_envelope_ids[tab][field]);
+    if(ui.studio_style && ui.fm_graph_seconds>0){
+        double seconds=(x-ui.fm_graph_area.x-8)/(ui.fm_graph_area.width-16)*ui.fm_graph_seconds-ui.fm_graph_stage_start;
+        *(float *)fm_parameter_pointer(s,info->id)=fmaxf(info->low,fminf(info->high,seconds));
+        if(ui.fm_graph_drag==1)*(float *)fm_parameter_pointer(s,ui.fm_envelope_ids[tab][2])=fmaxf(0,fminf(1,(ui.fm_graph_area.y+ui.fm_graph_area.height-22-y)/(ui.fm_graph_area.height-34)));
+        return;
+    }
     float slot=(ui.fm_graph_area.width-24)/3;
     float position=fmaxf(0,fminf(1,(x-ui.fm_graph_area.x-8-slot*ui.fm_graph_drag)/(.9f*slot)));
     float value=expm1f(position*log1pf(info->high*100))/100;
@@ -121,6 +138,7 @@ static const char *fm_value_caption(FMSettings *s,unsigned id,float display) {
     else if(s->engine==2 && s->analog.model && id==PARAM_FM_FILTER_ENV)shown=host_text_format("%+.1f oct",display);
     else if(id==PARAM_FM_FILTER_CUTOFF) shown=host_text_format(display>=1000?"%.2g kHz":"%.0f Hz",display>=1000?display/1000:display);
     else if(id==PARAM_FM_CARRIER_RATIO || id==PARAM_FM_ATTACK_RATIO) shown=host_text_format("%.2gx",display);
+    else if(id==PARAM_FM_VIBRATO) shown=host_text_format("%.0f ct",display);
     else if(id==PARAM_FM_BODY_PITCH) shown=host_text_format("%+.1f st",display);
     else if(id==PARAM_FM_CARRIER_DETUNE || id==PARAM_FM_BODY_DETUNE || id==PARAM_FM_ATTACK_DETUNE) shown=host_text_format("%+.0f ct",display);
     else if(id==PARAM_FM_ATTACK || id==PARAM_FM_DECAY || id==PARAM_FM_RELEASE || id==PARAM_FM_MOD_ATTACK || id==PARAM_FM_MOD_DECAY || id==PARAM_FM_MOD_RELEASE ||
@@ -171,6 +189,11 @@ static void envelope_guide(float x,float top,float base) {
     host_draw_line_ex((DrawPoint){x,top},(DrawPoint){x,base},1,(DrawColor){255,255,255,255});
 }
 static void envelope_frame(DrawRect plot) {if(ui.studio_style && !ui.profile_flat)ui_bevel(host_draw(),plot,1);}
+static void envelope_axis(DrawRect plot,float base,double seconds) {
+    label("0 s",plot.x+8,base+4,10,ui_theme.signal);
+    const char *axis=host_text_format("%.2f s",seconds);
+    label(axis,plot.x+plot.width-8-text_width(axis,10),base+4,10,ui_theme.signal);
+}
 
 /* Draw beneath the existing envelope segments, without changing their geometry. */
 static void envelope_segment(DrawPoint a,DrawPoint b,float base) {
@@ -187,6 +210,7 @@ static void lfo_filled_segment(DrawPoint a,DrawPoint b,float mid,DrawColor color
 /* Read-only illustration of the existing per-note LFO, never a new control. */
 static void lfo_display(const FMSettings *s,DrawRect plot,float cycles) {
     if(plot.width<20 || plot.height<12)return;
+    cycles=fmaxf(2,ceilf(cycles));
     ui_display_grid(host_draw(),plot,4,4);
     float mid=plot.y+plot.height/2,range=(plot.height-8)*.42f;
     DrawPoint previous={plot.x+4,mid};
@@ -223,6 +247,9 @@ void fm_envelope_graph(FMSettings *s,DrawRect plot) {
         handles[i]=(DrawPoint){plot.x+8+slot*i+.9f*slot*t,i==0?base-range:i==1?base-sustain*range:base};
 
     }
+    int dragging=ui.fm_graph_drag>=0 && ui.fm_graph_drag<3 && ui.fm_graph_channel==ui.instrument_channel && ui.fm_graph_tab==ui.fm_tab;
+    EnvelopeTimeView timing=adsr_time_view(times[0],times[1],times[2],dragging?ui.fm_graph_seconds:0);
+    if(ui.studio_style)for(int i=0;i<3;i++)handles[i].x=plot.x+8+(plot.width-16)*timing.end[i==2?3:i]/timing.seconds;
     envelope_grid(plot,base-range,base);
     if(!ui.studio_style)for(int i=0;i<3;i++)host_draw_line_ex((DrawPoint){plot.x+8+slot*i,plot.y+8},(DrawPoint){plot.x+8+slot*i,base},1,ui_theme.grid_minor);
     if(modern)analog_envelope_segment((DrawPoint){plot.x+8,base},handles[0],base,1,1);
@@ -234,7 +261,7 @@ void fm_envelope_graph(FMSettings *s,DrawRect plot) {
         envelope_segment(previous,point,base); previous=point;
     }
     envelope_segment(previous,handles[1],base);
-    DrawPoint release={plot.x+8+slot*2,handles[1].y};
+    DrawPoint release={ui.studio_style?plot.x+8+(plot.width-16)*timing.end[2]/timing.seconds:plot.x+8+slot*2,handles[1].y};
     envelope_segment(handles[1],release,base);
     if(modern)analog_envelope_segment(release,handles[2],base,0,1);else envelope_segment(release,handles[2],base);
     if(ui.studio_style) {
@@ -262,13 +289,14 @@ void fm_envelope_graph(FMSettings *s,DrawRect plot) {
         if(ui.studio_style) {
             ui_graph_handle(host_draw(),handles[i]);
         } else {circle(handles[i].x,handles[i].y,4,ink);circle(handles[i].x,handles[i].y,2,accent);}
-        label(captions[i],plot.x+8+slot*i,base+7,10,ui.studio_style?(DrawColor){182,204,198,255}:muted);
+        if(!ui.studio_style)label(captions[i],plot.x+8+slot*i,base+7,10,muted);
         if(hover(handles[i].x-7,handles[i].y-7,14,14)) {
             host_set_mouse_cursor(HOST_MOUSE_CURSOR_POINTING_HAND);
-            if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)) { ui.fm_graph_drag=i; ui.fm_graph_tab=ui.fm_tab; ui.fm_graph_channel=ui.instrument_channel; ui.fm_graph_area=plot; ui.input_enabled=0; }
+            if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)) { ui.fm_graph_drag=i; ui.fm_graph_tab=ui.fm_tab; ui.fm_graph_channel=ui.instrument_channel; ui.fm_graph_area=plot;ui.fm_graph_seconds=timing.seconds;ui.fm_graph_stage_start=i==0?0:i==1?timing.end[0]:timing.end[2]; ui.input_enabled=0; }
         }
     }
-    if(hover(plot.x,plot.y,plot.width,plot.height)) snprintf(ui.status,sizeof ui.status,"Drag envelope points: left/right changes time; the middle point also changes sustain. Knobs offer exact entry and automation.");
+    if(ui.studio_style)envelope_axis(plot,base,timing.seconds);
+    if(hover(plot.x,plot.y,plot.width,plot.height)) snprintf(ui.status,sizeof ui.status,ui.studio_style?"Linear time axis; sustain hold is illustrative. Drag envelope points: left/right changes time; the middle point also changes sustain. Knobs offer exact entry and automation.":"Drag envelope points: left/right changes time; the middle point also changes sustain. Knobs offer exact entry and automation.");
 }
 
 void fm_legacy_editor(float width,float height) {
@@ -317,8 +345,8 @@ void fm_legacy_editor(float width,float height) {
         float base=plot.y+plot.height-22,range=plot.height-34,mid=plot.y+(plot.height-22)/2;
         float amount=ui.fm_motion_target?s->tremolo:s->vibrato/100;
         DrawPoint previous={plot.x+8,mid};
-        for(int i=0;i<(int)plot.width-16;i++) {
-            float t=i/(plot.width-16)*s->lfo_rate*.5f;
+        for(int i=0;i<=(int)plot.width-16;i++) {
+            float t=i/(plot.width-16)*fmaxf(2,ceilf(s->lfo_rate*.5f));
             DrawPoint point={plot.x+8+i,mid-fm_lfo_value(t,(int)s->lfo_shape)*range*.42f};
             if(i) {
                 DrawColor color=ui.studio_style?ui_theme.signal:host_fade(accent,.35f+amount*.65f);
@@ -378,6 +406,30 @@ static void fm_spaced_row(FMSettings *s,const unsigned *ids,const char *const *n
 }
 
 void dx7_envelope_graph(FMSettings *s,int base,DrawRect plot) {
+    if(ui.studio_style){
+        double times[4];dx7_envelope_times(&s->dx7,base,60,100.f/127,times);
+        int dragging=ui.fm_graph_drag>=4 && ui.fm_graph_channel==ui.instrument_channel && ui.fm_dx_drag_base==base;
+        EnvelopeTimeView v=dx7_time_view(times,dragging?ui.fm_graph_seconds:0);
+        float height=fmaxf(1,plot.height-34),bottom=plot.y+12+height;
+        DrawPoint points[6]={{plot.x+8,base==126?plot.y+12+height*(1-s->dx7.value[base+7]/99):bottom}};
+        for(int i=0;i<3;i++)points[i+1]=(DrawPoint){plot.x+8+(plot.width-16)*v.end[i]/v.seconds,plot.y+12+height*(1-s->dx7.value[base+4+i]/99)};
+        points[4]=(DrawPoint){plot.x+8+(plot.width-16)*(v.end[2]+v.hold)/v.seconds,points[3].y};
+        points[5]=(DrawPoint){plot.x+8+(plot.width-16)*v.end[3]/v.seconds,plot.y+12+height*(1-s->dx7.value[base+7]/99)};
+        envelope_grid(plot,plot.y+12,bottom);
+        for(int i=0;i<5;i++)ui_graph_area(host_draw(),points[i],points[i+1],bottom);
+        for(int i=0;i<4;i++)envelope_guide(points[i==3?5:i+1].x,plot.y+12,bottom);
+        for(int i=0;i<5;i++)smooth_line(points[i],points[i+1],2,ui_skin.graph_line);
+        envelope_frame(plot);
+        envelope_axis(plot,bottom,v.seconds);
+        for(int i=0;i<4;i++){
+            DrawPoint point=points[i==3?5:i+1];ui_graph_handle(host_draw(),point);
+            if(hover(point.x-7,point.y-7,14,14)){
+                host_set_mouse_cursor(HOST_MOUSE_CURSOR_POINTING_HAND);snprintf(ui.status,sizeof ui.status,"Stage %d: linear time at C4, velocity 100; sustain hold is illustrative. Drag rate / level.",i+1);
+                if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)){ui.fm_graph_drag=4+i;ui.fm_graph_channel=ui.instrument_channel;ui.fm_graph_area=plot;ui.fm_dx_drag_base=base;ui.fm_graph_seconds=v.seconds;ui.fm_graph_stage_start=i==0?0:i==3?v.end[2]+v.hold:v.end[i-1];ui.input_enabled=0;}
+            }
+        }
+        return;
+    }
     float width=(plot.width-16)/4,height=fmaxf(1,plot.height-12);
     envelope_grid(plot,plot.y+6,plot.y+6+height);
     DrawPoint points[5]={{plot.x+8,plot.y+height}};

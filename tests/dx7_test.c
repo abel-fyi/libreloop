@@ -22,6 +22,22 @@ int main(void) {
         }
         CHECK(hash==reference[preset]);
     }
+    /* Preview stage widths agree with real 64-frame envelope updates. */
+    for(int base=0;base<=126;base+=126){
+        DX7Settings timing=dx7_factory(0);int rates[]={90,80,70,80},levels[]={99,70,40,0};
+        for(int i=0;i<4;i++){timing.value[base+i]=rates[i];timing.value[base+4+i]=levels[i];}
+        if(!base){timing.value[13]=timing.value[15]=0;timing.value[16]=99;}
+        double expected[4];dx7_envelope_times(&timing,base,60,100.f/127,expected);
+        DX7Voice v;dx7_note_on(&v,261.6255653005986,100.f/127,timing);
+        for(int stage=0;stage<4;stage++){
+            if(stage==3)dx7_note_off(&v);
+            unsigned frames=0;DX7Envelope *e=base?&v.pitch:&v.envelope[0];
+            while(e->stage==stage && frames<RATE*60){for(int i=0;i<DX7_BLOCK;i++)dx7_sample(&v,&timing,1);frames+=DX7_BLOCK;}
+            CHECK(frames<RATE*60 && fabs(frames/(double)RATE-expected[stage])<=2.*DX7_BLOCK/RATE);
+        }
+        for(int i=0;i<4;i++)timing.value[base+i]=0;
+        dx7_envelope_times(&timing,base,60,100.f/127,expected);for(int i=0;i<4;i++)CHECK(isfinite(expected[i]) && expected[i]>0);
+    }
     DX7Settings simple=dx7_factory(0); simple.value[134]=31; simple.value[135]=0;
     for(int op=0;op<6;op++) {
         int b=op*21; simple.value[b+16]=op==5?99:0;

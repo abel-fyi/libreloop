@@ -11,6 +11,7 @@
 #include <math.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdatomic.h>
 #include "dx7_tables.h"
 #include "dx7_factory.h"
@@ -183,6 +184,35 @@ void dx7_note_on(DX7Voice *v,double hz,float velocity,DX7Settings s) {
     for(int op=0;op<6;op++) setup_operator(v,op,1);
     for(int i=0;i<4;i++) { v->pitch.rates[i]=v->patch[126+i]; v->pitch.levels[i]=v->patch[130+i]; }
     v->pitch.level=pitchenv_tab[v->pitch.levels[3]]*524288; v->pitch.down=1; pitch_advance(&v->pitch,0); setup_lfo(v,1);
+}
+/* Count envelope control blocks without rendering oscillators or walking
+   potentially minutes of audio. Rising slopes have at most 17 integer bands. */
+static uint64_t envelope_blocks(DX7Envelope *e,int pitch) {
+    if(!pitch && e->hold)return ((uint64_t)e->hold+DX7_BLOCK-1)/DX7_BLOCK;
+    if(pitch || !e->rising){
+        uint64_t distance=llabs((long long)e->target-e->level),inc=e->increment;
+        e->level=e->target;return inc?(distance+inc-1)/inc+(distance==0):1;
+    }
+    e->level=max_int(e->level,1716*65536);uint64_t blocks=0;
+    while(e->level<e->target){
+        int band=(17*Q24-e->level)>>24;
+        int64_t step=(int64_t)band*e->increment;
+        if(step<=0)break;
+        int64_t boundary=(int64_t)(17-band)*Q24+1;
+        if(boundary>e->target)boundary=e->target;
+        uint64_t count=(boundary-e->level+step-1)/step;
+        if(!count)count=1;
+        int64_t next=e->level+count*step;blocks+=count;e->level=next>=e->target?e->target:(int32_t)next;
+    }
+    e->level=e->target;return blocks?blocks:1;
+}
+void dx7_envelope_times(const DX7Settings *settings,int base,int midi,float velocity,double seconds[4]) {
+    DX7Voice v;dx7_note_on(&v,440*exp2((midi-69)/12.),velocity,*settings);
+    int pitch=base==126;DX7Envelope e=pitch?v.pitch:v.envelope[base/21];
+    for(int i=0;i<4;i++){
+        if(pitch)pitch_advance(&e,i);else envelope_advance(&e,i);
+        seconds[i]=envelope_blocks(&e,pitch)*(double)DX7_BLOCK/RATE;
+    }
 }
 void dx7_note_off(DX7Voice *v) {
     if(!v->down) return; v->down=0;
