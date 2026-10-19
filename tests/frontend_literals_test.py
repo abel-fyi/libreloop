@@ -29,6 +29,8 @@ old_stop = '"Play from ruler / stop all audio, including previews (Space)"'
 new_stop = '"Play from ruler / stop sources, preserving effect tails (Space)"'
 assert actual[new_stop] == expected[old_stop] == 1
 expected[new_stop] += expected.pop(old_stop)
+# Approved LFO label change: Fade in is now Attack (modulation onset).
+expected['"Attack"'] += expected.pop('"Fade in"')
 # Pattern naming moved intact into the shared engine creation operation.
 engine = (root / "src/engine/engine.c").read_text()
 pattern_add = engine.split("int pattern_add(", 1)[1].split("int pattern_delete(", 1)[0]
