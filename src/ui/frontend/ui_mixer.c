@@ -43,6 +43,7 @@ void spectrum_update(void) {
 }
 
 void spectrum_draw(const Spectrum *s,DrawRect r,int colored) {
+    if(ui.studio_style && !colored)ui_display_grid(host_draw(),r,1,1); /* Frame and display material, no grid divisions. */
     if(ui.studio_style) {
         DrawVertex fill[6*(SPECTRUM_BINS+1)];int count=0;
         DrawColor body={65,119,94,155},edge={148,191,152,230};
