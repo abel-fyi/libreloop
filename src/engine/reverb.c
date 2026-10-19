@@ -10,8 +10,8 @@
 #define PRE_FRAMES 24576
 #define PI 3.14159265358979323846
 struct Reverb {
-    struct {float line[LINES][LINE_FRAMES],diff[2][6][DIFF_FRAMES],pre[PRE_FRAMES][2];} pcm;
-    unsigned cursor,valid,pre_cursor,pre_valid,diff_cursor[2][6],diff_valid[2][6],tick,gate_remaining;
+    struct {float line[LINES][LINE_FRAMES],diff[2][6][DIFF_FRAMES],tank[LINES][2][DIFF_FRAMES],pre[PRE_FRAMES][2];} pcm;
+    unsigned cursor,valid,pre_cursor,pre_valid,diff_cursor[2][6],diff_valid[2][6],tank_cursor[LINES][2],tank_valid[LINES][2],tick,gate_remaining;
     float decay,damping,width,mod,wet,gate_level,low[LINES],gain[LINES],gain_step[LINES],coefficient,coefficient_step,coefficient_target;
     float last_input[2],highpass[2];
     double sine[LINES],cosine[LINES],rotate_sine[LINES],rotate_cosine[LINES];
@@ -20,6 +20,7 @@ struct Reverb {
 };
 static const unsigned lengths[LINES]={1493,1601,1747,1867,1999,2137,2281,2437};
 static const unsigned diff_lengths[2][6]={{143,211,347,557,421,683},{163,239,373,601,449,709}};
+static const unsigned tank_lengths[LINES][2]={{103,37},{173,61},{263,89},{337,127},{419,163},{503,211},{631,277},{751,359}};
 static const float rates[LINES]={.071f,.083f,.097f,.113f,.131f,.151f,.173f,.197f};
 static const int inject[2][LINES]={{1,1,1,1,-1,-1,-1,-1},{1,-1,1,-1,1,-1,1,-1}};
 static const int pickup[2][LINES]={{1,1,-1,1,-1,1,-1,-1},{1,-1,-1,-1,1,1,1,-1}};
@@ -85,6 +86,21 @@ static float diffuse(Reverb *r,unsigned side,unsigned stage,float input) {
     if(r->diff_valid[side][stage]<DIFF_FRAMES)r->diff_valid[side][stage]++;
     return output;
 }
+/* Lossless scattering inside the feedback loop increases echo density on every
+   return, rather than merely smoothing the input/output of a sparse tank. */
+static float tank_diffuse(Reverb *r,unsigned line,unsigned stage,float input) {
+    unsigned cursor=r->tank_cursor[line][stage],length=tank_lengths[line][stage];
+    unsigned at=(cursor+DIFF_FRAMES-length)%DIFF_FRAMES;
+    float delayed=r->tank_valid[line][stage]>=length?r->pcm.tank[line][stage][at]:0;
+    float g=stage?.45f:.55f,output=delayed-g*input;
+    r->pcm.tank[line][stage][cursor]=flush(input+g*output);
+    r->tank_cursor[line][stage]=(cursor+1)%DIFF_FRAMES;
+    if(r->tank_valid[line][stage]<DIFF_FRAMES)r->tank_valid[line][stage]++;
+    return output;
+}
+static float loop_length(unsigned line,float size) {
+    return lengths[line]*size+tank_lengths[line][0]+tank_lengths[line][1];
+}
 static float damping_coefficient(float hz) {return hz>=19999?1:1-expf(-2*PI*hz/RATE);}
 void reverb_process(Reverb *r,ReverbSettings s,float wet,float stereo[2]) {
     if(!r)return;
@@ -94,7 +110,7 @@ void reverb_process(Reverb *r,ReverbSettings s,float wet,float stereo[2]) {
         r->decay=s.decay;r->damping=s.damping;r->width=s.width;r->mod=s.mod;r->wet=wet;r->gate_level=s.gate?0:1;
         r->old_size=r->new_size=size;r->old_pre=r->new_pre=pre;r->transition=1;r->coefficient=damping_coefficient(s.damping);
         for(unsigned i=0;i<LINES;i++) {
-            r->gain[i]=powf(10,-3.f*lengths[i]*size/(RATE*s.decay));
+            r->gain[i]=powf(10,-3.f*loop_length(i,size)/(RATE*s.decay));
             r->sine[i]=sin(2*PI*i/LINES);r->cosine[i]=cos(2*PI*i/LINES);
             r->rotate_sine[i]=sin(2*PI*rates[i]/RATE);r->rotate_cosine[i]=cos(2*PI*rates[i]/RATE);
         }
@@ -107,14 +123,14 @@ void reverb_process(Reverb *r,ReverbSettings s,float wet,float stereo[2]) {
     }
     if(!(r->tick++%32)) {
         float scale=r->old_size+(r->new_size-r->old_size)*r->transition;
-        for(unsigned i=0;i<LINES;i++)r->gain_step[i]=(powf(10,-3.f*lengths[i]*scale/(RATE*r->decay))-r->gain[i])/32;
+        for(unsigned i=0;i<LINES;i++)r->gain_step[i]=(powf(10,-3.f*loop_length(i,scale)/(RATE*r->decay))-r->gain[i])/32;
         r->coefficient_target=damping_coefficient(r->damping);
         r->coefficient_step=(r->coefficient_target-r->coefficient)/32;
     }
     r->coefficient+=r->coefficient_step;if(!(r->tick%32))r->coefficient=r->coefficient_target;
     float source[2];
     for(unsigned side=0;side<2;side++){source[side]=flush(stereo[side]-r->last_input[side]+.99738543f*r->highpass[side]);r->last_input[side]=stereo[side];r->highpass[side]=source[side];}
-    float input[2],values[LINES],mixed[LINES],early[2]={0};
+    float input[2],values[LINES],mixed[LINES];
     for(unsigned side=0;side<2;side++) {
         float a=pre_read(r,r->old_pre,side,source[side]),b=pre_read(r,r->new_pre,side,source[side]);
         input[side]=a+(b-a)*(float)r->transition;
@@ -135,22 +151,17 @@ void reverb_process(Reverb *r,ReverbSettings s,float wet,float stereo[2]) {
     }
     for(unsigned i=0;i<LINES;i++) {
         r->gain[i]+=r->gain_step[i];
-        r->pcm.line[i][r->cursor]=flush(mixed[i]*.3535533905932738f*r->gain[i]+.18f*(input[0]*inject[0][i]+input[1]*inject[1][i]));
+        float scattered=tank_diffuse(r,i,1,tank_diffuse(r,i,0,mixed[i]*.3535533905932738f));
+        r->pcm.line[i][r->cursor]=flush(scattered*r->gain[i]+.18f*(input[0]*inject[0][i]+input[1]*inject[1][i]));
     }
-    /* Match early arrival times and polarity across ears: stereo spread comes
-       from the diffuse tail, rather than a fixed left-ear timing advantage. */
-    static const float times[6]={5,11,18,29,43,61},weights[6]={.35f,.28f,-.23f,.2f,-.17f,.14f};
+    /* A centered, already-diffused onset replaces separate wall-reflection
+       taps. Stereo spread develops in the tank without an ear-leading echo. */
+    float onset=(input[0]+input[1])*.12f;
     float predelay=r->old_pre+(r->new_pre-r->old_pre)*r->transition;
-    for(unsigned side=0;side<2;side++)for(unsigned i=0;i<6;i++) {
-        float old_delay=r->old_pre+times[i]*48*r->old_size,new_delay=r->new_pre+times[i]*48*r->new_size;
-        float a=.8f*pre_read(r,old_delay,side,source[side])+.2f*pre_read(r,old_delay,1-side,source[1-side]);
-        float b=.8f*pre_read(r,new_delay,side,source[side])+.2f*pre_read(r,new_delay,1-side,source[1-side]);
-        early[side]+=weights[i]*(a+(b-a)*(float)r->transition);
-    }
     float output[2]={0};
     for(unsigned side=0;side<2;side++) {
         for(unsigned i=0;i<LINES;i++)output[side]+=values[i]*pickup[side][i]*.3535533905932738f;
-        output[side]=diffuse(r,side,5,diffuse(r,side,4,output[side]))+early[side]*.45f;
+        output[side]=diffuse(r,side,5,diffuse(r,side,4,output[side]))+onset;
     }
     /* Gate hold follows the input, with a smooth finite release on the wet path. */
     if(s.gate && fmaxf(fabsf(source[0]),fabsf(source[1]))>.0039810717f)r->gate_remaining=(unsigned)(s.gate*48+predelay);

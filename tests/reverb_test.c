@@ -16,6 +16,19 @@ static double brightness(void) {
         double x=impulse[i][side],delta=x-impulse[i-1][side];high+=delta*delta;total+=x*x;
     }return high/total;
 }
+/* A click must become diffuse, rather than exposing separate reflections or
+   a repeating late echo. Evaluate the default voicing without added noise. */
+static double late_echo(void) {
+    double largest=0;
+    for(int lag=480;lag<=4800;lag++) {
+        double cross=0,a=0,b=0;
+        for(int i=RATE/2;i<RATE;i+=4)for(int side=0;side<2;side++) {
+            double x=impulse[i][side],y=impulse[i+lag][side];cross+=x*y;a+=x*x;b+=y*y;
+        }
+        if(a>0 && b>0)largest=fmax(largest,fabs(cross/sqrt(a*b)));
+    }
+    return largest;
+}
 int main(void) {
     ReverbSettings s=reverb_default();CHECK(reverb_valid(s));s.decay=NAN;CHECK(!reverb_valid(s));s=reverb_default();s.size=2;CHECK(!reverb_valid(s));
     for(unsigned i=0;i<REVERB_FACTORY_COUNT;i++)CHECK(reverb_valid(reverb_factory(i)) && reverb_factory_mix(i)>0 && reverb_factory_name(i)[0]);
@@ -38,7 +51,12 @@ int main(void) {
         CHECK(first[0]>=0 && first[0]==first[1]);
         CHECK(l>0 && rr>0 && fabs(10*log10(l/rr))<.5);
     }
-    s=reverb_default();
+    s=reverb_default();render_impulse(r,s);
+    double e=0,fourth=0;
+    for(int i=RATE/20;i<RATE/10;i++)for(int side=0;side<2;side++){double x=impulse[i][side];e+=x*x;fourth+=x*x*x*x;}
+    double kurtosis=fourth*(RATE/10)/(e*e),echo=late_echo();
+    printf("Default click: 50–100 ms kurtosis %.3f; strongest 10–100 ms late echo %.3f.\n",kurtosis,echo);
+    CHECK(e>0 && kurtosis<12 && echo<.2);
     s.predelay=0;s.mod=0;s.damping=20000;render_impulse(r,s);
     double cross=0,left=0,right=0,side_energy=0,peak=0;int dense=0;
     for(int i=0;i<FRAMES;i++) {
