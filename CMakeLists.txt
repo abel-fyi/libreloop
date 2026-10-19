@@ -19,7 +19,7 @@ add_library(engine STATIC
   ${ENGINE_DIR}/playback_plan.c ${ENGINE_DIR}/midi.c ${ENGINE_DIR}/project_io.c
   ${ENGINE_DIR}/project_assets.c ${ENGINE_DIR}/project_document.c ${ENGINE_DIR}/preset.c
   ${ENGINE_DIR}/audio_timing.c ${ENGINE_DIR}/automation.c ${ENGINE_DIR}/parameter.c
-  ${ENGINE_DIR}/voice.c ${ENGINE_DIR}/sampler.c ${ENGINE_DIR}/sampler_voice.c ${ENGINE_DIR}/fm_synth.c
+  ${ENGINE_DIR}/arpeggiator.c ${ENGINE_DIR}/voice.c ${ENGINE_DIR}/sampler.c ${ENGINE_DIR}/sampler_voice.c ${ENGINE_DIR}/fm_synth.c
   ${ENGINE_DIR}/dx7.c ${ENGINE_DIR}/analog.c ${ENGINE_DIR}/chorus.c
   ${ENGINE_DIR}/phaser.c ${ENGINE_DIR}/flanger.c ${ENGINE_DIR}/dynamics.c ${ENGINE_DIR}/reverb.c ${ENGINE_DIR}/tube.c ${ENGINE_DIR}/delay.c ${ENGINE_DIR}/equalizer.c ${ENGINE_DIR}/spectrum.c ${ENGINE_DIR}/effects.c ${ENGINE_DIR}/waveform.c)
 set(NATIVE_FILES ${PLATFORM_DIR}/files_posix.c ${PLATFORM_DIR}/browser_files_posix.c ${PLATFORM_DIR}/atomic_file.c)
@@ -71,7 +71,7 @@ function(libreloop_test name library)
     add_test(NAME ${name} COMMAND ${name}_test)
   endif()
 endfunction()
-foreach(name modulation modulation_integration dynamics dynamics_integration reverb reverb_integration tube tube_natural tube_integration magnetic_knob delay delay_integration engine midi instrument_replace automation pitch_automation audio_clip clip_trim sampler device_baseline chorus equalizer spectrum fm_synth fm_layers dx7 analog analog_modern voice preset tempo stereo recording atomic_file project_assets project_document project_format playback_plan device_contract recording_writer waveform)
+foreach(name modulation modulation_integration dynamics dynamics_integration reverb reverb_integration tube tube_natural tube_integration magnetic_knob delay delay_integration engine midi instrument_replace automation pitch_automation audio_clip clip_trim sampler device_baseline chorus equalizer spectrum fm_synth fm_layers dx7 analog analog_modern voice arpeggiator preset tempo stereo recording atomic_file project_assets project_document project_format playback_plan device_contract recording_writer waveform)
   libreloop_test(${name} interaction)
 endforeach()
 foreach(name arrangement edit_clipboard navigation history file_chooser)
@@ -189,7 +189,7 @@ if(BUILD_TESTING AND APPLE)
   target_include_directories(callback_realtime_audit SYSTEM PRIVATE third_party/miniaudio)
   target_compile_definitions(callback_realtime_audit PRIVATE MA_NO_RUNTIME_LINKING LIBRELOOP_TEST_RT_GUARD)
   target_link_libraries(callback_realtime_audit PRIVATE audio realtime_guard)
-  foreach(mode RANGE 0 10)
+  foreach(mode RANGE 0 11)
     foreach(block 64 512)
       file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/realtime-audit/${mode}-${block}")
       add_test(NAME realtime_callback_${mode}_${block} COMMAND callback_realtime_audit ${mode} ${block})

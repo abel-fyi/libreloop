@@ -68,7 +68,7 @@ void project_default(Project *p) {
     for(int id=0;id<=INSERTS;id++) for(int slot=0;slot<10;slot++) { p->effect_mix[id][slot]=1; device_descriptor(DEVICE_CHORUS)->defaults(&p->chorus[id][slot]); device_descriptor(DEVICE_EQ)->defaults(&p->eq[id][slot]); p->delay[id][slot]=delay_default(); p->tube[id][slot]=tube_default(); p->reverb[id][slot]=reverb_default(); p->dynamics[id][slot]=dynamics_default();p->phaser[id][slot]=phaser_default();p->flanger[id][slot]=flanger_default(); }
     for(int l=0;l<LANES;l++) snprintf(p->track_names[l],PATTERN_NAME,"Track %d",l+1);
     const char *names[]={"Kick","Snare","Hat","Tone"};
-    for(int c=0;c<CHANNELS;c++) { device_descriptor(DEVICE_FM)->defaults(&p->fm[c]); p->pitch_range[c]=2; p->volume[c]=1; p->sampler[c].time=p->sampler[c].length=1; if(c<4) snprintf(p->channel_names[c],PATTERN_NAME,"%s",names[c]); else snprintf(p->channel_names[c],PATTERN_NAME,"Channel %d",c+1); }
+    for(int c=0;c<CHANNELS;c++) { device_descriptor(DEVICE_FM)->defaults(&p->fm[c]); p->arp[c]=arp_default(); p->pitch_range[c]=2; p->volume[c]=1; p->sampler[c].time=p->sampler[c].length=1; if(c<4) snprintf(p->channel_names[c],PATTERN_NAME,"%s",names[c]); else snprintf(p->channel_names[c],PATTERN_NAME,"Channel %d",c+1); }
     for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) p->clip_starts[l][b]=b;
     for(int i=0;i<INSERTS;i++) snprintf(p->insert_names[i],PATTERN_NAME,"Insert %d",i+1);
     p->insert_count=INSERTS;
@@ -157,7 +157,7 @@ int channel_replace_choice(Project *p,int c,int choice) {
 int channel_delete(Project *p,int c) {
     if(c<0 || c>=p->channel_count) return 0;
     for(int i=c;i<p->channel_count-1;i++) {
-        p->instrument[i]=p->instrument[i+1]; p->fm[i]=p->fm[i+1]; p->sampler[i]=p->sampler[i+1]; p->voice[i]=p->voice[i+1]; p->channel_pitch[i]=p->channel_pitch[i+1]; p->pitch_range[i]=p->pitch_range[i+1];
+        p->instrument[i]=p->instrument[i+1]; p->fm[i]=p->fm[i+1]; p->sampler[i]=p->sampler[i+1]; p->voice[i]=p->voice[i+1]; p->arp[i]=p->arp[i+1]; p->channel_pitch[i]=p->channel_pitch[i+1]; p->pitch_range[i]=p->pitch_range[i+1];
         p->channel_colors[i]=p->channel_colors[i+1]; p->channel_audio[i]=p->channel_audio[i+1]; p->audio_seconds[i]=p->audio_seconds[i+1];
         p->volume[i]=p->volume[i+1]; p->pan[i]=p->pan[i+1]; p->mute[i]=p->mute[i+1]; p->route[i]=p->route[i+1];
         memcpy(p->paths[i],p->paths[i+1],sizeof p->paths[i]);
@@ -185,7 +185,7 @@ int channel_delete(Project *p,int c) {
             else if(t->owner>(unsigned)c)t->owner--;
         }
     }
-    int last=--p->channel_count; p->voice[last]=(VoiceSettings){0}; p->instrument[last]=INSTRUMENT_SAMPLER; p->fm[last]=fm_default(); p->channel_colors[last]=0; p->channel_pitch[last]=0; p->pitch_range[last]=2; p->channel_audio[last]=0; p->audio_seconds[last]=0; p->sampler[last]=(Sampler){.time=1,.length=1}; p->volume[last]=1; p->pan[last]=0; p->mute[last]=p->route[last]=0;
+    int last=--p->channel_count; p->voice[last]=(VoiceSettings){0}; p->arp[last]=arp_default(); p->instrument[last]=INSTRUMENT_SAMPLER; p->fm[last]=fm_default(); p->channel_colors[last]=0; p->channel_pitch[last]=0; p->pitch_range[last]=2; p->channel_audio[last]=0; p->audio_seconds[last]=0; p->sampler[last]=(Sampler){.time=1,.length=1}; p->volume[last]=1; p->pan[last]=0; p->mute[last]=p->route[last]=0;
     memset(p->paths[last],0,sizeof p->paths[last]); memset(p->channel_names[last],0,PATTERN_NAME); snprintf(p->channel_names[last],PATTERN_NAME,"Channel %d",last+1);
     for(int pat=0;pat<PATTERNS;pat++) memset(p->notes[pat][last],0,sizeof p->notes[pat][last]);
     return 1;
@@ -380,7 +380,7 @@ void player_reset(Player *p) { memset(p,0,sizeof *p); p->last_step=-1; }
 void player_seek(Player *p,const Project *pr,float step) {
     p->start_step=isfinite(step)?fmaxf(0,step):0;
     p->frame=(uint64_t)llround(p->start_step*RATE*60.0/pr->bpm/4); p->last_step=-1; p->clock_bpm=pr->bpm;
-    memset(p->voices,0,sizeof p->voices);
+    memset(p->voices,0,sizeof p->voices);player_arp_clear(p,-1);
 }
 float channel_speed(const Project *p,int channel) { return p->channel_pitch[channel]?powf(2,p->channel_pitch[channel]*p->pitch_range[channel]/12):1; }
 float audio_source_speed(const Project *p,int channel) {return p->sampler[channel].stretch?1:channel_speed(p,channel);}
@@ -426,6 +426,8 @@ static void trigger(Player *p,const Project *pr,int pat,int64_t tick,float remai
         int64_t onset=llround(start*96.0);
         double elapsed=(tick-onset)/96.0;
         if(onset!=tick && !(entering && n.length && elapsed>0 && elapsed<n.length)) continue;
+        if(pr->arp[c].direction && player_arp_on(p,pr,c,0x10000u+(lane+1)*PATTERNS*NOTES+pat*NOTES+i,n.pitch,n.velocity/127.f,
+            fmin(n.length?n.length-elapsed:1,remaining)*RATE*15/pr->bpm,lane,pat,i+1))continue;
         int v=0; while(v<127 && p->voices[v].gain!=0) v++;
         p->channel_trigger[c]=1;
         if(lane>=0 && pr->volume[c]>0) p->lane_trigger[lane]=1;
@@ -460,6 +462,7 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
         double ratio=p->clock_bpm/pr->bpm;
         p->frame=llround(p->frame*ratio);
         for(int v=0;v<128;v++) if(p->voices[v].gain && p->voices[v].remaining>=0) p->voices[v].remaining*=ratio;
+        for(int i=0;i<128;i++)if(p->arp.held[i].active && p->arp.held[i].remaining>=0)p->arp.held[i].remaining*=ratio;
     }
     p->clock_bpm=pr->bpm;
     int resync=sequence && p->song && p->audio_resync;
@@ -467,8 +470,11 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
     if(resync || tempo_changed) for(int v=0;v<128;v++) if(p->voices[v].audio_clip && (resync || !pr->sampler[p->voices[v].channel].fit_bpm)) p->voices[v].gain=0;
     int voice_policy=0;for(int c=0;c<pr->channel_count;c++)voice_policy|=voice_policy_enabled(pr,c);
     if(live){uint64_t order=p->voice_order>live->voice_order?p->voice_order:live->voice_order;p->voice_order=live->voice_order=order;}
+    int arpeggiating=p->arp.count || (live && live->arp.count);
+    for(int c=0;c<pr->channel_count;c++)arpeggiating|=pr->arp[c].direction!=0 || p->arp.channels[c].running;
+    if(arpeggiating){player_arp_adopt(p,pr,0);if(live)player_arp_adopt(live,pr,1);}
     Voice *active[256]; int count=active_voices(p,live,active);
-    if(!sequence && !count && !io && !p->effects) { p->frame+=frames; return; }
+    if(!sequence && !count && !arpeggiating && !io && !p->effects) { p->frame+=frames; return; }
     int loop=isfinite(p->loop_start) && isfinite(p->loop_end) && p->loop_start>=0 && p->loop_end>p->loop_start;
     float begin=loop?p->loop_start:p->song?0:p->start_step;
     PlaybackPlan fallback;
@@ -603,7 +609,7 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
     for(unsigned f=0;f<frames;f++,p->frame++) {
         if(live)live->frame++;
         int64_t step=(int64_t)(p->frame/stepframes);
-        if(sequence && (!io || io->monitor_only) && p->frame>=end_frame) { p->frame=begin_frame; step=(int64_t)(p->frame/stepframes); p->last_step=-1; if(loop) memset(p->voices,0,sizeof p->voices); }
+        if(sequence && (!io || io->monitor_only) && p->frame>=end_frame) { p->frame=begin_frame; step=(int64_t)(p->frame/stepframes); p->last_step=-1; if(loop){memset(p->voices,0,sizeof p->voices);player_arp_clear(p,-1);} }
         if(automation_clips_count) {
             double position=p->frame/(stepframes*96);
             for(int a=0;a<pr->automation_count;a++) if(bindings[a]) *bindings[a]=baseline[a];
@@ -665,6 +671,7 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
             io->input(io->context,buses);
             for(int id=0;id<=pr->insert_count;id++) if(!input_audible[id]) buses[id][0]=buses[id][1]=0;
         }
+        if(arpeggiating && player_arp_tick(p,live,pr,fm_controls))count=active_voices(p,live,active);
         if(voice_policy)player_voice_tick_pair(p,live,pr);
         if(live){uint64_t order=p->voice_order>live->voice_order?p->voice_order:live->voice_order;p->voice_order=live->voice_order=order;}
         for(int v=0;v<count;v++) {
@@ -692,7 +699,7 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
             if(gain>0 && !pr->master_mute && (gain_left[c]>0 || gain_right[c]>0)) p->channel_active[c]=1;
             int id=pr->route[c];
             float stereo[2];
-            if(!pr->voice[c].mono && voice->order && !voice->fade_out){voice->current_pitch=voice->note_pitch;voice->glide_left=0;}
+            if(!voice->arp_generated && !pr->voice[c].mono && voice->order && !voice->fade_out){voice->current_pitch=voice->note_pitch;voice->glide_left=0;}
             double voice_tuning=policy || (voice->order && voice->current_pitch!=voice->base_pitch)?player_voice_pitch(voice):1;
             double rate=pr->sampler[c].fit_bpm?pr->bpm/pr->sampler[c].fit_bpm:1;
             /* Known types let the shared inline processor discard the other

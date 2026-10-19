@@ -197,6 +197,9 @@ static void callback(ma_device *d, void *out, const void *in, ma_uint32 frames) 
     if(preview_position<preview_end){preview_frame=preview_position;preview_time=live_time;preview_rate=preview_channel>=0 && project.sampler[preview_channel].stretch?1:exp2(project.master_pitch/12.)*preview_speed;}
     taps.audition=audition_input;
     float peaks[INSERTS+1][2]={{0}};
+    int arp_mix=player.arp.count || live.arp.count;
+    for(int c=0;c<project.channel_count;c++)arp_mix|=project.arp[c].direction!=0;
+    for(int i=0;i<128;i++)arp_mix|=player.voices[i].gain && player.voices[i].arp_generated;
     if(playing) {
         visual_frame=llround(player.frame*(player.clock_bpm?player.clock_bpm/project.bpm:1));
         render_mixer_io(&player,&live,&project,samples,out,frames,1,peaks,&taps);
@@ -207,13 +210,14 @@ static void callback(ma_device *d, void *out, const void *in, ma_uint32 frames) 
         if(visual_start>=end*step_frames) visual_start=0;
         visual_end=(recording.active || atomic_load(&midi_recording))?INFINITY:end*step_frames;
     }
+    else if(arp_mix)render_mixer_io(&player,&live,&project,samples,out,frames,0,peaks,&taps);
     else render_mixer_io(&live,NULL,&project,samples,out,frames,0,peaks,&taps);
     for(int l=0;l<LANES;l++) {
         atomic_store_explicit(&track_active[l],playing && player.song && player.lane_active[l],memory_order_relaxed);
         if(playing && player.song && player.lane_trigger[l]) atomic_store_explicit(&track_trigger[l],1,memory_order_relaxed);
     }
     for(int c=0;c<CHANNELS;c++) {
-        Player *rendered=playing?&player:&live;
+        Player *rendered=playing || arp_mix?&player:&live;
         int previewing=preview_channel==c && preview_remaining && preview_position<preview_end && preview_gain>0;
         atomic_store_explicit(&channel_active[c],rendered->channel_active[c] || previewing,memory_order_relaxed);
         if(rendered->channel_trigger[c]) atomic_store_explicit(&channel_trigger[c],1,memory_order_relaxed);
@@ -272,6 +276,7 @@ static void publish_view(void) {
             target->note_active=voice->channel==channel && voice->instrument==INSTRUMENT_FM && voice->gain>0 && project.volume[channel]>0 && project.master>0 && !project.master_mute;
         } else target->note_active=preview_channel==channel && preview_remaining && preview_position<preview_end && preview_gain>0;
     }
+    for(int i=0;i<128;i++)if(live.arp.held[i].active && live.arp.held[i].id==127 && live.arp.held[i].channel==note_preview_channel && project.volume[note_preview_channel]>0 && !project.master_mute)target->note_active=1;
     target->preview=preview; target->preview_position=preview_position;
     target->preview_frame=preview_frame; target->preview_time=preview_time; target->preview_rate=preview_rate;
     target->preview_end=preview_end; target->preview_remaining=preview_remaining;
@@ -279,6 +284,7 @@ static void publish_view(void) {
         const Voice *v=&live.voices[i];
         target->voices[i]=(VoiceView){.channel=v->channel,.gain=v->gain,.sampler={v->instrument==INSTRUMENT_FM?0:v->sampler.position,v->instrument==INSTRUMENT_FM?1:v->sampler.speed}};
     }
+    for(int i=0;i<128;i++){const ArpHeld *h=&live.arp.held[i];if(h->active && h->id<128)target->voices[h->id]=(VoiceView){.channel=h->channel,.gain=h->velocity,.sampler={0,1}};}
     double pitch_speed=pow(2,project.master_pitch/12.0);
     for(int c=0;c<CHANNELS;c++) {
         target->sample_frames[c]=samples[c].frames; target->instrument[c]=project.instrument[c];
@@ -308,6 +314,10 @@ static void consume_commands(void) {
             memcmp(project.clip_offsets,next->clip_offsets,sizeof project.clip_offsets) ||
             memcmp(project.audio_seconds,next->audio_seconds,sizeof project.audio_seconds)) player.audio_resync=1;
         for(unsigned bus=0;bus<=INSERTS;bus++)if(project.effect_revision[bus]!=next->effect_revision[bus])effects_reset_bus(effects,bus);
+        if(project.channel_count!=next->channel_count){
+            player_arp_clear(&player,-1);player_arp_clear(&live,-1);
+            for(int i=0;i<128;i++){if(player.voices[i].arp_generated)player.voices[i].gain=0;if(live.voices[i].arp_generated)live.voices[i].gain=0;}
+        }
         project=*next;
     }
     if(snapshot && (flags & SNAPSHOT_PLAN)) playback=snapshot->plan;
@@ -316,10 +326,13 @@ static void consume_commands(void) {
     while(read!=finish) {
         const AudioCommand *c=&pending.commands[read++%AUDIO_COMMANDS];
         switch(c->kind) {
-        case UPDATE:
+        case UPDATE: {
             /* Transport seeks/stops reset sources, but let delay/reverb tails ring. */
+            int was_playing=playing,keep_arp=live.arp.count;
+            for(int i=0;i<128;i++)keep_arp|=player.voices[i].gain && player.voices[i].arp_generated;
             playing=c->run; output_volume=c->output;
-            if(c->reset || !playing || player.song!=c->song || (!c->song && player.pattern!=c->pattern)) {
+            if(c->reset || (!playing && (was_playing || !keep_arp)) || player.song!=c->song || (!c->song && player.pattern!=c->pattern)) {
+                if(was_playing && !playing){player_arp_clear(&live,-1);for(int v=0;v<128;v++)if(live.voices[v].arp_generated)live.voices[v].gain=0;}
                 click_position=1200; player_reset(&player); player.effects=effects; player_seek(&player,&project,c->start);
                 atomic_store(&position,player.frame); visual_frame=player.frame; visual_frames=0;
             }
@@ -331,6 +344,7 @@ static void consume_commands(void) {
                 player.last_step=-1; memset(player.voices,0,sizeof player.voices);
             }
             break;
+        }
         case SAMPLE: case CHANNEL_SAMPLES:
             note_preview_channel=-1;
             for(int channel=0;channel<CHANNELS;channel++) {
@@ -340,6 +354,7 @@ static void consume_commands(void) {
                         if(player.voices[v].channel==channel) player.voices[v].gain=0;
                         if(live.voices[v].channel==channel) live.voices[v].gain=0;
                     }
+                    player_arp_clear(&player,channel);player_arp_clear(&live,channel);
                     samples[channel]=next; player.audio_resync=1;
                 }
             }
@@ -355,6 +370,7 @@ static void consume_commands(void) {
             if(c->channel>=0 && c->channel<project.channel_count) {
                 note_preview_channel=c->note.velocity && project.volume[c->channel]>0 && project.master>0 && (project.instrument[c->channel]==INSTRUMENT_FM || samples[c->channel].frames)?c->channel:-1;
                 note_preview_pitch=c->note.pitch;note_preview_serial=c->serial;
+                if(player_arp_on(&live,&project,c->channel,127,c->note.pitch,c->note.velocity/127.f,(c->note.length?c->note.length:1)*RATE*15/project.bpm,-1,0,0)){atomic_store(&channel_trigger[c->channel],1);break;}
                 if(project.instrument[c->channel]==INSTRUMENT_FM) {
                     player_voice_prepare(&live,&project,127);
                     Voice *voice=&live.voices[127]; uint32_t phase[6];
@@ -384,6 +400,8 @@ static void consume_commands(void) {
             }
             break;
         case KEY:
+            if(!c->down && player_arp_off(&live,c->slot))break;
+            if(c->down && player_arp_on(&live,&project,c->channel,c->slot,c->pitch,c->note.velocity/127.f,-1,-1,0,0)){atomic_store(&channel_trigger[c->channel],1);break;}
             if(c->down && c->channel>=0 && c->channel<project.channel_count) {
                 if((samples[c->channel].frames || project.instrument[c->channel]==INSTRUMENT_FM) && project.volume[c->channel]>0 && !(project.mute[c->channel]&1)) atomic_store(&channel_trigger[c->channel],1);
                 player_voice_prepare(&live,&project,c->slot);
@@ -403,11 +421,11 @@ static void consume_commands(void) {
             break;
         case STOP: {
             note_preview_channel=-1;
-            int active=playing || (preview_remaining && preview_position<preview_end);
+            int active=playing || live.arp.count || player.arp.count || (preview_remaining && preview_position<preview_end);
             for(int i=0;i<128;i++) active|=live.voices[i].gain!=0;
             atomic_store(&stopped_active,active);
             playing=0; preview=(Sample){0}; preview_end=preview_remaining=0; preview_channel=-1; click_position=1200;
-            memset(player.voices,0,sizeof player.voices); memset(live.voices,0,sizeof live.voices); if(!c->down) effects_reset(effects);
+            memset(player.voices,0,sizeof player.voices); memset(live.voices,0,sizeof live.voices);player_arp_clear(&player,-1);player_arp_clear(&live,-1); if(!c->down) effects_reset(effects);
             break;
         }
         }

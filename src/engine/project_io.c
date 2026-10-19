@@ -15,7 +15,7 @@
 #include <ctype.h>
 
 static int project_valid(const Project *p) {
-    for(int c=0;c<CHANNELS;c++)if(!voice_settings_valid(p->voice[c]))return 0;
+    for(int c=0;c<CHANNELS;c++)if(!voice_settings_valid(p->voice[c]) || !arp_valid(p->arp[c]))return 0;
     if(!isfinite(p->bpm) || p->bpm<30 || p->bpm>300 || p->pattern_count<1 || p->pattern_count>PATTERNS) return 0;
     if(!isfinite(p->master_pan) || fabsf(p->master_pan)>1 || !isfinite(p->master_pitch) || fabsf(p->master_pitch)>12) return 0;
     if(!automation_valid(p) || p->midi_binding_count<0 || p->midi_binding_count>MIDI_BINDINGS) return 0;
@@ -101,6 +101,13 @@ static const Field fields[]={
     {"x-voice.mono",F32,offsetof(Project,voice)+offsetof(VoiceSettings,mono),CHANNELS,1,sizeof(VoiceSettings),0,sizeof(float)},
     {"x-voice.legato",F32,offsetof(Project,voice)+offsetof(VoiceSettings,legato),CHANNELS,1,sizeof(VoiceSettings),0,sizeof(float)},
     {"x-voice.glide",F32,offsetof(Project,voice)+offsetof(VoiceSettings,glide),CHANNELS,1,sizeof(VoiceSettings),0,sizeof(float)},
+    {"x-arp.direction",F32,offsetof(Project,arp)+offsetof(ArpSettings,direction),CHANNELS,1,sizeof(ArpSettings),0,sizeof(float)},
+    {"x-arp.time",F32,offsetof(Project,arp)+offsetof(ArpSettings,time),CHANNELS,1,sizeof(ArpSettings),0,sizeof(float)},
+    {"x-arp.gate",F32,offsetof(Project,arp)+offsetof(ArpSettings,gate),CHANNELS,1,sizeof(ArpSettings),0,sizeof(float)},
+    {"x-arp.range",F32,offsetof(Project,arp)+offsetof(ArpSettings,range),CHANNELS,1,sizeof(ArpSettings),0,sizeof(float)},
+    {"x-arp.repeat",F32,offsetof(Project,arp)+offsetof(ArpSettings,repeat),CHANNELS,1,sizeof(ArpSettings),0,sizeof(float)},
+    {"x-arp.chord",F32,offsetof(Project,arp)+offsetof(ArpSettings,chord),CHANNELS,1,sizeof(ArpSettings),0,sizeof(float)},
+    {"x-arp.slide",F32,offsetof(Project,arp)+offsetof(ArpSettings,slide),CHANNELS,1,sizeof(ArpSettings),0,sizeof(float)},
     FLAT(clip_steps,float,F32),
     FLAT(clip_starts,float,F32),
     FLAT(clip_offsets,float,F32),
@@ -288,6 +295,7 @@ int project_save(const char *path,const Project *p) {
             int any=0;for(size_t i=0;i<f->count;i++){float value;memcpy(&value,address((Project *)p,f,i),sizeof value);any|=value!=0;}
             if(!any)continue;
         }
+        if(!strncmp(f->name,"x-arp.",6)){ArpSettings defaults=arp_default();int any=0;for(int c=0;c<CHANNELS;c++)any|=memcmp(&p->arp[c],&defaults,sizeof defaults)!=0;if(!any)continue;}
         if(!strcmp(f->name,"x-master-pan") && p->master_pan==0)continue;
         if(!strncmp(f->name,"x-phaser.",9)){int any=0;for(int bus=0;bus<=INSERTS;bus++)for(int slot=0;slot<EFFECT_SLOTS;slot++)any|=p->effect_type[bus][slot]==EFFECT_PHASER;if(!any)continue;}
         if(!strncmp(f->name,"x-flanger.",10)){int any=0;for(int bus=0;bus<=INSERTS;bus++)for(int slot=0;slot<EFFECT_SLOTS;slot++)any|=p->effect_type[bus][slot]==EFFECT_FLANGER;if(!any)continue;}
@@ -401,6 +409,7 @@ int project_load(const char *path,Project *p) {
     int ok=p && line(file,text,sizeof text) && sscanf(text,"%63s %n",magic,&consumed)==1 &&
         !strcmp(magic,PROJECT_FORMAT_MAGIC) && count_token(text+consumed,&version,PROJECT_FORMAT_VERSION) && version>=1;
     Project *next=ok?calloc(1,sizeof *next):NULL;
+    if(next)for(int c=0;c<CHANNELS;c++)next->arp[c]=arp_default();
     if(next)for(int bus=0;bus<=INSERTS;bus++)for(int slot=0;slot<EFFECT_SLOTS;slot++){next->delay[bus][slot]=delay_default();next->tube[bus][slot]=tube_default();next->reverb[bus][slot]=reverb_default();next->dynamics[bus][slot]=dynamics_default();next->flanger[bus][slot]=flanger_default();next->phaser[bus][slot]=phaser_default();}
     if(next)for(int pat=0;pat<PATTERNS;pat++){
         next->pattern_steps[pat]=STEPS;next->pattern_colors[pat]=pattern_palette[pat%COLOR_COUNT];

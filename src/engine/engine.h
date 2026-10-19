@@ -7,6 +7,7 @@
 #include "sampler.h"
 #include "effects.h"
 #include "instrument.h"
+#include "arpeggiator.h"
 #include "parameter.h"
 #define SAMPLE_EMPTY "@empty" /* stored in paths for an unloaded sampler */
 #define CHANNELS 32
@@ -67,6 +68,7 @@ typedef struct {
     uint8_t instrument[CHANNELS];
     FMSettings fm[CHANNELS];
     VoiceSettings voice[CHANNELS];
+    ArpSettings arp[CHANNELS];
     float master_pitch; /* semitones; sample speed, independent of tempo */
     float master_pan; /* -1 left, 0 unchanged, +1 right; stereo balance */
     float insert_width[INSERTS],master_width; /* 0 mono, 1 unchanged, 2 wider */
@@ -95,7 +97,7 @@ typedef struct {
 typedef struct PlaybackPlan PlaybackPlan;
 /* Sequencing/mixing state wraps device-owned DSP state. */
 typedef struct { int channel; union { InstrumentVoice device; SamplerVoice sampler; FMVoice fm; }; uint8_t instrument; double remaining; float gain; int lane,audio_clip,pattern,note_id;
-    uint64_t order; int held,selected,fresh; float note_pitch,base_pitch,current_pitch,glide_step; unsigned glide_left,fade_out;
+    uint64_t order; int held,selected,fresh; float note_pitch,base_pitch,current_pitch,glide_step; unsigned glide_left,fade_out; int arp_generated;
 } Voice;
 typedef struct {
     EffectRack *effects; /* borrowed runtime rack; attach after player_reset */
@@ -107,6 +109,7 @@ typedef struct {
     float start_step,loop_start,loop_end; /* loop_end 0 disables the playback region */
     Voice voices[128];
     uint64_t voice_order;
+    ArpState arp;
     uint8_t channel_active[CHANNELS],channel_trigger[CHANNELS];
     uint8_t lane_active[LANES],lane_trigger[LANES]; /* activity from the latest render block */
     const PlaybackPlan *plan; /* optional prepared geometry/routing; reset clears it */
@@ -120,6 +123,13 @@ void player_voice_off(Player *p,const Project *pr,int slot);
 void player_voice_tick(Player *p,const Project *pr);
 void player_voice_tick_pair(Player *p,Player *live,const Project *pr);
 double player_voice_pitch(Voice *v);
+/* Channel note generator: held keys are metadata, generated notes use the
+   existing sequencer pool. Live input slots are never borrowed for output. */
+int player_arp_on(Player *p,const Project *pr,int channel,uint32_t id,int pitch,float velocity,double remaining,int lane,int pattern,int note_id);
+int player_arp_off(Player *p,uint32_t id);
+void player_arp_clear(Player *p,int channel);
+void player_arp_adopt(Player *p,const Project *pr,int live);
+int player_arp_tick(Player *p,Player *live,const Project *pr,const FMSettings *fm);
 /* Editing always follows the visible grid (ruler spacing at distant zooms). */
 float grid_interval(float pixels_per_step);
 float snap_floor(float value,float interval);
