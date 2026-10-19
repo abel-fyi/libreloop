@@ -353,7 +353,6 @@ void pattern_hit_update(float step) {
 static void pattern_channels(float width,float height) {
     ui_panel(host_draw(),(DrawRect){1,TITLE,width-1,height-TITLE-1},panel);
     host_draw_line(width-1,TITLE,width-1,height-1,ui_theme.border);
-    if(button("Back to Arrangement",8,26,width-16,24,0)){windows_focus(&ui.windows,1);ui.input_enabled=0;}
     label(fit_text(ui.project.pattern_names[ui.pattern],82,12),8,59,12,ink);
     label("Swing",98,59,10,muted);
     knob_style(146,65,&ui.project.swing,0,1,0,"Swing",KNOB_SWING);
