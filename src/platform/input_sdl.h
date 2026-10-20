@@ -7,9 +7,8 @@
 typedef struct {
     AppInput *input;
     unsigned char held_keys[APP_INPUT_KEYS],held_buttons[APP_INPUT_BUTTONS];
-    int native_scroll;
 } InputSDL;
-void input_sdl_init(InputSDL *adapter,AppInput *input,int native_scroll);
+void input_sdl_init(InputSDL *adapter,AppInput *input);
 int input_sdl_key(SDL_Scancode scancode);
 int input_sdl_event(InputSDL *adapter,const SDL_Event *event);
 #endif

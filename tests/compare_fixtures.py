@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Compare rewrite output against immutable Phase 0 original outputs.
 Uses Python standard library only as test orchestration, never app runtime.
-The tolerance argument defaults to zero. Timing/state/export checks always exact.
+Standalone comparisons default to exact bytes. CTest can explicitly enable
+bounded cross-toolchain PCM/WAV comparisons; timing and project state stay exact.
 """
+from fixture_compare import compare, PORTABLE
 import argparse
 import hashlib
 import json
@@ -60,7 +62,8 @@ def main():
                                  capture_output=True, text=True, timeout=60)
             if run.returncode:
                 raise AssertionError(f'{group} {command}: {run.stdout}\n{run.stderr}')
-            summary = {'fixture': [group, *command], 'maximum_error': 0.0, 'rms_error': 0.0,
+            summary = {'fixture': [group, *command], 'comparison_policy': 'portable' if PORTABLE else 'strict',
+                       'maximum_error': 0.0, 'rms_error': 0.0,
                        'different_samples': 0, 'checks': []}
             for name, (reference, frozen_hash) in files.items():
                 expected = reference.read_bytes()
@@ -90,15 +93,19 @@ def main():
                     summary['maximum_error'] = max(summary['maximum_error'], maximum)
                     summary['rms_error'] = max(summary['rms_error'], rms)
                     summary['different_samples'] += count
-                    if maximum > args.max_error or (args.max_error == 0 and expected != actual):
+                    if PORTABLE and args.max_error == 0:
+                        compare(expected, actual, 'pcm', label=f'{group} {command} {name}')
+                    elif maximum > args.max_error or (args.max_error == 0 and expected != actual):
                         raise AssertionError(f'{group} {command} {name}: max={maximum}, rms={rms}, differing={count}')
+                elif name.endswith('.wav') and PORTABLE:
+                    compare(expected, actual, 'wav', label=f'{group} {command} {name}')
                 elif expected != actual:
                     raise AssertionError(f'{group} {command} {name}: state/project/export differs')
                 summary['checks'].append(name)
             results.append(summary)
     if args.report:
         args.report.write_text(json.dumps(results, indent=2) + '\n')
-    print(f'{len(results)} fixture scenarios checked; approved Stretch changes={sum(len(r.get("approved_changes", [])) for r in results)}; all other PCM/state/project/export comparisons exact within requested tolerance')
+    print(f'{len(results)} fixture scenarios checked; approved Stretch changes={sum(len(r.get("approved_changes", [])) for r in results)}; other comparisons pass selected PCM/export policy with exact state/project checks')
 
 
 if __name__ == '__main__':

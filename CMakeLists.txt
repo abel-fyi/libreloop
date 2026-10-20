@@ -1,8 +1,21 @@
 cmake_minimum_required(VERSION 3.20)
+# Default a native macOS build to its host version; older deployment targets
+# are explicit choices, never inferred from whichever SDL SDK happens to exist.
+if(CMAKE_HOST_APPLE AND NOT CMAKE_OSX_DEPLOYMENT_TARGET AND "$ENV{MACOSX_DEPLOYMENT_TARGET}" STREQUAL "")
+  execute_process(COMMAND /usr/bin/sw_vers -productVersion
+    OUTPUT_VARIABLE _host_macos OUTPUT_STRIP_TRAILING_WHITESPACE
+    COMMAND_ERROR_IS_FATAL ANY)
+  string(REGEX MATCH "^[0-9]+\\.[0-9]+" _host_macos "${_host_macos}")
+  if(NOT _host_macos)
+    message(FATAL_ERROR "Cannot determine host macOS version; set CMAKE_OSX_DEPLOYMENT_TARGET")
+  endif()
+  set(CMAKE_OSX_DEPLOYMENT_TARGET "${_host_macos}" CACHE STRING "Minimum macOS version" FORCE)
+endif()
 project(libreloop VERSION 0.1.0 LANGUAGES C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
+option(BUILD_TESTING "Build LibreLoop tests and development captures" OFF)
 include(CTest)
 if(WIN32)
   # Native Windows services and miniaudio use Win32 threads, not winpthreads.
@@ -70,6 +83,16 @@ endif()
 function(libreloop_test name library)
   if(BUILD_TESTING)
     add_executable(${name}_test tests/${name}_test.c)
+    # libc assertions must execute in optimized test builds too.
+    if(MSVC)
+      target_compile_options(${name}_test PRIVATE "$<$<NOT:$<CONFIG:Debug>>:/UNDEBUG>")
+    else()
+      target_compile_options(${name}_test PRIVATE "$<$<NOT:$<CONFIG:Debug>>:-UNDEBUG>")
+    endif()
+    if(UNIX AND NOT APPLE)
+      # Filesystem/recording tests use POSIX APIs hidden by strict C11 on Linux.
+      target_compile_definitions(${name}_test PRIVATE _XOPEN_SOURCE=700)
+    endif()
     target_link_libraries(${name}_test PRIVATE ${library})
     add_test(NAME ${name} COMMAND ${name}_test)
   endif()
@@ -164,6 +187,9 @@ endif()
 if(BUILD_TESTING)
   foreach(name benchmark feature callback)
     add_executable(${name}_capture tests/harness/${name}_capture.c)
+    if(UNIX AND NOT APPLE)
+      target_compile_definitions(${name}_capture PRIVATE _XOPEN_SOURCE=700)
+    endif()
     target_link_libraries(${name}_capture PRIVATE audio)
   endforeach()
   target_include_directories(callback_capture SYSTEM PRIVATE third_party/miniaudio)
@@ -337,11 +363,7 @@ if(LIBRELOOP_SDL_AVAILABLE)
   add_library(window_sdl STATIC src/platform/window_sdl.c)
   target_include_directories(window_sdl PUBLIC src/platform)
   target_link_libraries(window_sdl PUBLIC interaction PRIVATE input_sdl draw_sdl ${LIBRELOOP_SDL_TARGET})
-  if(APPLE)
-    enable_language(OBJC)
-    target_sources(window_sdl PRIVATE src/platform/input_macos.m)
-    target_link_libraries(window_sdl PRIVATE "-framework Cocoa")
-  endif()
+
 endif()
 if(BUILD_TESTING AND LIBRELOOP_SDL_AVAILABLE)
   add_executable(window_sdl_test tests/window_sdl_test.c)
@@ -373,6 +395,12 @@ endif()
 add_library(ui_render STATIC src/ui/render.c src/ui/icons.c src/ui/shapes.c)
 target_include_directories(ui_render PUBLIC src/ui src/platform src/interaction)
 target_link_libraries(ui_render PRIVATE text_fonts widget_pixels theme)
+if(LIBRELOOP_SDL_AVAILABLE)
+  # Declare drawing dependencies so ELF static archives link in dependency order.
+  target_link_libraries(theme PRIVATE draw_sdl)
+  target_link_libraries(text_fonts PRIVATE draw_sdl)
+  target_link_libraries(ui_render PRIVATE draw_sdl)
+endif()
 if(BUILD_TESTING AND LIBRELOOP_SDL_AVAILABLE)
   add_executable(scissor_capture tests/harness/scissor_capture.c)
   target_link_libraries(scissor_capture PRIVATE ui_render draw_sdl ${LIBRELOOP_SDL_TARGET})
@@ -496,7 +524,7 @@ endif()
 
 # Original OS-provided MIDI backends; no additional third-party dependency.
 # Desktop composition links this target. Headless engine builds need no devices.
-if(APPLE OR WIN32 OR CMAKE_SYSTEM_NAME STREQUAL "Linux")
+if(LIBRELOOP_SDL_AVAILABLE AND (APPLE OR WIN32 OR CMAKE_SYSTEM_NAME STREQUAL "Linux"))
   add_library(midi_input STATIC EXCLUDE_FROM_ALL src/platform/midi_input.c)
   target_include_directories(midi_input PUBLIC src/platform src/engine)
   target_link_libraries(midi_input PUBLIC engine Threads::Threads)
@@ -544,9 +572,7 @@ if(LIBRELOOP_SDL_AVAILABLE)
     endif()
   endif()
   if(APPLE)
-    if(LIBRELOOP_VALIDATE_SYSTEM_SDL)
-      set(LIBRELOOP_MINIMUM_MACOS_VERSION "26.0")
-    elseif(CMAKE_OSX_DEPLOYMENT_TARGET)
+    if(CMAKE_OSX_DEPLOYMENT_TARGET)
       set(LIBRELOOP_MINIMUM_MACOS_VERSION "${CMAKE_OSX_DEPLOYMENT_TARGET}")
     else()
       message(FATAL_ERROR "Set CMAKE_OSX_DEPLOYMENT_TARGET for the vendored macOS desktop; do not infer an untested minimum")
@@ -629,7 +655,8 @@ if(BUILD_TESTING AND TARGET libreloop)
   add_test(NAME visual_preview_state
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/visual_preview_compare.py
       $<TARGET_FILE:libreloop>)
-  set_tests_properties(visual_preview_state PROPERTIES TIMEOUT 60)
+  # This launches dozens of software-rendered desktops, including on slow CPUs.
+  set_tests_properties(visual_preview_state PROPERTIES TIMEOUT 300 RUN_SERIAL TRUE)
 endif()
 
 if(BUILD_TESTING)
@@ -868,4 +895,42 @@ if(BUILD_TESTING)
   add_test(NAME original_frontend_project_commit
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/compare_piano_replays.py
       $<TARGET_FILE:frontend_project_commit_capture> ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/interaction/project-commit)
+endif()
+
+if(BUILD_TESTING AND UNIX AND NOT APPLE)
+  # Capture harnesses stub drawing boundaries and discard unused functions.
+  # ELF section garbage collection needs the linked libraries split too.
+  foreach(target theme ui_render text_fonts controls_draw piano_draw waveform_draw editor_draw)
+    target_compile_options(${target} PRIVATE -ffunction-sections -fdata-sections)
+  endforeach()
+endif()
+
+option(LIBRELOOP_STRICT_FIXTURES "Require byte-identical frozen macOS numeric/raster outputs" OFF)
+if(BUILD_TESTING)
+  add_test(NAME fixture_compare COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixture_compare_test.py)
+  if(LIBRELOOP_STRICT_FIXTURES)
+    set(_portable_fixtures 0)
+  else()
+    set(_portable_fixtures 1)
+  endif()
+  foreach(name original_audio_fixtures original_navigation_replays original_font_raster
+      original_text_layout original_waveform_geometry original_sampler_service
+      original_host_helpers original_frontend_navigation)
+    if(TEST ${name})
+      set_tests_properties(${name} PROPERTIES ENVIRONMENT "LIBRELOOP_PORTABLE_FIXTURES=${_portable_fixtures}")
+    endif()
+  endforeach()
+endif()
+
+if(BUILD_TESTING AND CMAKE_SYSTEM_NAME STREQUAL "Linux" AND TARGET libreloop)
+  add_test(NAME installed_linux_desktop
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/install_linux_test.py
+      ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_COMMAND})
+  set_tests_properties(installed_linux_desktop PROPERTIES TIMEOUT 90)
+endif()
+
+if(BUILD_TESTING)
+  add_test(NAME build_contract COMMAND ${Python3_EXECUTABLE}
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/build_contract_test.py ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_COMMAND})
+  set_tests_properties(build_contract PROPERTIES TIMEOUT 180)
 endif()

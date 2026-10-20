@@ -12,6 +12,7 @@ static float frequency(Sample s) {
     return crosses*(float)RATE/(end-start);
 }
 int main(void) {
+    /* Keep the large project fixtures below out of the thread's stack. */
     float data[]={.1f,-.4f,.2f,.8f,-.2f}; Sample input={data,5},out={0};
     Sampler p={.time=1,.length=1};
     CHECK(sample_process(input,p,&out) && out.frames==5 && !memcmp(out.data,data,sizeof data)); free(out.data);
@@ -53,7 +54,7 @@ int main(void) {
     p.time=1; p.pitch=12; CHECK(sample_process(input,p,&out) && out.frames==n); CHECK(fabsf(frequency(out)-880)<10); free(out.data);
     p.pitch=-12; CHECK(sample_process(input,p,&out) && out.frames==n); CHECK(fabsf(frequency(out)-220)<5); free(out.data);
     p.time=.5f; p.pitch=0; p.stretch=1; CHECK(sample_process(input,p,&out) && out.frames==n/2); CHECK(fabsf(frequency(out)-440)<10); free(out.data);
-    Project fitted,loaded_fit; project_default(&fitted); fitted.channel_audio[0]=1;
+    static Project fitted,loaded_fit; project_default(&fitted); fitted.channel_audio[0]=1;
     fitted.sampler[0]=(Sampler){.time=1,.length=1,.fit_bpm=120};
     fitted.audio_seconds[0]=1; fitted.clips[0][0]=PATTERNS+1;
     fitted.clips[0][1]=PATTERNS+1; fitted.clip_steps[0][1]=.5f; fitted.clip_offsets[0][1]=.25f;
@@ -74,7 +75,7 @@ int main(void) {
     fitted.bpm=240;
     CHECK(fabsf(clip_length(&fitted,0,0)-2*full)<.0001f);
     free(tone);
-    Project project,loaded; project_default(&project); project.sampler[0]=(Sampler){.pitch=7,.time=2,.start=.1f,.length=.6f,.trim=.15f,.flags=7,.stretch=1,.fit_bpm=120};
+    static Project project,loaded; project_default(&project); project.sampler[0]=(Sampler){.pitch=7,.time=2,.start=.1f,.length=.6f,.trim=.15f,.flags=7,.stretch=1,.fit_bpm=120};
     CHECK(project_save("sampler.llp",&project) && project_load("sampler.llp",&loaded)); CHECK(project_equal(&project,&loaded)); remove("sampler.llp");
     puts("Sampler transforms, trims, silence, pitch/duration independence and persistence passed."); return 0;
 }

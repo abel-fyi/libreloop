@@ -22,7 +22,7 @@ if(TARGET libreloop)
     if(LIBRELOOP_SDL_IS_SHARED)
       if(WIN32)
         install(FILES "$<TARGET_FILE:${LIBRELOOP_SDL_TARGET}>" DESTINATION bin)
-      else()
+      elseif(NOT LIBRELOOP_USE_SYSTEM_SDL)
         install(FILES "$<TARGET_FILE:${LIBRELOOP_SDL_TARGET}>" DESTINATION lib/libreloop)
         # The loader asks for the SONAME, which can differ from the real file.
         install(FILES "$<TARGET_FILE:${LIBRELOOP_SDL_TARGET}>"

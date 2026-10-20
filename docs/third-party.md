@@ -1,4 +1,32 @@
-# Third-party inventory and license plan
+# Third-party components and licenses
+
+## Current build policy
+
+The Phase0 sections below are historical inventory notes. The current application
+is C11 with pinned miniaudio/stb headers already present. The reference desktop
+build imports verified SDL 3.4.16 source; an installed SDL >= 3.4 SDK is also an
+explicit supported build configuration (`LIBRELOOP_USE_SYSTEM_SDL=ON`). CMake
+never downloads libraries. Source preparation and tests use Python only.
+
+The application-owned Cocoa/Objective-C input adapter has been removed in favor
+of SDL wheel and pinch events. SDL may compile its own native-language backends;
+that does not add Objective-C or C++ application sources. Native MIDI and file
+adapters remain C. No PortMidi/RtMidi dependency has been added.
+
+See [building and platform policy](building.md) for the current requirements and
+[toolchain evidence](toolchains.md) for what has actually been verified.
+
+## Current dependency inventory
+
+| Component | Source/version policy | Notices |
+|---|---|---|
+| SDL3 | Reference source 3.4.16, archive verified by importer; installed SDK >= 3.4 is explicit | [SDL notice](licenses/SDL3.txt), imported upstream source license |
+| miniaudio | 0.11.21; header bytes pinned in `third_party/manifest.json` | [Upstream notice](../third_party/miniaudio/LICENSE.txt) |
+| stb image/font headers | Exact header bytes pinned in `third_party/manifest.json` | Embedded header notices retained |
+| Fonts, presets, sample assets, adapted DSP/helpers | Existing project assets and original-source provenance | Detailed inventory and retained notices below |
+
+## Historical inventory and migration notes
+
 
 Rewrite source remains GPL-3.0-only; full project license in ../LICENSE. Phase0 contains documents only, no vendored application dependency source or ported DSP yet. The embedded/documentary original excerpts retain their original GPL notices by attribution to frozen reference. DX7 excerpt is Apache-2.0; notice is retained in [licenses/msfa-Apache-2.0.txt](licenses/msfa-Apache-2.0.txt).
 

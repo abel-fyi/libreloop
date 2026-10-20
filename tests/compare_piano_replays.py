@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import gzip
+from fixture_compare import compare
 import hashlib
 import json
 from pathlib import Path
@@ -15,5 +16,5 @@ for scenario in manifest['scenarios']:
             expected = gzip.decompress((root/str(scenario['mode'])/(name+'.gz')).read_bytes()) if scenario.get('compression',{}).get(name)=='gzip' else (root/str(scenario['mode'])/name).read_bytes()
             assert hashlib.sha256(expected).hexdigest() == digest, f'Frozen reference changed: {name}'
             actual = (Path(directory) / name).read_bytes()
-            assert expected == actual, f"Piano mode{scenario['mode']} differs: {name}"
-print(f"{len(manifest['scenarios'])} original piano gesture/selection/audition replays match exactly")
+            compare(expected, actual, 'text' if root.name == 'waveform' and name == 'quads.txt' else 'exact', label=f"{root.name}/{scenario['mode']}/{name}")
+print(f"{len(manifest['scenarios'])} original piano gesture/selection/audition replays match within selected comparison policy")

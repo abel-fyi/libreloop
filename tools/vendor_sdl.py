@@ -19,7 +19,10 @@ parser.add_argument('archive',type=Path)
 parser.add_argument('--destination',type=Path,default=Path(__file__).resolve().parent.parent/'third_party/SDL')
 args=parser.parse_args()
 archive=args.archive.resolve();destination=args.destination.resolve()
-actual=hashlib.sha256(archive.read_bytes()).hexdigest()
+try:
+    actual=hashlib.sha256(archive.read_bytes()).hexdigest()
+except OSError as error:
+    parser.error(f'Cannot read SDL source archive {archive}: {error}. Download SDL3-{VERSION}.tar.gz from https://github.com/libsdl-org/SDL/releases/tag/release-{VERSION}; see README.md.')
 if actual!=EXPECTED:parser.error(f'Archive SHA256 mismatch: {actual}; expected {EXPECTED}')
 if destination.exists():parser.error(f'Destination already exists: {destination}')
 destination.parent.mkdir(parents=True,exist_ok=True)

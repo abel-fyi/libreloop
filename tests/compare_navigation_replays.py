@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from fixture_compare import compare
 import hashlib
 import json
 from pathlib import Path
@@ -14,5 +15,5 @@ for scenario in manifest['scenarios']:
         for name, digest in scenario['files'].items():
             expected = (root / f'{mode}-{scale}' / name).read_bytes()
             assert hashlib.sha256(expected).hexdigest() == digest, f'Frozen reference changed: {name}'
-            assert expected == (Path(directory) / name).read_bytes(), f'Navigation mode{mode} scale{scale} differs: {name}'
-print(f"{len(manifest['scenarios'])} original wheel/precise/momentum/pinch/modifier/pan replays match exactly")
+            compare(expected, (Path(directory) / name).read_bytes(), 'text' if name == 'state.txt' else 'exact', label=f'{mode}-{scale}/{name}')
+print(f"{len(manifest['scenarios'])} original wheel/precise/momentum/pinch/modifier/pan replays match within selected comparison policy")

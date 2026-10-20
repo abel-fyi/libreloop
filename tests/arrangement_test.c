@@ -6,7 +6,8 @@
 #include <string.h>
 #define CHECK(x) do { if(!(x)) { fprintf(stderr,"Failed: %d: %s\n",__LINE__,#x); return 1; } } while(0)
 int main(void) {
-    Project p; project_default(&p); memset(p.clips,0,sizeof p.clips);
+    /* Several Project fixtures exceed Linux's usual 8 MiB stack together. */
+    static Project p; project_default(&p); memset(p.clips,0,sizeof p.clips);
     Arrangement a={.source_pattern=-1,.source_steps=STEPS,.snap=16};
     arrangement_press(&a,&p,1.2,.4,0,0,0,0); arrangement_drag(&a,&p,5.2,1.4); arrangement_release(&a);
     CHECK(p.clips[1][5]==1 && !p.clips[0][1]);
@@ -61,7 +62,7 @@ int main(void) {
     arrangement_press(&a,&p,.2,2.9,0,0,0,1); arrangement_drag(&a,&p,3,3.9); arrangement_release(&a);
     CHECK(a.selected[3][2] && a.selected[3][4]);
     /* Cropping copies never changes the shared editor length or deletes notes. */
-    Project shortened; project_default(&shortened); Arrangement sized={.source_pattern=-1,.source_steps=STEPS};
+    static Project shortened; project_default(&shortened); Arrangement sized={.source_pattern=-1,.source_steps=STEPS};
     arrangement_press(&sized,&shortened,0,.4,0,0,0,0); arrangement_release(&sized);
     shortened.pattern_steps[0]=64;
     arrangement_press(&sized,&shortened,.9,.4,0,1,0,0); arrangement_drag(&sized,&shortened,4,.4);
@@ -73,7 +74,7 @@ int main(void) {
     CHECK(arrangement_edit_steps(&sized,&shortened,1)==16);
     arrangement_drag(&sized,&shortened,100,.4); CHECK(clip_length(&shortened,0,0)==64);
     arrangement_release(&sized);
-    Project fractional; project_default(&fractional);
+    static Project fractional; project_default(&fractional);
     Arrangement precise={.source_pattern=-1,.source_steps=STEPS,.snap=.5f};
     arrangement_press(&precise,&fractional,.1f,.4f,0,0,0,0); arrangement_release(&precise);
     CHECK(fractional.clips[0][0] && fractional.clip_starts[0][0]==.09375f);
@@ -109,7 +110,7 @@ int main(void) {
     span=1000; start=500; timeline_zoom(&span,&start,-1,.25f,1);
     CHECK(fabsf(span-1080)<.001f && fabsf(start-480)<.001f);
     CHECK(timeline_thumb(900,1,1000000)==24 && timeline_thumb(900,100,100)==900);
-    Project long_song; project_default(&long_song); Arrangement unlimited={.source_pattern=-1,.source_steps=STEPS,.snap=1};
+    static Project long_song; project_default(&long_song); Arrangement unlimited={.source_pattern=-1,.source_steps=STEPS,.snap=1};
     arrangement_press(&unlimited,&long_song,5000.25f,.4f,0,0,0,0); arrangement_release(&unlimited);
     int far=arrangement_hit(&long_song,0,5000.5f); CHECK(far>=0 && long_song.clip_starts[0][far]==5000.25f);
     long_song.pattern_steps[0]=100*STEPS;
@@ -117,7 +118,7 @@ int main(void) {
     CHECK(clip_length(&long_song,0,far)==100*STEPS && long_song.pattern_steps[0]==100*STEPS);
     CHECK(note_add(&long_song,0,3,99*STEPS,60,2));
     CHECK(song_steps(&long_song)==5100.25f*STEPS);
-    CHECK(project_save("long-song.llp",&long_song)); Project loaded; CHECK(project_load("long-song.llp",&loaded)); CHECK(project_equal(&long_song,&loaded)); remove("long-song.llp");
+    CHECK(project_save("long-song.llp",&long_song)); static Project loaded; CHECK(project_load("long-song.llp",&loaded)); CHECK(project_equal(&long_song,&loaded)); remove("long-song.llp");
     /* Temporary selection starts over occupied clips without moving or painting. */
     for(int tool=PENCIL;tool<=BRUSH;tool++) {
         precise.tool=tool; precise.source_pattern=2;

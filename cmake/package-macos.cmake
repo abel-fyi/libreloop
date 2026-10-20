@@ -11,7 +11,7 @@ file(COPY "${SOURCE}/docs/licenses" DESTINATION "${BUNDLE}/Contents/Resources")
 file(COPY "${SOURCE}/assets/branding/libreloop.icns" DESTINATION "${BUNDLE}/Contents/Resources")
 if(SDL_LIBRARY)
 get_filename_component(sdl_name "${SDL_LIBRARY}" NAME)
-file(COPY_FILE "${SDL_LIBRARY}" "${BUNDLE}/Contents/Frameworks/${sdl_name}")
+configure_file("${SDL_LIBRARY}" "${BUNDLE}/Contents/Frameworks/${sdl_name}" COPYONLY)
 execute_process(COMMAND /usr/bin/otool -L "${EXECUTABLE}"
   OUTPUT_VARIABLE dependencies RESULT_VARIABLE status)
 if(NOT status EQUAL 0)

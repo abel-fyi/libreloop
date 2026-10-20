@@ -8,56 +8,50 @@ The desktop has an arrangement timeline, pattern and piano-roll editors,
 automation, audio and MIDI recording, a sample browser, and a mixer. It is
 actively developed; expect rough edges and incomplete platform support.
 
-## Build on Gentoo Linux
+## Build
 
-You need GCC or Clang, CMake, Python 3, ALSA development files, and the
-development headers for the SDL window backends you want to use. For X11, SDL
-needs Xlib, Xcursor, Xi, Xrandr, XScreenSaver, and Xxf86vm headers. Wayland
-builds also need Wayland client/protocol, xkbcommon, and EGL development files.
-Enable the `seq` USE flag on `media-libs/alsa-lib` for ALSA MIDI input.
+LibreLoop's application runtime is C11, with SDL3 for desktop services and
+miniaudio for audio. You need a C11 compiler, CMake 3.20+, and the platform
+requirements below. Python 3 is used for source preparation and tests.
 
-LibreLoop builds against SDL 3.4 or newer. CMake does not download dependencies.
-To build SDL from the pinned source archive, download SDL 3.4.16 from the
-[official release](https://github.com/libsdl-org/SDL/releases/tag/release-3.4.16)
-and import it into the checkout. The importer verifies the archive checksum:
+Prepare the pinned SDL source once per checkout (CMake never downloads it):
 
 ```sh
-python3 tools/vendor_sdl.py /path/to/SDL3-3.4.16.tar.gz
+curl --fail --location --output SDL3-3.4.16.tar.gz \
+  https://github.com/libsdl-org/SDL/releases/download/release-3.4.16/SDL3-3.4.16.tar.gz
+python3 tools/vendor_sdl.py SDL3-3.4.16.tar.gz
 ```
 
-Then configure and build the desktop:
+The same commands build the desktop on Linux and macOS:
 
 ```sh
-cmake -S . -B build-linux -DCMAKE_BUILD_TYPE=Release \
-  -DLIBRELOOP_BUILD_DESKTOP=ON -DBUILD_TESTING=OFF
-cmake --build build-linux --parallel
-./build-linux/libreloop
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel 2
 ```
 
-If SDL’s X11 setup reports a missing XScreenSaver dependency and you do not need
-that integration, configure with `-DSDL_X11_XSCRNSAVER=OFF`.
+Run `./build/libreloop` on Linux or `open build/LibreLoop.app` on macOS.
+Tests are enabled with `-DBUILD_TESTING=ON`. An installed SDL SDK can be selected
+with `-DLIBRELOOP_USE_SYSTEM_SDL=ON` instead of importing source.
 
-The Linux desktop has compiled with GCC 15 on Gentoo. Audio and MIDI use ALSA;
-actual device access depends on the host setup. Other distributions and BSDs
-have not yet been verified.
+### Linux / Gentoo
 
-## Build on macOS
+Install ALSA development files and the headers for SDL's window backends. For
+X11, SDL needs Xlib, Xcursor, Xi, Xrandr, XScreenSaver and Xxf86vm headers.
+Wayland builds also need Wayland client/protocol, xkbcommon and EGL development
+files. Enable the `seq` USE flag on `media-libs/alsa-lib` for MIDI input.
+If XScreenSaver support is unavailable, `-DSDL_X11_XSCRNSAVER=OFF` disables it.
+Audio uses miniaudio's available host backends; MIDI currently uses ALSA.
 
-The current development recipe uses AppleClang, CMake, and an installed SDL3 SDK:
+### macOS
 
-```sh
-cmake -S . -B build-sdl-validation -DCMAKE_BUILD_TYPE=Release \
-  -DLIBRELOOP_VALIDATE_SYSTEM_SDL=ON \
-  -DCMAKE_PREFIX_PATH=/opt/homebrew/opt/sdl3 \
-  -DCMAKE_OSX_SYSROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX15.4.sdk \
-  -DCMAKE_OSX_DEPLOYMENT_TARGET=15.4
-cmake --build build-sdl-validation --target libreloop --parallel
-open build-sdl-validation/LibreLoop.app
-```
+Install Xcode Command Line Tools (`xcode-select --install`). CMake selects the
+SDK; native builds default to the host macOS deployment target. An older target
+must be selected and verified explicitly. SDL handles desktop input, including
+pinch gestures; LibreLoop has no Objective-C runtime sources.
 
-The installed SDL runtime used for this development build requires macOS 26.
-This is a developer setup, not a shipping package. See
-[platform notes](docs/toolchains.md) for current verification and limitations.
+See [building and platform policy](docs/building.md) for dependencies, system-SDL
+builds, installation, core-only builds and verification scope. See
+[Linux validation](docs/linux-testing.md) for tests and sanitizer commands.
 
 ## Project notes
 

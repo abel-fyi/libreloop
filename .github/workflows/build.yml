@@ -1,0 +1,86 @@
+name: Build and test
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  core:
+    name: Core (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-14]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure without desktop dependencies
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DLIBRELOOP_BUILD_DESKTOP=OFF -DBUILD_TESTING=ON
+      - name: Build
+        run: cmake --build build --parallel 2
+      - name: Test
+        run: ctest --test-dir build --output-on-failure --parallel 2 --timeout 180
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: core-test-logs-${{ matrix.os }}
+          path: build/Testing/Temporary/
+  desktop:
+    name: Desktop (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux development dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libasound2-dev libpulse-dev libpipewire-0.3-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev libxkbcommon-dev libwayland-dev wayland-protocols libdecor-0-dev libegl1-mesa-dev libgl1-mesa-dev libudev-dev xvfb
+      - name: Import pinned SDL source
+        run: |
+          curl --fail --location --retry 3 --output SDL3-3.4.16.tar.gz https://github.com/libsdl-org/SDL/releases/download/release-3.4.16/SDL3-3.4.16.tar.gz
+          python3 tools/vendor_sdl.py SDL3-3.4.16.tar.gz
+      - name: Configure and build
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+          cmake --build build --parallel 2
+      - name: Test
+        run: ctest --test-dir build --output-on-failure --parallel 2 --timeout 180
+      - name: Exercise X11 window backend
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p build/x11-smoke
+          cd build/x11-smoke
+          xvfb-run -a env SDL_VIDEODRIVER=x11 SDL_RENDER_DRIVER=software ../libreloop --smoke --visual-preview
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: desktop-test-logs-${{ matrix.os }}
+          path: build/Testing/Temporary/
+  linux-sanitizers:
+    runs-on: ubuntu-24.04
+    env:
+      ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure Clang with address and undefined behavior checks
+        run: >-
+          cmake -S . -B build -DCMAKE_C_COMPILER=clang
+          -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS_DEBUG="-O1 -g"
+          -DLIBRELOOP_BUILD_DESKTOP=OFF -DBUILD_TESTING=ON
+          -DCMAKE_C_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+      - name: Build and test
+        run: |
+          cmake --build build --parallel 2
+          ctest --test-dir build --output-on-failure --parallel 2 --timeout 300
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: linux-sanitizer-test-logs
+          path: build/Testing/Temporary/

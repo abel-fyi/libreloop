@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import gzip
+from fixture_compare import compare
 import hashlib
 import json
 from pathlib import Path
@@ -14,5 +15,6 @@ with tempfile.TemporaryDirectory(prefix='libreloop-input-parity-') as directory:
     for name, digest in manifest['files'].items():
         expected = gzip.decompress((root/(name+'.gz')).read_bytes()) if manifest.get('compression',{}).get(name)=='gzip' else (root/name).read_bytes()
         assert hashlib.sha256(expected).hexdigest() == digest, f'Original reference changed: {name}'
-        assert expected == (Path(directory) / name).read_bytes(), f'Input frame behavior differs: {name}'
-print('Original key/button/queue/pointer/wheel frame behavior matches exactly')
+        kind = 'pcm' if root.name == 'sampler-service' and name == 'published.f32' else 'geometry' if root.name == 'host-helpers' and name == 'bezier.bin' else 'exact'
+        compare(expected, (Path(directory) / name).read_bytes(), kind, label=f'{root.name}/{name}')
+print('Original key/button/queue/pointer/wheel frame behavior matches selected comparison policy')

@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "window.h"
 #include "input_sdl.h"
-#ifdef __APPLE__
-#include "input_macos.h"
-#endif
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -18,18 +15,12 @@ struct PlatformWindow {
     SDL_Cursor *horizontal_cursor,*vertical_cursor,*hand_cursor;
     int requested_cursor;
     WindowDrops pending,building;
-#ifdef __APPLE__
-    NativeInputMac *monitor;
-#endif
 };
 PlatformWindow *platform_window_create(const char *title,int hidden) {
     SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS,"0");
     if(!SDL_Init(SDL_INIT_VIDEO))return NULL;
     PlatformWindow *window=calloc(1,sizeof *window);if(!window){SDL_QuitSubSystem(SDL_INIT_VIDEO);return NULL;}
-    SDL_WindowFlags flags=SDL_WINDOW_RESIZABLE|(hidden?SDL_WINDOW_HIDDEN:0);
-#ifdef __APPLE__
-    flags|=SDL_WINDOW_HIGH_PIXEL_DENSITY;
-#endif
+    SDL_WindowFlags flags=SDL_WINDOW_RESIZABLE|SDL_WINDOW_HIGH_PIXEL_DENSITY|(hidden?SDL_WINDOW_HIDDEN:0);
     int width=1200,height=675,minw=900,minh=506;
 #ifdef _WIN32
     float content=SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());if(!isfinite(content) || content<=0)content=1;
@@ -44,14 +35,7 @@ PlatformWindow *platform_window_create(const char *title,int hidden) {
     input_init(&window->input);
     window->input.focused=(SDL_GetWindowFlags(window->native)&SDL_WINDOW_INPUT_FOCUS)!=0;
     window->wake_event=SDL_RegisterEvents(1);if(!window->wake_event)goto fail;
-#ifdef __APPLE__
-    void *ns_window=SDL_GetPointerProperty(SDL_GetWindowProperties(window->native),SDL_PROP_WINDOW_COCOA_WINDOW_POINTER,NULL);
-    window->monitor=platform_macos_input_create(ns_window,window->wake_event);
-    if(ns_window && !window->monitor)goto fail;
-    input_sdl_init(&window->adapter,&window->input,window->monitor!=NULL);
-#else
-    input_sdl_init(&window->adapter,&window->input,0);
-#endif
+    input_sdl_init(&window->adapter,&window->input);
     if(!SDL_StartTextInput(window->native))goto fail;
     window->horizontal_cursor=SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_EW_RESIZE);
     window->vertical_cursor=SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NS_RESIZE);
@@ -65,9 +49,6 @@ void platform_window_drops_free(WindowDrops drops) {
 }
 void platform_window_destroy(PlatformWindow *window) {
     if(!window)return;
-#ifdef __APPLE__
-    platform_macos_input_destroy(window->monitor);
-#endif
     platform_window_drops_free(window->pending);platform_window_drops_free(window->building);
     SDL_DestroyCursor(window->horizontal_cursor);SDL_DestroyCursor(window->vertical_cursor);SDL_DestroyCursor(window->hand_cursor);
     draw_destroy(window->draw);SDL_DestroyRenderer(window->renderer);SDL_DestroyWindow(window->native);
@@ -113,9 +94,7 @@ WindowGeometry platform_window_geometry(PlatformWindow *window) {
     geometry.layout_scale=fmaxf(1,fminf(geometry.width/1200.f,geometry.height/675.f));
     geometry.raster_scale=geometry.layout_scale*(geometry.width>0 && geometry.pixel_width>0?geometry.pixel_width/(float)geometry.width:1);
     geometry.dpi_x=geometry.dpi_y=SDL_GetWindowDisplayScale(window->native);
-#if defined(__APPLE__) || defined(_WIN32)
-    geometry.dpi_scissor=1;
-#endif
+    geometry.dpi_scissor=geometry.pixel_width!=geometry.width || geometry.pixel_height!=geometry.height;
     return geometry;
 }
 static void event(PlatformWindow *window,const SDL_Event *native) {
@@ -135,6 +114,11 @@ static void event(PlatformWindow *window,const SDL_Event *native) {
     case SDL_EVENT_MOUSE_MOTION:input_window=native->motion.windowID;break;
     case SDL_EVENT_MOUSE_BUTTON_DOWN:case SDL_EVENT_MOUSE_BUTTON_UP:input_window=native->button.windowID;break;
     case SDL_EVENT_MOUSE_WHEEL:input_window=native->wheel.windowID;break;
+    case SDL_EVENT_PINCH_BEGIN:case SDL_EVENT_PINCH_UPDATE:case SDL_EVENT_PINCH_END:
+        input_window=native->pinch.windowID;
+        /* Some desktop backends deliver gestures without a window ID. */
+        if(!input_window && SDL_GetKeyboardFocus()!=window->native)return;
+        break;
     default:break;
     }
     if(input_window && input_window!=id)return;
@@ -148,10 +132,8 @@ static void event(PlatformWindow *window,const SDL_Event *native) {
         memcpy(copy,native->drop.data,length+1);
         char **paths=realloc(window->building.paths,(size_t)(window->building.count+1)*sizeof *paths);
         if(!paths){free(copy);return;}window->building.paths=paths;paths[window->building.count++]=copy;
-#if defined(__APPLE__) || defined(_WIN32)
-        /* Original GLFW Cocoa performDragOperation updates cursor first. */
+        /* SDL supplies drop coordinates on every desktop backend. */
         InputEvent pointer={.kind=INPUT_POINTER,.data.pointer={native->drop.x,native->drop.y}};input_event(&window->input,&pointer);
-#endif
         return;
     }
     case SDL_EVENT_DROP_COMPLETE:
@@ -163,18 +145,12 @@ static void event(PlatformWindow *window,const SDL_Event *native) {
 }
 int platform_window_events(PlatformWindow *window,int timeout_ms) {
     input_begin(&window->input,SDL_GetTicksNS());window->resized=0;
-#ifdef __APPLE__
-    platform_macos_input_begin(window->monitor);
-#endif
     SDL_Event native;int count=0;
     if(timeout_ms!=0) {
         int received=timeout_ms<0?SDL_WaitEvent(&native):SDL_WaitEventTimeout(&native,timeout_ms);
         if(received){event(window,&native);count++;}
     }
     while(SDL_PollEvent(&native)){event(window,&native);count++;}
-#ifdef __APPLE__
-    if(window->monitor)window->input.scroll=platform_macos_input_poll(window->monitor);
-#endif
     /* UI timers observe the completed poll/wait, not its earlier start. */
     window->input.frame_timestamp_ns=SDL_GetTicksNS();
 #ifdef _WIN32

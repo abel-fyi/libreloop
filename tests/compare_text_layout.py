@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Compare geometry/metrics/bitmap against the pinned original, without GL."""
+from fixture_compare import compare
 import hashlib
 import json
 from pathlib import Path
@@ -15,5 +16,5 @@ with tempfile.TemporaryDirectory(prefix='libreloop-text-layout-') as directory:
     for name, digest in manifest['files'].items():
         expected = (root / name).read_bytes()
         assert hashlib.sha256(expected).hexdigest() == digest, f'Original reference changed: {name}'
-        assert expected == (Path(directory) / name).read_bytes(), f'Text layout differs: {name}'
-print(manifest.get('description', 'Original bitmap fallback and 160 text layout cases match exactly'))
+        compare(expected, (Path(directory) / name).read_bytes(), 'text' if name == 'layout.txt' else 'exact', label=name)
+print(manifest.get('description', 'Original bitmap fallback and 160 text layout cases match within selected comparison policy'))

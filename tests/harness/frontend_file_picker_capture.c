@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
+#define _XOPEN_SOURCE 700
 #include "../../src/ui/frontend/ui_internal.h"
 UiState ui;
 #define FIXTURE_COLOR DrawColor

@@ -2,8 +2,8 @@
 #include "input_sdl.h"
 #include "utf8.h"
 #include <string.h>
-void input_sdl_init(InputSDL *adapter,AppInput *input,int native_scroll) {
-    *adapter=(InputSDL){.input=input,.native_scroll=native_scroll};
+void input_sdl_init(InputSDL *adapter,AppInput *input) {
+    *adapter=(InputSDL){.input=input};
 }
 int input_sdl_key(SDL_Scancode code) {
     if(code>=SDL_SCANCODE_A && code<=SDL_SCANCODE_Z)return 'A'+code-SDL_SCANCODE_A;
@@ -74,10 +74,13 @@ int input_sdl_event(InputSDL *adapter,const SDL_Event *native) {
         event.data.button.button=b;event.data.button.action=action;break;
     }
     case SDL_EVENT_MOUSE_WHEEL:
-        /* The Cocoa monitor supplies both the original scalar path and raw
-           precise path. Never apply SDL's differently-scaled duplicate. */
-        if(adapter->native_scroll)return 1;
+        /* SDL supplies normalized fractional wheel units on every backend,
+           including the user's natural-scrolling preference. */
         event.kind=INPUT_WHEEL;event.data.scroll.x=native->wheel.x;event.data.scroll.y=native->wheel.y;break;
+    case SDL_EVENT_PINCH_UPDATE:
+        event.kind=INPUT_MAGNIFY;event.data.magnification=(double)native->pinch.scale-1;break;
+    case SDL_EVENT_PINCH_BEGIN:case SDL_EVENT_PINCH_END:
+        return 1;
     case SDL_EVENT_WINDOW_FOCUS_LOST:
         /* GLFW releases physically held keys/buttons on focus loss. Track the
            raw held state separately from the legacy lock-key query state. */

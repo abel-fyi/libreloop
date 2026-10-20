@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "input_sdl.h"
 #include <stdio.h>
+#include <math.h>
 #define CHECK(x) do { if(!(x)){fprintf(stderr,"SDL input line%d: %s\n",__LINE__,#x);return 1;} } while(0)
 static void key(InputSDL *adapter,SDL_Scancode code,int down,int repeat,SDL_Keymod mods) {
     SDL_Event event={0};event.type=down?SDL_EVENT_KEY_DOWN:SDL_EVENT_KEY_UP;
@@ -9,7 +10,7 @@ static void key(InputSDL *adapter,SDL_Scancode code,int down,int repeat,SDL_Keym
     event.key.key=SDLK_Q;input_sdl_event(adapter,&event);
 }
 int main(void) {
-    AppInput input;input_init(&input);InputSDL adapter;input_sdl_init(&adapter,&input,0);
+    AppInput input;input_init(&input);InputSDL adapter;input_sdl_init(&adapter,&input);
     for(int i=0;i<26;i++)CHECK(input_sdl_key(SDL_SCANCODE_A+i)=='A'+i);
     for(int i=0;i<9;i++)CHECK(input_sdl_key(SDL_SCANCODE_1+i)=='1'+i);
     CHECK(input_sdl_key(SDL_SCANCODE_0)=='0');CHECK(input_sdl_key(SDL_SCANCODE_UNKNOWN)==-1);
@@ -38,9 +39,24 @@ int main(void) {
     CHECK(input_key_released(&input,'A'));CHECK(input_button_released(&input,1));CHECK(input_button_released(&input,2));
     CHECK(input_key_down(&input,APP_KEY_CAPS_LOCK));CHECK(!input.focused);
     event.type=SDL_EVENT_WINDOW_FOCUS_GAINED;input_sdl_event(&adapter,&event);CHECK(input.focused);
-    input_begin(&input,400);input_sdl_init(&adapter,&input,1);
-    InputEvent native={.kind=INPUT_NATIVE_SCROLL,.data.scroll={4.125,8.25,1}};input_event(&input,&native);
-    event=(SDL_Event){0};event.type=SDL_EVENT_MOUSE_WHEEL;event.wheel.x=99;event.wheel.y=99;input_sdl_event(&adapter,&event);
-    CHECK(input.scroll.native.x==4.125f && input.scroll.native.y==8.25f);CHECK(input.scroll.wheel.y==(float)(8.25*.1));
-    puts("SDL physical keys, repeats, UTF8 queue, buttons, focus releases and wheel boundary passed");return 0;
+    input_begin(&input,400);
+    event=(SDL_Event){0};event.type=SDL_EVENT_PINCH_BEGIN;input_sdl_event(&adapter,&event);
+    CHECK(input.scroll.native.zoom==0);
+    event.type=SDL_EVENT_PINCH_UPDATE;event.pinch.scale=1.08f;input_sdl_event(&adapter,&event);
+    CHECK(fabsf(scroll_input_navigation(&input.scroll).zoom-1)<.00001f);
+    event.pinch.scale=1/1.08f;input_sdl_event(&adapter,&event);
+    CHECK(fabsf(scroll_input_navigation(&input.scroll).zoom)<.00001f);
+    event.pinch.scale=0;input_sdl_event(&adapter,&event);
+    event.pinch.scale=-1;input_sdl_event(&adapter,&event);
+    event.pinch.scale=NAN;input_sdl_event(&adapter,&event);
+    CHECK(isfinite(input.scroll.native.zoom) && fabsf(input.scroll.native.zoom)<.00001f);
+    event.pinch.scale=1.08f;input_sdl_event(&adapter,&event);
+    event.type=SDL_EVENT_PINCH_END;input_sdl_event(&adapter,&event);
+    CHECK(fabsf(input.scroll.native.zoom-1)<.00001f);
+    event=(SDL_Event){0};event.type=SDL_EVENT_MOUSE_WHEEL;event.wheel.x=.25f;event.wheel.y=-.5f;
+    input_sdl_event(&adapter,&event);
+    CHECK(input.scroll.wheel.x==.25f && input.scroll.wheel.y==-.5f);
+    CHECK(fabsf(scroll_input_navigation(&input.scroll).zoom-1)<.00001f);
+    input_begin(&input,500);CHECK(scroll_input_navigation(&input.scroll).zoom==0);
+    puts("SDL physical keys, repeats, UTF8 queue, focus, fractional wheel and pinch boundary passed");return 0;
 }

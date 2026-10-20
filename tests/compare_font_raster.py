@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from fixture_compare import compare
 import hashlib
 import json
 from pathlib import Path
@@ -15,5 +16,5 @@ for scenario in manifest['scenarios']:
         for name, digest in scenario['files'].items():
             expected = (root / str(size) / name).read_bytes()
             assert hashlib.sha256(expected).hexdigest() == digest, f'Original glyph reference changed: {size}/{name}'
-            assert expected == (Path(directory) / name).read_bytes(), f'Font bitmap/metrics differ: {size}/{name}'
-print(f"{len(manifest['scenarios'])} original font raster sizes match bitmap bytes and metrics exactly")
+            compare(expected, (Path(directory) / name).read_bytes(), 'raster' if name in ('glyphs.bin', 'atlas.bin') else 'exact', label=f'{size}/{name}')
+print(f"{len(manifest['scenarios'])} original font raster sizes pass selected comparison policy")
