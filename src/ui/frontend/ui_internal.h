@@ -406,6 +406,7 @@ int symbol(const char *text,int x,int y,DrawColor c);
 int button_available(const char *text,int x,int y,int w,int h,int active,int enabled);
 int button_color(const char *text,int x,int y,int w,int h,int active,DrawColor base);
 int button(const char *text,int x,int y,int w,int h,int active);
+int segmented_switch(const char *first,const char *second,DrawRect bounds,int selected,int enabled,DrawColor selection);
 int choice_button(const char *text,int x,int y,int w,int h);
 int drag_button(const char *text,int x,int y,int w,int h,int active);
 int color_picker(int x,int y,int width,uint32_t selected);

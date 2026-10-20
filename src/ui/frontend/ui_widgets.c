@@ -239,6 +239,24 @@ static int button_color_state(const char *text,int x,int y,int w,int h,int activ
     return activate || (over && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT));
 }
 
+/* One shared frame, two explicit choices; clicking the current choice is inert. */
+int segmented_switch(const char *first,const char *second,DrawRect r,int selected,int enabled,DrawColor selection) {
+    selected=!!selected;
+    if(ui.studio_style && !ui.profile_flat)ui_button_face(host_draw(),r,cell,0);
+    else {ui_surface(host_draw(),r,cell);draw_border(host_draw(),r,1,ui_theme.border);}
+    float half=r.width/2;
+    ui_surface(host_draw(),(DrawRect){r.x+selected*half+1,r.y+1,half-2,r.height-2},selection);
+    host_draw_line(r.x+half,r.y+1,r.x+half,r.y+r.height-2,ui_theme.border);
+    const char *captions[]={first,second};
+    for(int side=0;side<2;side++) {
+        DrawColor surface=side==selected?selection:cell;
+        label(captions[side],r.x+side*half+(half-text_width(captions[side],UI_TEXT_SIZE))/2,
+              r.y+(r.height-UI_TEXT_SIZE)/2,UI_TEXT_SIZE,enabled?theme_foreground(surface):muted);
+    }
+    if(enabled && hover(r.x,r.y,r.width,r.height) && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT))return ui.mouse.x>=r.x+half;
+    return selected;
+}
+
 int button_color(const char *text,int x,int y,int w,int h,int active,DrawColor base) {
     return button_color_state(text,x,y,w,h,active,base,1);
 }

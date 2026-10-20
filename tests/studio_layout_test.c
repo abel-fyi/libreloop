@@ -55,7 +55,9 @@ int main(void) {
             CHECK(all[i].x>=0 && all[i].y>=0 && all[i].x+all[i].w<=widths[n] && all[i].y+all[i].h<=58);
             for(int j=i+1;j<count;j++)CHECK(!overlap(all[i],all[j]));
         }
-        if(widths[n]==1448){CHECK(t.spectrum.w==120 && t.levels.w==104);CHECK(t.levels.x+t.levels.w==1156);}
+        if(widths[n]==1448){CHECK(t.spectrum.w==120 && t.levels.w==104);CHECK(t.levels.x+t.levels.w==1172);}
+        CHECK(t.mode.x+t.mode.w+6==t.play.x);
+        CHECK(t.play.x+t.play.w<t.stop.x && t.stop.x+t.stop.w<t.record.x);
         CHECK(t.pitch.x>t.menus[1].x+t.menus[1].w);
         CHECK(t.volume.x>t.pitch.x+t.pitch.w && t.stop.x>t.volume.x+t.volume.w);
     }

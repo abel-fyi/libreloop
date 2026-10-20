@@ -556,19 +556,18 @@ int main(int argc,char **argv) {
         if(hover(pitch_x-11,cy-11,22,22) || ui.control_drag==&ui.project.master_pitch) snprintf(ui.status,sizeof ui.status,"Master pitch: %+.2f semitones (sample speed; right-click to enter)",ui.project.master_pitch);
         knob_style(volume_x,cy,&ui.output_volume,0,VOLUME_KNOB_MAX,1,"LibreLoop output volume",KNOB_VOLUME);
         if(hover(volume_x-11,cy-11,22,22) || ui.control_drag==&ui.output_volume) snprintf(ui.status,sizeof ui.status,"LibreLoop output volume: listening level; Master and WAV export unchanged");
-        if(button("",mode_x,ty,mode_w,th,0) && !recording_active()) {
-            desktop_playback_mode(!ui.song);
-        }
-        host_draw_rectangle(mode_x,ty,mode_w,th/2,ui.song?cell:ui.studio_style?ui_theme.meter_mid:ui_theme.patt);
-        host_draw_rectangle(mode_x,ty+th/2,mode_w,th/2,ui.song?accent:cell);
         if(ui.studio_style) {
-            ui_bevel(host_draw(),(DrawRect){mode_x,ty,mode_w,th/2},!ui.song);
-            ui_bevel(host_draw(),(DrawRect){mode_x,ty+th/2,mode_w,th/2},ui.song);
-            host_draw_rectangle(mode_x+4,ty+(ui.song?th/2:0)+5,3,th/2-10,ui.song?ui_theme.meter_low:ui_theme.meter_mid);
+            label("PLAYBACK",mode_x+(mode_w-text_width("PLAYBACK",UI_TEXT_SIZE))/2,ty,UI_TEXT_SIZE,muted);
+            int song=segmented_switch("PATT","SONG",(DrawRect){mode_x,ty+16,mode_w,th-16},ui.song,!recording_active(),ui.song?ui_theme.meter_low:ui_theme.meter_mid);
+            desktop_playback_mode(song);
+        } else {
+            if(button("",mode_x,ty,mode_w,th,0) && !recording_active())desktop_playback_mode(!ui.song);
+            host_draw_rectangle(mode_x,ty,mode_w,th/2,ui.song?cell:ui_theme.patt);
+            host_draw_rectangle(mode_x,ty+th/2,mode_w,th/2,ui.song?accent:cell);
+            label("PATT",mode_x+(mode_w-text_width("PATT",10))/2,ty+(th/2-10)/2,10,ui.song?muted:ui_theme.selected_text);
+            label("SONG",mode_x+(mode_w-text_width("SONG",10))/2,ty+th/2+(th/2-10)/2,10,ui.song?ui_theme.selected_text:muted);
         }
-        label("PATT",mode_x+(mode_w-text_width("PATT",10))/2,ty+(th/2-(ui.studio_style?UI_TEXT_SIZE:10))/2,10,ui.song?muted:ui_theme.selected_text);
-        label("SONG",mode_x+(mode_w-text_width("SONG",10))/2,ty+th/2+(th/2-(ui.studio_style?UI_TEXT_SIZE:10))/2,10,ui.song?ui_theme.selected_text:muted);
-        if(hover(mode_x,ty,mode_w,th)) snprintf(ui.status,sizeof ui.status,"Playback source: Pattern (orange) / Song (green); editor tabs change the view independently");
+        if(hover(mode_x,ty,mode_w,th)) snprintf(ui.status,sizeof ui.status,ui.studio_style?"Playback: choose what Play runs; VIEW changes the editor independently":"Playback source: Pattern (orange) / Song (green); editor tabs change the view independently");
         int transport_active=ui.playing || audio_preview_position(ui.audition)>=0 || audio_key_position(127,ui.instrument_channel)>=0;
         if(button(ui.studio_style?"":transport_active?"||":">",play_x,ty,tw,th,transport_active)) transport_toggle();
         if(ui.studio_style)icon_button_state(transport_active?ICON_PAUSE:ICON_PLAY,(DrawRect){play_x,ty,tw,th},ink,transport_active,1);

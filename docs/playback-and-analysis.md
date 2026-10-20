@@ -1,8 +1,10 @@
 # Playback, editor pages and analysis
 
-The toolbar PATT / SONG control selects the playback source. It does not change
-editor pages. Arrangement / Pattern tabs in the editor title bar select and
-focus a page without changing playback, position or transport reset state.
+The toolbar PLAYBACK · PATT / SONG switch sits immediately beside Play and
+selects the playback source. The merged VIEW · Pattern / Arrangement switch in
+the editor title bar selects and focuses a page without changing playback,
+position or transport reset state. Both controls select the clicked half
+directly; clicking the already selected half does not toggle it.
 Views remain switchable during recording; playback mode changes remain blocked.
 Editing a ruler on the inactive page changes that page's start/loop markers
 without switching playback or seeking the active source. Existing per-page

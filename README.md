@@ -55,9 +55,10 @@ builds, installation, core-only builds and verification scope. See
 
 ## Playback and editing
 
-The toolbar's **PATT / SONG** switch chooses what plays. **Arrangement / Pattern**
-tabs at the upper-left of the editor choose what you see independently, so you
-can edit a pattern while the song keeps playing.
+The **PLAYBACK · PATT / SONG** switch beside Play chooses what plays. The merged
+**VIEW · Pattern / Arrangement** switch at the editor's upper-left chooses what
+you see independently, so you can edit a pattern while the song keeps playing.
+Click either half to select it directly.
 
 ## Project notes
 

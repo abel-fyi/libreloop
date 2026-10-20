@@ -710,7 +710,7 @@ void draw_context_content(void) {
         if(hover(x+4,y+54,w-8,24)) snprintf(ui.status,sizeof ui.status,"Delete this pattern and all its Playlist clips; the last pattern becomes blank");
     } else if(kind==1 && ui.windows.workspace.enabled) {
         if(target>=4 && button("Close editor",x+4,y+4,w-8,24,0)){studio_workspace_hide(&ui.windows,target);ui.context_kind=0;}
-        else if(target<4)label(target==3?"Resize using divider":"Use editor tabs above",x+8,y+12,11,muted);
+        else if(target<4)label(target==3?"Resize using divider":"Use View switch above",x+8,y+12,11,muted);
     } else if(kind==1) {
         if(button("Stay on top",x+4,y+4,w-8,24,ui.windows.editors[target].pinned)) { windows_pin(&ui.windows,target); ui.context_kind=0; }
         if(button(ui.windows.editors[target].maximized?"Restore":"Maximize",x+4,y+29,w-8,24,0)) {
