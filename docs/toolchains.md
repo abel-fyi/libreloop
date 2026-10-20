@@ -10,7 +10,7 @@ library is a test/measurement tool, not an application runtime dependency.
 | macOS arm64 | AppleClang21, CMake4.4.3, SDK15.4, C11 | Developer installed-SDL desktop and tests pass on macOS26.6.2 |
 | macOS x86_64 offline core | AppleClang21 cross-target, SDK15.4, C11 | Engine/audio/platform services and test executables compile/link; execution unavailable (`Bad CPU type`); no desktop or audio-parity claim |
 | macOS vendored/static | AppleClang, CMake; explicit deployment target | Build wiring/import verification prepared; SDL source unavailable, not built |
-| Linux | C11 GCC/Clang, CMake, OS ALSA development API and SDL native window libraries | Source/recipe prepared; no Linux compiler/runtime verification on this host |
+| Linux | Gentoo x86_64, GCC 15.3, CMake 4.3, pinned SDL 3.4.16 static, ALSA | Desktop compiles and links; actual GUI/audio/MIDI session not verified here |
 | Windows x64 | MinGW-w64 UCRT C11 candidate, CMake, native WinMM/WASAPI | Native source candidates only; no Windows compiler/SDK/runtime verification |
 | Windows MSVC | Requires separate C11 atomic/toolchain checks | Not claimed supported or verified; do not silently substitute mutex atomics |
 
@@ -40,6 +40,10 @@ cmake -S . -B build-desktop -DCMAKE_BUILD_TYPE=Release \
 cmake --build build-desktop --parallel
 cmake --install build-desktop --prefix /path/to/staging
 ```
+
+For Gentoo package prerequisites and the Linux desktop invocation, see the
+Gentoo Linux section in the README. The Linux recipe imports the same pinned
+SDL archive and builds it statically; no system SDL3 package is required.
 
 On macOS, additionally set the SDK/deployment target explicitly. The static
 bundle packages assets/notices without copying a shared SDL runtime. Its minimum

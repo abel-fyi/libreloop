@@ -206,7 +206,7 @@ static void callback(ma_device *d, void *out, const void *in, ma_uint32 frames) 
         visual_time=monotonic_time(); visual_frames=frames;
         double step_frames=RATE*60.0/project.bpm/4;
         visual_start=(player.loop_end?player.loop_start:player.song?0:player.start_step)*step_frames;
-        float end=player.loop_end?player.loop_end:player.song?playback.song_end:project.pattern_steps[player.pattern];
+        float end=player.loop_end?player.loop_end:player.song?playback.song_end:pattern_playback_steps(&project,player.pattern);
         if(visual_start>=end*step_frames) visual_start=0;
         visual_end=(recording.active || atomic_load(&midi_recording))?INFINITY:end*step_frames;
     }

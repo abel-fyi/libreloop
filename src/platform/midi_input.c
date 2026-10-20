@@ -61,6 +61,7 @@ int midi_input_open(const char *id,char error[256]) {
 #include "midi_winmm.inc"
 #else
 #include <alsa/asoundlib.h>
+#include <alloca.h>
 #include <pthread.h>
 #include <poll.h>
 #include <errno.h>

@@ -399,6 +399,15 @@ float clip_length(const Project *p,int lane,int bar) {
     if(AUDIO_SOURCE(source)) return audio_clip_steps(p,lane,bar);
     return length?length:STEPS;
 }
+float pattern_playback_steps(const Project *p,int pattern) {
+    float end=0,limit=p->pattern_steps[pattern];
+    for(int c=0;c<p->channel_count;c++) for(int i=0;i<NOTES;i++) {
+        Note n=p->notes[pattern][c][i];
+        if(n.velocity && n.start<limit)
+            end=fmaxf(end,fminf(limit,n.start+(n.length?n.length:1)));
+    }
+    return fmaxf(STEPS,ceilf(end/STEPS)*STEPS);
+}
 float song_steps(const Project *p) {
     float end=STEPS;
     for(int l=0;l<LANES;l++) for(int b=0;b<CLIPS;b++) if(p->clips[l][b] && p->clip_starts[l][b]*STEPS+clip_length(p,l,b)>end) end=p->clip_starts[l][b]*STEPS+clip_length(p,l,b);
@@ -492,6 +501,7 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
     memcpy(effect_audible,plan->effect_audible,sizeof effect_audible);
     memcpy(channel_audible,plan->channel_audible,sizeof channel_audible);
     float end=loop?p->loop_end:p->song?plan->song_end:pr->pattern_steps[p->pattern];
+    if(sequence && !loop && !p->song) end=pattern_playback_steps(pr,p->pattern);
     if(end<=begin) begin=0;
     double stepframes=RATE*60.0/pr->bpm/4/96,pitch_speed=pow(2,pr->master_pitch/12.0);
     uint64_t begin_frame=(uint64_t)llround(begin*stepframes*96),end_frame=(uint64_t)llround(end*stepframes*96);

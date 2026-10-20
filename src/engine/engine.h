@@ -189,6 +189,8 @@ float clip_source_steps(const Project *p,int source);
 float clip_offset_steps(const Project *p,int lane,int clip);
 float clip_length(const Project *p,int lane,int bar);
 float song_steps(const Project *p);
+/* PATT playback ends at the last occupied bar; editing capacity is independent. */
+float pattern_playback_steps(const Project *p,int pattern);
 typedef struct { const Project *project; int channel; unsigned count; uint16_t clips[LANES*CLIPS]; } AudioTimeline;
 void audio_timeline_init(AudioTimeline *map,const Project *p,int channel);
 double audio_timeline_source(const AudioTimeline *map,double start,double end);

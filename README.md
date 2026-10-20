@@ -1,21 +1,49 @@
 # LibreLoop
 
-LibreLoop is a self-contained C11 digital audio workstation with built-in
-instruments and effects, audio/MIDI recording, automation, a piano roll and an
-arrangement timeline. Its SDL3 interface uses a compact, colorful desktop style
-and the openly licensed PxPlus IBM VGA 8x16 font.
+LibreLoop is a digital audio workstation I’m building for myself and sharing
+under the GPL-3.0-only license. It is written in C11, runs locally, and has
+built-in instruments and effects instead of external plugin formats.
 
-[Luice](docs/luice.md), LibreLoop’s GUI framework, uses a fixed 64-color paint
-palette and shared flat materials.
+The desktop has an arrangement timeline, pattern and piano-roll editors,
+automation, audio and MIDI recording, a sample browser, and a mixer. It is
+actively developed; expect rough edges and incomplete platform support.
 
-LibreLoop does not host external plugin formats. Instruments and effects are
-part of the application. The application source is GPL-3.0-only; bundled
-components, fonts and artwork retain their own documented licenses.
+## Build on Gentoo Linux
 
-## Build and run
+You need GCC or Clang, CMake, Python 3, ALSA development files, and the
+development headers for the SDL window backends you want to use. For X11, SDL
+needs Xlib, Xcursor, Xi, Xrandr, XScreenSaver, and Xxf86vm headers. Wayland
+builds also need Wayland client/protocol, xkbcommon, and EGL development files.
+Enable the `seq` USE flag on `media-libs/alsa-lib` for ALSA MIDI input.
 
-The currently verified desktop development configuration is macOS arm64 with
-AppleClang, CMake and an installed SDL3 SDK. From this repository:
+LibreLoop builds against SDL 3.4 or newer. CMake does not download dependencies.
+To build SDL from the pinned source archive, download SDL 3.4.16 from the
+[official release](https://github.com/libsdl-org/SDL/releases/tag/release-3.4.16)
+and import it into the checkout. The importer verifies the archive checksum:
+
+```sh
+python3 tools/vendor_sdl.py /path/to/SDL3-3.4.16.tar.gz
+```
+
+Then configure and build the desktop:
+
+```sh
+cmake -S . -B build-linux -DCMAKE_BUILD_TYPE=Release \
+  -DLIBRELOOP_BUILD_DESKTOP=ON -DBUILD_TESTING=OFF
+cmake --build build-linux --parallel
+./build-linux/libreloop
+```
+
+If SDL’s X11 setup reports a missing XScreenSaver dependency and you do not need
+that integration, configure with `-DSDL_X11_XSCRNSAVER=OFF`.
+
+The Linux desktop has compiled with GCC 15 on Gentoo. Audio and MIDI use ALSA;
+actual device access depends on the host setup. Other distributions and BSDs
+have not yet been verified.
+
+## Build on macOS
+
+The current development recipe uses AppleClang, CMake, and an installed SDL3 SDK:
 
 ```sh
 cmake -S . -B build-sdl-validation -DCMAKE_BUILD_TYPE=Release \
@@ -27,63 +55,16 @@ cmake --build build-sdl-validation --target libreloop --parallel
 open build-sdl-validation/LibreLoop.app
 ```
 
-The explicit SDK path is a workaround verified on the development machine;
-choose an installed SDK appropriate to your toolchain. The installed SDL runtime
-used here requires macOS 26, so this development bundle also requires macOS 26.
-See [toolchains](docs/toolchains.md) for platform status and limitations.
+The installed SDL runtime used for this development build requires macOS 26.
+This is a developer setup, not a shipping package. See
+[platform notes](docs/toolchains.md) for current verification and limitations.
 
-To build the available offline engine/interaction targets and run their tests:
+## Project notes
 
-```sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel
-ctest --test-dir build --output-on-failure
-```
+- [Website](https://libreloop.org)
+- [Behavior and controls](docs/behavior-spec.md)
+- [Third-party licenses](docs/third-party.md)
+- [Development roadmap](docs/roadmap.md)
 
-For the desktop test suite, build all targets in `build-sdl-validation` and run
-`ctest --test-dir build-sdl-validation --output-on-failure`.
-Python 3's standard library is used for test orchestration, not app runtime.
-
-## Current status
-
-The desktop is a development build. Its Arrange/Pattern pages sit above a docked
-Mixer; instruments and effects open as floating editors. New sessions start in
-SONG mode. The Browser and Mixer
-collapse, and the piano-roll velocity lane resizes and collapses. Controls share
-pixel-style materials, labeled action menus and five-dot divider grips.
-
-Engine, project format and interaction regression fixtures preserve the original
-LibreLoop reference. Retain the fixtures: they are test data, including binary
-render/audio results, rather than generated build debris. The old raylib source checkout, temporary
-baseline builds, local measurements, history backups and supplied screenshots
-were removed during workspace cleanup; committed fixtures and audit documents
-remain.
-
-The shipping desktop still needs a verified vendored/static SDL build. CMake
-never downloads dependencies; `tools/vendor_sdl.py` imports a locally supplied,
-checksum-pinned SDL archive. Linux/Windows runtime checks, physical audio/MIDI
-hardware and native trackpad/HiDPI acceptance remain incomplete. See
-[toolchains](docs/toolchains.md) and [verification status](docs/completion-blockers.md).
-
-## Development
-
-- [Next work and priorities](docs/roadmap.md)
-- [Stereo Reverb](docs/reverb.md)
-- [Tube saturation](docs/tube.md)
-- [Delay](docs/delay.md)
-- [Behavior specification](docs/behavior-spec.md)
-- [Shared controls and velocity lane](docs/velocity-lane-and-controls.md)
-- [Visual decisions](docs/visual-notes.md)
-- [Architecture](docs/architecture-proposal.md)
-- [Third-party licenses and provenance](docs/third-party.md)
-
-Put future visual references in [references/screenshots](references/screenshots/README.md);
-those files remain local and ignored. Local `notes.txt`, editor recovery files
-and build outputs are also ignored. Earlier
-design/audit documents remain as development history; the roadmap identifies
-current priorities. The project and CMake application target are **libreloop**;
-any local directory called `libreloop2` is only a historical workspace path.
-
-The built-in [Dynamics multiband compressor](docs/dynamics.md) provides editable per-band transfer curves and live gain monitoring.
-
-Built-in [Phaser and Flanger](docs/modulation.md) provide stereo modulation, signed feedback and factory presets.
+The application is GPL-3.0-only; bundled components, fonts, and artwork keep
+their own documented licenses.

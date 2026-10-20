@@ -6,7 +6,6 @@
 typedef struct {
     Rect menus[4],pitch,volume,stop,play,record,record_types[3],metronome;
     Rect position,tempo,mode,editors[4],follow,typing,spectrum,levels;
-    int compact;
 } StudioToolbar;
 float studio_ui_scale(float width,float height,float preference);
 float studio_workspace_default_mixer(float height);

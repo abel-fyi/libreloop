@@ -414,7 +414,7 @@ void piano_tool_panel(float width,float height) {
         label(fit_text(ui.project.pattern_names[ui.pattern],width-32,11),16,277,11,(DrawColor){127,210,190,255});
         label("CHANNEL",16,304,9,type);
         label(fit_text(ui.project.channel_names[ui.piano_channel],width-32,11),16,321,11,(DrawColor){179,184,222,255});
-        label(host_text_format("%.0f steps",ui.project.pattern_steps[ui.pattern]),16,344,9,type);
+        label(host_text_format("%.0f steps",pattern_playback_steps(&ui.project,ui.pattern)),16,344,9,type);
     }
     if(height>=570) {
         ui_bevel(host_draw(),(DrawRect){8,380,width-16,112},1);

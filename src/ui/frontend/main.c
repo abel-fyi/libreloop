@@ -514,7 +514,6 @@ int main(int argc,char **argv) {
         if(ui.studio_style) {
             if(!ui.profile_flat)ui_bevel(host_draw(),(DrawRect){1,1,width-2,57},0);
         }
-        const int compact_toolbar=ui.studio_style && toolbar.compact;
         const int menu_y=ui.studio_style?toolbar.menus[0].y:8,menu_h=ui.studio_style?toolbar.menus[0].h:22;
         const int ty=ui.studio_style?toolbar.stop.y:8,th=ui.studio_style?toolbar.stop.h:22,tw=ui.studio_style?toolbar.stop.w:24;
         const int cy=ty+th/2;
@@ -526,7 +525,7 @@ int main(int argc,char **argv) {
         if(button("VIEW",ui.studio_style?toolbar.menus[2].x:96,ui.studio_style?toolbar.menus[2].y:menu_y,ui.studio_style?toolbar.menus[2].w:44,menu_h,ui.pattern_popup==7)) open_popup(7);
         if(hover(ui.studio_style?toolbar.menus[2].x:96,ui.studio_style?toolbar.menus[2].y:menu_y,ui.studio_style?toolbar.menus[2].w:44,menu_h)) snprintf(ui.status,sizeof ui.status,"View: MIDI recording settings");
         if(button("HELP",ui.studio_style?toolbar.menus[3].x:140,ui.studio_style?toolbar.menus[3].y:menu_y,ui.studio_style?toolbar.menus[3].w:44,menu_h,ui.pattern_popup==9)) open_popup(9);
-        label(fit_text(host_text_format("%s%s",host_get_file_name(ui.document.path),project_dirty()?" *":""),ui.studio_style?(compact_toolbar?width-836:176):176,ui.studio_style?9:11),ui.studio_style?(compact_toolbar?828:8):8,ui.studio_style?(compact_toolbar?20:0):29,ui.studio_style?9:11,muted);
+        label(fit_text(host_text_format("%s%s",host_get_file_name(ui.document.path),project_dirty()?" *":""),176,ui.studio_style?9:11),8,ui.studio_style?0:29,ui.studio_style?9:11,muted);
         const int gap=4,pitch_x=ui.studio_style?toolbar.pitch.x+11:184+gap+KNOB_RADIUS;
         const int volume_x=ui.studio_style?toolbar.volume.x+11:pitch_x+KNOB_RADIUS*2+gap;
         const int mode_x=ui.studio_style?toolbar.mode.x:volume_x+KNOB_RADIUS+gap,mode_w=ui.studio_style?toolbar.mode.w:52;

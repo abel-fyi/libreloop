@@ -62,7 +62,7 @@ float ui_scale(void) { if(ui.studio_style)return studio_ui_scale(host_get_screen
 
 float playback_start(void) {
     float start=ui.song?ui.playlist_start*STEPS:ui.piano_start[ui.pattern];
-    float end=ui.song?song_steps(&ui.project):ui.project.pattern_steps[ui.pattern];
+    float end=ui.song?song_steps(&ui.project):pattern_playback_steps(&ui.project,ui.pattern);
     return ui.playing && !playback_loop()[1] && start>=end?0:start;
 }
 

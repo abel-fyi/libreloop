@@ -9,11 +9,13 @@ int main(void) {
     CHECK(studio_ui_scale(1448,1086,0)==1);
     CHECK(studio_ui_scale(3840,2160,2)==2);
     CHECK(studio_ui_scale(900,562,.75f)==.75f);
-    CHECK(studio_ui_scale(900,562,2)==1);
-    CHECK(studio_ui_scale(1448,1086,1.5f)==1.5f);
+    CHECK(fabsf(studio_ui_scale(900,562,2)-900.f/1180)<.00001f);
+    CHECK(fabsf(studio_ui_scale(1448,1086,1.5f)-1448.f/1180)<.00001f);
     CHECK(studio_ui_scale(1448,1086,NAN)==1);
+    CHECK(fabsf(studio_ui_scale(900,562,0)-900.f/1448)<.00001f);
+    CHECK(fabsf(studio_ui_scale(1920,1080,0)-1920.f/1448)<.00001f);
     for(int w=900;w<=3840;w+=73)for(int h=562;h<=2160;h+=67)for(float preference=.75f;preference<=2;preference+=.25f){
-        float scale=studio_ui_scale(w,h,preference);CHECK(w/scale>=899.99f && h/scale>=561.99f && scale<=preference);
+        float scale=studio_ui_scale(w,h,preference);CHECK(w/scale>=1179.99f && h/scale>=561.99f && scale<=preference);
     }
 
     const int sizes[][2]={{900,562},{1024,768},{1200,675},{1280,800},{1448,1086},{1920,1080}};
@@ -33,9 +35,11 @@ int main(void) {
         studio_windows_layout(&w,1448,1086,238);
         CHECK(w.editors[2].visible && w.editors[3].visible && w.editors[4].visible);
     }
-    const float widths[]={900,1024,1179,1180,1200,1448,1920};
+    const float widths[]={1180,1200,1448,1920};
+    StudioToolbar reference=studio_toolbar_layout(1448);
     for(unsigned n=0;n<sizeof widths/sizeof *widths;n++) {
         StudioToolbar t=studio_toolbar_layout(widths[n]);
+        CHECK(!memcmp(&t,&reference,sizeof t)); /* No resize breakpoints or hidden meters. */
         Rect all[24];int count=0;
         for(int i=0;i<4;i++){all[count++]=t.menus[i];CHECK(t.menus[i].w>=64 && t.menus[i].h>=20); }
         all[count++]=t.pitch;all[count++]=t.volume;all[count++]=t.stop;all[count++]=t.play;all[count++]=t.record;
@@ -51,9 +55,9 @@ int main(void) {
             CHECK(all[i].x>=0 && all[i].y>=0 && all[i].x+all[i].w<=widths[n] && all[i].y+all[i].h<=58);
             for(int j=i+1;j<count;j++)CHECK(!overlap(all[i],all[j]));
         }
-        if(widths[n]==1448){CHECK(t.spectrum.w==120 && t.levels.w==104);CHECK(t.levels.x+t.levels.w==1180);}
+        if(widths[n]==1448){CHECK(t.spectrum.w==120 && t.levels.w==104);CHECK(t.levels.x+t.levels.w==1156);}
         CHECK(t.pitch.x>t.menus[1].x+t.menus[1].w);
         CHECK(t.volume.x>t.pitch.x+t.pitch.w && t.stop.x>t.volume.x+t.volume.w);
     }
-    puts("Reference proportions and compact layouts keep visible editors within bounds without overlap.");return 0;
+    puts("Reference proportions and uniform toolbar scaling keep visible editors within bounds without overlap.");return 0;
 }
