@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "../src/ui/frontend/ui_internal.h"
+#include "ruler.h"
 #define LIBRELOOP_SAMPLES ""
 #define LIBRELOOP_LOGO ""
 #define LIBRELOOP_FONT ""
@@ -25,11 +26,22 @@ int main(void) {
     CHECK(ui.windows.editors[4].rect.h==420);
     ui.windows.editors[4].rect.h=720;workspace_save();workspace_load();
     CHECK(ui.windows.editors[4].rect.h==420);
-    ui.song=1;ui.reset=0;desktop_playback_page(0);
-    CHECK(!ui.song && ui.reset && ui.windows.editors[2].visible && !ui.windows.editors[1].visible);
-    ui.reset=0;desktop_playback_page(0);CHECK(!ui.reset);
-    desktop_playback_page(1);
-    CHECK(ui.song && ui.reset && ui.windows.editors[1].visible && !ui.windows.editors[2].visible);
+    windows_focus(&ui.windows,1);
+    ui.song=1;ui.reset=0;desktop_playback_mode(0);
+    CHECK(!ui.song && ui.reset && ui.windows.editors[1].visible && !ui.windows.editors[2].visible);
+    ui.reset=0;desktop_playback_mode(0);CHECK(!ui.reset);
+    windows_focus(&ui.windows,2);
+    CHECK(!ui.song && !ui.reset);
+    desktop_playback_mode(1);
+    CHECK(ui.song && ui.reset && ui.windows.editors[2].visible && !ui.windows.editors[1].visible);
+    ui.playing=1;ui.reset=0;windows_focus(&ui.windows,1);windows_focus(&ui.windows,2);
+    CHECK(ui.song && ui.playing && !ui.reset);
+    RulerState ruler;ruler_state_init(&ruler);ruler.song=1;ruler.playing=1;ruler.independent_playback=1;
+    ruler_press(&ruler,0,2,0,8,1,(RulerPoint){10,10});
+    CHECK(ruler.song && ruler.playing && !ruler.reset && ruler.piano_start[0]==8);
+    ruler.playing=0;ruler_drag(&ruler,0,12,0,0,0);
+    CHECK(ruler.song && !ruler.reset && ruler.piano_start[0]==12);
+    ruler_press(&ruler,0,1,0,16,2,(RulerPoint){10,10});CHECK(ruler.song && ruler.reset);
     /* A valid old three-pane preference file migrates to exclusive pages. */
     FILE *old=fopen("workspace-prefs/workspace.txt","w");CHECK(old);
     fputs("2 .31 .4 168 334 4 1 .57\n",old);

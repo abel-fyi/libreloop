@@ -265,6 +265,7 @@ typedef struct {
     uint8_t dynamics_magnet[32];
     Spectrum master_spectrum,eq_spectrum;
     int spectrum_active;
+    unsigned spectrum_updates[2];
     unsigned fm_envelope_ids[3][4];
 } UiState;
 _Static_assert(UI_SOURCE_COLORS==PATTERN_COLOR_COUNT,"Pattern assignment and source swatches must agree");
@@ -304,10 +305,9 @@ static inline int desktop_picker_hit(float x,float y) {
 }
 static inline int desktop_window_hit(float x,float y){return desktop_picker_hit(x,y)?1:windows_hit(&ui.windows,x,y);}
 void playlist_picker(Rect rect,float height);
-static inline void desktop_playback_page(int song){
+static inline void desktop_playback_mode(int song){
     song=!!song;
     if(ui.song!=song){ui.song=song;ui.reset=1;}
-    if(ui.windows.workspace.enabled)windows_focus(&ui.windows,song?1:2);
 }
 static inline int desktop_mixer_fx_rows(void) {
     int rows=0;for(int bus=0;bus<=ui.project.insert_count;bus++) {

@@ -12,9 +12,11 @@
 #include "miniaudio.h"
 #include "audio.h"
 #include "playback_plan.h"
+#include "spectrum.h"
 #include <stdatomic.h>
 #include <string.h>
 #include <stdlib.h>
+#include <limits.h>
 #include <math.h>
 #include "native_time.h"
 /* The callback owns rendering state. The UI only writes this mailbox. */
@@ -103,26 +105,76 @@ static int click_accent;
 static double visual_frame,visual_time,visual_end,visual_start;
 static unsigned visual_frames,live_frames;
 static double live_time;
-#define ANALYZER_FRAMES 8192u
-typedef struct { float pcm[ANALYZER_FRAMES][2]; atomic_uint read,write; } AnalyzerRing;
-static AnalyzerRing analyzer[2];
+/* Latest complete analysis window, with exclusive producer/consumer slots.
+   A stalled UI skips old snapshots; the callback never waits or overwrites a reader. */
+/* FFT lookback plus up to 256 ms of audio rendered ahead by the device. */
+#define ANALYZER_FRAMES (SPECTRUM_FFT*4u)
+typedef struct {
+    float pcm[ANALYZER_FRAMES][2];
+    unsigned frames,block_frames;
+    uint64_t total;
+    double time;
+    int bus;
+} AnalyzerSnapshot;
+typedef struct {
+    float history[ANALYZER_FRAMES][2];
+    unsigned cursor,available,writer,reader,valid;
+    uint64_t total,read_total;
+    int bus;
+    atomic_uint middle;
+    AnalyzerSnapshot slots[3];
+} Analyzer;
+static Analyzer analyzer[2]={{.reader=1,.middle=2},{.reader=1,.middle=2}};
 static atomic_int analyzer_bus;
-static int callback_bus;
+static int callback_bus,callback_metronome;
 static unsigned callback_taps;
 static void analyzer_push(int stream,float l,float r) {
-    AnalyzerRing *ring=&analyzer[stream]; unsigned w=atomic_load_explicit(&ring->write,memory_order_relaxed);
-    if(w-atomic_load_explicit(&ring->read,memory_order_acquire)>=ANALYZER_FRAMES) return;
-    ring->pcm[w%ANALYZER_FRAMES][0]=isfinite(l)?l:0; ring->pcm[w%ANALYZER_FRAMES][1]=isfinite(r)?r:0;
-    atomic_store_explicit(&ring->write,w+1,memory_order_release);
+    Analyzer *a=&analyzer[stream];
+    a->history[a->cursor][0]=isfinite(l)?l:0; a->history[a->cursor][1]=isfinite(r)?r:0;
+    a->cursor=(a->cursor+1)%ANALYZER_FRAMES;
+    if(a->available<ANALYZER_FRAMES)a->available++;
+    a->total++;
+}
+static void analyzer_publish(int stream,unsigned frames,double time) {
+    Analyzer *a=&analyzer[stream];AnalyzerSnapshot *v=&a->slots[a->writer];
+    unsigned keep=frames<ANALYZER_FRAMES-SPECTRUM_FFT?frames+SPECTRUM_FFT:ANALYZER_FRAMES;
+    v->frames=a->available<keep?a->available:keep;v->total=a->total;v->bus=a->bus;
+    v->block_frames=frames;v->time=time;
+    unsigned start=(a->cursor+ANALYZER_FRAMES-v->frames)%ANALYZER_FRAMES;
+    unsigned first=ANALYZER_FRAMES-start;if(first>v->frames)first=v->frames;
+    memcpy(v->pcm,a->history+start,first*sizeof v->pcm[0]);
+    memcpy(v->pcm+first,a->history,(v->frames-first)*sizeof v->pcm[0]);
+    a->writer=atomic_exchange_explicit(&a->middle,a->writer|4u,memory_order_acq_rel)&3u;
 }
 void audio_dynamics_monitor(unsigned bus,unsigned slot,DynamicsMonitor *monitor){effects_dynamics_monitor(effects,bus,slot,monitor);}
 void audio_spectrum_bus(int bus) { atomic_store_explicit(&analyzer_bus,bus,memory_order_relaxed); }
-unsigned audio_spectrum_read(int stream,float *pcm,unsigned capacity) {
-    if(stream<0 || stream>1) return 0;
-    AnalyzerRing *ring=&analyzer[stream]; unsigned r=atomic_load_explicit(&ring->read,memory_order_relaxed);
-    unsigned n=atomic_load_explicit(&ring->write,memory_order_acquire)-r; if(n>capacity) n=capacity;
-    for(unsigned i=0;i<n;i++) { pcm[i*2]=ring->pcm[(r+i)%ANALYZER_FRAMES][0]; pcm[i*2+1]=ring->pcm[(r+i)%ANALYZER_FRAMES][1]; }
-    atomic_store_explicit(&ring->read,r+n,memory_order_release); return n;
+static unsigned analyzer_read(int stream,float *pcm,unsigned capacity,unsigned *elapsed,double now) {
+    if(elapsed)*elapsed=0;
+    if(stream<0 || stream>1)return 0;
+    Analyzer *a=&analyzer[stream];
+    if(atomic_load_explicit(&a->middle,memory_order_acquire)&4u) {
+        a->reader=atomic_exchange_explicit(&a->middle,a->reader,memory_order_acq_rel)&3u;
+        a->valid=1;
+    }
+    if(!a->valid)return 0;
+    const AnalyzerSnapshot *v=&a->slots[a->reader];
+    if(stream && v->bus!=atomic_load_explicit(&analyzer_bus,memory_order_relaxed))return 0;
+    /* Match the visual playhead: the callback supplies audio ahead of playback.
+       Walk through that block at the sample rate, even between publications. */
+    unsigned ahead=v->block_frames<v->frames?v->block_frames:v->frames;
+    unsigned advanced=(unsigned)llround(fmin(ahead,fmax(0,(now-v->time)*RATE)));
+    unsigned end=v->frames-ahead+advanced;
+    uint64_t total=v->total-ahead+advanced;
+    if(total<=a->read_total || !end || !capacity)return 0;
+    uint64_t delta=total-a->read_total;
+    unsigned n=end<capacity?end:capacity;
+    memcpy(pcm,v->pcm+end-n,n*sizeof v->pcm[0]);
+    a->read_total=total;
+    if(elapsed)*elapsed=delta>UINT_MAX?UINT_MAX:(unsigned)delta;
+    return n;
+}
+unsigned audio_spectrum_read(int stream,float *pcm,unsigned capacity,unsigned *elapsed) {
+    return analyzer_read(stream,pcm,capacity,elapsed,platform_native_time());
 }
 #define RECORD_RING_FRAMES (RATE*4u)
 typedef struct {
@@ -173,6 +225,12 @@ static double monotonic_time(void) { return platform_native_time(); }
 /* All auditions enter the Master before its effects, fader, pan and meters. */
 static void audition_input(void *context,float buses[INSERTS+1][2],double pitch) {
     (void)context;
+    if(callback_metronome) {
+        double beat_frames=RATE*60.0/project.bpm;
+        double beat=floor(player.frame/beat_frames),phase=player.frame-beat*beat_frames;
+        if(phase<1){click_position=0;click_accent=fmod(beat,4)==0;}
+        if(click_position<1200){float x=clicks[click_accent][click_position++];buses[0][0]+=x;buses[0][1]+=x;}
+    }
     if(preview_position>=preview_end || !preview_remaining)return;
     int stretch=preview_channel>=0 && project.sampler[preview_channel].stretch;
     float stereo[2];
@@ -191,6 +249,9 @@ static void callback(ma_device *d, void *out, const void *in, ma_uint32 frames) 
     consume_commands();
     callback_taps=0;
     callback_bus=atomic_load_explicit(&analyzer_bus,memory_order_relaxed);
+    if(analyzer[1].bus!=callback_bus){analyzer[1].available=analyzer[1].cursor=0;analyzer[1].bus=callback_bus;}
+    callback_metronome=playing && atomic_load_explicit(&metronome,memory_order_relaxed);
+    if(!callback_metronome)click_position=1200;
     MixerIO taps=recording.active?recording.io:(MixerIO){0}; taps.output=record_output; taps.monitor_only=!(recording.active || atomic_load(&midi_recording));
     live_time=monotonic_time();live_frames=frames;
     if(preview_channel>=0)preview_speed=preview_note_pitch*channel_speed(&project,preview_channel);
@@ -223,20 +284,6 @@ static void callback(ma_device *d, void *out, const void *in, ma_uint32 frames) 
         if(rendered->channel_trigger[c]) atomic_store_explicit(&channel_trigger[c],1,memory_order_relaxed);
     }
     float *buffer=out;
-    if(playing && atomic_load_explicit(&metronome,memory_order_relaxed)) {
-        double beat_frames=RATE*60.0/project.bpm;
-        for(unsigned i=0;i<frames;i++) {
-            double frame=visual_frame+i;
-            if(frame>=visual_end) frame=visual_start+fmod(frame-visual_end,visual_end-visual_start);
-            double beat=floor(frame/beat_frames),phase=frame-beat*beat_frames;
-            if(phase<1) { click_position=0; click_accent=fmod(beat,4)==0; }
-            if(click_position<1200) {
-                float x=clicks[click_accent][click_position++];
-                buffer[i*2]+=x;
-                buffer[i*2+1]+=x;
-            }
-        }
-    } else click_position=1200;
     for(unsigned i=0;i<frames*2;i++) {
         peaks[0][i%2]=fmaxf(peaks[0][i%2],fabsf(buffer[i]));
         float x=buffer[i]*output_volume;
@@ -245,6 +292,7 @@ static void callback(ma_device *d, void *out, const void *in, ma_uint32 frames) 
     }
     for(unsigned i=0;i<frames;i++) analyzer_push(0,buffer[i*2],buffer[i*2+1]);
     for(unsigned i=callback_taps;callback_bus>=0 && i<frames;i++) analyzer_push(1,0,0);
+    analyzer_publish(0,frames,live_time);analyzer_publish(1,frames,live_time);
     int active=0;
     for(int id=0;id<=INSERTS;id++) for(int side=0;side<2;side++) {
         float peak=peaks[id][side],old=atomic_load_explicit(&meter_peak[id][side],memory_order_relaxed);
@@ -495,16 +543,24 @@ static void wait_acknowledged(uint64_t serial) {
 }
 static int realtime_atomics_supported(void) {
     return atomic_is_lock_free(&pending.read) && atomic_is_lock_free(&pending.committed)
-        && atomic_is_lock_free(&view_middle) && atomic_is_lock_free(&acknowledged)
+        && atomic_is_lock_free(&view_middle) && atomic_is_lock_free(&analyzer[0].middle) && atomic_is_lock_free(&acknowledged)
         && atomic_is_lock_free(&position) && atomic_is_lock_free(&meter_peak[0][0])
         && atomic_is_lock_free(&meter_active) && atomic_is_lock_free(&channel_active[0])
         && atomic_is_lock_free(&recording.inputs[0].read);
 }
+static void clicks_init(void) {
+    for(int accent=0;accent<2;accent++) for(int i=0;i<1200;i++)
+        clicks[accent][i]=.25f*sinf(6.2831853f*(accent?1800:1200)*i/RATE)*expf(-i/180.f);
+}
 int audio_start(const Project *p,const Sample s[CHANNELS]) {
     /* Reject a platform whose atomics could hide a callback-side library lock. */
     if(!realtime_atomics_supported()) return 0;
-    for(int accent=0;accent<2;accent++) for(int i=0;i<1200;i++)
-        clicks[accent][i]=.25f*sinf(6.2831853f*(accent?1800:1200)*i/RATE)*expf(-i/180.f);
+    clicks_init();
+    for(int stream=0;stream<2;stream++) {
+        Analyzer *a=&analyzer[stream];
+        a->cursor=a->available=a->total=a->writer=a->read_total=a->valid=0;
+        a->reader=1;a->bus=-1;atomic_store(&a->middle,2);
+    }
     memset(&pending,0,sizeof pending); memset(&view,0,sizeof view);
     memset(snapshots,0,sizeof snapshots); memset(view_slots,0,sizeof view_slots);
     control_depth=0; view_writer=0; view_reader=1; atomic_store(&view_middle,2);

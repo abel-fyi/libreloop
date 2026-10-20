@@ -3,13 +3,14 @@
 #include <math.h>
 #include <string.h>
 #define PI 3.14159265358979323846
-void spectrum_reset(Spectrum *s) { memset(s,0,sizeof *s); for(int i=0;i<SPECTRUM_BINS;i++) s->db[i]=-90; }
+void spectrum_reset(Spectrum *s) { memset(s,0,sizeof *s); for(int i=0;i<SPECTRUM_BINS;i++) s->db[i]=-90; for(unsigned i=0;i<SPECTRUM_FFT;i++)s->window[i]=.5-.5*cos(2*PI*i/SPECTRUM_FFT); }
 float spectrum_frequency(float x) { return 20*powf(1000,x); }
-static void transform(Spectrum *s) {
+static void transform(Spectrum *s,unsigned elapsed) {
+    float attack=1-powf(.25f,elapsed/1024.f),decay=1-powf(.82f,elapsed/1024.f);
     float power[SPECTRUM_FFT/2+1]={0};
     for(int side=0;side<2;side++) {
         float re[SPECTRUM_FFT],im[SPECTRUM_FFT]={0};
-        for(unsigned i=0;i<SPECTRUM_FFT;i++) re[i]=s->history[(s->cursor+i)%SPECTRUM_FFT][side]*(.5-.5*cos(2*PI*i/SPECTRUM_FFT));
+        for(unsigned i=0;i<SPECTRUM_FFT;i++) re[i]=s->history[(s->cursor+i)%SPECTRUM_FFT][side]*s->window[i];
         for(unsigned i=1,j=0;i<SPECTRUM_FFT;i++) {
             unsigned bit=SPECTRUM_FFT>>1;
             for(;j&bit;bit>>=1) j^=bit;
@@ -39,13 +40,24 @@ static void transform(Spectrum *s) {
             p=power[k]+(power[k+1]-power[k])*(at-k);
         } else for(int k=(int)floorf(lo);k<=(int)ceilf(hi);k++) p=fmaxf(p,power[k]);
         float db=fmaxf(-90,10*log10f(fmaxf(1e-20f,p*16/(SPECTRUM_FFT*(float)SPECTRUM_FFT))));
-        s->db[b]+= (db-s->db[b])*(db>s->db[b]?.75f:.18f);
+        s->db[b]+= (db-s->db[b])*(db>s->db[b]?attack:decay);
     }
 }
 void spectrum_push(Spectrum *s,const float *stereo,unsigned frames) {
     for(unsigned i=0;i<frames;i++) {
         s->history[s->cursor][0]=stereo[2*i]; s->history[s->cursor][1]=stereo[2*i+1];
         s->cursor=(s->cursor+1)%SPECTRUM_FFT;
-        if(++s->pending==1024) { s->pending=0; transform(s); }
+        if(++s->pending==1024) { s->pending=0; transform(s,1024); }
     }
+}
+
+/* Analyze only the latest window once per UI frame. Elapsed audio time keeps
+   decay consistent when the display skips snapshots. */
+void spectrum_snapshot(Spectrum *s,const float *stereo,unsigned frames,unsigned elapsed) {
+    if(!frames || !elapsed)return;
+    if(frames>SPECTRUM_FFT){stereo+=(frames-SPECTRUM_FFT)*2;frames=SPECTRUM_FFT;}
+    memset(s->history,0,sizeof s->history);
+    memcpy(s->history,stereo,frames*sizeof s->history[0]);
+    s->cursor=frames%SPECTRUM_FFT;s->pending=0;
+    transform(s,elapsed);
 }

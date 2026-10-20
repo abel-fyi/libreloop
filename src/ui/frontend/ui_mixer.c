@@ -33,11 +33,13 @@ void spectrum_update(void) {
         ui.eq_spectrum_bus=bus;
     }
     audio_spectrum_bus(bus);
-    float pcm[8192*2]; unsigned n;
-    n=audio_spectrum_read(0,pcm,8192); spectrum_push(&ui.master_spectrum,pcm,n);
-    n=audio_spectrum_read(1,pcm,8192);
+    float pcm[SPECTRUM_FFT*2]; unsigned n,elapsed;
+    n=audio_spectrum_read(0,pcm,SPECTRUM_FFT,&elapsed); spectrum_snapshot(&ui.master_spectrum,pcm,n,elapsed);
+    if(n && elapsed)ui.spectrum_updates[0]++;
+    n=audio_spectrum_read(1,pcm,SPECTRUM_FFT,&elapsed);
     if(bus!=last_bus) { spectrum_reset(&ui.eq_spectrum); last_bus=bus; }
-    else spectrum_push(&ui.eq_spectrum,pcm,n);
+    spectrum_snapshot(&ui.eq_spectrum,pcm,n,elapsed);
+    if(n && elapsed)ui.spectrum_updates[1]++;
     ui.spectrum_active=0;
     for(int i=0;i<SPECTRUM_BINS;i++) ui.spectrum_active|=ui.master_spectrum.db[i]>-78 || (bus>=0 && ui.eq_spectrum.db[i]>-78);
 }

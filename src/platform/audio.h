@@ -28,7 +28,9 @@ void audio_meters(float peaks[INSERTS+1][2]);
 /* UI drains bounded stereo taps; FFT work stays outside the callback. */
 void audio_dynamics_monitor(unsigned bus,unsigned slot,DynamicsMonitor *monitor);
 void audio_spectrum_bus(int bus);
-unsigned audio_spectrum_read(int selected,float *stereo,unsigned capacity);
+/* Contiguous window paced to playback time, not a stream. May advance between
+   device callbacks; elapsed counts samples since the last read. */
+unsigned audio_spectrum_read(int selected,float *stereo,unsigned capacity,unsigned *elapsed);
 int audio_active(void);
 void audio_channel_activity(uint8_t active[CHANNELS],uint8_t triggered[CHANNELS]);
 void audio_pattern_activity(int pattern,uint8_t notes[CHANNELS][NOTES]);

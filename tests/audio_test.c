@@ -63,10 +63,10 @@ int main(void) {
     }
     setup((Sample){pcm,1024,2}); test_callback(NULL,out,NULL,64);
     CHECK(!memcmp(out,pcm,sizeof out)); /* Device output is transparent at unity. */
-    float tapped[8192*2]; unsigned tap_frames=audio_spectrum_read(0,tapped,8192);
+    float tapped[8192*2]; unsigned tap_frames=analyzer_read(0,tapped,8192,NULL,INFINITY);
     CHECK(tap_frames>=64 && !memcmp(tapped+(tap_frames-64)*2,out,sizeof out));
     audio_spectrum_bus(0); test_callback(NULL,out,NULL,64);
-    tap_frames=audio_spectrum_read(1,tapped,8192); CHECK(tap_frames>=64);
+    tap_frames=analyzer_read(1,tapped,8192,NULL,INFINITY); CHECK(tap_frames>=64);
     CHECK(!memcmp(tapped+(tap_frames-64)*2,out,sizeof out));
     audio_spectrum_bus(-1);
     setup((Sample){pcm,1024,2}); test_callback(NULL,out,NULL,64);

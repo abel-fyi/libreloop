@@ -53,6 +53,12 @@ See [building and platform policy](docs/building.md) for dependencies, system-SD
 builds, installation, core-only builds and verification scope. See
 [Linux validation](docs/linux-testing.md) for tests and sanitizer commands.
 
+## Playback and editing
+
+The toolbar's **PATT / SONG** switch chooses what plays. **Arrangement / Pattern**
+tabs at the upper-left of the editor choose what you see independently, so you
+can edit a pattern while the song keeps playing.
+
 ## Project notes
 
 - [Website](https://libreloop.org)

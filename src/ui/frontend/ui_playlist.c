@@ -193,7 +193,7 @@ static RulerState desktop_ruler_state(void) {
     RulerState s={.last_id=ui.ruler_last_id,.last_pattern=ui.ruler_last_pattern,.last_button=ui.ruler_last_button,
         .marker_drag=ui.marker_drag,.loop_drag=ui.ruler_loop_drag,.last_click=ui.ruler_last_click,
         .last_position={ui.ruler_last_position.x,ui.ruler_last_position.y},.anchor=ui.ruler_anchor,
-        .playlist_start=ui.playlist_start,.stop_armed=ui.stop_armed,.song=ui.song,.reset=ui.reset,.playing=ui.playing};
+        .playlist_start=ui.playlist_start,.stop_armed=ui.stop_armed,.song=ui.song,.reset=ui.reset,.playing=ui.playing,.independent_playback=ui.windows.workspace.enabled};
     memcpy(s.piano_start,ui.piano_start,sizeof s.piano_start);memcpy(s.song_loop,ui.song_loop,sizeof s.song_loop);
     memcpy(s.pattern_loop,ui.pattern_loop,sizeof s.pattern_loop);return s;
 }

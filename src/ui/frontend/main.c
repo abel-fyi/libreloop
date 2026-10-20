@@ -138,9 +138,11 @@ int main(int argc,char **argv) {
     if(smoke_popup<0 || smoke_popup>14 || (smoke_popup && !smoke))return 1;
     if(profile_frames && (!smoke || profile_frames<100 || profile_frames>10000))return 1;
     if(ui.profile_flat && !profile_frames)return 1;
-    double *profile_times=profile_frames?calloc(profile_frames,sizeof *profile_times):NULL;
+    double *profile_times=profile_frames?calloc(profile_frames*2,sizeof *profile_times):NULL;
     if(profile_frames && !profile_times)return 1;
-    double profile_cpu=0;int profile_count=0;
+    double profile_cpu=0,profile_start=0;int profile_count=0;
+    unsigned profile_spectra[2]={0};
+    double *profile_frame_times=profile_times?profile_times+profile_frames:NULL;
     ui.studio_style=!legacy_ui && !smoke;
     if(visual_preview)ui.studio_style=1;
     if(ui.studio_style)ui.piano_zoom=2;
@@ -185,6 +187,8 @@ int main(int argc,char **argv) {
     float studio_piano_width=0,studio_arrangement_width=0,last_ui_scale=0;
     double last_activity=host_get_time();
     while(!ui.document.quit) {
+        double profile_frame_start=profile_frames?host_get_time():0;
+        if(profile_frames && frames==40){profile_start=profile_frame_start;memcpy(profile_spectra,ui.spectrum_updates,sizeof profile_spectra);}
         if(host_window_should_close()) {
 
             if(!smoke) replace_project(REPLACE_QUIT); else break;
@@ -553,8 +557,7 @@ int main(int argc,char **argv) {
         knob_style(volume_x,cy,&ui.output_volume,0,VOLUME_KNOB_MAX,1,"LibreLoop output volume",KNOB_VOLUME);
         if(hover(volume_x-11,cy-11,22,22) || ui.control_drag==&ui.output_volume) snprintf(ui.status,sizeof ui.status,"LibreLoop output volume: listening level; Master and WAV export unchanged");
         if(button("",mode_x,ty,mode_w,th,0) && !recording_active()) {
-            if(ui.windows.workspace.enabled)desktop_playback_page(!ui.song);
-            else {ui.song=!ui.song;ui.reset=1;}
+            desktop_playback_mode(!ui.song);
         }
         host_draw_rectangle(mode_x,ty,mode_w,th/2,ui.song?cell:ui.studio_style?ui_theme.meter_mid:ui_theme.patt);
         host_draw_rectangle(mode_x,ty+th/2,mode_w,th/2,ui.song?accent:cell);
@@ -565,7 +568,7 @@ int main(int argc,char **argv) {
         }
         label("PATT",mode_x+(mode_w-text_width("PATT",10))/2,ty+(th/2-(ui.studio_style?UI_TEXT_SIZE:10))/2,10,ui.song?muted:ui_theme.selected_text);
         label("SONG",mode_x+(mode_w-text_width("SONG",10))/2,ty+th/2+(th/2-(ui.studio_style?UI_TEXT_SIZE:10))/2,10,ui.song?ui_theme.selected_text:muted);
-        if(hover(mode_x,ty,mode_w,th)) snprintf(ui.status,sizeof ui.status,ui.windows.workspace.enabled?"Click either half to switch PATT / SONG and Piano Roll / Arrangement":"Playback mode: click to switch Pattern (orange) / Song (green)");
+        if(hover(mode_x,ty,mode_w,th)) snprintf(ui.status,sizeof ui.status,"Playback source: Pattern (orange) / Song (green); editor tabs change the view independently");
         int transport_active=ui.playing || audio_preview_position(ui.audition)>=0 || audio_key_position(127,ui.instrument_channel)>=0;
         if(button(ui.studio_style?"":transport_active?"||":">",play_x,ty,tw,th,transport_active)) transport_toggle();
         if(ui.studio_style)icon_button_state(transport_active?ICON_PAUSE:ICON_PLAY,(DrawRect){play_x,ty,tw,th},ink,transport_active,1);
@@ -800,12 +803,17 @@ int main(int argc,char **argv) {
         if(!smoke && !animate && host_get_time()-last_activity>.15) host_enable_event_waiting(); else host_disable_event_waiting();
         host_end_drawing();
         if(profile_frames) {
+            if(frames>=40)profile_frame_times[profile_count-1]=host_get_time()-profile_frame_start;
             frames++;
             if(profile_count==profile_frames){
                 qsort(profile_times,profile_frames,sizeof *profile_times,profile_order);
-                printf("{\"style\":\"%s\",\"motion\":%s,\"decorative_edges\":%s,\"width\":%d,\"height\":%d,\"frames\":%d,\"warmup\":40,\"audio_device_started\":%s,\"render_cpu_seconds\":%.6f,\"p50_ms\":%.6f,\"p99_ms\":%.6f,\"max_ms\":%.6f}\n",
+                qsort(profile_frame_times,profile_frames,sizeof *profile_frame_times,profile_order);
+                double profile_duration=host_get_time()-profile_start;
+                printf("{\"style\":\"%s\",\"motion\":%s,\"decorative_edges\":%s,\"width\":%d,\"height\":%d,\"frames\":%d,\"warmup\":40,\"audio_device_started\":%s,\"render_cpu_seconds\":%.6f,\"p50_ms\":%.6f,\"p99_ms\":%.6f,\"max_ms\":%.6f,\"frame_p50_ms\":%.6f,\"frame_p99_ms\":%.6f,\"master_updates_per_second\":%.3f,\"eq_updates_per_second\":%.3f}\n",
                     ui.studio_style?"classic":"legacy",profile_motion?"true":"false",ui.profile_flat?"false":"true",host_get_screen_width(),host_get_screen_height(),profile_frames,audio_ok?"true":"false",profile_cpu,
-                    profile_times[profile_frames/2]*1000,profile_times[(int)((profile_frames-1)*.99)]*1000,profile_times[profile_frames-1]*1000);
+                    profile_times[profile_frames/2]*1000,profile_times[(int)((profile_frames-1)*.99)]*1000,profile_times[profile_frames-1]*1000,
+                    profile_frame_times[profile_frames/2]*1000,profile_frame_times[(int)((profile_frames-1)*.99)]*1000,
+                    (ui.spectrum_updates[0]-profile_spectra[0])/profile_duration,(ui.spectrum_updates[1]-profile_spectra[1])/profile_duration);
                 break;
             }
         }

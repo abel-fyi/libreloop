@@ -29,6 +29,12 @@ old_stop = '"Play from ruler / stop all audio, including previews (Space)"'
 new_stop = '"Play from ruler / stop sources, preserving effect tails (Space)"'
 assert actual[new_stop] == expected[old_stop] == 1
 expected[new_stop] += expected.pop(old_stop)
+# Approved independent editor pages: transport help now distinguishes playback
+# selection from the Arrangement / Pattern tabs. Keep the original fixture intact.
+old_mode = '"Playback mode: click to switch Pattern (orange) / Song (green)"'
+new_mode = '"Playback source: Pattern (orange) / Song (green); editor tabs change the view independently"'
+assert actual[new_mode] == expected[old_mode] == 1
+expected[new_mode] += expected.pop(old_mode)
 # Approved LFO label change: Fade in is now Attack (modulation onset).
 expected['"Attack"'] += expected.pop('"Fade in"')
 # Pattern naming moved intact into the shared engine creation operation.

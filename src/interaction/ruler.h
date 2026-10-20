@@ -8,7 +8,7 @@ typedef struct {
     double last_click;
     RulerPoint last_position;
     float anchor,playlist_start,piano_start[PATTERNS],song_loop[2],pattern_loop[PATTERNS][2];
-    int stop_armed,song,reset,playing;
+    int stop_armed,song,reset,playing,independent_playback;
 } RulerState;
 void ruler_state_init(RulerState *state);
 void ruler_press(RulerState *state,int pattern,int editor,int button,float step,double time,RulerPoint position);

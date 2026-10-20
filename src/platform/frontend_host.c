@@ -147,7 +147,10 @@ void host_mesh_begin(int mode){mesh_mode=mode;mesh_count=0;}
 void host_mesh_color4ub(unsigned char r,unsigned char g,unsigned char b,unsigned char a){mesh_color=(DrawColor){r,g,b,a};}
 void host_mesh_texcoord2f(float u,float v){mesh_u=u;mesh_v=v;}
 void host_mesh_vertex2f(float x,float y){mesh[mesh_count++]=(DrawVertex){{x,y},mesh_u,mesh_v,mesh_color};int count=mesh_mode==HOST_RL_QUADS?4:3;if(mesh_count==count){if(count==4){DrawVertex v[]={mesh[0],mesh[1],mesh[2],mesh[0],mesh[2],mesh[3]};draw_triangles(draw,mesh_texture,v,6);}else draw_triangles(draw,mesh_texture,mesh,3);mesh_count=0;}}
-void host_mesh_end(void){draw_flush(draw);}
+void host_mesh_end(void){
+    /* Complete primitives are already queued by draw_triangles. SDL preserves
+       their order; flushing each segment prevents it from batching EQ curves. */
+}
 int host_path_absolute(const char *path){return platform_absolute_path(path);}
 int host_directory_exists(const char *p){return platform_browser_directory(p);}
 int host_file_exists(const char *p){return platform_path_exists(p);}

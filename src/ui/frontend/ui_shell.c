@@ -101,7 +101,22 @@ void draw_editor(int id,float scale) {
     }
     const char *titles[]={"Channel Rack","Arrangement","Piano Roll","Mixer","Sampler","Equalizer"};
     int title_size=ui.windows.workspace.enabled?14:13,title_y=3;
-    if(id==4 && ui.studio_style){
+    if(ui.windows.workspace.enabled && (id==1 || id==2)) {
+        const char *pages[]={"Arrangement","Pattern"};
+        for(int page=0;page<2;page++) {
+            float x=4+page*110;
+            int selected=id==page+1;
+            ui_button_face(host_draw(),(DrawRect){x,2,106,title-4},selected?ui_theme.highlight:cell,selected);
+            label(pages[page],x+8,title_y,13,theme_foreground(selected?ui_theme.highlight:cell));
+            if(ui.input_enabled && windows_hit(&ui.windows,ui.mouse.x,ui.mouse.y)==id &&
+               ui.mouse.x>=r.x+x && ui.mouse.x<r.x+x+106 && ui.mouse.y>=r.y+2 && ui.mouse.y<r.y+title-2) {
+                snprintf(ui.status,sizeof ui.status,"Show %s; playback source stays unchanged",pages[page]);
+                if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT))windows_focus(&ui.windows,page+1);
+            }
+        }
+        if(id==2)label(fit_text(host_text_format("%s / %s",ui.project.pattern_names[ui.pattern],ui.project.channel_names[ui.piano_channel]),r.w-240,title_size),232,title_y,title_size,title_ink);
+    }
+    else if(id==4 && ui.studio_style){
         const char *name=channel_instrument_name(&ui.project,ui.instrument_channel),*channel=ui.project.channel_names[ui.instrument_channel];
         label(fit_text(!strcmp(name,channel)?name:host_text_format("%s · %s",name,channel),r.w-48,title_size),8,title_y,title_size,title_ink);
     }
@@ -121,7 +136,7 @@ void draw_editor(int id,float scale) {
             else host_draw_rectangle(r.w-54+slot*18,1,17,TITLE-2,ui_theme.hover);
         }
         if(hover_slot>=0)snprintf(ui.status,sizeof ui.status,"%s window",slot==0?"Minimize":slot==1?(ui.windows.workspace.enabled && !ui.windows.workspace.floating[id] && id>=4)?"Float":e->maximized?"Restore":"Maximize":"Hide");
-    } else if(chrome)snprintf(ui.status,sizeof ui.status,ui.windows.workspace.enabled?(id>=4?"Drag title to move; close hides the editor and keeps audio running":"Use PATT / SONG in the toolbar; drag the Mixer divider to resize"):"Drag title bar to move; double-click to maximize/restore; right-click for window options");
+    } else if(chrome && !(ui.windows.workspace.enabled && (id==1 || id==2) && ui.mouse.x<r.x+224))snprintf(ui.status,sizeof ui.status,ui.windows.workspace.enabled?(id>=4?"Drag title to move; close hides the editor and keeps audio running":"Editor tabs change the view; PATT / SONG chooses playback; drag the Mixer divider to resize"):"Drag title bar to move; double-click to maximize/restore; right-click for window options");
     DrawColor hover_ink=theme_foreground(ui_theme.hover);
     if(!ui.windows.workspace.enabled)host_draw_line_ex((DrawPoint){r.w-49,9},(DrawPoint){r.w-41,9},2,hover_slot==0?hover_ink:ink);
     int mx=r.w-27; DrawColor maximize_ink=hover_slot==1?hover_ink:ink;
