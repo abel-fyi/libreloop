@@ -27,5 +27,15 @@ int main(void){
  project_new(&p);p.channel_count=3;CHECK(midi_bind(&p,0,1,(ParameterTarget){PARAM_CHANNEL_VOLUME,2,0}));
  CHECK(midi_bind(&p,0,2,(ParameterTarget){PARAM_CHANNEL_PAN,1,0}));CHECK(channel_delete(&p,1));
  CHECK(p.midi_binding_count==1 && p.midi_bindings[0].target.owner==1);
+ project_new(&p);q=p;
+ CHECK(midi_take_begin_pattern(&take,&p,0,0,0,0,0,16,10));
+ CHECK(midi_take_note(&take,&p,0,60,100,10) && midi_take_note(&take,&p,0,60,0,10));
+ CHECK(p.notes[0][0][0].length==.01f && p.pattern_count==1 && !p.clips[0][0]);
+ midi_take_finish(&take,&p,10);
+ project_new(&p);q=p;
+ CHECK(midi_take_begin_pattern(&take,&p,0,0,1,0,0,16,10));
+ midi_take_finish(&take,&p,10.25);CHECK(!memcmp(&p,&q,sizeof p));
+ p.pattern_count=PATTERNS;CHECK(midi_take_begin_pattern(&take,&p,0,0,0,0,0,16,10));
+ midi_take_finish(&take,&p,10);CHECK(!midi_take_begin_pattern(&take,&p,0,0,1,0,0,16,10));
  puts("MIDI parser, polyphonic recording, gates, automation, bindings and persistence passed.");return 0;
 }

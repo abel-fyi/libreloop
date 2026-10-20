@@ -51,18 +51,46 @@ int midi_take_begin(MidiTake *t,Project *p,int channel,int notes,float origin,do
     }
     return 1;
 }
+int midi_take_begin_pattern(MidiTake *t,Project *p,int channel,int pattern,int create,float origin,float start,float end,double time) {
+    if(channel<0 || channel>=p->channel_count || pattern>=p->pattern_count || pattern< -1 ||
+       !isfinite(origin) || !isfinite(start) || !isfinite(end) || !isfinite(time) || start<0 || end<=start || origin<start || origin>=end ||
+       (pattern>=0 && end>p->pattern_steps[pattern]) || (create && pattern>=0 && p->pattern_count>=PATTERNS))return 0;
+    memset(t,0,sizeof *t);memset(t->held,0xff,sizeof t->held);
+    t->active=t->in_place=1;t->channel=channel;t->pattern=pattern;t->lane=-1;
+    t->origin=origin;t->loop_start=start;t->loop_end=end;t->bpm=p->bpm;t->time=time;
+    if(create && pattern>=0) {
+        int slot=p->pattern_count;
+        memcpy(t->previous_notes,p->notes[slot],sizeof t->previous_notes);
+        memcpy(t->previous_name,p->pattern_names[slot],sizeof t->previous_name);
+        t->previous_steps=p->pattern_steps[slot];t->previous_color=p->pattern_colors[slot];
+        t->pattern=pattern_add(p);t->created_pattern=1;
+        p->pattern_steps[t->pattern]=fmaxf(STEPS,ceilf(end/STEPS)*STEPS);
+    }
+    return 1;
+}
+static float note_time(const MidiTake *t,double time) {return position(t,time)+(t->in_place?t->origin:0);}
+static float note_step(const MidiTake *t,float at) {
+    return t->in_place && at>=t->loop_end?t->loop_start+fmodf(at-t->loop_start,t->loop_end-t->loop_start):at;
+}
+static void held_length(MidiTake *t,Project *p,int slot,float at) {
+    Note *n=&p->notes[t->pattern][t->channel][slot];
+    float length=t->in_place?at-t->note_started[slot]:at-n->start;
+    if(t->in_place)length=fminf(length,t->loop_end-n->start);
+    n->length=fmaxf(t->in_place?fminf(.01f,t->loop_end-n->start):.01f,length);
+}
 int midi_take_note(MidiTake *t,Project *p,int channel,int pitch,int velocity,double time) {
     if(!t->active || t->pattern<0 || channel<0 || channel>15 || pitch<0 || pitch>127 || !isfinite(time))return 0;
     return midi_take_key_note(t,p,&t->held[channel][pitch],pitch,velocity,time);
 }
 int midi_take_key_note(MidiTake *t,Project *p,int *slot,int pitch,int velocity,double time) {
     if(!t->active || t->pattern<0 || !slot || pitch<0 || pitch>127 || !isfinite(time))return 0;
-    float step=position(t,time);
-    if(*slot>=0 && *slot<NOTES) { Note *n=&p->notes[t->pattern][t->channel][*slot];n->length=fmaxf(.01f,step-n->start);if(velocity>=0)*slot=-1; }
+    float at=note_time(t,time),step=note_step(t,at);
+    if(*slot>=0 && *slot<NOTES) { held_length(t,p,*slot,at);if(velocity>=0)*slot=-1; }
     if(velocity>0) {
-        p->pattern_steps[t->pattern]=fmaxf(p->pattern_steps[t->pattern],ceilf((step+.01f)/STEPS)*STEPS);
-        Note *n=note_add(p,t->pattern,t->channel,step,pitch,.01f);
-        if(!n) {t->failed=1;return 0;}n->velocity=fminf(127,velocity);*slot=n-p->notes[t->pattern][t->channel];
+        if(!t->in_place)p->pattern_steps[t->pattern]=fmaxf(p->pattern_steps[t->pattern],ceilf((step+.01f)/STEPS)*STEPS);
+        float length=t->in_place?fminf(.01f,t->loop_end-step):.01f;
+        Note *n=note_add(p,t->pattern,t->channel,step,pitch,length);
+        if(!n) {t->failed=1;return 0;}n->velocity=fminf(127,velocity);*slot=n-p->notes[t->pattern][t->channel];t->note_started[*slot]=at;
     }
     return 1;
 }
@@ -101,16 +129,27 @@ int midi_take_control(MidiTake *t,Project *p,ParameterTarget target,float value,
 void midi_take_update(MidiTake *t,Project *p,double time) {
     if(!t->active || !isfinite(time))return;float step=position(t,time),length=fmaxf(.01f,step);
     if(t->pattern>=0) {
-        for(int c=0;c<16;c++)for(int k=0;k<128;k++)if(t->held[c][k]>=0){Note *n=&p->notes[t->pattern][t->channel][t->held[c][k]];n->length=fmaxf(.01f,step-n->start);}
-        p->pattern_steps[t->pattern]=fmaxf(p->pattern_steps[t->pattern],ceilf((step+.01f)/STEPS)*STEPS);
-        p->clip_steps[t->lane][t->clip]=length;
+        for(int c=0;c<16;c++)for(int k=0;k<128;k++)if(t->held[c][k]>=0)held_length(t,p,t->held[c][k],note_time(t,time));
+        if(!t->in_place) {
+            p->pattern_steps[t->pattern]=fmaxf(p->pattern_steps[t->pattern],ceilf((step+.01f)/STEPS)*STEPS);
+            p->clip_steps[t->lane][t->clip]=length;
+        }
     }
     for(int i=0;i<t->count;i++)p->clip_steps[t->curve_lane[i]][t->curve_clip[i]]=length;
 }
 void midi_take_finish(MidiTake *t,Project *p,double time) {
     midi_take_update(t,p,time);t->active=0;
-    if(t->pattern>=0)p->lane_mute[t->lane]=t->lane_mute[0];
+    if(t->pattern>=0 && !t->in_place)p->lane_mute[t->lane]=t->lane_mute[0];
     for(int i=0;i<t->count;i++)p->lane_mute[t->curve_lane[i]]=t->lane_mute[i+1];
+    if(t->in_place) {
+        int used=0;if(t->pattern>=0)for(int c=0;c<p->channel_count;c++)for(int i=0;i<NOTES;i++)used|=p->notes[t->pattern][c][i].velocity;
+        if(t->created_pattern && !used && t->pattern==p->pattern_count-1) {
+            p->pattern_count--;memcpy(p->notes[t->pattern],t->previous_notes,sizeof t->previous_notes);
+            memcpy(p->pattern_names[t->pattern],t->previous_name,sizeof t->previous_name);
+            p->pattern_steps[t->pattern]=t->previous_steps;p->pattern_colors[t->pattern]=t->previous_color;
+        }
+        memset(t->held,0xff,sizeof t->held);return;
+    }
     if(t->pattern>=0){int used=0;for(int i=0;i<NOTES;i++)used|=p->notes[t->pattern][t->channel][i].velocity;if(!used && t->pattern==p->pattern_count-1){p->clips[t->lane][t->clip]=0;p->pattern_count--;
             memcpy(p->notes[t->pattern],t->previous_notes,sizeof t->previous_notes);
             memcpy(p->pattern_names[t->pattern],t->previous_name,sizeof t->previous_name);

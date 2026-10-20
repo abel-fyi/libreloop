@@ -4,6 +4,26 @@
 #include <string.h>
 #include "midi_sequence.h"
 static Project project;static MidiTake take;static MidiSession state;
+/* Keep the frozen Song replay's byte layout independent of new take fields. */
+typedef struct {
+    int active,pattern,channel,lane,clip,failed;
+    float origin,bpm; double time;
+    unsigned char lane_mute[AUTOMATIONS+1];
+    Note previous_notes[CHANNELS][NOTES];
+    char previous_name[PATTERN_NAME];
+    float previous_steps,previous_start,previous_cap,previous_offset;
+    int held[16][128],curves[AUTOMATIONS],curve_lane[AUTOMATIONS],curve_clip[AUTOMATIONS],count;
+} OriginalMidiTake;
+static void capture_take(FILE *file) {
+    OriginalMidiTake original;memset(&original,0,sizeof original);
+#define COPY(field) memcpy(&original.field,&take.field,sizeof original.field)
+    COPY(active);COPY(pattern);COPY(channel);COPY(lane);COPY(clip);COPY(failed);
+    COPY(origin);COPY(bpm);COPY(time);COPY(lane_mute);COPY(previous_notes);
+    COPY(previous_name);COPY(previous_steps);COPY(previous_start);COPY(previous_cap);
+    COPY(previous_offset);COPY(held);COPY(curves);COPY(curve_lane);COPY(curve_clip);COPY(count);
+#undef COPY
+    fwrite(&original,sizeof original,1,file);
+}
 static FILE *commands;
 static void key_velocity(void *ctx,int slot,int channel,int pitch,int velocity){(void)ctx;fprintf(commands,"v %d %d %d %d\n",slot,channel,pitch,velocity);}
 static void key(void *ctx,int slot,int channel,int pitch,int down){(void)ctx;fprintf(commands,"k %d %d %d %d\n",slot,channel,pitch,down);}
@@ -28,7 +48,7 @@ int main(int argc,char **argv) {
         if(frame==midi_sequence_count(mode)-1)midi_session_panic(&state,e.time);
         if(midi_session_update(&state,e.time,frame<10,mode==4?&project.master:NULL))finish++;
         int ints[]={state.midi_learning,finish};fwrite(ints,sizeof ints,1,trace);
-        fwrite(state.midi_keys,sizeof state.midi_keys,1,trace);fwrite(state.midi_sustain,sizeof state.midi_sustain,1,trace);fwrite(state.keyboard_notes,sizeof state.keyboard_notes,1,trace);fwrite(state.status,sizeof state.status,1,trace);fwrite(&take,sizeof take,1,trace);midi_sequence_values(trace,&project);
+        fwrite(state.midi_keys,sizeof state.midi_keys,1,trace);fwrite(state.midi_sustain,sizeof state.midi_sustain,1,trace);fwrite(state.keyboard_notes,sizeof state.keyboard_notes,1,trace);fwrite(state.status,sizeof state.status,1,trace);capture_take(trace);midi_sequence_values(trace,&project);
     }
     fclose(trace);fclose(commands);return project_save("expected.llp",&project)?0:2;
 }

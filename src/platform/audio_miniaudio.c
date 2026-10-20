@@ -252,7 +252,7 @@ static void callback(ma_device *d, void *out, const void *in, ma_uint32 frames) 
     if(analyzer[1].bus!=callback_bus){analyzer[1].available=analyzer[1].cursor=0;analyzer[1].bus=callback_bus;}
     callback_metronome=playing && atomic_load_explicit(&metronome,memory_order_relaxed);
     if(!callback_metronome)click_position=1200;
-    MixerIO taps=recording.active?recording.io:(MixerIO){0}; taps.output=record_output; taps.monitor_only=!(recording.active || atomic_load(&midi_recording));
+    MixerIO taps=recording.active?recording.io:(MixerIO){0}; taps.output=record_output; taps.monitor_only=!player.song || !(recording.active || atomic_load(&midi_recording));
     live_time=monotonic_time();live_frames=frames;
     if(preview_channel>=0)preview_speed=preview_note_pitch*channel_speed(&project,preview_channel);
     if(preview_position<preview_end){preview_frame=preview_position;preview_time=live_time;preview_rate=preview_channel>=0 && project.sampler[preview_channel].stretch?1:exp2(project.master_pitch/12.)*preview_speed;}
@@ -269,7 +269,7 @@ static void callback(ma_device *d, void *out, const void *in, ma_uint32 frames) 
         visual_start=(player.loop_end?player.loop_start:player.song?0:player.start_step)*step_frames;
         float end=player.loop_end?player.loop_end:player.song?playback.song_end:pattern_playback_steps(&project,player.pattern);
         if(visual_start>=end*step_frames) visual_start=0;
-        visual_end=(recording.active || atomic_load(&midi_recording))?INFINITY:end*step_frames;
+        visual_end=player.song && (recording.active || atomic_load(&midi_recording))?INFINITY:end*step_frames;
     }
     else if(arp_mix)render_mixer_io(&player,&live,&project,samples,out,frames,0,peaks,&taps);
     else render_mixer_io(&live,NULL,&project,samples,out,frames,0,peaks,&taps);
@@ -600,7 +600,7 @@ static void record_release(void) {
     for(int i=0;i<CHANNELS;i++) { free(recording.inputs[i].pcm); free(recording.takes[i].pcm); }
     memset(&recording,0,sizeof recording);
 }
-int audio_record_start(const Project *p,const int buses[],int count,float start_step,float output,char error[256]) {
+int audio_record_start(const Project *p,const int buses[],int count,float start_step,float output,int song,int pattern,float loop_start,float loop_end,char error[256]) {
     if(!ready || count<1 || count>CHANNELS || recording.active) { snprintf(error,256,"Audio unavailable or invalid recording tracks."); return 0; }
     ma_device_stop(&device); record_release();
     ma_device_info *outputs,*inputs; ma_uint32 output_count,input_count;
@@ -634,7 +634,7 @@ int audio_record_start(const Project *p,const int buses[],int count,float start_
     for(int i=0;i<recording.devices_count;i++) if(ma_device_start(&recording.devices[i])!=MA_SUCCESS) goto failed;
     /* Commit transport while playback is stopped, so its first frame is also recorded. */
     recording.active=1;
-    audio_update(p,1,1,player.pattern,1,output,start_step,0,0);
+    audio_update(p,1,song,pattern,1,output,start_step,song?0:loop_start,song?0:loop_end);
     if(ma_device_start(&device)==MA_SUCCESS) return 1;
     recording.active=0;
 failed:

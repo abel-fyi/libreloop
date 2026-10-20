@@ -87,10 +87,12 @@ int main(int argc,char **argv) {
     float smoke_velocity=0,smoke_mixer_offset=0,smoke_fx_scroll=0;int smoke_seconds=0,smoke_fx_hidden=0,smoke_inserts=0,smoke_routing=0,smoke_fx_count=0;
     float smoke_ui_scale=0;
     float smoke_rack_zoom=0;int smoke_grid_menu=0,smoke_grid=-1,smoke_workspace=0,smoke_fill=0,smoke_count=0;
-    int smoke_patterns=0;
+    int smoke_patterns=0,smoke_record_options=0,smoke_record_armed=0;
     int smoke=0,visual_preview=0,legacy_ui=0,smoke_scene=0,smoke_width=0,smoke_height=0,smoke_popup=0,profile_frames=0,profile_motion=0;
     for(int i=1;i<argc;i++) {
         if(!strcmp(argv[i],"--smoke")) smoke=1;
+        else if(!strcmp(argv[i],"--smoke-record-options"))smoke_record_options=1;
+        else if(!strcmp(argv[i],"--smoke-record-armed"))smoke_record_armed=1;
         else if(!strcmp(argv[i],"--smoke-patterns") && i+1<argc)smoke_patterns=atoi(argv[++i]);
         else if(!strcmp(argv[i],"--smoke-fx-count") && i+1<argc)smoke_fx_count=atoi(argv[++i]);
         else if(!strcmp(argv[i],"--smoke-routing"))smoke_routing=1;
@@ -136,6 +138,7 @@ int main(int argc,char **argv) {
     if(!isfinite(smoke_ui_scale) || (smoke_ui_scale && (!smoke || smoke_ui_scale<75 || smoke_ui_scale>200)))return 1;
     if(smoke)ui.ui_scale_preference=smoke_ui_scale/100;
     if(smoke_popup<0 || smoke_popup>14 || (smoke_popup && !smoke))return 1;
+    if((smoke_record_options || smoke_record_armed) && !smoke)return 1;
     if(profile_frames && (!smoke || profile_frames<100 || profile_frames>10000))return 1;
     if(ui.profile_flat && !profile_frames)return 1;
     double *profile_times=profile_frames?calloc(profile_frames*2,sizeof *profile_times):NULL;
@@ -260,7 +263,9 @@ int main(int argc,char **argv) {
             if(smoke_workspace==7){ui.mixer_selected=1;mixer_effect_add(1,0,EFFECT_CHORUS);mixer_effect_add(1,1,EFFECT_CHORUS);mixer_effect_add(1,2,EFFECT_EQ);}
             if(smoke_workspace==8){ui.pattern=0;ui.channel=ui.piano_channel=0;ui.pattern_hits[0]=1;windows_focus(&ui.windows,2);}
             if(smoke_workspace==9){windows_focus(&ui.windows,2);windows_focus(&ui.windows,4);}
-            if(smoke_count){ui.record_mask=RECORD_NOTES;ui.typing_keys=1;ui.record_count_enabled=1;ui.record_count_steps=smoke_count;recording_start();}
+            if(smoke_count){ui.record_mask=RECORD_NOTES;ui.typing_keys=1;ui.record_count_enabled=1;ui.record_count_steps=smoke_count;recording_start();recording_play();}
+            if(smoke_record_armed)recording_start();
+            if(smoke_record_options){StudioToolbar layout=studio_toolbar_layout(width);open_context(31,0,(DrawPoint){layout.record.x,layout.record.y+layout.record.h+4});}
             if(smoke_fill){ui.rack_fill_interval=3;begin_rack_fill(ui.channel);}
             initialized=1;
         }
@@ -557,29 +562,30 @@ int main(int argc,char **argv) {
         knob_style(volume_x,cy,&ui.output_volume,0,VOLUME_KNOB_MAX,1,"LibreLoop output volume",KNOB_VOLUME);
         if(hover(volume_x-11,cy-11,22,22) || ui.control_drag==&ui.output_volume) snprintf(ui.status,sizeof ui.status,"LibreLoop output volume: listening level; Master and WAV export unchanged");
         if(ui.studio_style) {
-            label("PLAYBACK",mode_x+(mode_w-text_width("PLAYBACK",UI_TEXT_SIZE))/2,ty,UI_TEXT_SIZE,muted);
-            int song=segmented_switch("PATT","SONG",(DrawRect){mode_x,ty+16,mode_w,th-16},ui.song,!recording_active(),ui.song?ui_theme.meter_low:ui_theme.meter_mid);
+            label("PLAY",mode_x+(mode_w-text_width("PLAY",UI_TEXT_SIZE))/2,ty,UI_TEXT_SIZE,muted);
+            int song=segmented_switch("Pattern","Song",(DrawRect){mode_x,ty+16,mode_w,th-16},ui.song,!recording_active(),ui.song?ui_theme.meter_low:ui_theme.meter_mid);
             desktop_playback_mode(song);
         } else {
             if(button("",mode_x,ty,mode_w,th,0) && !recording_active())desktop_playback_mode(!ui.song);
             host_draw_rectangle(mode_x,ty,mode_w,th/2,ui.song?cell:ui_theme.patt);
             host_draw_rectangle(mode_x,ty+th/2,mode_w,th/2,ui.song?accent:cell);
-            label("PATT",mode_x+(mode_w-text_width("PATT",10))/2,ty+(th/2-10)/2,10,ui.song?muted:ui_theme.selected_text);
-            label("SONG",mode_x+(mode_w-text_width("SONG",10))/2,ty+th/2+(th/2-10)/2,10,ui.song?ui_theme.selected_text:muted);
+            label("Pattern",mode_x+(mode_w-text_width("Pattern",10))/2,ty+(th/2-10)/2,10,ui.song?muted:ui_theme.selected_text);
+            label("Song",mode_x+(mode_w-text_width("Song",10))/2,ty+th/2+(th/2-10)/2,10,ui.song?ui_theme.selected_text:muted);
         }
         if(hover(mode_x,ty,mode_w,th)) snprintf(ui.status,sizeof ui.status,ui.studio_style?"Playback: choose what Play runs; VIEW changes the editor independently":"Playback source: Pattern (orange) / Song (green); editor tabs change the view independently");
-        int transport_active=ui.playing || audio_preview_position(ui.audition)>=0 || audio_key_position(127,ui.instrument_channel)>=0;
+        int transport_active=ui.playing || ui.record_count_in.active || audio_preview_position(ui.audition)>=0 || audio_key_position(127,ui.instrument_channel)>=0;
         if(button(ui.studio_style?"":transport_active?"||":">",play_x,ty,tw,th,transport_active)) transport_toggle();
         if(ui.studio_style)icon_button_state(transport_active?ICON_PAUSE:ICON_PLAY,(DrawRect){play_x,ty,tw,th},ink,transport_active,1);
         if(hover(play_x,ty,tw,th)) snprintf(ui.status,sizeof ui.status,"Play from ruler / stop sources, preserving effect tails (Space)");
         if(button(ui.studio_style?"":"[]",stop_x,ty,tw,th,0)) transport_stop();
         if(ui.studio_style)icon_in_button(ICON_STOP,(DrawRect){stop_x,ty,tw,th},ink);
         if(hover(stop_x,ty,tw,th)) snprintf(ui.status,sizeof ui.status,"Stop all audio; press again while stopped to return the start marker to the beginning");
-        if(button("",record_x,ty,tw,th,recording_active())) recording_start();
-        int record_pressed=recording_active() || (hover(record_x,ty,tw,th) && host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT));
-        if(ui.studio_style)ui_lamp(host_draw(),(DrawPoint){record_x+tw/2+record_pressed,cy+record_pressed},fminf(14,tw*.34f),(DrawColor){255,33,47,255});
+        if(button("",record_x,ty,tw,th,ui.record_enabled || recording_active())) recording_start();
+        int record_pressed=ui.record_enabled || recording_active() || (hover(record_x,ty,tw,th) && host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT));
+        if(ui.studio_style)ui_lamp(host_draw(),(DrawPoint){record_x+tw/2+record_pressed,cy+record_pressed},fminf(14,tw*.34f),recording_active()?(DrawColor){255,33,47,255}:ui.record_enabled?(DrawColor){190,45,53,255}:(DrawColor){125,36,44,255});
         else circle(record_x+tw/2,cy,7,ui_theme.meter_high);
-        if(hover(record_x,ty,tw,th) && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)){midi_refresh();open_popup(13);}
+        if(hover(record_x,ty,tw,th) && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT))open_context(31,0,ui.mouse);
+        if(!ui.studio_style) {
         const int record_icons[]={ICON_WAVE,ICON_PIANO,ICON_AUTOMATION};
         const char *record_names[]={"Audio from armed mixer tracks","MIDI notes into a new pattern","MIDI / mouse control automation"};
         int record_input=ui.input_enabled;if(recording_active())ui.input_enabled=0;
@@ -590,7 +596,8 @@ int main(int argc,char **argv) {
             else icon(record_icons[i],xx+rw/2,cy,17,ui.record_mask&(1u<<i)?ui_theme.selected_text:muted);
             if(hover(xx,cy-rw/2,rw,rw))snprintf(ui.status,sizeof ui.status,"Record %s: %s",record_names[i],ui.record_mask&(1u<<i)?"enabled":"disabled");
         }ui.input_enabled=record_input;
-        if(hover(record_x,ty,tw,th)) snprintf(ui.status,sizeof ui.status,recording_active()?"Recording: click to finish the takes":"Record enabled types; right-click for MIDI inputs and recording settings");
+        }
+        if(hover(record_x,ty,tw,th)) snprintf(ui.status,sizeof ui.status,recording_active()?"Recording: click to finish and disarm":ui.record_enabled?"Recording armed: Play starts the take; click to disarm":"Arm recording; right-click for Audio, Notes, Automation and Pattern options");
         int metro_h=ui.studio_style?(th-2)/2:th;
         if(button("",metro_x,ty,ui.studio_style?tw:22,metro_h,ui.metronome)) { ui.metronome=!ui.metronome; audio_metronome(ui.metronome); }
         if(ui.studio_style)icon_button_state(ICON_METRO,(DrawRect){metro_x,ty,tw,metro_h},ui.metronome?ui_theme.selected_text:ink,ui.metronome,1);
@@ -794,8 +801,9 @@ int main(int argc,char **argv) {
         if(!captured() && !recording_active()) history_checkpoint();
         if(ui.pattern_popup!=11 && ui.file_picker.entries) file_chooser_close(&ui.file_picker);
         sampler_queue();
-        if(ui.recording_ui.active || ui.midi_take.active) { ui.project.bpm=ui.recording_ui.active?ui.recording_ui.bpm:ui.midi_take.bpm; ui.song=ui.playing=1; ui.reset=0; }
-        flush_cursor(); audio_update(&ui.project,ui.playing,ui.song,ui.pattern,ui.reset,ui.output_volume,playback_start(),recording_active()?0:playback_loop()[0],recording_active()?0:playback_loop()[1]);
+        if(ui.recording_ui.active || ui.midi_take.active) { ui.project.bpm=ui.recording_ui.active?ui.recording_ui.bpm:ui.midi_take.bpm; ui.playing=1; ui.reset=0; }
+        float *transport_loop=recording_active() && !ui.song?ui.record_loop:playback_loop();
+        flush_cursor(); audio_update(&ui.project,ui.playing,ui.song,ui.pattern,ui.reset,ui.output_volume,playback_start(),recording_active() && ui.song?0:transport_loop[0],recording_active() && ui.song?0:transport_loop[1]);
         if(audio_effect_memory_failed())snprintf(ui.status,sizeof ui.status,"Not enough memory for effect buffers; unprepared effects pass dry.");
         int animate=audio_active() || ui.mixer_decay_active || ui.spectrum_active || (ui.windows.editors[0].visible && ui.channel_decay_active) || ui.browser_progress>=0 || (ui.windows.editors[3].visible && (audio_active() || ui.mixer_decay_active)) || ui.record_count_in.active || ui.playing || captured() || ui.windows.grab>=0 || ui.popup_drag || ui.sample_drag[0] ||
             (ui.windows.editors[4].visible && audio_key_position(127,ui.instrument_channel)>=0);

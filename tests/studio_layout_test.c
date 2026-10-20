@@ -43,7 +43,7 @@ int main(void) {
         Rect all[24];int count=0;
         for(int i=0;i<4;i++){all[count++]=t.menus[i];CHECK(t.menus[i].w>=64 && t.menus[i].h>=20); }
         all[count++]=t.pitch;all[count++]=t.volume;all[count++]=t.stop;all[count++]=t.play;all[count++]=t.record;
-        for(int i=0;i<3;i++)all[count++]=t.record_types[i];
+        for(int i=0;i<3;i++)CHECK(t.record_types[i].w==0 && t.record_types[i].h==0);
         all[count++]=t.metronome;all[count++]=t.position;all[count++]=t.tempo;all[count++]=t.mode;
         for(int i=0;i<4;i++)CHECK(t.editors[i].w==0 && t.editors[i].h==0);
         all[count++]=t.follow;all[count++]=t.typing;
@@ -55,7 +55,7 @@ int main(void) {
             CHECK(all[i].x>=0 && all[i].y>=0 && all[i].x+all[i].w<=widths[n] && all[i].y+all[i].h<=58);
             for(int j=i+1;j<count;j++)CHECK(!overlap(all[i],all[j]));
         }
-        if(widths[n]==1448){CHECK(t.spectrum.w==120 && t.levels.w==104);CHECK(t.levels.x+t.levels.w==1172);}
+        if(widths[n]==1448){CHECK(t.spectrum.w==120 && t.levels.w==104);CHECK(t.levels.x+t.levels.w==1138);}
         CHECK(t.mode.x+t.mode.w+6==t.play.x);
         CHECK(t.play.x+t.play.w<t.stop.x && t.stop.x+t.stop.w<t.record.x);
         CHECK(t.pitch.x>t.menus[1].x+t.menus[1].w);

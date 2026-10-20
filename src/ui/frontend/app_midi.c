@@ -44,7 +44,7 @@ void midi_panic(void) {
 void midi_save_settings(void) {
     AtomicFile out;if(!ui.midi_settings_path[0] || !atomic_file_open(&out,ui.midi_settings_path))return;
     fprintf(out.file,"%u\n%s\n%s\n",ui.record_mask,ui.midi_selected,ui.midi_selected_name);
-    fprintf(out.file,"%d %.0f\n",ui.record_count_enabled,ui.record_count_steps);atomic_file_commit(&out);
+    fprintf(out.file,"%d %.0f\n",ui.record_count_enabled,ui.record_count_steps);fprintf(out.file,"%d\n",ui.record_new_pattern);atomic_file_commit(&out);
 }
 
 void midi_refresh(void) {
@@ -92,6 +92,7 @@ static void midi_settings_read(FILE *f) {
     if(fgets(line,sizeof line,f) && sscanf(line,"%d%f",&enabled,&steps)==2 && isfinite(steps) && steps>=1 && steps<=4096) {
         ui.record_count_enabled=!!enabled;ui.record_count_steps=roundf(steps);
     }
+    int fresh;if(fgets(line,sizeof line,f) && sscanf(line,"%d",&fresh)==1 && (fresh==0 || fresh==1))ui.record_new_pattern=fresh;
 }
 
 void midi_initialize(void) {

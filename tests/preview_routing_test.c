@@ -40,6 +40,17 @@ int main(void) {
     setup(1,0,1,0);audio_preview((Sample){0});audio_update(&fixture,1,0,0,1,1,0,0,0);audio_metronome(1);
     for(int at=0;at<4096;){int n=at+37<4096?37:4096-at;callback(0,chunked+at*2,0,n);at+=n;}
     CHECK(!memcmp(wet,chunked,sizeof wet));audio_metronome(0);
+    /* Both audio and MIDI recording must retain Pattern looping. Song takes
+       still run past their end, and the visual transport uses the same rule. */
+    for(int song=0;song<2;song++) {
+        setup(0,0,1,0);audio_preview((Sample){0});
+        audio_update(&fixture,1,song,0,1,1,15.995f,0,16);
+        audio_record_mode(1);recording.active=1;
+        callback(0,wet,0,4096);
+        CHECK(song?player.frame>96000:player.frame<4096);
+        CHECK(song?isinf(visual_end):isfinite(visual_end));
+        recording.active=0;audio_record_mode(0);
+    }
     /* A stalled reader gets the newest complete window, with no stale backlog. */
     unsigned elapsed;float latest[8192];
     for(unsigned i=0;i<20000;i++)analyzer_push(0,(float)i,-(float)i);

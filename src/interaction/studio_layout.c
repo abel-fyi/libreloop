@@ -36,17 +36,17 @@ StudioToolbar studio_toolbar_layout(float width) {
     for(int i=0;i<4;i++)t.menus[i]=(Rect){8+(i%2)*72,16+(i/2)*22,68,20};
     t.pitch=(Rect){164,cy-11,22,22};
     t.volume=(Rect){204,cy-11,22,22};
-    t.mode=(Rect){244,y,80,size};
-    t.play=(Rect){330,y,size,size};
-    t.stop=(Rect){378,y,size,size};
-    t.record=(Rect){426,y,size,size};
-    for(int i=0;i<3;i++)t.record_types[i]=(Rect){480+i*26,cy-12,24,24};
-    t.metronome=(Rect){568,y,size,size};
-    t.position=(Rect){622,y,136,size};
-    t.tempo=(Rect){770,y,88,size};
-    t.follow=(Rect){864,cy-14,28,28};
-    t.typing=(Rect){896,cy-14,28,28};
-    t.spectrum=(Rect){944,y,120,size};
-    t.levels=(Rect){1068,y,104,size};
+    t.mode=(Rect){244,y,128,size};
+    t.play=(Rect){378,y,size,size};
+    t.stop=(Rect){426,y,size,size};
+    t.record=(Rect){474,y,size,size};
+    /* Record types are selected together in the Record context menu. */
+    t.metronome=(Rect){528,y,size,size};
+    t.position=(Rect){582,y,136,size};
+    t.tempo=(Rect){730,y,88,size};
+    t.follow=(Rect){830,cy-14,28,28};
+    t.typing=(Rect){862,cy-14,28,28};
+    t.spectrum=(Rect){910,y,120,size};
+    t.levels=(Rect){1034,y,104,size};
     return t;
 }

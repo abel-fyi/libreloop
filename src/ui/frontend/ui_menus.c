@@ -10,7 +10,7 @@ static void popup_caption(const char *text,int x,int y,int width) {
 
 void open_popup(int kind) {
     if(kind==2) ui.rename_automation=-1;
-    if(kind==4) ui.help_scroll=0;
+    if(kind==4) ui.help_scroll=ui.help_extent=0;
     ui.pattern_popup=kind; ui.popup_opened=1; ui.popup_drag=0;
     ui.popup_position[kind]=kind==7?(DrawPoint){96,34}:(DrawPoint){-1,-1};
 }
@@ -105,8 +105,9 @@ void help_group(int x,int *y,const char *title) {
     label(title,x,*y,13,accent); *y+=26;
 }
 
-void help_binding(int x,int *y,const char *keys,const char *action) {
-    label(keys,x,*y,11,ink); label(action,x+126,*y,11,muted); *y+=23;
+void help_binding(int x,int *y,int width,const char *keys,const char *action) {
+    label(fit_text(keys,164,11),x,*y,11,ink);
+    label(fit_text(action,width-176,11),x+176,*y,11,muted); *y+=24;
 }
 
 static void popup_menu_anchor(int menu,int *x,int *y) {
@@ -182,10 +183,11 @@ void draw_popup_content(void) {
         if(button("Cancel",x+252,y+100,100,28,0) || host_is_key_pressed(HOST_KEY_ESCAPE)) { ui.document.pending_action=0; ui.pattern_popup=0; }
         return;
     }
-    int picker=ui.pattern_popup==11,folder=ui.pattern_popup==3,help=ui.pattern_popup==4,number=ui.pattern_popup==5,w=ui.pattern_popup==14?400:ui.pattern_popup==13?460:picker?700:ui.pattern_popup==6?320:help?660:number?360:folder?620:260,h=ui.pattern_popup==14?208:ui.pattern_popup==13?390:picker?(ui.file_confirm?180:500):help?645:ui.pattern_popup==6 && ui.studio_style?188:116;
+    int picker=ui.pattern_popup==11,folder=ui.pattern_popup==3,help=ui.pattern_popup==4,number=ui.pattern_popup==5,w=ui.pattern_popup==14?400:ui.pattern_popup==13?460:picker?700:ui.pattern_popup==6?320:help?900:number?360:folder?620:260,h=ui.pattern_popup==14?208:ui.pattern_popup==13?390:picker?(ui.file_confirm?180:500):help?645:ui.pattern_popup==6 && ui.studio_style?188:116;
     int title=ui.studio_style?STUDIO_TITLE:TITLE,pad=title-TITLE;
     h+=pad;
     float scale=ui_scale();
+    if(help)w=fminf(w,host_get_screen_width()/scale-32);
     if(help || picker || ui.pattern_popup==13) h=fminf(h,host_get_screen_height()/scale-56);
     DrawPoint *position=&ui.popup_position[ui.pattern_popup];
     if(position->x<0 || position->y<0) *position=(DrawPoint){(host_get_screen_width()/scale-w)/2,(host_get_screen_height()/scale-h)/2};
@@ -257,86 +259,92 @@ void draw_popup_content(void) {
     }
     if(help) {
         popup_caption("Help - Keybindings",x,y,w);
-        int maximum=767-h;
+        int maximum=fmaxf(0,ui.help_extent-(h-TITLE-30));
         if(hover(x,y+TITLE,w,h-TITLE)) ui.help_scroll-=host_get_mouse_wheel_move()*36;
         ui.help_scroll=fmaxf(0,fminf(maximum,ui.help_scroll));
         host_begin_scissor_mode(x*scale,(y+TITLE)*scale,w*scale,(h-TITLE-30)*scale);
-        int left=x+18,right=x+348,ly=y+34-ui.help_scroll,ry=ly;
+        int column=(w-54)/2,left=x+18,right=x+36+column,ly=y+34-ui.help_scroll,ry=ly;
         help_group(left,&ly,"Playlist & Piano Roll navigation");
-        help_binding(left,&ly,"Wheel","Scroll vertically");
-        help_binding(left,&ly,"Shift + wheel","Scroll horizontally");
+        help_binding(left,&ly,column,"Wheel","Scroll vertically");
+        help_binding(left,&ly,column,"Shift + wheel","Scroll horizontally");
 #ifdef __APPLE__
-        help_binding(left,&ly,"Cmd + wheel","Zoom around pointer");
-        help_binding(left,&ly,"Two-finger scroll","Pan in both directions");
-        help_binding(left,&ly,"Pinch","Zoom around pointer");
+        help_binding(left,&ly,column,"Cmd + wheel","Zoom around pointer");
+        help_binding(left,&ly,column,"Two-finger scroll","Pan in both directions");
+        help_binding(left,&ly,column,"Pinch","Zoom around pointer");
 #else
-        help_binding(left,&ly,"Ctrl + wheel","Zoom around pointer");
+        help_binding(left,&ly,column,"Ctrl + wheel","Zoom around pointer");
 #endif
-        help_binding(left,&ly,"Middle drag","Pan freely");
+        help_binding(left,&ly,column,"Middle drag","Pan freely");
         ly+=12; help_group(left,&ly,"Transport & keyboard audition");
-        help_binding(left,&ly,"Space","Play / stop from marker");
-        help_binding(left,&ly,"Z row + S/D/G/H/J","Play notes from C3");
-        help_binding(left,&ly,"Q row + number keys","Play notes from C4");
+        help_binding(left,&ly,column,"Space","Play / stop from marker");
+        help_binding(left,&ly,column,"Z row + S/D/G/H/J","Play notes from C3");
+        help_binding(left,&ly,column,"Q row + number keys","Play notes from C4");
         ly+=12; help_group(left,&ly,"Editor windows");
-        help_binding(left,&ly,"Drag title bar","Move window");
-        if(ui.windows.workspace.enabled)help_binding(left,&ly,"PATT / SONG","Choose playback source");
-        else help_binding(left,&ly,"Double-click title","Maximize / restore");
+        help_binding(left,&ly,column,"Drag title bar","Move window");
+        if(ui.windows.workspace.enabled){
+            help_binding(left,&ly,column,"PLAY switch","Choose Pattern or Song");
+            help_binding(left,&ly,column,"VIEW switch","Show Pattern or Song");
+        }
+        else help_binding(left,&ly,column,"Double-click title","Maximize / restore");
         ly+=12; help_group(left,&ly,"Playlist tools");
-        help_binding(left,&ly,"Cut: click clip","Split at snapped position");
-        help_binding(left,&ly,"Stretch: drag edge","Resample / stretch audio");
+        help_binding(left,&ly,column,"Cut: click clip","Split at snapped position");
+        help_binding(left,&ly,column,"Stretch: drag edge","Resample / stretch audio");
 #ifdef __APPLE__
-        help_binding(left,&ly,"Cmd + Z / Shift + Z","Undo / redo");
-        help_binding(left,&ly,"Cmd + S / O","Save / open (Shift+S: As)");
+        help_binding(left,&ly,column,"Cmd + Z / Shift + Z","Undo / redo");
+        help_binding(left,&ly,column,"Cmd + S / O","Save / open (Shift+S: As)");
 #else
-        help_binding(left,&ly,"Ctrl + Z / Shift + Z","Undo / redo (also Ctrl + Y)");
-        help_binding(left,&ly,"Ctrl + S / O","Save / open (Shift+S: As)");
+        help_binding(left,&ly,column,"Ctrl + Z / Shift + Z","Undo / redo (also Ctrl + Y)");
+        help_binding(left,&ly,column,"Ctrl + S / O","Save / open (Shift+S: As)");
 #endif
         ly+=12; help_group(left,&ly,"Piano Roll velocity lane");
-        help_binding(left,&ly,"Left-drag","Paint note velocities");
-        help_binding(left,&ly,"Right-drag","Draw a straight velocity ramp");
+        help_binding(left,&ly,column,"Left-drag","Paint note velocities");
+        help_binding(left,&ly,column,"Right-drag","Draw a straight velocity ramp");
         ly+=12; help_group(left,&ly,"MIDI & recording");
-        help_binding(left,&ly,"Record type icons","Audio / Notes / Automation");
-        help_binding(left,&ly,"Right-click Record","Choose MIDI input / settings");
-        help_binding(left,&ly,"Control right-click","MIDI Learn: move a CC knob");
+        help_binding(left,&ly,column,"Right-click Record","Audio / Notes / Automation");
+        help_binding(left,&ly,column,"Record, then Play","Arm, then start the take");
+        help_binding(left,&ly,column,"Control right-click","MIDI Learn: move a CC knob");
         help_group(right,&ry,"Editing & selection");
 #ifdef __APPLE__
-        help_binding(right,&ry,"Cmd + drag","Temporarily box-select");
+        help_binding(right,&ry,column,"Cmd + drag","Temporarily box-select");
 #else
-        help_binding(right,&ry,"Ctrl + drag","Temporarily box-select");
+        help_binding(right,&ry,column,"Ctrl + drag","Temporarily box-select");
 #endif
-        help_binding(right,&ry,"Shift-click","Add / remove selection");
-        help_binding(right,&ry,"Shift-drag empty","Add selection rectangle");
-        help_binding(right,&ry,"Shift + Left/Right","Move notes one step");
-        help_binding(right,&ry,"Shift + Up/Down","Move notes one semitone");
+        help_binding(right,&ry,column,"Shift-click","Add / remove selection");
+        help_binding(right,&ry,column,"Shift-drag empty","Add selection rectangle");
+        help_binding(right,&ry,column,"Shift + Left/Right","Move notes one step");
+        help_binding(right,&ry,column,"Shift + Up/Down","Move notes one semitone");
 #ifdef __APPLE__
-        help_binding(right,&ry,"Cmd + C / X","Copy / cut selection");
-        help_binding(right,&ry,"Cmd + V","Paste at start marker");
-        help_binding(right,&ry,"Cmd + A","Select all notes / clips");
-        help_binding(right,&ry,"Cmd + Up/Down (K/J)","Shift notes an octave");
+        help_binding(right,&ry,column,"Cmd + C / X","Copy / cut selection");
+        help_binding(right,&ry,column,"Cmd + V","Paste at start marker");
+        help_binding(right,&ry,column,"Cmd + A","Select all notes / clips");
+        help_binding(right,&ry,column,"Cmd + Up/Down (K/J)","Shift notes an octave");
 #else
-        help_binding(right,&ry,"Ctrl + C / X","Copy / cut selection");
-        help_binding(right,&ry,"Ctrl + V","Paste at start marker");
-        help_binding(right,&ry,"Ctrl + A","Select all notes / clips");
-        help_binding(right,&ry,"Ctrl + Up/Down (K/J)","Shift notes an octave");
+        help_binding(right,&ry,column,"Ctrl + C / X","Copy / cut selection");
+        help_binding(right,&ry,column,"Ctrl + V","Paste at start marker");
+        help_binding(right,&ry,column,"Ctrl + A","Select all notes / clips");
+        help_binding(right,&ry,column,"Ctrl + Up/Down (K/J)","Shift notes an octave");
 #endif
-        help_binding(right,&ry,"Delete","Delete selected clips / notes");
-        help_binding(right,&ry,"Right-drag","Erase clips / notes");
+        help_binding(right,&ry,column,"Delete","Delete selection");
+        help_binding(right,&ry,column,"Right-drag","Erase clips / notes");
         ry+=12; help_group(right,&ry,"Automation");
-        help_binding(right,&ry,"Right-click control","Create automation");
-        help_binding(right,&ry,"Click / drag curve","Add / move a point");
-        help_binding(right,&ry,"Right-click point","Delete point");
+        help_binding(right,&ry,column,"Right-click control","Create automation");
+        help_binding(right,&ry,column,"Click / drag curve","Add / move a point");
+        help_binding(right,&ry,column,"Right-click point","Delete point");
         ry+=12; help_group(right,&ry,"Text fields & dialogs");
 #ifdef __APPLE__
-        help_binding(right,&ry,"Cmd + A / V","Select all / paste");
+        help_binding(right,&ry,column,"Cmd + A / V","Select all / paste");
 #else
-        help_binding(right,&ry,"Ctrl + A / V","Select all / paste");
+        help_binding(right,&ry,column,"Ctrl + A / V","Select all / paste");
 #endif
-        help_binding(right,&ry,"Enter / Escape","Apply / cancel");
-        help_binding(right,&ry,"Backspace","Delete text");
+        help_binding(right,&ry,column,"Enter / Escape","Apply / cancel");
+        help_binding(right,&ry,column,"Backspace","Delete text");
         ry+=12; help_group(right,&ry,"Browser (hover or focus)");
-        help_binding(right,&ry,"Up/Down or K/J","Select & preview");
-        help_binding(right,&ry,"Left or H","Collapse / parent folder");
-        help_binding(right,&ry,"Right or L","Expand / child folder");
+        help_binding(right,&ry,column,"Up/Down or K/J","Select & preview");
+        help_binding(right,&ry,column,"Left or H","Collapse / parent folder");
+        help_binding(right,&ry,column,"Right or L","Expand / child folder");
+        ui.help_extent=fmaxf(ly,ry)+ui.help_scroll-y-TITLE+12;
+        maximum=fmaxf(0,ui.help_extent-(h-TITLE-30));
+        ui.help_scroll=fmaxf(0,fminf(maximum,ui.help_scroll));
         host_end_scissor_mode();
         label(maximum>0?"Wheel to scroll keybindings":"Navigation follows the pointer. Audition requires Keys enabled.",x+18,y+h-24,11,muted);
         return;
@@ -565,12 +573,23 @@ void draw_context_content(void) {
         for(int id=ui.context_kind==26?0:1;id<=ui.project.insert_count;id++)
             if(ui.context_kind==26?insert_has_send(&ui.project,ui.context_target,id):insert_has_send(&ui.project,id,ui.context_target))route_rows[route_count++]=id;
     }
-    int w=ui.context_kind==14 || ui.context_kind==16?160:ui.context_kind==28 || (ui.context_kind==25 && !ui.project.effect_type[ui.eq_bus][ui.context_target])?344:(ui.context_kind==5 || ui.context_kind==8 || ui.context_kind==12)?304:228,h=ui.context_kind==30?8+ARP_CHORDS*25:ui.context_kind==29?58:(ui.context_kind==26 || ui.context_kind==27)?8+25*(int)fminf(8,route_count+1):ui.context_kind==28?209:ui.context_kind==25?(ui.project.effect_type[ui.eq_bus][ui.context_target]?158:209):ui.context_kind==24?8+25*GRID_CHOICES:ui.context_kind==9?133:ui.context_kind==21?8+25*(ui.studio_style?studio_factory_count(ui.context_target):FM_FACTORY_COUNT):ui.context_kind==22?83:ui.context_kind==23?108:ui.context_kind==19?108:ui.context_kind==20?58:ui.context_kind==17?8+25*(int)fminf(8,instrument_count):ui.context_kind==18?(ui.studio_style?108:58):ui.context_kind==4?108:ui.context_kind==16?32:ui.context_kind==15?58:ui.context_kind==14?8+EQ_SHAPES*25:ui.context_kind==13?58:ui.context_kind==2?183:ui.context_kind==7?133:(ui.context_kind==5 || ui.context_kind==8 || ui.context_kind==12)?76:ui.context_kind==3 && !ui.context_target?32:82,x=fmaxf(0,fminf(host_get_screen_width()/scale-w,ui.context_position.x)),y=fmaxf(0,fminf(host_get_screen_height()/scale-h,ui.context_position.y));
+    int w=ui.context_kind==31?304:ui.context_kind==14 || ui.context_kind==16?160:ui.context_kind==28 || (ui.context_kind==25 && !ui.project.effect_type[ui.eq_bus][ui.context_target])?344:(ui.context_kind==5 || ui.context_kind==8 || ui.context_kind==12)?304:228,h=ui.context_kind==31?234:ui.context_kind==30?8+ARP_CHORDS*25:ui.context_kind==29?58:(ui.context_kind==26 || ui.context_kind==27)?8+25*(int)fminf(8,route_count+1):ui.context_kind==28?209:ui.context_kind==25?(ui.project.effect_type[ui.eq_bus][ui.context_target]?158:209):ui.context_kind==24?8+25*GRID_CHOICES:ui.context_kind==9?133:ui.context_kind==21?8+25*(ui.studio_style?studio_factory_count(ui.context_target):FM_FACTORY_COUNT):ui.context_kind==22?83:ui.context_kind==23?108:ui.context_kind==19?108:ui.context_kind==20?58:ui.context_kind==17?8+25*(int)fminf(8,instrument_count):ui.context_kind==18?(ui.studio_style?108:58):ui.context_kind==4?108:ui.context_kind==16?32:ui.context_kind==15?58:ui.context_kind==14?8+EQ_SHAPES*25:ui.context_kind==13?58:ui.context_kind==2?183:ui.context_kind==7?133:(ui.context_kind==5 || ui.context_kind==8 || ui.context_kind==12)?76:ui.context_kind==3 && !ui.context_target?32:82,x=fmaxf(0,fminf(host_get_screen_width()/scale-w,ui.context_position.x)),y=fmaxf(0,fminf(host_get_screen_height()/scale-h,ui.context_position.y));
     ui.input_enabled=1;
     if(host_is_key_pressed(HOST_KEY_ESCAPE) || (!ui.context_opened && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT) && !hover(x,y,w,h))) { ui.context_kind=0; return; }
     ui_frame(host_draw(),(DrawRect){x,y,w,h});
     int target=ui.context_target,kind=ui.context_kind;
-    if(kind==29) {
+    if(kind==31) {
+        label("Record",x+12,y+8,UI_TEXT_SIZE,ink);
+        const char *types[]={"Audio","Notes","Automation"};
+        for(int i=0;i<3;i++)if(button_available(types[i],x+4,y+30+i*25,w-8,24,ui.record_mask&(1u<<i),!recording_active())) {
+            ui.record_mask^=1u<<i;midi_save_settings();
+        }
+        host_draw_line(x+8,y+109,x+w-8,y+109,ui_theme.border);
+        label("Pattern notes",x+12,y+118,UI_TEXT_SIZE,muted);
+        if(button_available("Overdub selected pattern",x+4,y+140,w-8,24,!ui.record_new_pattern,!recording_active())){ui.record_new_pattern=0;midi_save_settings();}
+        if(button_available("New pattern per take",x+4,y+165,w-8,24,ui.record_new_pattern,!recording_active())){ui.record_new_pattern=1;midi_save_settings();}
+        if(button_available("MIDI input / count-in...",x+4,y+205,w-8,24,0,!recording_active())){ui.context_kind=0;midi_refresh();open_popup(13);return;}
+    } else if(kind==29) {
         if(button("Add insert",x+4,y+4,w-8,24,0)){mixer_add_inserts(1);ui.context_kind=0;return;}
         if(button("Add multiple...",x+4,y+29,w-8,24,0)){begin_mixer_add();ui.context_kind=0;return;}
     } else if(kind==26 || kind==27) {

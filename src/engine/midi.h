@@ -7,7 +7,9 @@ typedef struct { unsigned char status,data[2],count,sysex; } MidiParser;
 typedef void (*MidiEmit)(void *,MidiEvent);
 void midi_parse(MidiParser *parser,const unsigned char *data,unsigned count,double time,MidiEmit emit,void *context);
 typedef struct {
-    int active,pattern,channel,lane,clip,failed;
+    int active,pattern,channel,lane,clip,failed,in_place,created_pattern;
+    float loop_start,loop_end,note_started[NOTES];
+    unsigned previous_color;
     float origin,bpm; double time;
     unsigned char lane_mute[AUTOMATIONS+1];
     Note previous_notes[CHANNELS][NOTES];
@@ -18,6 +20,9 @@ typedef struct {
 int midi_bind(Project *p,unsigned channel,unsigned controller,ParameterTarget target);
 void midi_unbind(Project *p,ParameterTarget target);
 int midi_take_begin(MidiTake *take,Project *p,int channel,int notes,float origin,double time);
+/* Pattern -1 captures automation only; create chooses a fresh note pattern.
+   Pattern notes loop inside [loop_start,loop_end), without creating Song clips. */
+int midi_take_begin_pattern(MidiTake *take,Project *p,int channel,int pattern,int create,float origin,float loop_start,float loop_end,double time);
 int midi_take_note(MidiTake *take,Project *p,int midi_channel,int pitch,int velocity,double time);
 /* Caller-owned held slot keeps typing notes independent of all 16 MIDI inputs.
    Initialize to -1; velocity -1 updates duration without releasing. */

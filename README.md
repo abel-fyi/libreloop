@@ -55,10 +55,16 @@ builds, installation, core-only builds and verification scope. See
 
 ## Playback and editing
 
-The **PLAYBACK · PATT / SONG** switch beside Play chooses what plays. The merged
-**VIEW · Pattern / Arrangement** switch at the editor's upper-left chooses what
+The **PLAY · Pattern / Song** switch beside Play chooses what plays. The merged
+**VIEW · Pattern / Song** switch at the editor's upper-left chooses what
 you see independently, so you can edit a pattern while the song keeps playing.
 Click either half to select it directly.
+
+**Record arms; Play starts the take.** Right-click Record to choose Audio, Notes,
+and Automation, and choose whether Pattern note takes overdub the selected
+pattern or create a new one. Stop finishes the take and leaves recording armed;
+click Record again to disarm. Audio uses armed mixer tracks and saves audio
+clips; Notes can record directly into a looping pattern.
 
 ## Project notes
 

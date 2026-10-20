@@ -66,11 +66,16 @@ float playback_start(void) {
     return ui.playing && !playback_loop()[1] && start>=end?0:start;
 }
 
-void transport_toggle(void) { ui.stop_armed=0; recording_finish(); int active=audio_transport_stop(); ui.playing=ui.playing || active?0:1; ui.reset=1; }
+void transport_toggle(void) {
+    ui.stop_armed=0;
+    if(!ui.playing && !recording_active() && ui.record_enabled){audio_transport_stop();recording_play();return;}
+    int armed=ui.record_enabled,counting=ui.record_count_in.active;recording_finish();ui.record_enabled=armed;
+    int active=audio_transport_stop();ui.playing=counting?0:ui.playing || active?0:1;ui.reset=1;
+}
 
 void transport_stop(void) {
     int rewind=ui.stop_armed && !ui.playing;
-    recording_finish(); audio_stop(); ui.playing=0; ui.reset=1;
+    int armed=ui.record_enabled;recording_finish();ui.record_enabled=armed; audio_stop(); ui.playing=0; ui.reset=1;
     if(rewind) { ui.playlist_start=0; if(!ui.song) ui.piano_start[ui.pattern]=0; }
     ui.stop_armed=1;
 }
@@ -99,15 +104,15 @@ void draw_editor(int id,float scale) {
         DrawRect chrome_rect=ui.windows.workspace.enabled?(DrawRect){r.w-21,3,18,18}:(DrawRect){r.w-54+slot*18,2,16,TITLE-4};
         ui_button_face(host_draw(),chrome_rect,cell,0);
     }
-    const char *titles[]={"Channel Rack","Arrangement","Piano Roll","Mixer","Sampler","Equalizer"};
+    const char *titles[]={"Channel Rack","Song","Piano Roll","Mixer","Sampler","Equalizer"};
     int title_size=ui.windows.workspace.enabled?14:13,title_y=3;
     if(ui.windows.workspace.enabled && (id==1 || id==2)) {
         label("VIEW",8,title_y,UI_TEXT_SIZE,title_ink);
         DrawPoint saved_mouse=ui.mouse;int saved_input=ui.input_enabled;
         ui.input_enabled=saved_input && windows_hit(&ui.windows,ui.mouse.x,ui.mouse.y)==id;
         ui.mouse.x-=r.x;ui.mouse.y-=r.y;
-        int page=segmented_switch("Pattern","Arrangement",(DrawRect){48,2,192,title-4},id==1,1,ui_theme.highlight);
-        if(hover(48,2,192,title-4))snprintf(ui.status,sizeof ui.status,"View: Pattern / Arrangement; playback stays unchanged");
+        int page=segmented_switch("Pattern","Song",(DrawRect){48,2,192,title-4},id==1,1,ui_theme.highlight);
+        if(hover(48,2,192,title-4))snprintf(ui.status,sizeof ui.status,"View: Pattern / Song; playback stays unchanged");
         ui.mouse=saved_mouse;ui.input_enabled=saved_input;
         if(page!=(id==1))windows_focus(&ui.windows,page?1:2);
         if(id==2)label(fit_text(host_text_format("%s / %s",ui.project.pattern_names[ui.pattern],ui.project.channel_names[ui.piano_channel]),r.w-260,title_size),252,title_y,title_size,title_ink);

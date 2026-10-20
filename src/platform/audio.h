@@ -37,7 +37,7 @@ void audio_pattern_activity(int pattern,uint8_t notes[CHANNELS][NOTES]);
 void audio_track_activity(uint8_t active[LANES],uint8_t triggered[LANES]);
 int audio_devices(int capture,char names[][128],int capacity);
 /* One post-fader stereo take per bus. Start/end run on the UI thread. */
-int audio_record_start(const Project *p,const int buses[],int count,float start_step,float output_volume,char error[256]);
+int audio_record_start(const Project *p,const int buses[],int count,float start_step,float output_volume,int song,int pattern,float loop_start,float loop_end,char error[256]);
 void audio_record_end(void);
 void audio_record_mode(int enabled); /* Free-running transport for MIDI takes. */
 unsigned audio_record_read(int take,float *stereo,unsigned frames);

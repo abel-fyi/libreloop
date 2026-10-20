@@ -35,6 +35,25 @@ old_mode = '"Playback mode: click to switch Pattern (orange) / Song (green)"'
 new_mode = '"Playback source: Pattern (orange) / Song (green); editor tabs change the view independently"'
 assert actual[new_mode] == expected[old_mode] == 1
 expected[new_mode] += expected.pop(old_mode)
+# Approved Record arm/menu workflow and clearer keybinding descriptions.
+replacements = {
+    '"Right-click Record"': '"Record, then Play"',
+    '"Record type icons"': '"Right-click Record"',
+    '"Choose MIDI input / settings"': '"Arm, then start the take"',
+    '"Delete selected clips / notes"': '"Delete selection"',
+    '"Record enabled types; right-click for MIDI inputs and recording settings"': '"Arm recording; right-click for Audio, Notes, Automation and Pattern options"',
+    '"Recording: click to finish the takes"': '"Recording: click to finish and disarm"',
+    '"PATT"': '"Pattern"',
+    '"SONG"': '"Song"',
+    '"Arrangement"': '"Song"',
+}
+for old, new in replacements.items():
+    if old in expected:
+        amount=expected.pop(old)
+        expected[new]+=amount
+# The old generic widget still recognizes uppercase SONG as a legacy caption.
+expected['"SONG"']+=1
+expected['"Song"']-=1
 # Approved LFO label change: Fade in is now Attack (modulation onset).
 expected['"Attack"'] += expected.pop('"Fade in"')
 # Pattern naming moved intact into the shared engine creation operation.
