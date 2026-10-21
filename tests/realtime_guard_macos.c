@@ -9,12 +9,17 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <time.h>
-static _Thread_local int active;
-void realtime_guard_enter(void) { active=1; }
-void realtime_guard_leave(void) { active=0; }
+#include <stdatomic.h>
+/* The capture harness audits one thread at a time. Do not use language TLS
+   here: dyld can allocate its storage on first access, re-entering these malloc
+   hooks before main. pthread_self is warmed before publishing the guard. */
+static _Atomic(pthread_t) guarded_thread;
+void realtime_guard_enter(void) { atomic_store(&guarded_thread,pthread_self()); }
+void realtime_guard_leave(void) { atomic_store(&guarded_thread,(pthread_t)0); }
 static void check(const char *operation) {
-    if(active) {
-        active=0; fprintf(stderr,"Real-time forbidden call: %s\n",operation); abort();
+    pthread_t thread=atomic_load(&guarded_thread);
+    if(thread && pthread_equal(thread,pthread_self())) {
+        realtime_guard_leave(); fprintf(stderr,"Real-time forbidden call: %s\n",operation); abort();
     }
 }
 static void *guard_malloc(size_t n) { check("malloc"); return malloc(n); }
