@@ -93,5 +93,21 @@ int main(void) {
     render_mixer(&a,&b,&p,empty,whole,239,0,0);CHECK(!b.voices[retiring].gain);
     /* Shared settings follow channels when one is deleted. */
     p.channel_count=2;p.voice[1]=(VoiceSettings){.limit=3,.glide=.3f};CHECK(channel_delete(&p,0));CHECK(p.voice[0].limit==3 && p.voice[0].glide==.3f);
+    /* A full DX7 pool must retain every note of the next chord. Long release
+       tails can fill it even when the project has only a few notes at once. */
+    project_new(&p);CHECK(channel_replace_choice(&p,0,CHOICE_DX7));
+    p.voice[0]=(VoiceSettings){0};
+    for(int tails=0;tails<2;tails++){
+        player_reset(&a);
+        for(int i=0;i<128;i++){on(&a,i,36);if(tails)player_voice_off(&a,&p,i);}
+        memset(p.notes,0,sizeof p.notes);
+        const int chord[]={60,64,67};
+        for(int i=0;i<3;i++)CHECK(note_add(&p,0,0,0,chord[i],4));
+        memset(whole,0,sizeof whole);render_mixer(&a,NULL,&p,empty,whole,1,1,0);
+        for(int note=0;note<3;note++){
+            int found=0;for(int i=0;i<128;i++)found+=a.voices[i].gain && a.voices[i].held>0 && a.voices[i].note_pitch==chord[note];
+            CHECK(found==1);
+        }
+    }
     return 0;
 }

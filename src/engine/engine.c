@@ -422,6 +422,19 @@ void solo_toggle(uint8_t *states,int count,int selected) {
     if(states[selected]&2) states[selected]&=~2;
     else states[selected]=(states[selected]&~1)|2;
 }
+static int sequence_voice_slot(const Player *p) {
+    int oldest=0,released=-1;
+    for(int i=0;i<128;i++) {
+        const Voice *v=&p->voices[i];
+        if(!v->gain)return i;
+        if(v->order<p->voices[oldest].order)oldest=i;
+        if(!v->audio_clip && v->held<0 &&
+           (released<0 || v->order<p->voices[released].order))released=i;
+    }
+    /* Retire old release tails first. Never overwrite the same newest slot
+       for every note of a chord when the fixed voice pool is full. */
+    return released>=0?released:oldest;
+}
 static void trigger(Player *p,const Project *pr,int pat,int64_t tick,float remaining,int lane,int entering,float swing,const float *channel_speeds,double master_speed,const uint8_t *channel_mutes,const FMSettings *fm_settings) {
     for(int c=0;c<pr->channel_count;c++) for(int i=0;i<NOTES;i++) {
         Note n=pr->notes[pat][c][i];
@@ -437,7 +450,7 @@ static void trigger(Player *p,const Project *pr,int pat,int64_t tick,float remai
         if(onset!=tick && !(entering && n.length && elapsed>0 && elapsed<n.length)) continue;
         if(pr->arp[c].direction && player_arp_on(p,pr,c,0x10000u+(lane+1)*PATTERNS*NOTES+pat*NOTES+i,n.pitch,n.velocity/127.f,
             fmin(n.length?n.length-elapsed:1,remaining)*RATE*15/pr->bpm,lane,pat,i+1))continue;
-        int v=0; while(v<127 && p->voices[v].gain!=0) v++;
+        int v=sequence_voice_slot(p);
         p->channel_trigger[c]=1;
         if(lane>=0 && pr->volume[c]>0) p->lane_trigger[lane]=1;
         double speed=pow(2,((int)n.pitch-60)/12.0),frames_per_step=RATE*60.0/pr->bpm/4;
@@ -664,12 +677,12 @@ static void render_audio(Player *p,Player *live,const Project *pr,const Sample s
                         int reconcile=resync || (tempo_changed && !pr->sampler[c].fit_bpm);
                         int inside=reconcile?(song_position>=clip_start && song_position<clip_start+length):(local>=0 && local<length*96);
                         if(inside && (reconcile || (tick && (local==0 || entered)))) {
-                            int v=0; while(v<127 && p->voices[v].gain) v++;
+                            int v=sequence_voice_slot(p);
                             double position=fmax(0,p->frame-pr->clip_starts[l][b]*STEPS*stepframes*96);
                             if(lane_enabled[l] && (gain_left[c]>0 || gain_right[c]>0)) p->lane_trigger[l]=1;
                             p->channel_trigger[c]=1;
                             player_voice_prepare(p,pr,v);
-                            p->voices[v]=(Voice){.channel=c,.sampler={.position=audio_clip_position(pr,l,b,p->frame/(stepframes*96)),.speed=1},.remaining=fmin(length*stepframes*96-position,end_frame-p->frame),.gain=1,.lane=l,.audio_clip=1};
+                            p->voices[v]=(Voice){.channel=c,.sampler={.position=audio_clip_position(pr,l,b,p->frame/(stepframes*96)),.speed=1},.remaining=fmin(length*stepframes*96-position,end_frame-p->frame),.gain=1,.lane=l,.audio_clip=1,.order=++p->voice_order};
                         }
                     } else if(tick && local>=0 && local<length*96 && local+pr->clip_offsets[l][b]*96<pr->pattern_steps[pat-1]*96) trigger(p,pr,pat-1,local+(int64_t)llround(pr->clip_offsets[l][b]*96),fminf(length-local/96.f,end-step/96.f),l,pr->clip_offsets[l][b]>0 && (local==0 || entered),master_controls[4],speed,pitch_speed,channel_mutes,fm_controls);
                 }
