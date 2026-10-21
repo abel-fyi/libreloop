@@ -7,7 +7,9 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
-struct DrawContext { SDL_Renderer *renderer; float scale,x,y;int pattern_step,palette; };
+#include <stdint.h>
+typedef struct { uint32_t key;DrawColor value;int valid; } PaintEntry;
+struct DrawContext { SDL_Renderer *renderer; float scale,x,y;int pattern_step,palette;PaintEntry paints[256]; };
 struct DrawTexture { SDL_Texture *texture; int width,height; };
 static SDL_FColor color(DrawColor c) { return (SDL_FColor){c.r/255.f,c.g/255.f,c.b/255.f,c.a/255.f}; }
 static SDL_FPoint point(DrawContext *d,DrawPoint p) { return (SDL_FPoint){p.x*d->scale+d->x,p.y*d->scale+d->y}; }
@@ -19,7 +21,15 @@ DrawContext *draw_create(void *renderer) {
 void draw_destroy(DrawContext *d) { free(d); }
 void draw_palette_enable(DrawContext *d,int enabled){d->palette=enabled;}
 int draw_palette_enabled(const DrawContext *d){return d->palette;}
-static DrawColor paint(DrawContext *d,DrawColor c){return d->palette?luice_palette_map(c,0,0,0):c;}
+static DrawColor paint(DrawContext *d,DrawColor c){
+    if(!d->palette)return c;
+    /* UI primitives reuse a small set of colors. Cache the exact, non-dithered
+       mapping; image uploads still calculate their position-dependent dither. */
+    uint32_t key=(uint32_t)c.r|((uint32_t)c.g<<8)|((uint32_t)c.b<<16)|((uint32_t)c.a<<24);
+    PaintEntry *entry=&d->paints[(key*UINT32_C(2654435761))>>24];
+    if(!entry->valid || entry->key!=key){entry->key=key;entry->value=luice_palette_map(c,0,0,0);entry->valid=1;}
+    return entry->value;
+}
 void draw_pattern_density(DrawContext *d,float density){d->pattern_step=isfinite(density)?(int)roundf(fmaxf(1,fminf(8,density))):1;}
 int draw_pattern_pixel_size(const DrawContext *d){return d->pattern_step>0?d->pattern_step:1;}
 void draw_transform(DrawContext *d,float scale,float x,float y) { d->scale=scale;d->x=x;d->y=y; }

@@ -106,6 +106,8 @@ The staged layout uses `bin/` and `share/libreloop/`, including bundled assets
 and licenses. Move the entire folder together. An installed shared SDL SDK
 also installs its SDL DLL beside the executable. CMake performs no downloads.
 MSVC and BSD builds are not validated reference configurations.
+See [Windows performance measurements](windows-performance.md) for the local
+audio/rendering baseline, measured optimization and profiling commands.
 
 ## Tests and core-only builds
 
