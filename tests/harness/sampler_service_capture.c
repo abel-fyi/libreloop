@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "sampler_service.h"
+#include "frame_wait.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -17,7 +18,7 @@ static void snapshot(const char *name){Sampler s=project.sampler[0],a=applied[0]
 #define FLUSH() sampler_service_flush(&service)
 #define SNAP snapshot
 
-static void wait_done(void){struct timespec pause={0,1000000};while(!DONE())nanosleep(&pause,NULL);}
+static void wait_done(void){while(!DONE())platform_frame_wait(.001);}
 static void run(void){
     SETTINGS.pitch=3.75f;SETTINGS.flags=SAMPLE_REVERSE;QUEUE(1,0);SNAP("recording-gate");QUEUE(0,1);SNAP("editing-gate");
     QUEUE(0,0);wait_done();UPDATE();SNAP("adopt");
@@ -26,4 +27,4 @@ static void run(void){
     SETTINGS.pitch=7;QUEUE(0,0);if(!FLUSH())exit(3);SNAP("flush-reprocess");
 }
 
-int main(void){project_new(&project);project.channel_count=1;originals[0]=(Sample){.data=malloc(64*sizeof(float)),.frames=64,.channels=1};for(int i=0;i<64;i++)originals[0].data[i]=(i-32)/64.f;applied[0]=project.sampler[0];generation[0]=applied_generation[0]=1;if(!sample_process(originals[0],project.sampler[0],&processed[0]))return 2;sampler_service_init(&service,(SamplerBindings){.project=&project,.processed=processed,.originals=originals,.applied=applied,.generation=generation,.applied_generation=applied_generation,.epoch=&epoch,.publish=publish,.wake=wake});out=fopen("service.txt","w");pcm=fopen("published.f32","wb");if(!out || !pcm)return 2;run();sampler_service_cancel(&service);fclose(out);fclose(pcm);sample_free(originals[0]);sample_free(processed[0]);return 0;}
+int main(void){project_new(&project);project.channel_count=1;originals[0]=(Sample){.data=malloc(64*sizeof(float)),.frames=64,.channels=1};for(int i=0;i<64;i++)originals[0].data[i]=(i-32)/64.f;applied[0]=project.sampler[0];generation[0]=applied_generation[0]=1;if(!sample_process(originals[0],project.sampler[0],&processed[0]))return 2;sampler_service_init(&service,(SamplerBindings){.project=&project,.processed=processed,.originals=originals,.applied=applied,.generation=generation,.applied_generation=applied_generation,.epoch=&epoch,.publish=publish,.wake=wake});out=fopen("service.txt","wb");pcm=fopen("published.f32","wb");if(!out || !pcm)return 2;run();sampler_service_cancel(&service);fclose(out);fclose(pcm);sample_free(originals[0]);sample_free(processed[0]);return 0;}

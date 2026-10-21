@@ -7,7 +7,7 @@ import sys
 import tempfile
 
 executable, root = (Path(p).resolve() for p in sys.argv[1:])
-manifest = json.loads((root / 'manifest.json').read_text())
+manifest = json.loads((root / 'manifest.json').read_text(encoding='utf-8'))
 with tempfile.TemporaryDirectory(prefix='libreloop-browser-parity-') as directory:
     work = Path(directory)
     layout = manifest['input']

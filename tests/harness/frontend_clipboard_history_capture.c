@@ -19,6 +19,6 @@ int main(void) {
     windows_init(&ui.windows,1200,675);windows_focus(&ui.windows,2);ui.piano_top=72;ui.piano_zoom=1;
     ui.selected_track=-1;ui.arrangement.source_pattern=0;ui.arrangement.source_steps=8;
     for(int c=0;c<CHANNELS;c++)ui.sampler_applied[c]=ui.project.sampler[c];
-    trace=fopen("history.txt","w");selections=fopen("selections.bin","wb");if(!trace || !selections)return 1;
+    trace=fopen("history.txt","wb");selections=fopen("selections.bin","wb");if(!trace || !selections)return 1;
     sequence();fclose(trace);fclose(selections);history_clear(&ui.edit_history);return 0;
 }

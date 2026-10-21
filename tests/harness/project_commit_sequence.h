@@ -53,7 +53,7 @@ static int project_commit_sequence(int mode){
     if(!sample_map_wav("source.wav",&ui.originals[0]) || !sample_process(ui.originals[0],ui.project.sampler[0],&ui.samples[0]))return 2;
     for(int c=0;c<CHANNELS;c++)ui.sampler_applied[c]=ui.project.sampler[c];
     sample_duration(&ui.project,0,ui.samples[0],ui.originals[0]);project_document_saved(&ui.document,&ui.project,NULL);history_checkpoint();
-    FILE *trace=fopen("trace.txt","w");if(!trace)return 3;commit_snapshot(trace,"before",1,0);
+    FILE *trace=fopen("trace.txt","wb");if(!trace)return 3;commit_snapshot(trace,"before",1,0);
     int result=0;
     if(mode==0 || mode==1){ui.file_action=mode?6:3;result=project_file_commit("written.llp");}
     if(mode==2){ui.file_action=5;result=project_file_commit("render.wav");}
@@ -61,7 +61,7 @@ static int project_commit_sequence(int mode){
         if(!project_save_assets("input.llp",&ui.project,ui.originals,0))return 4;
         if(mode==4)remove("source.wav");ui.file_action=4;result=project_file_commit("input.llp");
     }
-    if(mode==5){FILE *bad=fopen("bad.llp","w");if(!bad)return 4;fputs("invalid",bad);fclose(bad);ui.file_action=4;result=project_file_commit("bad.llp");}
+    if(mode==5){FILE *bad=fopen("bad.llp","wb");if(!bad)return 4;fputs("invalid",bad);fclose(bad);ui.file_action=4;result=project_file_commit("bad.llp");}
     if(mode==6){ui.file_action=3;result=project_file_commit("missing/written.llp");}
     if(mode==7){ui.file_action=7;ui.relink_channel=0;result=project_file_commit("source.wav");}
     if(mode==8 || mode==9){

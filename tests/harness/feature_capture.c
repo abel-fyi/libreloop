@@ -62,7 +62,7 @@ int main(int argc,char **argv) {
     playback_plan_prepare(&plan,&p,1,NULL,1);seq.plan=live.plan=&plan;
     if(mode==1) {player_seek(&seq,&p,1.5f);seq.loop_start=1.5f;seq.loop_end=10.25f;seq.plan=&plan;}
     live.voices[0]=(Voice){.channel=0,.gain=.1f,.remaining=2400,.lane=-1};sampler_voice_reset(&live.voices[0].sampler,0,1);
-    FILE *out=fopen("expected.f32","wb"),*state=fopen("expected-state.txt","w");if(!out || !state)return 7;
+    FILE *out=fopen("expected.f32","wb"),*state=fopen("expected-state.txt","wb");if(!out || !state)return 7;
     float pcm[1024],peaks[INSERTS+1][2];
     for(unsigned at=0;at<144000;at+=block) {
         unsigned n=144000-at<block?144000-at:block;

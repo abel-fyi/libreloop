@@ -10,7 +10,7 @@ int main(int argc,char **argv) {
     int codepoints[228];for(int i=0;i<224;i++)codepoints[i]=32+i;
     codepoints[224]=0x3bb;codepoints[225]=0x416;codepoints[226]=0x1f3b9;codepoints[227]=0x10ffff;
     RasterGlyph *glyphs=font_rasterize(font,(size_t)bytes,size,codepoints,228);if(!glyphs)return 3;
-    FILE *out=fopen("glyphs.bin","wb"),*metrics=fopen("metrics.txt","w");if(!out || !metrics)return 4;
+    FILE *out=fopen("glyphs.bin","wb"),*metrics=fopen("metrics.txt","wb");if(!out || !metrics)return 4;
     for(int i=0;i<228;i++) {
         RasterGlyph g=glyphs[i];
         fprintf(metrics,"%d %d %d %d %d %d\n",g.value,g.offset_x,g.offset_y,g.advance,g.width,g.height);
@@ -18,7 +18,7 @@ int main(int argc,char **argv) {
     }
     fclose(out);fclose(metrics);
     FontAtlas atlas;if(!font_atlas_build(&atlas,glyphs,228,size,4))return 4;
-    FILE *image=fopen("atlas.bin","wb"),*locations=fopen("atlas-recs.txt","w");if(!image || !locations)return 4;
+    FILE *image=fopen("atlas.bin","wb"),*locations=fopen("atlas-recs.txt","wb");if(!image || !locations)return 4;
     fwrite(atlas.gray_alpha,2,(size_t)atlas.width*atlas.height,image);fclose(image);
     fprintf(locations,"%d %d\n",atlas.width,atlas.height);
     for(int i=0;i<228;i++)fprintf(locations,"%.9g %.9g %.9g %.9g\n",atlas.rects[i].x,atlas.rects[i].y,atlas.rects[i].width,atlas.rects[i].height);

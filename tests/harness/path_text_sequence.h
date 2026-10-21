@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 static int path_text_sequence(void){
-    FILE *out=fopen("paths.txt","w");if(!out)return 1;
+    FILE *out=fopen("paths.txt","wb");if(!out)return 1;
     const char *names[]={"tone.WAV","tone.wav","/tmp/tone.FlAc","C:\\samples\\tone.mp3",".wav","/tmp/.wav","dir.wav/plain","dir.wav/plain.wav","dir\\FILE.WAV","a.",".hidden","a/.hidden","plain","multi.part.wav","../tone.wav","x.c","x.123456789012345","x.123456789012345more","x.LONGEXTENSION123456789","/a.b/c","a..wav","a/.wav","a/..wav","dir/"};
     const char *filters[]={".wav",".WAV",".wav;.flac;.mp3","",";",";.wav;","..wav",".hidden",".123456789012345",".123456789012345more"," .wav",".wav; .mp3",NULL};
     for(unsigned n=0;n<sizeof names/sizeof *names;n++){

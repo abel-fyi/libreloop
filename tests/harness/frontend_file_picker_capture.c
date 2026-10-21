@@ -28,4 +28,4 @@ const char *host_get_clipboard_text(void){return NULL;}
 int button_color(const char *text,int x,int y,int w,int h,int active,DrawColor base){(void)base;return button(text,x,y,w,h,active);}
 #define getenv fixture_home
 #include "../../src/ui/frontend/ui_menus.c"
-int main(void){FILE *f=fopen("picker.txt","w");if(!f)return 1;int result=file_picker_sequence(f);return fclose(f) || result;}
+int main(void){FILE *f=fopen("picker.txt","wb");if(!f)return 1;int result=file_picker_sequence(f);return fclose(f) || result;}

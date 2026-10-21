@@ -23,7 +23,7 @@ root = args.output.resolve()
 root.mkdir(parents=True, exist_ok=True)
 scenarios = ['idle_no_rack', 'demo_song', 'sampler_32', 'sampler_128', 'sampler_32_stretch',
              'sampler_32_chorus', 'sampler_32_eq', 'fm_8', 'fm_32', 'fm_128', 'fm_analog_32']
-results = json.loads((root/'results.json').read_text()) if args.resume and (root/'results.json').exists() else []
+results = json.loads((root/'results.json').read_text(encoding='utf-8')) if args.resume and (root/'results.json').exists() else []
 for engine, ui, lto in [('O2','Os',False), ('O3','Os',False), ('O2','Os',True), ('O3','Os',True)]:
     name = f'{engine}-{ui}-lto{int(lto)}'
     build = root / name

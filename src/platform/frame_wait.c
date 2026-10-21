@@ -12,7 +12,9 @@
 void platform_frame_wait(double seconds){
     if(seconds<0)return;
 #ifdef _WIN32
-    Sleep((unsigned long)(seconds*1000.0));
+    unsigned long milliseconds=(unsigned long)(seconds*1000.0);
+    if(seconds>0 && !milliseconds)milliseconds=1;
+    Sleep(milliseconds);
 #elif defined(__APPLE__)
     usleep(seconds*1000000.0);
 #else

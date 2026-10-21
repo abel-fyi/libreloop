@@ -25,7 +25,7 @@ static void seed(int mode){
 #endif
 }
 static int run(int mode){seed(mode);drop_sample(mode==11?"bad.wav":"tone.wav");
-    trace=fopen("state.txt","w");selection=fopen("selection.bin","wb");if(!trace || !selection)return 1;
+    trace=fopen("state.txt","wb");selection=fopen("selection.bin","wb");if(!trace || !selection)return 1;
     fprintf(trace,"%d %d %d %d %d %d %d %d %d %d %.9g %.9g %d %d %s\n",load_calls,finish_calls,sample_commands,channel_commands,ui.channel,ui.instrument_channel,ui.rack_filter,ui.rack_scroll,(ui.arrangement.source_pattern>=PATTERNS?ui.arrangement.source_pattern-(PATTERNS-LEGACY_PATTERNS):ui.arrangement.source_pattern),ui.picker_tab,ui.arrangement.source_steps,ui.arrangement.source_offset,ui.windows.focused,ui.browser_focus,ui.status);
     for(int c=0;c<CHANNELS;c++)fprintf(trace,"%u %u %u %u %.9g\n",ui.sample_generation[c],ui.sampler_generation[c],ui.originals[c].frames,ui.samples[c].frames,ui.project.audio_seconds[c]);
     fwrite(ui.arrangement.selected,sizeof ui.arrangement.selected,1,selection);fclose(trace);fclose(selection);

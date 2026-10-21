@@ -1,3 +1,6 @@
 # Empty text results intentionally retain the original capture's field separator.
+# Frozen fixtures are hashed byte-for-byte; Windows checkout must preserve LF.
+tests/fixtures/** -text
+third_party/** -text
 tests/fixtures/interaction/text-edit/text.txt whitespace=-blank-at-eol
 tests/fixtures/interaction/project-commit/*/trace.txt whitespace=-blank-at-eol

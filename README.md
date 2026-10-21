@@ -49,6 +49,33 @@ SDK; native builds default to the host macOS deployment target. An older target
 must be selected and verified explicitly. SDL handles desktop input, including
 pinch gestures; LibreLoop has no Objective-C runtime sources.
 
+### Windows (x86_64)
+
+Install [MSYS2](https://www.msys2.org/) and open its **UCRT64** terminal:
+
+```sh
+pacman -S --needed mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-python curl
+```
+
+Change to the checkout (`cd /c/path/to/libreloop`), prepare SDL with the
+download/import commands above, then build and run:
+
+```sh
+cmake -S . -B build-windows -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build-windows --parallel 2
+./build-windows/libreloop.exe
+```
+
+Create a relocatable folder with fonts, samples, presets and licenses:
+
+```sh
+cmake --install build-windows --prefix "$PWD/stage-windows"
+./stage-windows/bin/libreloop.exe
+```
+
+Keep the whole staged folder when moving it. Audio uses WASAPI and MIDI uses
+WinMM. Python and MSYS2 are build tools; the app uses native Windows APIs.
+
 See [building and platform policy](docs/building.md) for dependencies, system-SDL
 builds, installation, core-only builds and verification scope. See
 [Linux validation](docs/linux-testing.md) for tests and sanitizer commands.

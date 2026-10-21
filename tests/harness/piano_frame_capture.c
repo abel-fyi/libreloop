@@ -15,7 +15,7 @@ int main(int argc,char **argv) {
     project.notes[0][0][0]=(Note){60,100,4,2};project.notes[0][0][1]=(Note){60,70,4,1};project.notes[0][0][2]=(Note){64,80,8,1.25f};
     PianoGesture g={.length=1.5f,.before=before,.selected=selected,.selection_before=selection_before};
     PianoViewport v={484,580,32,0,1,72};PianoScrollbars bars={0};PianoKeys keys={.pitch=-1};PianoVelocity velocity={.ramp=-1,.before=velocity_before};
-    FILE *trace=fopen("frames.bin","wb");previews=fopen("previews.txt","w");audition=fopen("audition.txt","w");
+    FILE *trace=fopen("frames.bin","wb");previews=fopen("previews.txt","wb");audition=fopen("audition.txt","wb");
     if(!trace || !previews || !audition)return 2;
     for(int frame=0;frame<8;frame++) {
         SequenceInput s=sequence_input(mode,frame);PianoPoint local={s.x,s.y},origin={320,128};

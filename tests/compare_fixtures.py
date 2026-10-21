@@ -46,12 +46,12 @@ def main():
     build, fixtures = args.build.resolve(), args.fixtures.resolve()
     results = []
     scenarios = []
-    benchmark = json.loads((fixtures / 'manifest.json').read_text())
+    benchmark = json.loads((fixtures / 'manifest.json').read_text(encoding='utf-8'))
     for item in benchmark['fixtures']:
         scenarios.append(('benchmark', [item['name'], '1', str(item['block']), 'verify'],
                           { 'capture.f32': (fixtures / f"{item['name']}-{item['block']}.f32", item['sha256']) }))
     for group in ['features', 'callback']:
-        for item in json.loads((fixtures / group / 'manifest.json').read_text()):
+        for item in json.loads((fixtures / group / 'manifest.json').read_text(encoding='utf-8')):
             directory = fixtures / group / f"{item['mode']}-{item['block']}"
             scenarios.append(('feature' if group == 'features' else 'callback',
                               [str(item['mode']), str(item['block'])],

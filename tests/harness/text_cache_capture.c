@@ -38,6 +38,6 @@ static void capture(const char *path) {
 int main(int argc,char **argv) {
     if(argc!=2 || !SDL_Init(0))return 1;SDL_Surface *surface=SDL_CreateSurface(64,64,SDL_PIXELFORMAT_RGBA32);if(!surface)return 2;
     SDL_Renderer *renderer=SDL_CreateSoftwareRenderer(surface);if(!renderer)return 2;DrawContext *draw=draw_create(renderer);if(!draw)return 2;
-    cache=text_fonts_create(draw);if(!cache)return 2;out=fopen("cache.txt","w");if(!out)return 2;
+    cache=text_fonts_create(draw);if(!cache)return 2;out=fopen("cache.txt","wb");if(!out)return 2;
     capture(argv[1]);fclose(out);text_fonts_close(cache);draw_destroy(draw);SDL_DestroyRenderer(renderer);SDL_DestroySurface(surface);SDL_Quit();return 0;
 }

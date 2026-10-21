@@ -17,4 +17,4 @@ static void menu_begin_fixture(int id,int opened,int default_item,int *scroll,in
         .previous=key(265) || key('K') || key(263) || key('H'),
         .enter=menu_pressed[257] || menu_pressed[335]});
 }
-int main(void){FILE *f=fopen("menu.txt","w");if(!f)return 1;menu_navigation_sequence(f);return fclose(f)!=0;}
+int main(void){FILE *f=fopen("menu.txt","wb");if(!f)return 1;menu_navigation_sequence(f);return fclose(f)!=0;}

@@ -26,4 +26,4 @@ int main(int argc,char **argv){if(argc!=2)return 1;int mode=atoi(argv[1]);if(mod
     audio_timeline_init(&timeline,&project,0);
     VIEW view={.sample=sample,.wave=&wave,.channel=0,.preview=mode==4,.timeline=mode==2?&timeline:NULL,.start=0,.offset=125.25,.frames_per_step=4800,.origin=12.25f,.width=220.5f,.pixels_per_step=25};
     float layout=mode==1?2:1,raster=mode==0?1:mode==1?4:1.25f;
-    out=fopen("quads.txt","w");if(!out)return 2;DRAW(view,((RECT){12.25f,17.5f,220.5f,63.25f}),mode==3?50:15.125f,mode==3?50:131.75f,layout,raster);fclose(out);free(wave.tree);return 0;}
+    out=fopen("quads.txt","wb");if(!out)return 2;DRAW(view,((RECT){12.25f,17.5f,220.5f,63.25f}),mode==3?50:15.125f,mode==3?50:131.75f,layout,raster);fclose(out);free(wave.tree);return 0;}

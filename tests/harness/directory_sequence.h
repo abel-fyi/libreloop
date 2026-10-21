@@ -5,7 +5,7 @@ static int is_directory(const char *path){struct stat s;return !stat(path,&s) &&
 static int directory_sequence(FILE *out){
     const char *paths[]={NULL,"",".","nested/A/B","slashes\\A\\B","blocked/A","trailing/","colon:/A","dot/../back","repeat//A///B","end\\"};
     const char *checks[]={"nested","nested/A","nested/A/B","slashes","slashes/A","slashes/A/B","slashes\\A\\B","blocked/A","trailing","colon:","colon:/A","dot","back","repeat","repeat/A","repeat/A/B","end","end\\"};
-    FILE *blocked=fopen("blocked","w");if(!blocked || fclose(blocked))return 1;
+    FILE *blocked=fopen("blocked","wb");if(!blocked || fclose(blocked))return 1;
     for(int i=0;i<11;i++){
         int result=fixture_make_directory(paths[i]);fprintf(out,"%d %d",i,result);
         for(int j=0;j<18;j++)fprintf(out," %d",is_directory(checks[j]));fputc('\n',out);

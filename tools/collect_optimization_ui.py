@@ -13,9 +13,9 @@ parser.add_argument('--rounds',type=int,default=3)
 parser.add_argument('--resume',action='store_true')
 args=parser.parse_args();source=Path(__file__).resolve().parent.parent;root=args.matrix.resolve()
 variants=[('O3-O3-lto0-baseline',args.baseline.resolve())]
-for item in json.loads((root/'results.json').read_text()):
+for item in json.loads((root/'results.json').read_text(encoding='utf-8')):
     if item['status']=='tested':variants.append((item['name'],root/item['name']))
-results=json.loads((root/'ui-results.json').read_text()) if args.resume and (root/'ui-results.json').exists() else []
+results=json.loads((root/'ui-results.json').read_text(encoding='utf-8')) if args.resume and (root/'ui-results.json').exists() else []
 for name,build in variants:
     if any(e['name']==name and 'summary' in e for e in results):
         print(name,'already collected',flush=True)

@@ -24,7 +24,7 @@ static void trace_text(FILE *out,const char *text){
     while(*p){if(!strncmp(p,fixture_root,n)){fputs("<root>",out);p+=n;}else{fprintf(out,"%02x",(unsigned char)*p);p++;}}
     fputc('|',out);
 }
-static int touch_fixture(const char *path){FILE *f=fopen(path,"w");return f && !fclose(f);}
+static int touch_fixture(const char *path){FILE *f=fopen(path,"wb");return f && !fclose(f);}
 static int file_picker_sequence(FILE *out){
     char template[]="/tmp/libreloop-picker-flow-XXXXXX",path[4096],subfolder[4096],empty[4096],initial[4096],config[4096],locations[4096];
     if(!mkdtemp(template) || !realpath(template,fixture_root))return 1;

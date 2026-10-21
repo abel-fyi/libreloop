@@ -20,7 +20,7 @@ int main(int argc,char **argv) {
     ui.navigation_drag=-1;ui.browser_focus=1;windows_init(&ui.windows,1200,675);int id=mode%2?2:1;windows_focus(&ui.windows,id);
     ui.arrangement.zoom=1;ui.arrangement.view_start=3.25f;ui.track_scroll=100.5f;ui.track_zoom=1;
     ui.piano_span[0]=16;ui.piano_pan[0]=3.5f;ui.piano_top=72;ui.piano_zoom=1;
-    FILE *out=fopen("state.txt","w");if(!out)return 2;
+    FILE *out=fopen("state.txt","wb");if(!out)return 2;
     NavigationFrame frame={.layout_scale=scale};
     for(int i=0;i<18;i++) {
         Rect r=ui.windows.editors[id].rect;float gx=id==1?212:60,gy=id==1?96:86;

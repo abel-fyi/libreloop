@@ -26,4 +26,4 @@ static void run(void){
     PRESS(2,2,1,9,5,(POINT){100,72});PRESS(2,2,1,10,4.9,(POINT){101,73});SNAP("original-negative-time-difference");
 }
 
-int main(void){ruler_state_init(&state);out=fopen("ruler.txt","w");if(!out)return 1;run();fclose(out);return 0;}
+int main(void){ruler_state_init(&state);out=fopen("ruler.txt","wb");if(!out)return 1;run();fclose(out);return 0;}

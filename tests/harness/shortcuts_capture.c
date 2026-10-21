@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "shortcut_sequence.h"
-int main(void){FILE *out=fopen("actions.txt","w");if(!out)return 1;
+int main(void){FILE *out=fopen("actions.txt","wb");if(!out)return 1;
     for(int mac=0;mac<2;mac++)for(int mode=0;mode<20;mode++) {
         AppInput input;input_init(&input);ShortcutContext context={.mac=mac};
         shortcut_sequence(mode,mac,&context.modal,&context.captured,&context.dragging,&context.browser_focus,&context.editor,&context.piano_tool);

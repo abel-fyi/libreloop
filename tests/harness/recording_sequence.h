@@ -5,7 +5,7 @@ static int run_recording(int number){mode=number;project_new(&ui.project);ui.pro
     if(mode>=5)ui.record_armed[0]=1;if(mode==5)ui.project.channel_count=CHANNELS;if(mode==14)ui.record_armed[1]=1;
     if(mode==2){ui.midi_keys[0]=(MidiHeld){1,1,0,64,0,90};}
     if(mode==15){ui.playing=ui.song=1;visual_frame=RATE*2;}
-    FILE *out=fopen("state.txt","w");if(!out)return 1;recording_start();snapshot(out,"start");
+    FILE *out=fopen("state.txt","wb");if(!out)return 1;recording_start();snapshot(out,"start");
     if(!project_save("started.llp",&ui.project))return 2;
     if(ui.midi_take.active){fixture_time=10.5;midi_take_note(&ui.midi_take,&ui.project,0,67,100,fixture_time);midi_take_control(&ui.midi_take,&ui.project,(ParameterTarget){PARAM_CHANNEL_VOLUME,0,0},.7f,fixture_time);fixture_time=11;}
     recording_finish();snapshot(out,"finish");fprintf(out,"calls %d %d %d %d\n",publications,updates,panic_calls,popup);fclose(out);

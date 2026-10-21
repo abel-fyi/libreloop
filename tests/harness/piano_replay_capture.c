@@ -19,7 +19,7 @@ int main(int argc,char **argv) {
     project.notes[0][0][1]=(Note){64,80,2.5f,1.25f};
     project.notes[0][0][2]=(Note){60,70,0,1};
     memcpy(before,project.notes[0][0],sizeof before);
-    previews=fopen("previews.txt","w");if(!previews)return 2;
+    previews=fopen("previews.txt","wb");if(!previews)return 2;
     if(mode==0) {
         state.kind=PIANO_BRUSH;state.from=state.now=(PianoPoint){1.25f,61.25f};
         piano_gesture_update(&state,&project,7.875f,66.75f,.25f,preview,NULL);
@@ -47,7 +47,7 @@ int main(int argc,char **argv) {
     }
     fclose(previews);
     if(!project_save("expected.llp",&project))return 3;
-    FILE *selection=fopen("selection.bin","wb"),*state_file=fopen("state.txt","w");if(!selection || !state_file)return 2;
+    FILE *selection=fopen("selection.bin","wb"),*state_file=fopen("state.txt","wb");if(!selection || !state_file)return 2;
     fwrite(selected,1,NOTES,selection);fclose(selection);
     fprintf(state_file,"%.9g %.9g %.9g %.9g\n",state.length,state.now.x,state.now.y,project.pattern_steps[0]);fclose(state_file);return 0;
 }

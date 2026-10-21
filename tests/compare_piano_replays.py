@@ -8,7 +8,7 @@ import subprocess
 import sys
 import tempfile
 executable, root = Path(sys.argv[1]).resolve(), Path(sys.argv[2]).resolve()
-manifest = json.loads((root / 'manifest.json').read_text())
+manifest = json.loads((root / 'manifest.json').read_text(encoding='utf-8'))
 for scenario in manifest['scenarios']:
     with tempfile.TemporaryDirectory(prefix='libreloop-piano-replay-') as directory:
         subprocess.run([str(executable), str(scenario['mode']), *sys.argv[3:]], cwd=directory, check=True, timeout=10)

@@ -16,4 +16,4 @@ static void edit_apply(char *text,size_t capacity) {
     text_input(text,capacity);
     edit_character_read=edit_character_count-frame.char_count;
 }
-int main(void){FILE *f=fopen("text.txt","w");if(!f)return 1;text_edit_sequence(f);return fclose(f)!=0;}
+int main(void){FILE *f=fopen("text.txt","wb");if(!f)return 1;text_edit_sequence(f);return fclose(f)!=0;}

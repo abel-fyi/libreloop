@@ -34,7 +34,7 @@ int main(int argc,char **argv) {
     state.midi_learn_target=(ParameterTarget){PARAM_CHANNEL_PAN,1,0};state.midi_learning=mode==2;
     if(mode==3 || mode==4)if(!midi_take_begin(&take,&project,0,mode==3,0,1))return 3;
     if(mode==7){state.recording_audio=1;state.midi_record_target=2;}
-    commands=fopen("commands.txt","w");FILE *trace=fopen("state.bin","wb");if(!commands || !trace)return 2;
+    commands=fopen("commands.txt","wb");FILE *trace=fopen("state.bin","wb");if(!commands || !trace)return 2;
     AppInput input;input_init(&input);int finish=0;
     for(int frame=0;frame<midi_sequence_count(mode);frame++) {
         MidiEvent e=midi_sequence_event(mode,frame);

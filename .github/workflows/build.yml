@@ -6,6 +6,44 @@ on:
 permissions:
   contents: read
 jobs:
+  windows:
+    name: Windows UCRT64 (${{ matrix.desktop }})
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        desktop: [ON, OFF]
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-python
+            curl
+      - name: Import pinned SDL source
+        if: matrix.desktop == 'ON'
+        run: |
+          curl --fail --location --retry 3 --output SDL3-3.4.16.tar.gz https://github.com/libsdl-org/SDL/releases/download/release-3.4.16/SDL3-3.4.16.tar.gz
+          python tools/vendor_sdl.py SDL3-3.4.16.tar.gz
+      - name: Configure and build
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DLIBRELOOP_BUILD_DESKTOP=${{ matrix.desktop }} -DBUILD_TESTING=ON
+          cmake --build build --parallel 2
+      - name: Test
+        run: ctest --test-dir build --output-on-failure --parallel 2 --timeout 180
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: windows-test-logs-${{ matrix.desktop }}
+          path: build/Testing/Temporary/
   core:
     name: Core (${{ matrix.os }})
     strategy:

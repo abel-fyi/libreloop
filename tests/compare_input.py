@@ -9,7 +9,7 @@ import sys
 import tempfile
 
 executable, root = (Path(p).resolve() for p in sys.argv[1:])
-manifest = json.loads((root / 'manifest.json').read_text())
+manifest = json.loads((root / 'manifest.json').read_text(encoding='utf-8'))
 with tempfile.TemporaryDirectory(prefix='libreloop-input-parity-') as directory:
     subprocess.run([str(executable)], cwd=directory, check=True, timeout=10)
     for name, digest in manifest['files'].items():

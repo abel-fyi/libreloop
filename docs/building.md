@@ -19,6 +19,9 @@ library has been selected or added.
 - Linux desktop builds need ALSA development files for MIDI and the development
   dependencies of the SDL backends being enabled. See the README's Linux notes.
 - macOS desktop builds need Xcode Command Line Tools and its SDK.
+- Windows x86_64 builds use a native MinGW-w64 C11 toolchain (MSYS2 UCRT64
+  GCC or LLVM-MinGW), CMake and Ninja. Use the README's UCRT64 setup; do not
+  use the MSYS compiler, which produces applications requiring the MSYS runtime.
 - Python 3 is needed to import the pinned SDL archive or run tests.
 
 miniaudio 0.11.21 and stb headers are already in `third_party/`; their exact bytes
@@ -85,6 +88,25 @@ The layout is `bin/` plus `share/libreloop/`. macOS installs a self-contained
 `.app` bundle. The installation tests exercise these final layouts, including
 paths with spaces. Creating distro packages is a separate downstream task.
 
+## Windows builds and installation
+
+The README provides the MSYS2 UCRT64 commands. LLVM-MinGW can also be used
+from PowerShell with its `bin` directory, CMake, Ninja and Python on PATH:
+
+```powershell
+curl.exe --fail --location --output SDL3-3.4.16.tar.gz https://github.com/libsdl-org/SDL/releases/download/release-3.4.16/SDL3-3.4.16.tar.gz
+python tools/vendor_sdl.py SDL3-3.4.16.tar.gz
+cmake -S . -B build-windows -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang
+cmake --build build-windows --parallel 2
+cmake --install build-windows --prefix stage-windows
+.\stage-windows\bin\libreloop.exe
+```
+
+The staged layout uses `bin/` and `share/libreloop/`, including bundled assets
+and licenses. Move the entire folder together. An installed shared SDL SDK
+also installs its SDL DLL beside the executable. CMake performs no downloads.
+MSVC and BSD builds are not validated reference configurations.
+
 ## Tests and core-only builds
 
 Enable the test suite explicitly:
@@ -104,6 +126,15 @@ cmake --build build-core --parallel 2
 ctest --test-dir build-core --output-on-failure --parallel 2 --timeout 180
 ```
 
+The same test commands work in the Windows UCRT64 terminal (use
+`build-windows` for its build directory). Windows runs the portable engine and
+interaction tests, SDL tests, native Unicode/save/mapped-recording tests, and
+the relocated installation test. Tests using POSIX process/filesystem APIs
+remain Unix-only. Frontend source-inclusion harnesses that leave unused symbols
+unresolved are explicitly disabled on Windows because COFF linkers reject them;
+the complete desktop is linked and smoke-tested there. Fixture writers use
+binary streams so Windows newline translation cannot change reference bytes.
+
 Core tests still require Python. A core library build with `BUILD_TESTING=OFF`
 does not. See [Linux validation](linux-testing.md) for sanitizers and numeric
 reference policy.
@@ -114,8 +145,13 @@ Linux x86_64 is verified locally on Gentoo. CI covers Linux x86_64 and macOS
 Apple Silicon core/desktop builds using the same pinned SDL source, plus
 generic Linux ARM64 core builds. Hosted
 results remain pending until the workflow actually runs. Asahi desktop/device behavior is a
-future native validation target; a generic ARM64 CI run cannot establish it. Windows sources remain present, but Windows
-builds and runtime behavior are not currently verified.
+future native validation target; a generic ARM64 CI run cannot establish it.
+Windows x86_64 desktop builds have been compiled locally with LLVM-MinGW and
+pinned static SDL, and pass both dummy-driver and native-window smoke checks.
+Relocated installation checks cover Unicode paths, resources, rendering and
+project saves without build tools on PATH. Windows UCRT64 GCC core/desktop CI
+jobs are configured; hosted results remain pending until they run. Physical
+Windows audio and MIDI devices still need interactive validation.
 
 Input now uses SDL's normalized fractional wheel and pinch events on every
 platform, replacing the app-owned Cocoa monitor. Fractional wheel units do not

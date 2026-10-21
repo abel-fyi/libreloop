@@ -16,7 +16,7 @@ static int find(Browser *b,const char *suffix){for(int i=0;i<b->items;i++){const
 int main(int argc,char **argv) {
     if(argc!=2)return 1;char resolved[4096];if(!realpath(argv[1],resolved))return 2;root_path=resolved;char samples[4096],config[4096],sub[4096];
     snprintf(samples,sizeof samples,"%s/samples",root_path);snprintf(config,sizeof config,"%s/config",root_path);snprintf(sub,sizeof sub,"%s/samples/Sub\\samples",root_path);
-    if(setenv("XDG_CONFIG_HOME",config,1))return 2;out=fopen("browser.txt","w");if(!out)return 2;
+    if(setenv("XDG_CONFIG_HOME",config,1))return 2;out=fopen("browser.txt","wb");if(!out)return 2;
     Browser b;browser_init(&b,samples);snapshot(&b,"initial");
     browser_select(&b,find(&b,"/Sub\\samples"));browser_right(&b);snapshot(&b,"expanded");
     browser_right(&b);snapshot(&b,"first-child");browser_left(&b);snapshot(&b,"parent");browser_left(&b);snapshot(&b,"collapsed");

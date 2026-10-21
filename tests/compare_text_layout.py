@@ -9,7 +9,7 @@ import sys
 import tempfile
 
 executable, root, font = (Path(p).resolve() for p in sys.argv[1:])
-manifest = json.loads((root / 'manifest.json').read_text())
+manifest = json.loads((root / 'manifest.json').read_text(encoding='utf-8'))
 assert hashlib.sha256(font.read_bytes()).hexdigest() == manifest['font_sha256']
 with tempfile.TemporaryDirectory(prefix='libreloop-text-layout-') as directory:
     subprocess.run([str(executable), str(font)], cwd=directory, check=True, timeout=10)

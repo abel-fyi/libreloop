@@ -24,7 +24,7 @@ if subprocess.check_output(["git", "-C", str(reference), "status", "--porcelain"
 output = args.output.resolve()
 if output == reference or reference in output.parents:
     parser.error("Audit artifacts must remain outside the original repository")
-mapping = json.loads(args.api_map.read_text())
+mapping = json.loads(args.api_map.read_text(encoding='utf-8'))
 mapping.update({
     "Vector2": "DrawPoint", "Vector3": "DrawHSV", "Rectangle": "DrawRect", "Color": "DrawColor",
     "Texture2D": "HostTexture", "Texture": "HostTexture", "RenderTexture2D": "HostTarget",
@@ -37,7 +37,7 @@ mapping.update({
     "piano_note_drag_update": "desktop_piano_note_drag_update", "piano_key_update": "desktop_piano_key_update",
     "rack_melodic": "desktop_rack_melodic",
 })
-for match in re.finditer(r"#define (HOST_\w+)", (rewrite / "src/ui/frontend/host_constants.h").read_text()):
+for match in re.finditer(r"#define (HOST_\w+)", (rewrite / "src/ui/frontend/host_constants.h").read_text(encoding='utf-8')):
     mapping[match[1][5:]] = match[1]
 ignored = r'//[^\n]*|/\*[\s\S]*?\*/|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\''
 lexer = re.compile(ignored + r"|[A-Za-z_]\w*|\s+|.", re.S)
@@ -69,7 +69,7 @@ for path in sorted((rewrite / "src/ui/frontend").glob("*.c")):
     original = reference / "src" / path.name
     if not original.exists():
         continue
-    old, new = functions(original.read_text()), functions(path.read_text())
+    old, new = functions(original.read_text(encoding='utf-8')), functions(path.read_text(encoding='utf-8'))
     for name, source in old.items():
         renamed = mapping.get(name, name)
         state = "missing from carried file" if renamed not in new else (

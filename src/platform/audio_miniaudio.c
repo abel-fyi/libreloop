@@ -19,6 +19,7 @@
 #include <limits.h>
 #include <math.h>
 #include "native_time.h"
+#include "frame_wait.h"
 /* The callback owns rendering state. The UI only writes this mailbox. */
 enum { UPDATE, SAMPLE, CHANNEL_SAMPLES, PREVIEW, NOTE, KEY, STOP };
 #define AUDIO_COMMANDS 256
@@ -488,7 +489,7 @@ static void consume_commands(void) {
     }
 }
 static void wait_control(void) {
-    struct timespec pause={0,100000}; nanosleep(&pause,NULL);
+    platform_frame_wait(.0001);
 }
 /* UI only. Device stop completion establishes sole render ownership here. */
 static int consume_stopped(void) {

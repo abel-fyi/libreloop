@@ -8,7 +8,7 @@ int main(void) {
     for(unsigned i=0;i<sizeof points/sizeof *points;i++)for(unsigned j=0;j<sizeof times/sizeof *times;j++) {
         DrawPoint p=host_get_spline_point_bezier_cubic(points[i][0],points[i][1],points[i][2],points[i][3],times[j]);fwrite(&p,sizeof p,1,out);
     }
-    fclose(out);out=fopen("names.txt","w");if(!out)return 1;
+    fclose(out);out=fopen("names.txt","wb");if(!out)return 1;
     const char *names[]={"tone.wav","/tmp/tone.ogg","C:\\samples\\tone.flac",".hidden",".hidden.wav","name.","multi.part.wav","plain","a/.name","a/."};
     for(unsigned i=0;i<sizeof names/sizeof *names;i++)fprintf(out,"%s\n",host_get_file_name_without_ext(names[i]));
     fclose(out);return 0;

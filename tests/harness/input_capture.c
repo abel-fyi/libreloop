@@ -70,4 +70,4 @@ static void run(void) {
     }
 }
 
-int main(void){input_init(&input);out=fopen("input.txt","w");clicks=fopen("clicks.txt","w");if(!out || !clicks)return 1;run();fclose(out);fclose(clicks);return 0;}
+int main(void){input_init(&input);out=fopen("input.txt","wb");clicks=fopen("clicks.txt","wb");if(!out || !clicks)return 1;run();fclose(out);fclose(clicks);return 0;}

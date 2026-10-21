@@ -2,6 +2,9 @@
 /build*/
 /cmake-build-*/
 /build-*.log
+/stage-windows/
+/SDL3-*.tar.gz
+/third_party/SDL/
 /CMakeFiles/
 /CMakeCache.txt
 /compile_commands.json

@@ -25,4 +25,4 @@ static void run(void){
     PRESS(2,2,1,9,5,(POINT){100,72});PRESS(2,2,1,10,4.9,(POINT){101,73});SNAP("original-negative-time-difference");
 }
 
-int main(void){ui.ruler_last_id=ui.marker_drag=-1;ui.ruler_last_click=-1;out=fopen("ruler.txt","w");if(!out)return 1;run();fclose(out);return 0;}
+int main(void){ui.ruler_last_id=ui.marker_drag=-1;ui.ruler_last_click=-1;out=fopen("ruler.txt","wb");if(!out)return 1;run();fclose(out);return 0;}

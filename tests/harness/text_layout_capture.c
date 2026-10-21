@@ -26,11 +26,11 @@ static void capture_layout(FACE font,const char *tag) {
 int main(int argc,char **argv) {
     if(argc!=2)return 1;RasterGlyph *glyphs;FontAtlas atlas;if(!font_bitmap_build(&atlas,&glyphs))return 2;
     FILE *out=fopen("bitmap-atlas.bin","wb");fwrite(atlas.gray_alpha,2,atlas.width*atlas.height,out);fclose(out);
-    FILE *metrics=fopen("bitmap-metrics.txt","w");
+    FILE *metrics=fopen("bitmap-metrics.txt","wb");
     for(int i=0;i<224;i++) {
         RasterGlyph g=glyphs[i];GlyphRect r=atlas.rects[i];
         fprintf(metrics,"%d %d %d %d %.9g %.9g %.9g %.9g\n",g.value,g.offset_x,g.offset_y,g.advance,r.x,r.y,r.width,r.height);
-    }fclose(metrics);quads=fopen("layout.txt","w");FontLayout f={10,224,0,glyphs,atlas.rects};capture_layout(f,"bitmap");
+    }fclose(metrics);quads=fopen("layout.txt","wb");FontLayout f={10,224,0,glyphs,atlas.rects};capture_layout(f,"bitmap");
     font_atlas_free(&atlas);font_raster_free(glyphs,224);
     FILE *file=fopen(argv[1],"rb");if(!file || fseek(file,0,SEEK_END))return 2;long bytes=ftell(file);if(bytes<=0 || fseek(file,0,SEEK_SET))return 2;
     unsigned char *data=malloc((size_t)bytes);if(!data || fread(data,1,(size_t)bytes,file)!=(size_t)bytes)return 2;fclose(file);

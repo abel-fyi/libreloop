@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-only
 /* Controlled hardware/writer services, real recording preparation and mapping. */
+#ifdef _WIN32
+#include <direct.h>
+#define fixture_mkdir(path) _mkdir(path)
+#else
 #include <sys/stat.h>
+#define fixture_mkdir(path) mkdir(path,0700)
+#endif
 static int mode,writer_index,checkpoint_calls,record_starts,record_ends,record_modes,updates,publications,panic_calls,popup;
 static double fixture_time=10,visual_frame;
 static int last_song,last_pattern;static float last_loop_start,last_loop_end;
@@ -42,5 +48,5 @@ void open_popup(int kind){popup=kind;}
 float playback_start(void){return ui.playlist_start*STEPS;}
 float *playback_loop(void){return ui.song_loop;}
 #endif
-static int directory_fixture(const char *path){if(mode==6)return -1;return mkdir(path,0700)==0 || errno==EEXIST?0:-1;}
+static int directory_fixture(const char *path){if(mode==6)return -1;return fixture_mkdir(path)==0 || errno==EEXIST?0:-1;}
 static char *canonical_fixture(const char *p,char *out){snprintf(out,1024,"/fixture/%s",p);return out;}

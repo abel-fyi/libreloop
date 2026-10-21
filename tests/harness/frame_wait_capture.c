@@ -9,7 +9,7 @@ static int captured_usleep(useconds_t value){sleep_calls++;sleep_value=value;ret
 #include "../../src/platform/frame_wait.c"
 #define fixture_wait platform_frame_wait
 #include "frame_wait_sequence.h"
-int main(void){FILE *f=fopen("wait.txt","w");if(!f)return 1;int result=frame_wait_sequence(f);return fclose(f) || result;}
+int main(void){FILE *f=fopen("wait.txt","wb");if(!f)return 1;int result=frame_wait_sequence(f);return fclose(f) || result;}
 #else
 #error This original-derived capture currently verifies the macOS usleep branch only.
 #endif

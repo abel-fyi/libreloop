@@ -11,4 +11,4 @@ int host_is_key_pressed_repeat(int k){return menu_repeated[k];}
 int mouse_pressed(int button){return button==0 && menu_mouse_pressed;}
 #include "../../src/ui/frontend/ui_widgets.c"
 static void menu_setup(void){memset(&ui.menu_keys,0,sizeof ui.menu_keys);ui.menu_keys.id=4;ui.menu_keys.count=4;ui.menu_keys.selected=1;ui.mouse=(DrawPoint){0,0};for(int i=0;i<4;i++)ui.menu_keys.bounds[i]=(MenuBounds){10,20+i*10,80,10};}
-int main(void){FILE *f=fopen("menu.txt","w");if(!f)return 1;menu_navigation_sequence(f);return fclose(f)!=0;}
+int main(void){FILE *f=fopen("menu.txt","wb");if(!f)return 1;menu_navigation_sequence(f);return fclose(f)!=0;}

@@ -9,7 +9,7 @@ void ui_render_arc_pro(UIRender *r,int bank,int level,DrawRect d,DrawPoint o,flo
 static void draw(int style,int mode,float low,float high,float initial,float shown){KnobDrawing s={60,70,style,mode%2,mode==2,low,high,initial,shown};knob_draw(NULL,&s);}
 #define DRAW draw
 
-int main(void){out=fopen("knobs.txt","w");if(!out)return 1;theme_init();for(int style=0;style<8;style++)for(int mode=0;mode<5;mode++) {
+int main(void){out=fopen("knobs.txt","wb");if(!out)return 1;theme_init();for(int style=0;style<8;style++)for(int mode=0;mode<5;mode++) {
     float low=style==2 || style==4?-1:style==6?20:0,high=style==5?1.25f:style==3?2:style==6?20000:style==7?31:1;
     float initial=style==2 || style==4?0:style==5 || style==3?1:style==6?5000:style==7?8:.5f;
     float shown=mode==0?low:mode==1?initial:mode==2?(low+high)/2:mode==3?high:style==7?31:initial;

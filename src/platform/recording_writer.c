@@ -39,7 +39,11 @@ static long long writer_pwrite(RecordingWriter *w,const void *data,size_t bytes,
     if(!SetFilePointerEx(w->fd,position,NULL,FILE_BEGIN))return -1;return done;
 }
 static int writer_trim(RecordingWriter *w,unsigned frames) {
-    LARGE_INTEGER end;end.QuadPart=44+(LONGLONG)frames*8;
+    LARGE_INTEGER end,current;end.QuadPart=44+(LONGLONG)frames*8;
+    /* Windows rejects SetEndOfFile while a live waveform view maps this file,
+       even when its length is already correct. Successful writes need no trim. */
+    if(!GetFileSizeEx(w->fd,&current))return -1;
+    if(current.QuadPart==end.QuadPart)return 0;
     return SetFilePointerEx(w->fd,end,NULL,FILE_BEGIN) && SetEndOfFile(w->fd)?0:-1;
 }
 #define WRITER_INTERRUPTED 0

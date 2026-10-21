@@ -8,13 +8,13 @@ import re
 import sys
 
 root = Path(sys.argv[1])
-fixture = json.loads((root / "tests/fixtures/interaction/frontend-literals.json").read_text())
+fixture = json.loads((root / "tests/fixtures/interaction/frontend-literals.json").read_text(encoding='utf-8'))
 # Skip comments and preprocessor include paths; preserve literal escape spelling.
 tokens = re.compile(r'//[^\n]*|/\*[\s\S]*?\*/|"(?:\\.|[^"\\])*"')
 actual = Counter()
 for directory in ("src/ui/frontend", "src/interaction"):
     for path in (root / directory).glob("*.c"):
-        source = path.read_text()
+        source = path.read_text(encoding='utf-8')
         for token in tokens.finditer(source):
             if not token.group().startswith('"'):
                 continue
@@ -57,7 +57,7 @@ expected['"Song"']-=1
 # Approved LFO label change: Fade in is now Attack (modulation onset).
 expected['"Attack"'] += expected.pop('"Fade in"')
 # Pattern naming moved intact into the shared engine creation operation.
-engine = (root / "src/engine/engine.c").read_text()
+engine = (root / "src/engine/engine.c").read_text(encoding='utf-8')
 pattern_add = engine.split("int pattern_add(", 1)[1].split("int pattern_delete(", 1)[0]
 assert pattern_add.count('"Pattern %d"') == 1
 actual['"Pattern %d"'] += 1

@@ -102,7 +102,7 @@ int main(int argc,char **argv) {
     if(mode>=22)ui.piano_key=-1;
     if(mode==22 || mode==23)ui.mouse=(DrawPoint){mode==22?50:20,mode==22?286:266};
     if(mode>=24){ui.mouse=(DrawPoint){111,mode==25?510:520};test_right=mode==25 || mode==27;test_left=!test_right;}
-    previews=fopen("previews.txt","w");audition=fopen("audition.txt","w");piano(484,580);
+    previews=fopen("previews.txt","wb");audition=fopen("audition.txt","wb");piano(484,580);
     if(mode==22 || mode==23){desktop_piano_key_update(20,266,0);desktop_piano_key_update(50,266,0);desktop_piano_key_update(58,266,0);desktop_piano_key_update(50,286,1);}
     if(mode>=24) {
         test_left=test_right=0;ui.mouse=(DrawPoint){164,530};
@@ -119,11 +119,11 @@ int main(int argc,char **argv) {
     }
     fclose(previews);fclose(audition);
     if(!project_save("expected.llp",&ui.project))return 2;
-    FILE *selection=fopen("selection.bin","wb"),*state=fopen("state.txt","w");
+    FILE *selection=fopen("selection.bin","wb"),*state=fopen("state.txt","wb");
     fwrite(ui.note_selected[0][0],1,NOTES,selection);fwrite(ui.note_selection_before,1,NOTES,selection);fwrite(ui.note_before,sizeof(Note),NOTES,selection);fclose(selection);
     fprintf(state,"%d %d %d %d %d %d %.9g %.9g %.9g %.9g %.9g %.9g %.9g\n",ui.input_enabled,ui.piano_gesture,ui.piano_additive,ui.moving_note,ui.piano_channels[0][0],ui.note_drag?(int)(ui.note_drag-ui.project.notes[0][0]):-1,ui.piano_note_length,ui.piano_from.x,ui.piano_from.y,ui.piano_now.x,ui.piano_now.y,ui.note_grab.x,ui.note_grab.y);fclose(state);
-    FILE *scroll=fopen("scrollbar.txt","w");fprintf(scroll,"%d %d %d %.9g %.9g %.9g %.9g %.9g %.9g\n",ui.piano_top,ui.piano_vdrag,ui.piano_scroll_drag,ui.piano_pan[0],ui.piano_vscroll_y,ui.piano_vscroll_start,ui.piano_scroll_x,ui.piano_scroll_start,ui.piano_scroll_range);fclose(scroll);
-    FILE *controls=fopen("controls.txt","w"),*velocity=fopen("velocity-before.bin","wb");
+    FILE *scroll=fopen("scrollbar.txt","wb");fprintf(scroll,"%d %d %d %.9g %.9g %.9g %.9g %.9g %.9g\n",ui.piano_top,ui.piano_vdrag,ui.piano_scroll_drag,ui.piano_pan[0],ui.piano_vscroll_y,ui.piano_vscroll_start,ui.piano_scroll_x,ui.piano_scroll_start,ui.piano_scroll_range);fclose(scroll);
+    FILE *controls=fopen("controls.txt","wb"),*velocity=fopen("velocity-before.bin","wb");
     fprintf(controls,"%d %d %d %d %d %d %.9g %.9g %.9g %.9g\n",ui.piano_key,ui.piano_key_channel,ui.piano_key_drag,ui.velocity_drag,ui.velocity_pattern,ui.velocity_channel,ui.velocity_from.x,ui.velocity_from.y,ui.velocity_now.x,ui.velocity_now.y);fclose(controls);
     fwrite(ui.velocity_before,sizeof(Note),NOTES,velocity);fclose(velocity);return 0;
 }

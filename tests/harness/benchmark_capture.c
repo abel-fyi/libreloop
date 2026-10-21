@@ -8,13 +8,32 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#ifdef _WIN32
+#include "native_time.h"
+#include <psapi.h>
+#ifndef CLOCK_MONOTONIC
+#define CLOCK_MONOTONIC 0
+#endif
+#ifndef CLOCK_PROCESS_CPUTIME_ID
+#define CLOCK_PROCESS_CPUTIME_ID 1
+#endif
+static double seconds(int clock) {
+    if(clock==CLOCK_MONOTONIC)return platform_native_time();
+    FILETIME created,exited,kernel,user;
+    if(!GetProcessTimes(GetCurrentProcess(),&created,&exited,&kernel,&user))return 0;
+    ULARGE_INTEGER k,u;k.LowPart=kernel.dwLowDateTime;k.HighPart=kernel.dwHighDateTime;
+    u.LowPart=user.dwLowDateTime;u.HighPart=user.dwHighDateTime;
+    return (k.QuadPart+u.QuadPart)*1e-7;
+}
+#else
 #include <sys/resource.h>
+static double seconds(clockid_t clock) { struct timespec t; clock_gettime(clock,&t); return t.tv_sec+t.tv_nsec/1e9; }
+#endif
 static Project project;
 static Player player;
 static PlaybackPlan plan;
 static Sample samples[CHANNELS];
 static volatile float checksum;
-static double seconds(clockid_t clock) { struct timespec t; clock_gettime(clock,&t); return t.tv_sec+t.tv_nsec/1e9; }
 static int compare(const void *a,const void *b) { double x=*(const double *)a,y=*(const double *)b; return (x>y)-(x<y); }
 static double memory(const char *field) {
 #ifdef __linux__
@@ -93,11 +112,16 @@ int main(int argc,char **argv) {
     fclose(capture);
     double cpu=seconds(CLOCK_PROCESS_CPUTIME_ID)-start_cpu,elapsed=seconds(CLOCK_MONOTONIC)-start_wall;
     qsort(wall,loops,sizeof *wall,compare);
+#ifdef _WIN32
+    PROCESS_MEMORY_COUNTERS usage={0};
+    double peak_rss=GetProcessMemoryInfo(GetCurrentProcess(),&usage,sizeof usage)?usage.PeakWorkingSetSize/(1024.*1024):-1;
+#else
     struct rusage usage; getrusage(RUSAGE_SELF,&usage);
 #ifdef __APPLE__
     double peak_rss=usage.ru_maxrss/(1024.*1024);
 #else
     double peak_rss=usage.ru_maxrss/1024.;
+#endif
 #endif
     char hash_result[32]="null";
     if(verify) snprintf(hash_result,sizeof hash_result,"\"%016llx\"",(unsigned long long)hash);

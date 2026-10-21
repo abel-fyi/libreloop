@@ -68,7 +68,7 @@ int main(int argc,char **argv) {
         recording.io.input=record_input;recording.io.output=record_output;
         audio_update(&fixture,1,1,0,1,1,0,0,0);
     }
-    pcm_file=fopen("expected.f32","wb");state_file=fopen("expected-state.txt","w");
+    pcm_file=fopen("expected.f32","wb");state_file=fopen("expected-state.txt","wb");
     if(!pcm_file || !state_file)return 2;
     FILE *takes[3]={0};if(mode==5)for(int i=0;i<3;i++){char name[32];snprintf(name,sizeof name,"take-%d.f32",i);takes[i]=fopen(name,"wb");if(!takes[i])return 2;}
     ready=1;ma_atomic_device_state_set(&device.state,ma_device_state_started);

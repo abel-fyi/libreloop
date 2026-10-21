@@ -13,7 +13,7 @@ cmake = sys.argv[2]
 foreign = [str(p.relative_to(source)) for p in (source / 'src').rglob('*')
            if p.suffix.lower() in ('.m', '.mm', '.cpp', '.cc', '.cxx')]
 assert not foreign, f'Application sources must be C: {foreign}'
-manifest = json.loads((source / 'third_party/manifest.json').read_text())
+manifest = json.loads((source / 'third_party/manifest.json').read_text(encoding='utf-8'))
 for name, digest in manifest['files'].items():
     assert hashlib.sha256((source / name).read_bytes()).hexdigest() == digest, name
 with tempfile.TemporaryDirectory(prefix='libreloop-build-contract-') as temporary:
@@ -41,6 +41,6 @@ with tempfile.TemporaryDirectory(prefix='libreloop-build-contract-') as temporar
                              '-DCMAKE_DISABLE_FIND_PACKAGE_Python3=TRUE'],
                             capture_output=True, text=True, timeout=60)
     assert result.returncode == 0, result.stdout + result.stderr
-    targets = (core / 'CMakeFiles/TargetDirectories.txt').read_text()
+    targets = (core / 'CMakeFiles/TargetDirectories.txt').read_text(encoding='utf-8')
     assert '/engine.dir' in targets and '/libreloop.dir' not in targets
 print('C-only application, pinned headers, explicit desktop dependency errors and SDK-free core configuration passed')

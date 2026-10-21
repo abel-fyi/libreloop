@@ -29,4 +29,4 @@ static void run(void){
     CAPTURE(&PROJECT.fm[0].dx7.value[18],0,3,0);BOUNDS(0,3);DRAG(80,1,0);SNAP("alias-capture");WHEEL(&PROJECT.fm[0].dx7.value[18],0,3,7,-.5f);SNAP("alias-integer-wheel");
 }
 
-int main(void){project_new(&project);out=fopen("controls.txt","w");if(!out)return 1;run();fclose(out);return 0;}
+int main(void){project_new(&project);out=fopen("controls.txt","wb");if(!out)return 1;run();fclose(out);return 0;}
