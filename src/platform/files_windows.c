@@ -7,6 +7,18 @@
 #include <io.h>
 #include <stdatomic.h>
 struct PlatformDirectory { HANDLE handle;WIN32_FIND_DATAW item;int first;char path[LL_PATH_CAPACITY]; };
+/* Shared filesystem callers use errno to distinguish a new save destination
+   from an inaccessible one. Win32 APIs only set GetLastError themselves. */
+static int file_failure(DWORD error) {
+    switch(error) {
+    case ERROR_FILE_NOT_FOUND:case ERROR_PATH_NOT_FOUND:errno=ENOENT;break;
+    case ERROR_ACCESS_DENIED:case ERROR_SHARING_VIOLATION:errno=EACCES;break;
+    case ERROR_INVALID_NAME:case ERROR_INVALID_PARAMETER:errno=EINVAL;break;
+    case ERROR_FILENAME_EXCED_RANGE:errno=ENAMETOOLONG;break;
+    default:errno=EIO;break;
+    }
+    return 0;
+}
 int platform_path_exists(const char *path){wchar_t *wide=windows_utf16(path);if(!wide)return 0;int ok=_waccess(wide,0)==0;free(wide);return ok;}
 int platform_canonical_path(const char *path,char *out,size_t cap) {
     wchar_t *wide=windows_utf16(path);if(!wide)return 0;
@@ -38,9 +50,11 @@ int platform_working_directory(char *out,size_t cap) {
 int platform_file_kind(const char *path,int *kind) {
     wchar_t *wide=windows_utf16(path);if(!wide)return 0;
     HANDLE file=CreateFileW(wide,FILE_READ_ATTRIBUTES,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
-        NULL,OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS,NULL);free(wide);
-    if(file==INVALID_HANDLE_VALUE)return 0;
+        NULL,OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS,NULL);
+    DWORD error=GetLastError();free(wide);
+    if(file==INVALID_HANDLE_VALUE)return file_failure(error);
     BY_HANDLE_FILE_INFORMATION info;int ok=GetFileInformationByHandle(file,&info)!=0;
+    if(!ok)file_failure(GetLastError());
     if(ok)*kind=info.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY?PLATFORM_DIRECTORY:GetFileType(file)==FILE_TYPE_DISK?PLATFORM_FILE:PLATFORM_OTHER;
     CloseHandle(file);return ok;
 }

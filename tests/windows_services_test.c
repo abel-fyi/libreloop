@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
+#include "file_chooser.h"
 #include "windows_utf.h"
 #include "files.h"
 #include "file_io.h"
@@ -22,6 +23,14 @@ int main(void) {
     size_t n=strlen(root);
     CHECK(snprintf(root+n,sizeof root-n,"libreloop-\xc3\xa9-\xe9\x9f\xb3-XXXXXX")<(int)(sizeof root-n));
     CHECK(platform_asset_directory(root));
+    CHECK(platform_join_path(root,"new export",path,sizeof path));
+    FileChooser chooser={0};CHECK(file_chooser_begin(&chooser,path,"wav",1));
+    errno=0;CHECK(file_chooser_path(&chooser,path,sizeof path)==1);
+    CHECK(!chooser.error[0] && !strcmp(platform_basename(path),"new export.wav"));
+    Sample silent[CHANNELS]={0};project_new(&original);
+    CHECK(export_wav(path,&original,silent));
+    CHECK(file_chooser_path(&chooser,path,sizeof path)==2);
+    CHECK(!platform_file_remove(path));file_chooser_close(&chooser);
     CHECK(platform_join_path(root,"song with spaces.llp",path,sizeof path));
     project_demo(&original);CHECK(project_save(path,&original));CHECK(project_load(path,&loaded));
     CHECK(project_equal(&original,&loaded));
