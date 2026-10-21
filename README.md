@@ -1,104 +1,137 @@
 # LibreLoop
 
-LibreLoop is a digital audio workstation I’m building for myself and sharing
-under the GPL-3.0-only license. It is written in C11, runs locally, and has
-built-in instruments and effects instead of external plugin formats.
+LibreLoop is a free, open-source digital audio workstation for **Windows,
+macOS and Linux**. It has built-in instruments and effects, a piano roll,
+an arrangement timeline, audio and MIDI recording, and a mixer.
 
-The desktop has an arrangement timeline, pattern and piano-roll editors,
-automation, audio and MIDI recording, a sample browser, and a mixer. It is
-actively developed; expect rough edges and incomplete platform support.
+It is written in C11 using SDL3 and miniaudio. It is still being developed,
+so expect rough edges.
 
-## Build
+## Build and run
 
-LibreLoop's application runtime is C11, with SDL3 for desktop services and
-miniaudio for audio. You need a C11 compiler, CMake 3.20+, and the platform
-requirements below. Python 3 is used for source preparation and tests.
+You only need to install the build tools once. After that, one command prepares
+the dependencies, builds LibreLoop and puts the app in a local folder.
 
-Prepare the pinned SDL source once per checkout (CMake never downloads it):
+### 1. Install the tools for your OS
 
-```sh
-curl --fail --location --output SDL3-3.4.16.tar.gz \
-  https://github.com/libsdl-org/SDL/releases/download/release-3.4.16/SDL3-3.4.16.tar.gz
-python3 tools/vendor_sdl.py SDL3-3.4.16.tar.gz
-```
+<details>
+<summary><strong>Windows</strong></summary>
 
-The same commands build the desktop on Linux and macOS:
+Install [MSYS2](https://www.msys2.org/). Open **MSYS2 UCRT64** from the Start
+menu and update its packages:
 
 ```sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel 2
+pacman -Syu
 ```
 
-Run `./build/libreloop` on Linux or `open build/LibreLoop.app` on macOS.
-Tests are enabled with `-DBUILD_TESTING=ON`. An installed SDL SDK can be selected
-with `-DLIBRELOOP_USE_SYSTEM_SDL=ON` instead of importing source.
-
-### Linux / Gentoo
-
-Install ALSA development files and the headers for SDL's window backends. For
-X11, SDL needs Xlib, Xcursor, Xi, Xrandr, XScreenSaver and Xxf86vm headers.
-Wayland builds also need Wayland client/protocol, xkbcommon and EGL development
-files. Enable the `seq` USE flag on `media-libs/alsa-lib` for MIDI input.
-If XScreenSaver support is unavailable, `-DSDL_X11_XSCRNSAVER=OFF` disables it.
-Audio uses miniaudio's available host backends; MIDI currently uses ALSA.
-
-### macOS
-
-Install Xcode Command Line Tools (`xcode-select --install`). CMake selects the
-SDK; native builds default to the host macOS deployment target. An older target
-must be selected and verified explicitly. SDL handles desktop input, including
-pinch gestures; LibreLoop has no Objective-C runtime sources.
-
-### Windows (x86_64)
-
-Install [MSYS2](https://www.msys2.org/) and open its **UCRT64** terminal:
+If it asks you to close the terminal, reopen UCRT64 and run that command again.
+Then install the build tools:
 
 ```sh
-pacman -S --needed mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-python curl
+pacman -S --needed mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-python mingw-w64-ucrt-x86_64-ca-certificates
 ```
 
-Change to the checkout (`cd /c/path/to/libreloop`), prepare SDL with the
-download/import commands above, then build and run:
+Keep using the UCRT64 terminal for the build steps below.
+
+</details>
+
+<details>
+<summary><strong>macOS</strong></summary>
+
+Open Terminal and install Apple's command-line tools:
 
 ```sh
-cmake -S . -B build-windows -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build-windows --parallel 2
-./build-windows/libreloop.exe
+xcode-select --install
 ```
 
-Create a relocatable folder with fonts, samples, presets and licenses:
+Install [Homebrew](https://brew.sh/) if you do not already have it, then run:
 
 ```sh
-cmake --install build-windows --prefix "$PWD/stage-windows"
-./stage-windows/bin/libreloop.exe
+brew install cmake ninja python
 ```
 
-Keep the whole staged folder when moving it. Audio uses WASAPI and MIDI uses
-WinMM. Python and MSYS2 are build tools; the app uses native Windows APIs.
+</details>
 
-See [building and platform policy](docs/building.md) for dependencies, system-SDL
-builds, installation, core-only builds and verification scope. See
-[Linux validation](docs/linux-testing.md) for tests and sanitizer commands.
+<details>
+<summary><strong>Linux: Ubuntu / Debian</strong></summary>
 
-## Playback and editing
+Open a terminal and run:
 
-The **PLAY · Pattern / Song** switch beside Play chooses what plays. The merged
-**VIEW · Pattern / Song** switch at the editor's upper-left chooses what
-you see independently, so you can edit a pattern while the song keeps playing.
-Click either half to select it directly.
+```sh
+sudo apt update
+sudo apt install build-essential cmake ninja-build python3 pkg-config \
+  libasound2-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev \
+  libxfixes-dev libxi-dev libxss-dev libxtst-dev libxkbcommon-dev \
+  libwayland-dev wayland-protocols libdecor-0-dev libegl1-mesa-dev \
+  libgl1-mesa-dev libudev-dev
+```
 
-**Record arms; Play starts the take.** Right-click Record to choose Audio, Notes,
-and Automation, and choose whether Pattern note takes overdub the selected
-pattern or create a new one. Stop finishes the take and leaves recording armed;
-click Record again to disarm. Audio uses armed mixer tracks and saves audio
-clips; Notes can record directly into a looping pattern.
+For Gentoo and other distributions, see the [Linux build notes](docs/building.md#linux-dependencies).
 
-## Project notes
+</details>
+
+### 2. Get the source code
+
+[Download the source ZIP](https://github.com/abel-fyi/libreloop/archive/refs/heads/main.zip)
+and extract it, or clone this repository if you already use Git.
+
+In your terminal, use `cd` to enter the extracted folder. This is the folder
+containing this README. On Windows, MSYS2 writes `C:\` as `/c/`, for example:
+
+```sh
+cd /c/Users/you/Downloads/libreloop-main
+```
+
+Replace that example with your folder's location.
+
+### 3. Build
+
+On **Windows**, run:
+
+```sh
+python tools/build.py
+```
+
+On **macOS or Linux**, run:
+
+```sh
+python3 tools/build.py
+```
+
+The first build downloads SDL and checks its checksum before using it. Later
+builds reuse it. Building can take a while on a slow computer.
+
+### 4. Open LibreLoop
+
+| OS | Run from the same terminal |
+| --- | --- |
+| Windows | `./stage-windows/bin/libreloop.exe` |
+| macOS | `open stage/LibreLoop.app` |
+| Linux | `./stage/bin/libreloop` |
+
+On Windows, you can also double-click `libreloop.exe` inside `stage-windows/bin`.
+Keep the whole `stage-windows` folder together; `share` contains the app's fonts,
+samples and other resources.
+
+**To rebuild after changing the code:** close LibreLoop and run the same build
+command again. It updates the same app folder.
+
+If something goes wrong, check the error just above “Build stopped” and see the
+[detailed build guide](docs/building.md). It also covers manual CMake commands,
+offline builds, system SDL, tests and packaging.
+
+## Using LibreLoop
+
+Choose **Pattern** or **Song** beside Play to decide what plays. The separate
+View switch chooses what you see while editing. Record arms a take; Play starts
+it. See [controls and behavior](docs/behavior-spec.md) for more.
+
+## More
 
 - [Website](https://libreloop.org)
-- [Behavior and controls](docs/behavior-spec.md)
-- [Third-party licenses](docs/third-party.md)
 - [Development roadmap](docs/roadmap.md)
+- [Windows performance measurements](docs/windows-performance.md)
+- [Third-party licenses](docs/third-party.md)
 
-The application is GPL-3.0-only; bundled components, fonts, and artwork keep
-their own documented licenses.
+LibreLoop is shared under GPL-3.0-only. Bundled libraries, fonts and artwork
+keep their own documented licenses.

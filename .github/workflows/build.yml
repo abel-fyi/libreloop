@@ -27,17 +27,17 @@ jobs:
             mingw-w64-ucrt-x86_64-cmake
             mingw-w64-ucrt-x86_64-ninja
             mingw-w64-ucrt-x86_64-python
-            curl
-      - name: Import pinned SDL source
+            mingw-w64-ucrt-x86_64-ca-certificates
+      - name: Build and test desktop using the README helper
         if: matrix.desktop == 'ON'
+        run: python tools/build.py --build-dir build --prefix stage --test
+      - name: Configure and build core
+        if: matrix.desktop == 'OFF'
         run: |
-          curl --fail --location --retry 3 --output SDL3-3.4.16.tar.gz https://github.com/libsdl-org/SDL/releases/download/release-3.4.16/SDL3-3.4.16.tar.gz
-          python tools/vendor_sdl.py SDL3-3.4.16.tar.gz
-      - name: Configure and build
-        run: |
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DLIBRELOOP_BUILD_DESKTOP=${{ matrix.desktop }} -DBUILD_TESTING=ON
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DLIBRELOOP_BUILD_DESKTOP=OFF -DBUILD_TESTING=ON
           cmake --build build --parallel 2
-      - name: Test
+      - name: Test core
+        if: matrix.desktop == 'OFF'
         run: ctest --test-dir build --output-on-failure --parallel 2 --timeout 180
       - uses: actions/upload-artifact@v4
         if: failure()
@@ -77,17 +77,13 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build libasound2-dev libpulse-dev libpipewire-0.3-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev libxkbcommon-dev libwayland-dev wayland-protocols libdecor-0-dev libegl1-mesa-dev libgl1-mesa-dev libudev-dev xvfb
-      - name: Import pinned SDL source
+          sudo apt-get install -y build-essential cmake ninja-build python3 pkg-config libasound2-dev libpulse-dev libpipewire-0.3-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev libxkbcommon-dev libwayland-dev wayland-protocols libdecor-0-dev libegl1-mesa-dev libgl1-mesa-dev libudev-dev xvfb
+      - name: Ensure Ninja is available on macOS
+        if: runner.os == 'macOS'
         run: |
-          curl --fail --location --retry 3 --output SDL3-3.4.16.tar.gz https://github.com/libsdl-org/SDL/releases/download/release-3.4.16/SDL3-3.4.16.tar.gz
-          python3 tools/vendor_sdl.py SDL3-3.4.16.tar.gz
-      - name: Configure and build
-        run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
-          cmake --build build --parallel 2
-      - name: Test
-        run: ctest --test-dir build --output-on-failure --parallel 2 --timeout 180
+          if ! command -v ninja >/dev/null; then brew install ninja; fi
+      - name: Build and test desktop using the README helper
+        run: python3 tools/build.py --build-dir build --prefix stage --test
       - name: Exercise X11 window backend
         if: runner.os == 'Linux'
         run: |

@@ -10,6 +10,7 @@ import tempfile
 
 source = Path(sys.argv[1]).resolve()
 cmake = sys.argv[2]
+toolchain = sys.argv[3:]
 foreign = [str(p.relative_to(source)) for p in (source / 'src').rglob('*')
            if p.suffix.lower() in ('.m', '.mm', '.cpp', '.cc', '.cxx')]
 assert not foreign, f'Application sources must be C: {foreign}'
@@ -29,12 +30,12 @@ with tempfile.TemporaryDirectory(prefix='libreloop-build-contract-') as temporar
     (missing / 'CMakeLists.txt').write_text(
         'cmake_minimum_required(VERSION 3.20)\nproject(dependency_check LANGUAGES C)\n'
         f'include("{dependency_file}")\n')
-    result = subprocess.run([cmake, '-S', str(missing), '-B', str(root / 'missing-build')],
+    result = subprocess.run([cmake, *toolchain, '-S', str(missing), '-B', str(root / 'missing-build')],
                             capture_output=True, text=True, timeout=60)
     assert result.returncode, 'Missing SDL must not silently select a core-only build'
     assert 'tools/vendor_sdl.py' in result.stdout + result.stderr, result.stdout + result.stderr
     core = root / 'core without SDKs'
-    result = subprocess.run([cmake, '-S', str(source), '-B', str(core),
+    result = subprocess.run([cmake, *toolchain, '-S', str(source), '-B', str(core),
                              '-DLIBRELOOP_BUILD_DESKTOP=OFF', '-DBUILD_TESTING=OFF',
                              '-DCMAKE_DISABLE_FIND_PACKAGE_ALSA=TRUE',
                              '-DCMAKE_DISABLE_FIND_PACKAGE_SDL3=TRUE',

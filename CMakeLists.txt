@@ -953,8 +953,19 @@ if(BUILD_TESTING AND WIN32 AND TARGET libreloop)
 endif()
 
 if(BUILD_TESTING)
+  add_test(NAME build_helper COMMAND ${Python3_EXECUTABLE}
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/build_helper_test.py)
+  set_tests_properties(build_helper PROPERTIES TIMEOUT 60)
+  set(_build_contract_toolchain -G "${CMAKE_GENERATOR}" "-DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}")
+  if(CMAKE_MAKE_PROGRAM)
+    list(APPEND _build_contract_toolchain "-DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}")
+  endif()
+  if(CMAKE_TOOLCHAIN_FILE)
+    list(APPEND _build_contract_toolchain "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}")
+  endif()
   add_test(NAME build_contract COMMAND ${Python3_EXECUTABLE}
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/build_contract_test.py ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_COMMAND})
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/build_contract_test.py ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_COMMAND}
+    ${_build_contract_toolchain})
   set_tests_properties(build_contract PROPERTIES TIMEOUT 180)
 endif()
 

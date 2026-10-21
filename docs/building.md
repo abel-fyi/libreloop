@@ -12,6 +12,53 @@ remove enough maintenance to justify its build requirements and preserve the
 features we use; a C API alone does not make an implementation C. No new MIDI
 library has been selected or added.
 
+## Quick build helper
+
+The README's `python3 tools/build.py` command (Windows: `python tools/build.py`)
+prepares the pinned SDL source, builds a Release desktop and installs a local
+app folder. It uses CMake and Ninja, Python's standard library and two parallel
+jobs by default. No new runtime dependency is added.
+
+The first preparation can download SDL into `.cache/downloads/`. The version,
+URL and SHA256 are defined once in `third_party/sdl-source.json`, shared by the
+helper, importer and CMake provenance check. Later runs reuse the imported tree.
+CMake itself never accesses the network.
+
+Useful options:
+
+```sh
+python3 tools/build.py --test
+python3 tools/build.py --jobs 1
+python3 tools/build.py --sdl-archive /path/to/SDL3-3.4.16.tar.gz
+python3 tools/build.py --system-sdl
+```
+
+`--test` enables and runs the suite before updating the installed app. The
+archive option prepares a fresh checkout without network access. A prepared
+checkout or `--system-sdl` also needs no download. Paths passed to `--build-dir`
+and `--prefix` are relative to the source root unless absolute. A supplied
+archive path is relative to the caller's working directory.
+
+The defaults are `build/` and `stage/` on Linux/macOS, `build-windows/` and
+`stage-windows/` on Windows. Close the app before rebuilding. The helper never
+creates an alternative app folder to get around a running executable's lock.
+Direct CMake builds below remain available for offline builds and packaging.
+
+## Linux dependencies
+
+The README includes an Ubuntu/Debian desktop recipe with X11 and Wayland
+headers. Other distributions need a C11 compiler, CMake, Ninja, Python 3,
+ALSA development files for MIDI, and the headers for their SDL window backends.
+The pinned SDL source documents additional optional backend dependencies in
+`third_party/SDL/docs/README-linux.md`.
+
+On Gentoo, enable the `seq` USE flag on `media-libs/alsa-lib` for MIDI input.
+For X11, install Xlib, Xcursor, Xi, Xrandr, XScreenSaver and Xxf86vm headers.
+Wayland builds also need Wayland client/protocol, xkbcommon and EGL development
+files. If XScreenSaver support is unavailable, `-DSDL_X11_XSCRNSAVER=OFF`
+disables it in a manual CMake build. Audio uses miniaudio's host backends;
+MIDI currently uses ALSA.
+
 ## Requirements
 
 - A C11 compiler and CMake 3.20 or newer, plus the build tool CMake selects.
@@ -143,17 +190,18 @@ reference policy.
 
 ## Platform verification
 
-Linux x86_64 is verified locally on Gentoo. CI covers Linux x86_64 and macOS
-Apple Silicon core/desktop builds using the same pinned SDL source, plus
-generic Linux ARM64 core builds. Hosted
-results remain pending until the workflow actually runs. Asahi desktop/device behavior is a
-future native validation target; a generic ARM64 CI run cannot establish it.
+CI covers Linux x86_64, macOS Apple Silicon and Windows x86_64 core/desktop
+builds using the same pinned SDL source, plus generic Linux ARM64 core builds.
+The desktop jobs use the README build helper. Check the
+[workflow results](https://github.com/abel-fyi/libreloop/actions/workflows/build.yml)
+for a particular commit. Linux x86_64 is also verified locally on Gentoo.
+Asahi desktop/device behavior remains a native validation target; a generic
+ARM64 CI run cannot establish it.
 Windows x86_64 desktop builds have been compiled locally with LLVM-MinGW and
 pinned static SDL, and pass both dummy-driver and native-window smoke checks.
 Relocated installation checks cover Unicode paths, resources, rendering and
-project saves without build tools on PATH. Windows UCRT64 GCC core/desktop CI
-jobs are configured; hosted results remain pending until they run. Physical
-Windows audio and MIDI devices still need interactive validation.
+project saves without build tools on PATH. CI uses UCRT64 GCC. Physical audio
+and MIDI devices still need interactive validation in addition to these tests.
 
 Input now uses SDL's normalized fractional wheel and pinch events on every
 platform, replacing the app-owned Cocoa monitor. Fractional wheel units do not

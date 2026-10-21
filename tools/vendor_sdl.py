@@ -11,8 +11,9 @@ import posixpath
 import shutil
 import tarfile
 import tempfile
-VERSION = '3.4.16'
-EXPECTED = '7322236cd12090c3eb40b9728be4d49c76f66ad17d04369584d4ecad5cf77c68'
+SOURCE = json.loads((Path(__file__).resolve().parent.parent/'third_party/sdl-source.json').read_text(encoding='utf-8'))
+VERSION = SOURCE['version']
+EXPECTED = SOURCE['archive_sha256']
 PREFIX = f'SDL3-{VERSION}'
 parser=argparse.ArgumentParser()
 parser.add_argument('archive',type=Path)
@@ -40,13 +41,16 @@ with tempfile.TemporaryDirectory(prefix='libreloop-sdl-import-',dir=destination.
                 target=posixpath.normpath(posixpath.join(str(path.parent),member.linkname) if member.issym() else member.linkname)
                 if target!=PREFIX and not target.startswith(PREFIX+'/'):
                     parser.error(f'Archive link escapes source: {member.name}')
-        package.extractall(root,members=members)
+        # Use the safe extraction filter where Python provides it. Older
+        # versions still use the checksum and explicit member/link checks above.
+        filters={'filter':tarfile.data_filter} if hasattr(tarfile,'data_filter') else {}
+        package.extractall(root,members=members,**filters)
     source=root/PREFIX
     if not (source/'CMakeLists.txt').is_file() or not (source/'LICENSE.txt').is_file():
         parser.error('SDL source layout/license missing')
     files={}
     for path in sorted(source.rglob('*')):
         if path.is_file():files[path.relative_to(source).as_posix()]=hashlib.sha256(path.read_bytes()).hexdigest()
-    (source/'libreloop-source.json').write_text(json.dumps({'version':VERSION,'archive_sha256':actual,'source_url':f'https://github.com/libsdl-org/SDL/releases/download/release-{VERSION}/SDL3-{VERSION}.tar.gz','files':files},indent=2)+'\n')
+    (source/'libreloop-source.json').write_text(json.dumps({'version':VERSION,'archive_sha256':actual,'source_url':SOURCE['source_url'],'files':files},indent=2)+'\n',encoding='utf-8')
     shutil.move(str(source),destination)
 print(f'Imported SDL{VERSION}: {actual}; {len(files)} source files with license/provenance')
