@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 /* Real chooser/filesystem, controlled I/O result, clock and drawing boundary. */
+#include "files.h"
 #include <sys/stat.h>
 #include <unistd.h>
 static char fixture_root[4096],committed_path[4096];
@@ -27,7 +28,8 @@ static void trace_text(FILE *out,const char *text){
 static int touch_fixture(const char *path){FILE *f=fopen(path,"wb");return f && !fclose(f);}
 static int file_picker_sequence(FILE *out){
     char template[]="/tmp/libreloop-picker-flow-XXXXXX",path[4096],subfolder[4096],empty[4096],initial[4096],config[4096],locations[4096];
-    if(!mkdtemp(template) || !realpath(template,fixture_root))return 1;
+    if(!platform_asset_directory(template) ||
+       !platform_canonical_path(template,fixture_root,sizeof fixture_root))return 1;
     snprintf(subfolder,sizeof subfolder,"%s/Subfolder",fixture_root);snprintf(empty,sizeof empty,"%s/Empty",fixture_root);
     if(mkdir(subfolder,0700) || mkdir(empty,0700))return 1;
     for(int i=0;i<22;i++){snprintf(path,sizeof path,"%s/Song %02d.llp",fixture_root,i);if(!touch_fixture(path))return 1;}
