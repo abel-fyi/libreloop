@@ -47,6 +47,6 @@ int main(int argc,char **argv) {
     }
     cpu=seconds(CLOCK_PROCESS_CPUTIME_ID)-cpu;wall=seconds(CLOCK_MONOTONIC)-wall;
     qsort(times,(size_t)frames,sizeof *times,order);
-    printf("{\"renderer\":\"SDL software, offscreen\",\"palette\":\"visual preview\",\"includes_sdl_present\":%s,\"density\":%.1f,\"frames\":%d,\"warmup_frames\":40,\"cpu_seconds\":%.6f,\"wall_seconds\":%.6f,\"frame_p50_ms\":%.6f,\"frame_p99_ms\":%.6f,\"frame_max_ms\":%.6f}\n",blit?"true":"false",density,frames,cpu,wall,times[frames/2]*1000,times[(int)((frames-1)*.99)]*1000,times[frames-1]*1000);
+    printf("{\"renderer\":\"SDL software, offscreen\",\"palette\":\"current\",\"includes_sdl_present\":%s,\"density\":%.1f,\"frames\":%d,\"warmup_frames\":40,\"cpu_seconds\":%.6f,\"wall_seconds\":%.6f,\"frame_p50_ms\":%.6f,\"frame_p99_ms\":%.6f,\"frame_max_ms\":%.6f}\n",blit?"true":"false",density,frames,cpu,wall,times[frames/2]*1000,times[(int)((frames-1)*.99)]*1000,times[frames-1]*1000);
     free(times);free(wave.tree);sample_free(sample);ui_render_destroy(render);draw_destroy(draw);SDL_DestroyRenderer(native);SDL_DestroySurface(surface);SDL_Quit();return 0;
 }

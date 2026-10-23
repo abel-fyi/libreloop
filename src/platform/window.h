@@ -18,6 +18,7 @@ int platform_window_set_size(PlatformWindow *window,int width,int height);
 int platform_window_set_min_size(PlatformWindow *window,int width,int height);
 int platform_window_fit_display(PlatformWindow *window);
 DrawContext *platform_window_draw(PlatformWindow *window);
+const char *platform_window_renderer_name(PlatformWindow *window);
 AppInput *platform_window_input(PlatformWindow *window);
 WindowGeometry platform_window_geometry(PlatformWindow *window);
 /* Reset raw frame state, wait/poll, drain events, then consume deferred clicks.

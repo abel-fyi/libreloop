@@ -92,6 +92,17 @@ to 53.838 per second during compilation load; a final run after compilation
 measured 63.849 updates per second. These are local observations,
 not a hardware-independent frame rate guarantee.
 
+On OpenBSD with an Intel Celeron N4020 and the native OpenGL renderer, an
+untouched playing desktop at 1918×1049 spent about 30 ms drawing, 24 ms in
+audio snapshot updates, and 7 ms checking undo history on every frame. The
+desktop now synchronizes the model immediately for input, MIDI, recording and
+sample-load activity, and periodically while idle. In the same local setup,
+median whole-frame time fell from about 63 ms to 33 ms. The render profiler
+reports the renderer and the time spent in these stages; drawing remains the
+main limit on that machine. The multiband curve fill takes the loudest input
+from the latest 64 monitor entries so a short click remains visible across
+more than one display frame.
+
 Regression checks cover Master effects/fader/mute and analyzer routing for the
 click, callback block-size independence, a stalled analyzer reader, distinct 60 Hz windows between 75 ms callbacks,
 long idle sessions, calibrated

@@ -33,7 +33,7 @@ void audio_channels(const Project *p,const Sample s[CHANNELS]){(void)p;(void)s;p
 void audio_update(const Project *p,int run,int song,int pattern,int reset,float output,float start,float a,float b){(void)p;(void)run;(void)reset;(void)output;(void)start;last_song=song;last_pattern=pattern;last_loop_start=a;last_loop_end=b;updates++;}
 double audio_visual_position(void){return visual_frame;}
 double midi_input_time(void){return fixture_time;}
-void midi_poll(void){}
+int midi_poll(void){return 0;}
 void midi_panic(void){panic_calls++;}
 /* Typing is disabled in the original hardware/audio recording fixtures. */
 #ifndef RECORDING_FIXTURE_TYPING

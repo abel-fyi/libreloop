@@ -337,7 +337,9 @@ static void dynamics_editor(float width,float height,int bus,int slot){
     host_draw_line_ex((DrawPoint){curve.x,curve.y+curve.height},(DrawPoint){curve.x+curve.width,curve.y},1,graph_ink);
     /* One live band-level meter: horizontal extent follows input level, and
        each filled column ends at the transfer curve rather than crossing it. */
-    float live_level=m->count?m->input[selected][m->count-1]:-72;
+    /* The audio monitor publishes a peak every 256 samples. Keep transient
+       clicks visible across several UI frames, even on a slow display. */
+    float live_level=dynamics_recent_input_peak(m,selected,64);
     for(int px=0;px<(int)curve.width;px++){
         float at=(px+.5f)/curve.width,h=dynamics_meter_height(b,live_level,at);
         if(h>0){float top=ceilf(curve.y+curve.height*(1-h));host_draw_line(curve.x+px,top,curve.x+px,curve.y+curve.height,(DrawColor){66,76,75,255});}

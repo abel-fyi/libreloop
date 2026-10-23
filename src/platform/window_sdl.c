@@ -55,6 +55,7 @@ void platform_window_destroy(PlatformWindow *window) {
     free(window);SDL_QuitSubSystem(SDL_INIT_VIDEO);
 }
 DrawContext *platform_window_draw(PlatformWindow *window){return window->draw;}
+const char *platform_window_renderer_name(PlatformWindow *window){return SDL_GetRendererName(window->renderer);}
 AppInput *platform_window_input(PlatformWindow *window){return &window->input;}
 int platform_window_set_size(PlatformWindow *window,int width,int height) {
 #ifdef _WIN32

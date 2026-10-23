@@ -6,6 +6,7 @@
 float dynamics_monitor_speed(float control);
 void dynamics_band_bounds(float low,float high,float lowcut,float bounds[4]);
 float dynamics_monitor_position(unsigned age,float control);
+float dynamics_recent_input_peak(const DynamicsMonitor *monitor,int band,unsigned samples);
 float dynamics_meter_height(const DynamicsBand *band,float input_db,float position);
 float dynamics_level_position(float db);
 float dynamics_level_db(float position);

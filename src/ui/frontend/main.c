@@ -143,11 +143,12 @@ int main(int argc,char **argv) {
     if((smoke_record_options || smoke_record_armed) && !smoke)return 1;
     if(profile_frames && (!smoke || profile_frames<100 || profile_frames>10000))return 1;
     if(ui.profile_flat && !profile_frames)return 1;
-    double *profile_times=profile_frames?calloc(profile_frames*2,sizeof *profile_times):NULL;
+    double *profile_times=profile_frames?calloc(profile_frames*3,sizeof *profile_times):NULL;
     if(profile_frames && !profile_times)return 1;
-    double profile_cpu=0,profile_start=0;int profile_count=0;
+    double profile_cpu=0,profile_start=0,profile_history=0,profile_audio=0;int profile_count=0;
     unsigned profile_spectra[2]={0};
     double *profile_frame_times=profile_times?profile_times+profile_frames:NULL;
+    double *profile_present_times=profile_times?profile_times+profile_frames*2:NULL;
 
     ui.piano_zoom=2;
     resource_paths();
@@ -189,7 +190,7 @@ int main(int argc,char **argv) {
     ui.app_window=host_window();
     browser_init(&ui.browser,ui.samples_path);if((!smoke))ui_scale_load(); midi_initialize(); theme_init(); {theme_studio();ui.browser_width=238;ui.last_sidebar=238;} file_chooser_locations(ui.browser.config); if(smoke){new_project(smoke_new_project?0:1);smoke_scene_prepare(smoke_scene);while(ui.project.pattern_count<smoke_patterns)if(pattern_add(&ui.project)<0)return 1;if(smoke_playing){ui.playing=1;ui.reset=1;}} int frames=0,initialized=0;
     float studio_piano_width=0,studio_arrangement_width=0,last_ui_scale=0;
-    double last_activity=host_get_time();
+    double last_activity=host_get_time(),last_model_sync=0;
     while(!ui.document.quit) {
         double profile_frame_start=profile_frames?host_get_time():0;
         if(profile_frames && frames==40){profile_start=profile_frame_start;memcpy(profile_spectra,ui.spectrum_updates,sizeof profile_spectra);}
@@ -198,7 +199,8 @@ int main(int argc,char **argv) {
             if(!smoke) replace_project(REPLACE_QUIT); else break;
             if(ui.document.quit) break;
         }
-        if(ui.sampler_job.busy && atomic_load(&ui.sampler_job.done)) last_activity=host_get_time();
+        int sampler_completed=ui.sampler_job.busy && atomic_load(&ui.sampler_job.done);
+        if(sampler_completed) last_activity=host_get_time();
         sampler_update();
         if(ui.edit_clipboard.kind==COPY_CLIPS && (ui.edit_clipboard.channels!=ui.project.channel_count || ui.edit_clipboard.patterns!=ui.project.pattern_count || ui.edit_clipboard.automations!=ui.project.automation_count)) ui.edit_clipboard.kind=COPY_EMPTY;
         DrawPoint wheel=host_get_mouse_wheel_move_v();
@@ -209,9 +211,11 @@ int main(int argc,char **argv) {
         else ui.navigation_input.zoom=native.zoom;
 #endif
         DrawPoint movement=host_get_mouse_delta();
+        int model_activity=sampler_completed || host_is_file_dropped() || host_is_window_resized() ||
+            ui.navigation_input.x || ui.navigation_input.y || ui.navigation_input.zoom;
         if(movement.x || movement.y || ui.navigation_input.x || ui.navigation_input.y || ui.navigation_input.zoom || host_is_window_resized()) last_activity=host_get_time();
-        for(int key=32;key<=HOST_KEY_KB_MENU;key++) if(host_is_key_pressed(key) || host_is_key_released(key) || host_is_key_pressed_repeat(key)) last_activity=host_get_time();
-        for(int b=0;b<8;b++) { ui.frame_clicks[b]=input_click(host_input(),b); if(ui.frame_clicks[b] || host_is_mouse_button_released(b))last_activity=host_get_time(); }
+        for(int key=32;key<=HOST_KEY_KB_MENU;key++) if(host_is_key_pressed(key) || host_is_key_released(key) || host_is_key_pressed_repeat(key)){last_activity=host_get_time();model_activity=1;}
+        for(int b=0;b<8;b++) { ui.frame_clicks[b]=input_click(host_input(),b); if(ui.frame_clicks[b] || host_is_mouse_button_released(b)){last_activity=host_get_time();model_activity=1;} if(host_is_mouse_button_down(b))model_activity=1; }
         float scale=ui_scale();
         if(scale!=last_ui_scale){studio_piano_width=studio_arrangement_width=0;last_ui_scale=scale;}
         int framebuffer_width,framebuffer_height,window_width,window_height;
@@ -630,7 +634,7 @@ int main(int argc,char **argv) {
         icon_button_state(ICON_KEYS,(DrawRect){keys_x,small_y,small_w,small_h},ui.typing_keys?ui_theme.selected_text:ink,ui.typing_keys,1);
         if(hover(keys_x,small_y,small_w,small_h)) snprintf(ui.status,sizeof ui.status,"Typing piano: Z row C3, Q row C4; S/D/G/H/J and 2/3/5/6/7 sharps; disabled in Browser/text fields");
         if(ui.record_count_in.active && host_is_key_pressed(HOST_KEY_ESCAPE))recording_finish();
-        recording_poll();midi_poll();
+        recording_poll();model_activity|=midi_poll();
         ui.visual_step=ui.playing && !ui.reset?audio_visual_position()/(RATE*60.0/ui.project.bpm/4):playback_start(); automation_display_update();
         ui.picker_bounds.w=sidebar-8;
         int browser_hover=!ui.browser_hidden && ui.mouse.x<sidebar && ui.mouse.y>=workspace_top && ui.mouse.y<((picker_top));
@@ -768,28 +772,43 @@ int main(int argc,char **argv) {
             double elapsed=host_get_time()-render_start;
             if(frames>=40){profile_times[profile_count++]=elapsed;profile_cpu+=(clock()-render_cpu_start)/(double)CLOCKS_PER_SEC;}
         }
-        if(!captured() && !recording_active()) history_checkpoint();
+        double model_now=host_get_time();
+        int sync_model=model_activity || ui.reset || recording_active() || ui.record_count_in.active ||
+            ui.sampler_job.busy || model_now-last_model_sync>=.1;
+        double profile_step_start=profile_frames?model_now:0;
+        if(sync_model && !captured() && !recording_active()) history_checkpoint();
+        if(profile_frames && frames>=40)profile_history+=host_get_time()-profile_step_start;
         if(ui.pattern_popup!=11 && ui.file_picker.entries) file_chooser_close(&ui.file_picker);
         sampler_queue();
         if(ui.recording_ui.active || ui.midi_take.active) { ui.project.bpm=ui.recording_ui.active?ui.recording_ui.bpm:ui.midi_take.bpm; ui.playing=1; ui.reset=0; }
         float *transport_loop=recording_active() && !ui.song?ui.record_loop:playback_loop();
-        flush_cursor(); audio_update(&ui.project,ui.playing,ui.song,ui.pattern,ui.reset,ui.output_volume,playback_start(),recording_active() && ui.song?0:transport_loop[0],recording_active() && ui.song?0:transport_loop[1]);
+        flush_cursor();
+        profile_step_start=profile_frames?host_get_time():0;
+        if(sync_model){
+            audio_update(&ui.project,ui.playing,ui.song,ui.pattern,ui.reset,ui.output_volume,playback_start(),recording_active() && ui.song?0:transport_loop[0],recording_active() && ui.song?0:transport_loop[1]);
+            last_model_sync=model_now;
+        }
+        if(profile_frames && frames>=40)profile_audio+=host_get_time()-profile_step_start;
         if(audio_effect_memory_failed())snprintf(ui.status,sizeof ui.status,"Not enough memory for effect buffers; unprepared effects pass dry.");
         int animate=audio_active() || ui.mixer_decay_active || ui.spectrum_active || (ui.windows.editors[0].visible && ui.channel_decay_active) || ui.browser_progress>=0 || (ui.windows.editors[3].visible && (audio_active() || ui.mixer_decay_active)) || ui.record_count_in.active || ui.playing || captured() || ui.windows.grab>=0 || ui.popup_drag || ui.sample_drag[0] ||
             (ui.windows.editors[4].visible && audio_key_position(127,ui.instrument_channel)>=0);
         if(!smoke && !animate && host_get_time()-last_activity>.15) host_enable_event_waiting(); else host_disable_event_waiting();
+        double profile_present_start=profile_frames?host_get_time():0;
         host_end_drawing();
         if(profile_frames) {
-            if(frames>=40)profile_frame_times[profile_count-1]=host_get_time()-profile_frame_start;
+            if(frames>=40){profile_present_times[profile_count-1]=host_get_time()-profile_present_start;profile_frame_times[profile_count-1]=host_get_time()-profile_frame_start;}
             frames++;
             if(profile_count==profile_frames){
                 qsort(profile_times,profile_frames,sizeof *profile_times,profile_order);
                 qsort(profile_frame_times,profile_frames,sizeof *profile_frame_times,profile_order);
+                qsort(profile_present_times,profile_frames,sizeof *profile_present_times,profile_order);
                 double profile_duration=host_get_time()-profile_start;
-                printf("{\"style\":\"%s\",\"motion\":%s,\"decorative_edges\":%s,\"width\":%d,\"height\":%d,\"frames\":%d,\"warmup\":40,\"audio_device_started\":%s,\"render_cpu_seconds\":%.6f,\"p50_ms\":%.6f,\"p99_ms\":%.6f,\"max_ms\":%.6f,\"frame_p50_ms\":%.6f,\"frame_p99_ms\":%.6f,\"master_updates_per_second\":%.3f,\"eq_updates_per_second\":%.3f}\n",
-                    "classic",profile_motion?"true":"false",ui.profile_flat?"false":"true",host_get_screen_width(),host_get_screen_height(),profile_frames,audio_ok?"true":"false",profile_cpu,
+                printf("{\"style\":\"%s\",\"renderer\":\"%s\",\"motion\":%s,\"decorative_edges\":%s,\"width\":%d,\"height\":%d,\"frames\":%d,\"warmup\":40,\"audio_device_started\":%s,\"render_cpu_seconds\":%.6f,\"p50_ms\":%.6f,\"p99_ms\":%.6f,\"max_ms\":%.6f,\"frame_p50_ms\":%.6f,\"frame_p99_ms\":%.6f,\"present_p50_ms\":%.6f,\"present_p99_ms\":%.6f,\"history_mean_ms\":%.6f,\"audio_update_mean_ms\":%.6f,\"master_updates_per_second\":%.3f,\"eq_updates_per_second\":%.3f}\n",
+                    "classic",platform_window_renderer_name(ui.app_window),profile_motion?"true":"false",ui.profile_flat?"false":"true",host_get_screen_width(),host_get_screen_height(),profile_frames,audio_ok?"true":"false",profile_cpu,
                     profile_times[profile_frames/2]*1000,profile_times[(int)((profile_frames-1)*.99)]*1000,profile_times[profile_frames-1]*1000,
                     profile_frame_times[profile_frames/2]*1000,profile_frame_times[(int)((profile_frames-1)*.99)]*1000,
+                    profile_present_times[profile_frames/2]*1000,profile_present_times[(int)((profile_frames-1)*.99)]*1000,
+                    profile_history/profile_frames*1000,profile_audio/profile_frames*1000,
                     (ui.spectrum_updates[0]-profile_spectra[0])/profile_duration,(ui.spectrum_updates[1]-profile_spectra[1])/profile_duration);
                 break;
             }

@@ -539,7 +539,7 @@ void midi_select(int index);
 void midi_initialize(void);
 void midi_release_key(int slot,double time);
 void midi_control(ParameterTarget target,float normalized,double time);
-void midi_poll(void);
+int midi_poll(void);
 void recording_start(void);
 int recording_play(void);
 void meters_update(void);

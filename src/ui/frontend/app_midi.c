@@ -105,7 +105,7 @@ void midi_initialize(void) {
 void midi_release_key(int slot,double time) {session_read();midi_session_release(&midi_session,slot,time);session_write();}
 void midi_control(ParameterTarget target,float normalized,double time) {session_read();midi_session_control(&midi_session,target,normalized,time);session_write();}
 
-void midi_poll(void) {
+int midi_poll(void) {
     double now=midi_input_time();
     if(midi_input_changed() || (ui.midi_selected[0] && now-ui.midi_refresh_time>2)){ui.midi_refresh_time=now;midi_refresh();}
     if(ui.midi_learning && host_is_key_pressed(HOST_KEY_ESCAPE)){ui.midi_learning=0;snprintf(ui.status,sizeof ui.status,"MIDI Learn cancelled");}
@@ -114,9 +114,11 @@ void midi_poll(void) {
         if(input_error==2){midi_input_close();ui.midi_connected=0;char error[256];midi_input_open("",error);}
         snprintf(ui.status,sizeof ui.status,"MIDI input lost events; held notes released");}
     session_read();
-    MidiEvent e;while(midi_input_poll(&e))midi_session_event(&midi_session,e);
+    int activity=0;
+    MidiEvent e;while(midi_input_poll(&e)){midi_session_event(&midi_session,e);activity=1;}
     int finish=midi_session_update(&midi_session,now,ui.playing,ui.control_drag);
     session_write();if(finish)recording_finish();
+    return activity || finish;
 
 }
 
