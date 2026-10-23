@@ -3,10 +3,8 @@
 #include "files.h"
 UiState ui;
 #define POINT DrawPoint
-static int test_studio;
-static void studio_drop_setup(int mode) {
-    if(!test_studio)return;
-    ui.studio_style=1;ui.picker_bounds=(Rect){4,689,230,373};
+static void current_drop_setup(int mode) {
+    ui.picker_bounds=(Rect){4,689,230,373};
     if(mode<=5 || mode==11) {
         Rect old=ui.windows.editors[1].rect,now={244,98,858,468};
         ui.mouse.x=now.x+148+(ui.mouse.x-old.x-212)*(now.w-172)/(old.w-236);
@@ -16,7 +14,7 @@ static void studio_drop_setup(int mode) {
         ui.windows.editors[1].rect=now;
     }
 }
-#define DROP_SETUP_EXTRA studio_drop_setup
+#define DROP_SETUP_EXTRA current_drop_setup
 #include "drop_sequence.h"
 void recording_finish(void){finish_calls++;}
 int sample_load(const char *path,Sample *s){return sample_load_fixture(path,s);}
@@ -30,4 +28,4 @@ float ui_scale(void){return 1;}
 #include "../../src/ui/frontend/app_project.c"
 #include "../../src/ui/frontend/ui_rack.c"
 #include "../../src/ui/frontend/ui_playlist.c"
-int main(int argc,char **argv){if(argc!=2 && argc!=3)return 1;test_studio=argc==3 && !strcmp(argv[2],"--studio");int mode=atoi(argv[1]);if(mode<0 || mode>11)return 1;return run(mode);}
+int main(int argc,char **argv){if(argc!=2)return 1;int mode=atoi(argv[1]);if(mode<0 || mode>11)return 1;return run(mode);}

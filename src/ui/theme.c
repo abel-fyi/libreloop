@@ -100,7 +100,7 @@ void theme_init(void) {
     ui_skin=(DesktopSkin){.display={20,16,29,255},.graph={9,7,15,255},.graph_line={179,154,221,255},.graph_fill={78,62,95,255}};
     ui_theme.selected_text=theme_foreground(ui_theme.highlight);
 }
-void theme_visual_preview(void) {
+static void theme_palette_base(void) {
     classic_style=0;
     ui_skin=(DesktopSkin){.display={7,16,20,255},.graph={0,14,24,255},.graph_line={0,210,250,255},.graph_fill={0,92,139,255}};
     ui_theme=(Theme){
@@ -130,7 +130,7 @@ void theme_visual_preview(void) {
 /* 90s.png: steel desktop faces, cobalt captions and cyan instrument glass.
    Keep this palette and the skin primitives below shared by every editor. */
 void theme_studio(void) {
-    theme_visual_preview();
+    theme_palette_base();
     classic_style=1;
     ui_theme.background=(DrawColor){76,83,89,255};
     ui_theme.surface=ui_theme.rack=ui_theme.mixer=ui_theme.effects=(DrawColor){131,136,146,255};

@@ -85,7 +85,7 @@ path and puts captures in a temporary directory:
 exe="$PWD/build-linux/libreloop"
 capture_dir=$(mktemp -d)
 (cd "$capture_dir" && SDL_VIDEODRIVER=x11 SDL_RENDER_DRIVER=opengl \
-  "$exe" --smoke --visual-preview)
+  "$exe" --smoke)
 ```
 
 The captures remain in `$capture_dir` for inspection. A Wayland session needs

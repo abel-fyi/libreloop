@@ -59,6 +59,8 @@ int midi_input_open(const char *id,char error[256]) {
 }
 #elif defined(_WIN32)
 #include "midi_winmm.inc"
+#elif defined(__OpenBSD__)
+#include "midi_openbsd.inc"
 #else
 #include <alsa/asoundlib.h>
 #include <alloca.h>

@@ -1,5 +1,8 @@
 # Phase2 checkpoint — implementation present, acceptance incomplete
 
+> Historical design record. The preview and legacy layout flags described below
+> were removed; launch and smoke now use the single current desktop layout.
+
 ## Completed
 
 The complete carried desktop now builds as a macOS development app: Browser,

@@ -6,10 +6,7 @@
 
 int mixer_input_at(DrawPoint point) {
     Rect r=desktop_editor_rect(3); if(!ui.windows.editors[3].visible) return -1;
-    if(ui.studio_style && ui.windows.workspace.enabled)return mixer_route_hit(desktop_mixer_view(r.w,r.h),point.x-r.x,point.y-r.y);
-    int capacity=fmaxf(1,(r.w-MIXER_PANEL-MIXER_LEFT-8)/mixer_strip_width()-1),visible=fminf(ui.project.insert_count,capacity);
-    for(int col=0;col<=visible;col++) if(host_check_collision_point_rec(point,(DrawRect){r.x+MIXER_LEFT+col*mixer_strip_width()+7,r.y+mixer_route_y(r.h),12,12})) return col?col+ui.mixer_scroll:0;
-    return -1;
+    return mixer_route_hit(desktop_mixer_view(r.w,r.h),point.x-r.x,point.y-r.y);
 }
 
 void meters_update(void) {
@@ -45,8 +42,8 @@ void spectrum_update(void) {
 }
 
 void spectrum_draw(const Spectrum *s,DrawRect r,int colored) {
-    if(ui.studio_style && !colored)ui_display_grid(host_draw(),r,1,1); /* Frame and display material, no grid divisions. */
-    if(ui.studio_style) {
+    if((!colored))ui_display_grid(host_draw(),r,1,1); /* Frame and display material, no grid divisions. */
+    {
         DrawVertex fill[6*(SPECTRUM_BINS+1)];int count=0;
         DrawColor body={65,119,94,155},edge={148,191,152,230};
         float base=r.y+r.height;
@@ -95,8 +92,7 @@ void eq_editor(float width,float height) {
     if(button("Load",width-172,26,78,24,0)) preset_action(PRESET_EQ,ui.eq_bus,ui.eq_slot,0);
     if(button("Save",width-88,26,80,24,0)) preset_action(PRESET_EQ,ui.eq_bus,ui.eq_slot,1);
     DrawRect graph={42,64,width-58,height-196};
-    if(ui.studio_style)ui_graph_paper(host_draw(),graph);
-    else host_draw_rectangle_rec(graph,bg);
+    ui_graph_paper(host_draw(),graph);
     if(!ui.windows.workspace.enabled || ui.eq_spectrum_bus==ui.eq_bus)spectrum_draw(&ui.eq_spectrum,graph,1);
     const float frequencies[]={20,100,1000,10000,20000};
     const char *names[]={"20","100","1k","10k","20k"};
@@ -121,7 +117,7 @@ void eq_editor(float width,float height) {
         DrawPoint next={graph.x+graph.width*x/256,eq_y(fmaxf(-18,fminf(18,db)),graph)};
         if(x) {
             smooth_line(last,next,4,BLACK);
-            smooth_line(last,next,1.8f,ui.studio_style?ui_skin.graph_line:ink);
+            smooth_line(last,next,1.8f,ui_skin.graph_line);
         }
         last=next;
     }
@@ -129,7 +125,7 @@ void eq_editor(float width,float height) {
         EQBand b=shown.bands[i]; DrawPoint p={eq_x(b.frequency,graph),eq_y(b.shape==EQ_LOW_CUT || b.shape==EQ_HIGH_CUT?0:b.gain,graph)};
         int over=hover(p.x-10,p.y-10,20,20);
         circle(p.x,p.y,ui.eq_band==i?8:6,b.shape==EQ_OFF?muted:accent);
-        label(host_text_format("%d",i+1),p.x-text_width(host_text_format("%d",i+1),10)/2,p.y-(ui.studio_style?UI_TEXT_SIZE/2:5),10,ui_theme.selected_text);
+        label(host_text_format("%d",i+1),p.x-text_width(host_text_format("%d",i+1),10)/2,p.y-UI_TEXT_SIZE/2,10,ui_theme.selected_text);
         if(over) {
             snprintf(ui.status,sizeof ui.status,"EQ band %d: %.0f Hz, %+.1f dB | drag to tune; wheel changes Q; right-click to reset",i+1,b.frequency,b.gain);
             if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)) { ui.eq_band=i; ui.eq_drag=i;ui.eq_drag_window=ui.knob_context; }
@@ -170,9 +166,8 @@ float meter_height(float level) { return level>.001f?fader_position(level):0; }
 void meter_draw(int id,int x,int top,int bottom,int bar_width) {
     int height=bottom-top,spacing=bar_width+2;
     float orange=meter_height(powf(10,-12.f/20)),zero=meter_height(1);
-    if(ui.studio_style)ui_display_well(host_draw(),(DrawRect){x-1,top,spacing*2,height});
-    else host_draw_rectangle(x-1,top,spacing*2,height,bg);
-    if(ui.studio_style) {
+    ui_display_well(host_draw(),(DrawRect){x-1,top,spacing*2,height});
+    {
         ui_bevel(host_draw(),(DrawRect){x-3,top-2,spacing*2+4,height+4},1);
         const int scale[]={-48,-24,-12,-6,0};
         for(unsigned i=0;i<sizeof scale/sizeof *scale;i++) {
@@ -182,33 +177,12 @@ void meter_draw(int id,int x,int top,int bottom,int bar_width) {
     }
     for(int side=0;side<2;side++) {
         int left=x+side*spacing; float level=meter_height(ui.meter_level[id][side]),peak=meter_height(ui.meter_hold[id][side]);
-        if(ui.studio_style)ui_level_fill(host_draw(),(DrawRect){left,top,bar_width,height},level,orange,zero,1);
-        else {
-            if(level>0) host_draw_rectangle(left,bottom-level*height,bar_width,level*height,ui_theme.meter_low);
-            if(level>orange) host_draw_rectangle(left,bottom-level*height,bar_width,(level-orange)*height,ui_theme.meter_mid);
-            if(level>zero) host_draw_rectangle(left,bottom-level*height,bar_width,(level-zero)*height,ui_theme.meter_high);
-        }
-        if(ui.studio_style) {
+        ui_level_fill(host_draw(),(DrawRect){left,top,bar_width,height},level,orange,zero,1);
+        {
             ui_meter_marks(host_draw(),(DrawRect){left,top,bar_width,height},peak,ui.meter_hold[id][side]>1,1);
-        } else if(peak>0) host_draw_rectangle(left-1,fmaxf(top,bottom-peak*height),bar_width+2,1,ui.meter_hold[id][side]>1?ui_theme.meter_high:ui.studio_style?(DrawColor){222,232,181,255}:ink);
+        }
     }
     if(hover(x-3,top,spacing*2+4,height)) snprintf(ui.status,sizeof ui.status,"%s output | Peak L %.1f dBFS, R %.1f dBFS | Red above 0 dBFS; markers hold 0.5 s",mixer_name(id),gain_db(ui.meter_hold[id][0]),gain_db(ui.meter_hold[id][1]));
-}
-
-void selected_meter(float height) {
-    int top=TITLE+28,bottom=height-34;
-    label("dBFS",8,TITLE+6,11,muted);
-    meter_draw(ui.mixer_selected,32,top,bottom,7);
-    const int ticks[]={6,0,-6,-12,-24,-36,-48,-60};
-    for(unsigned i=0;i<sizeof ticks/sizeof *ticks;i++) {
-        float y=bottom-meter_height(powf(10,ticks[i]/20.f))*(bottom-top);
-        const char *number=host_text_format("%d",ticks[i]);
-        label(number,16-text_width(number,10)/2,fmaxf(top,fminf(bottom-10,y-5)),10,muted);
-        host_draw_line(29,y,31,y,muted);
-    }
-    float peak=fmaxf(ui.meter_hold[ui.mixer_selected][0],ui.meter_hold[ui.mixer_selected][1]);
-    label(peak?host_text_format("%.1f",gain_db(peak)):"-inf",8,height-29,11,peak>1?ui_theme.meter_high:ink);
-    if(hover(4,TITLE,54,height-TITLE-18)) snprintf(ui.status,sizeof ui.status,"Selected %s | Peak L %.1f dBFS, R %.1f dBFS",mixer_name(ui.mixer_selected),gain_db(ui.meter_hold[ui.mixer_selected][0]),gain_db(ui.meter_hold[ui.mixer_selected][1]));
 }
 
 int mixer_effect_window(int bus,int slot) {
@@ -353,7 +327,7 @@ static void dynamics_editor(float width,float height,int bus,int slot){
     float graph_h=fmaxf(180,height-320),left_w=width*.36f;
     DrawRect curve={32,49,left_w-42,graph_h},history={left_w+8,49,width-left_w-40,graph_h};
     host_draw_rectangle(8,29,width-16,graph_h+48,(DrawColor){32,40,40,255});
-    if(ui.studio_style){ui_graph_paper(host_draw(),curve);ui_graph_paper(host_draw(),history);}
+    ui_graph_paper(host_draw(),curve);ui_graph_paper(host_draw(),history);
     unsigned tick_count;const float *ticks=dynamics_grid_values(&tick_count);
     for(unsigned ti=1;ti<tick_count;ti++){int db=ticks[ti];float y=dyn_y(db,curve);host_draw_line(curve.x,y,curve.x+curve.width,y,ui_theme.grid_minor);host_draw_line(dyn_x(db,curve),curve.y,dyn_x(db,curve),curve.y+curve.height,ui_theme.grid_minor);label(host_text_format("%d",db),9,y-6,12,graph_ink);host_draw_line(history.x,y,history.x+history.width,y,ui_theme.grid_minor);}
     int magnet_hover=hover(curve.x+12,curve.y+curve.height+3,112,22);
@@ -604,227 +578,6 @@ void effect_editor(float width,float height) {
     if(button("Save",width-88,bottom,80,24,0))preset_action(PRESET_CHORUS,bus,slot,1);
 
 }
-static void mixer_slots(float fx,float height) {
-    int bus=ui.mixer_selected;device_button(0,fx+8,TITLE+4,MIXER_PANEL-16);
-    float top=TITLE+26,row=22;
-    int visible=fmaxf(1,fminf(EFFECT_SLOTS,(height-top-4)/row));
-    if(hover(fx,top,MIXER_PANEL,height-top))ui.effect_list_scroll-=host_get_mouse_wheel_move();
-    ui.effect_list_scroll=fmaxf(0,fminf(EFFECT_SLOTS-visible,ui.effect_list_scroll));
-    for(int i=ui.effect_list_scroll;i<EFFECT_SLOTS && i<ui.effect_list_scroll+visible;i++) {
-        int type=ui.project.effect_type[bus][i];float y=top+(i-ui.effect_list_scroll)*row;
-        const char *name=type?effect_descriptor(type)->name:"Empty";
-        if(button(host_text_format("%02d  %s",i+1,name),fx+8,y,MIXER_PANEL-36,row-1,mixer_effect_window(bus,i)>=5)) {
-            if(type)mixer_effect_open(bus,i,1);else effect_slot_menu(bus,i);
-        }
-        if(type && button(ui.project.effect_bypass[bus][i]?"-":"o",fx+MIXER_PANEL-25,y,18,row-1,!ui.project.effect_bypass[bus][i]))ui.project.effect_bypass[bus][i]^=1;
-        if(hover(fx+8,y,MIXER_PANEL-16,row-1)) {
-            snprintf(ui.status,sizeof ui.status,"Slot %d: %s | click to %s; right-click for slot options",i+1,name,type?"open":"add an effect");
-            if(type && ui.mouse.x>=fx+MIXER_PANEL-25)snprintf(ui.status,sizeof ui.status,"Slot %d: %s | click the indicator to bypass / enable",i+1,name);
-            if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT))effect_slot_menu(bus,i);
-        }
-    }
-}
-
-static void mixer_legacy(float width,float height) {
-    selected_meter(height);
-    int capacity=fmaxf(1,(width-MIXER_PANEL-MIXER_LEFT-8)/mixer_strip_width()-1),visible=ui.project.insert_count<capacity?ui.project.insert_count:capacity;
-    ui.mixer_scroll=(int)fmaxf(0,fminf(fmaxf(0,ui.project.insert_count-visible),ui.mixer_scroll));
-    if(hover(0,TITLE,width-220,height-TITLE) && ui.mouse.y>TITLE+60) {
-        ui.mixer_scroll=(int)fmaxf(0,fminf(fmaxf(0,ui.project.insert_count-visible),ui.mixer_scroll-host_get_mouse_wheel_move()));
-    }
-    int stride=mixer_strip_width(),stripw=ui.studio_style?stride-4:48;
-    float fader_top=ui.studio_style?TITLE+48:TITLE+76,fader_bottom=height-(ui.studio_style?54:74);
-    float route_y=mixer_route_y(height),control_y=ui.studio_style?50:TITLE+52;
-    float width_y=ui.studio_style?50:height-59;
-    float width_x=ui.studio_style?65:33,arm_x=ui.studio_style?91:12;
-    static const DrawColor strip_colors[]={
-        {0,216,200,255},{248,219,62,255},{100,201,239,255},{245,215,65,255},
-        {226,110,219,255},{105,181,243,255},{92,225,132,255},{238,148,77,255}};
-    for(int col=0;col<=visible;col++) {
-        int id=col?col+ui.mixer_scroll:0,x=MIXER_LEFT+col*mixer_strip_width();
-        float *v=id?&ui.project.insert_volume[id-1]:&ui.project.master;
-        int over=hover(x,TITLE+4,stripw,height-TITLE-12);
-        DrawColor strip=ui.mixer_selected==id?(ui.studio_style?(DrawColor){150,160,169,255}:ui_theme.title_focus):cell;
-        if(ui.studio_style)ui_panel(host_draw(),(DrawRect){x,TITLE+4,stripw,height-TITLE-12},strip);
-        else ui_surface(host_draw(),(DrawRect){x,TITLE+4,stripw,height-TITLE-12},strip);
-        if(over) snprintf(ui.status,sizeof ui.status,"%s: click to select this mixer channel",mixer_name(id));
-        if(over && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)) ui.mixer_selected=id;
-        host_draw_rectangle(x+3,TITLE+7,ui.studio_style?stripw-6:42,17,
-            ui.studio_style?(id?strip_colors[(id-1)%8]:ui_theme.control):ui.mixer_selected==id?ui_theme.title_focus:cell);
-        if(ui.studio_style){
-            ui_bevel(host_draw(),(DrawRect){x,TITLE+4,stripw,height-TITLE-12},0);
-            ui_bevel(host_draw(),(DrawRect){x+3,TITLE+7,stripw-6,20},1);
-            if(ui.mixer_selected==id)host_draw_line(x+3,TITLE+26,x+stripw-4,TITLE+26,accent);
-            host_draw_line(x+4,control_y+13,x+stripw-5,control_y+13,(DrawColor){126,135,120,255});
-            host_draw_line(x+4,route_y-3,x+stripw-5,route_y-3,(DrawColor){126,135,120,255});
-        }
-        label(id?host_text_format("%d",id):"Master",x+5,TITLE+9,id?12:10,ink);
-        if(id) {
-            label(fit_text(ui.project.insert_names[id-1],ui.studio_style?stripw-28:42,10),x+(ui.studio_style?24:3),ui.studio_style?TITLE+9:TITLE+26,10,muted);
-            if(hover(x+(ui.studio_style?24:3),ui.studio_style?TITLE+7:TITLE+25,ui.studio_style?stripw-28:42,16)) {
-                snprintf(ui.status,sizeof ui.status,"%s: right-click to rename",ui.project.insert_names[id-1]);
-                if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)) {
-                    ui.rename_channel=ui.rename_track=-1; ui.rename_mixer=id-1; ui.mixer_selected=id;
-                    snprintf(ui.rename_text,sizeof ui.rename_text,"%s",ui.project.insert_names[id-1]); ui.rename_select_all=1; open_popup(2); ui.input_enabled=0;
-                }
-            }
-        }
-        int input_over=hover(x+7,route_y,12,12) || (ui.cable_drag>0 && host_check_collision_point_rec(ui.mouse,(DrawRect){x+7,route_y,12,12}));
-        host_draw_rectangle_lines(x+9,route_y+2,8,8,input_over?ui_theme.signal:muted);
-
-        if(input_over) snprintf(ui.status,sizeof ui.status,"%s input: drop an insert output cable here",mixer_name(id));
-        if(over && ui.mouse.y<TITLE+24 && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)) { ui.mixer_selected=id; open_context(3,id,(DrawPoint){ui.mouse.x+desktop_editor_rect(3).x,ui.mouse.y+desktop_editor_rect(3).y}); }
-        if(over && ui.mouse.y<TITLE+24) snprintf(ui.status,sizeof ui.status,"%s: right-click for mixer channel actions",mixer_name(id));
-        mute_light(x+11,control_y,id?ui.project.insert_mute:&ui.project.master_mute,id?ui.project.insert_count:0,id?id-1:0,mixer_name(id));
-        knob_style(x+35,control_y,id?&ui.project.insert_pan[id-1]:&ui.project.master_pan,-1,1,0,id?"Insert pan":"Master pan",KNOB_PAN);
-        meter_draw(id,x+(ui.studio_style?65:8),fader_top,fader_bottom,ui.studio_style?6:3);
-        if(ui.studio_style) {
-            const int ticks[]={0,-6,-12,-24,-48};
-            float last_label=-1000;
-            for(unsigned t=0;t<sizeof ticks/sizeof *ticks;t++) {
-                float y=fader_bottom-meter_height(powf(10,ticks[t]/20.f))*(fader_bottom-fader_top);
-                host_draw_line(x+82,y,x+85,y,muted);
-                if(y-last_label>=(ui.studio_style?UI_TEXT_SIZE+2:11)){label(host_text_format("%d",ticks[t]),x+86,y-5,10,muted);last_label=y;}
-            }
-
-        }
-        if(ui.studio_style){
-            ui_surface(host_draw(),(DrawRect){x+30,fader_top-2,9,fader_bottom-fader_top+4},(DrawColor){63,72,81,255});
-            ui_bevel(host_draw(),(DrawRect){x+30,fader_top-2,9,fader_bottom-fader_top+4},1);
-            for(int tick=0;tick<=8;tick++) {
-                float y=fader_top+(fader_bottom-fader_top)*tick/8;
-                host_draw_line(x+(tick%2?24:20),y,x+28,y,muted);
-            }
-            ui_display_well(host_draw(),(DrawRect){x+20,height-51,46,18});
-            ui_bevel(host_draw(),(DrawRect){x+20,height-51,46,18},1);
-            label(host_text_format("%.1f",gain_db(*v)),x+24,height-49,10,ui_theme.signal);
-        }
-        host_draw_rectangle(x+33,fader_top,3,fader_bottom-fader_top,bg);
-        if(hover(x+23,fader_top-4,22,fader_bottom-fader_top+8) && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)) control_menu(v,0,MIXER_GAIN_MAX,1,id?"Insert volume":"Master volume");
-        if(hover(x+23,fader_top-4,22,fader_bottom-fader_top+8) && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)) {
-            capture_control(v,0,MIXER_GAIN_MAX,1); ui.control_range=fader_bottom-fader_top;
-            /* Anchor the drag to the current handle position rather than the click position. */
-            ui.control_bottom=ui.mouse.y+desktop_editor_rect(3).y+fader_position(*v)*ui.control_range;
-        }
-        if(hover(x+23,fader_top-4,22,fader_bottom-fader_top+8) || ui.control_drag==v) host_set_mouse_cursor(HOST_MOUSE_CURSOR_RESIZE_NS);
-        if(hover(x+23,fader_top-4,22,fader_bottom-fader_top+8) || ui.control_drag==v) snprintf(ui.status,sizeof ui.status,"%s fader: %.1f dB | Mark = 0 dB; right-click for value / automation",mixer_name(id),gain_db(*v));
-        host_draw_line(x+25,fader_bottom-fader_position(1)*(fader_bottom-fader_top),x+44,fader_bottom-fader_position(1)*(fader_bottom-fader_top),muted);
-        int fy=fader_bottom-fader_position(displayed_value(v,*v))*(fader_bottom-fader_top);
-        ui_fader_handle(host_draw(),(DrawRect){x+(ui.studio_style?22:26),fy-9,ui.studio_style?22:14,18},ui.mixer_selected==id);
-        if(ui.studio_style && !ui.profile_flat)host_draw_rectangle_lines(x+22,fy-9,22,18,ui_theme.border);
-        knob_style(x+width_x,width_y,id?&ui.project.insert_width[id-1]:&ui.project.master_width,0,2,1,"Stereo width (left wider, center unchanged, right mono)",KNOB_WIDTH);
-        int arm_over=hover(x+arm_x-8,width_y-8,16,16);
-        if(ui.studio_style)ui_check_face(host_draw(),(DrawRect){x+arm_x-8,width_y-8,16,16},ui.record_armed[id],ui_theme.meter_high);
-        else {
-            circle(x+arm_x,width_y,6,arm_over || ui.record_armed[id]?ui_theme.meter_high:ui_theme.border);
-            circle(x+arm_x,width_y,5,ui.record_armed[id]?ui_theme.meter_high:cell);
-        }
-        if(arm_over) {
-            snprintf(ui.status,sizeof ui.status,"%s record arm: %s | Top-bar Record captures this track's post-fader audio",mixer_name(id),ui.record_armed[id]?"On":"Off");
-            if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT) && !recording_active()) { ui.record_armed[id]^=1; ui.input_enabled=0; }
-        }
-        if(id) {
-
-            int output_over=hover(x+29,route_y,12,12);
-            circle(x+35,route_y+6,5,output_over || ui.cable_drag==id?accent:muted);
-            circle(x+35,route_y+6,2,ui.project.insert_output[id-1]==255?bg:accent);
-            if(output_over) {
-                snprintf(ui.status,sizeof ui.status,"Insert %d output: drag to an input; right-click to unplug",id);
-                if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)) insert_connect(&ui.project,id,255);
-                if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)) { ui.cable_drag=id; ui.mixer_selected=id; ui.input_enabled=0; }
-            }
-        }
-    }
-    if(ui.mixer_selected>0) {
-        int col=ui.mixer_selected-ui.mixer_scroll,destination=ui.project.insert_output[ui.mixer_selected-1];
-        int target=destination?destination-ui.mixer_scroll:0;
-        if(col>=1 && col<=visible && (ui.cable_drag==ui.mixer_selected || (destination!=255 && target>=0 && target<=visible && (!destination || target>=1)))) {
-            DrawPoint start={MIXER_LEFT+col*mixer_strip_width()+35,route_y+6},end=ui.cable_drag==ui.mixer_selected?ui.mouse:(DrawPoint){MIXER_LEFT+target*mixer_strip_width()+13,route_y+6};
-            DrawPoint points[]={start,{start.x,height-21},{end.x,height-21},end};
-            cable(points,host_fade(ui_theme.signal,.8f));
-        }
-    }
-    int fx=width-MIXER_PANEL;
-    host_draw_rectangle(fx,TITLE,MIXER_PANEL,height-TITLE,ui_theme.mixer);
-    if(ui.windows.workspace.enabled)mixer_slots(fx,height);else {
-    int slot_y=ui.studio_style?TITLE+28:TITLE+90,slot_pitch=ui.studio_style?22:24;
-    int effect_y=ui.studio_style?TITLE+74:TITLE+148;
-    int effect_button_y=ui.studio_style?TITLE+96:TITLE+177;
-    int effect_knob_y=ui.studio_style?TITLE+100:TITLE+183;
-    int effect_label_y=ui.studio_style?TITLE+120:TITLE+203;
-    int bypass_y=ui.studio_style?TITLE+140:TITLE+225,preset_y=ui.studio_style?TITLE+164:TITLE+253;
-    int small_h=ui.studio_style?20:24;
-    if(!ui.studio_style)label("Recording input",fx+8,TITLE+8,11,muted);
-    device_button(0,fx+8,ui.studio_style?TITLE+4:TITLE+26,MIXER_PANEL-16);
-    if(!ui.studio_style)label("Effects",fx+8,TITLE+70,12,ink);
-    for(int slot=0;slot<EFFECT_SLOTS;slot++) {
-        int x=fx+8+(slot%5)*29,y=slot_y+(slot/5)*slot_pitch;
-        if(button(host_text_format("%d%s",slot+1,ui.project.effect_type[ui.mixer_selected][slot]?"·":""),x,y,27,ui.studio_style?20:22,ui.effect_slot==slot)) ui.effect_slot=slot;
-        if(hover(x,y,27,ui.studio_style?20:22)) snprintf(ui.status,sizeof ui.status,"Effect slot %d: %s",slot+1,ui.project.effect_type[ui.mixer_selected][slot]?effect_descriptor(ui.project.effect_type[ui.mixer_selected][slot])->name:"Empty");
-    }
-    int bus=ui.mixer_selected,slot=ui.effect_slot;
-    if(ui.project.effect_type[bus][slot]==EFFECT_EMPTY) {
-        if(button("+ Chorus",fx+8,effect_y,MIXER_PANEL-16,ui.studio_style?20:25,0)) {
-            ui.project.effect_type[bus][slot]=EFFECT_CHORUS; effect_descriptor(EFFECT_CHORUS)->defaults(&ui.project.chorus[bus][slot]);
-            ui.project.effect_mix[bus][slot]=.5f; ui.project.effect_bypass[bus][slot]=0;
-        }
-        if(button("+ Equalizer",fx+8,effect_button_y,MIXER_PANEL-16,ui.studio_style?20:25,0)) {
-            ui.project.effect_type[bus][slot]=EFFECT_EQ; effect_descriptor(EFFECT_EQ)->defaults(&ui.project.eq[bus][slot]); ui.project.effect_mix[bus][slot]=1; ui.project.effect_bypass[bus][slot]=0;
-            ui.eq_bus=bus; ui.eq_slot=slot; ui.eq_drag=-1; windows_focus(&ui.windows,5);
-        }
-        if(button("+ Delay",fx+8,effect_button_y+27,MIXER_PANEL-16,24,0))mixer_effect_add(bus,slot,EFFECT_DELAY);
-        if(button("+ Tube",fx+8,effect_button_y+54,MIXER_PANEL-16,24,0))mixer_effect_add(bus,slot,EFFECT_TUBE);
-        if(button("+ Phaser",fx+8,effect_button_y+135,MIXER_PANEL-16,24,0))mixer_effect_add(bus,slot,EFFECT_PHASER);
-        if(button("+ Flanger",fx+8,effect_button_y+162,MIXER_PANEL-16,24,0))mixer_effect_add(bus,slot,EFFECT_FLANGER);
-        if(button("+ Multiband Compressor",fx+8,effect_button_y+108,MIXER_PANEL-16,24,0))mixer_effect_add(bus,slot,EFFECT_DYNAMICS);
-        if(button("+ Reverb",fx+8,effect_button_y+81,MIXER_PANEL-16,24,0))mixer_effect_add(bus,slot,EFFECT_REVERB);
-    } else {
-        label(effect_descriptor(ui.project.effect_type[bus][slot])->name,fx+8,effect_y,12,ink);
-        if(button("x",fx+MIXER_PANEL-28,ui.studio_style?effect_y-2:TITLE+144,20,ui.studio_style?20:22,0)) {
-            ui.project.effect_type[bus][slot]=EFFECT_EMPTY;
-            for(int a=ui.project.automation_count-1;a>=0;a--) {
-                ParameterTarget t=ui.project.automations[a].target;
-                if(parameter_is_effect(t.parameter) && t.owner==(unsigned)bus && t.slot==(unsigned)slot) automation_delete(&ui.project,a);
-            }
-            ui.control_drag=NULL; ui.automation_selected=ui.automation_node=-1; ui.picker_drag=-1;
-        } else if(ui.project.effect_type[bus][slot]==EFFECT_PHASER) {if(button("Open Phaser",fx+8,effect_button_y,MIXER_PANEL-16,24,0))mixer_effect_open(bus,slot,0);
-        } else if(ui.project.effect_type[bus][slot]==EFFECT_FLANGER) {if(button("Open Flanger",fx+8,effect_button_y,MIXER_PANEL-16,24,0))mixer_effect_open(bus,slot,0);
-        } else if(ui.project.effect_type[bus][slot]==EFFECT_DYNAMICS) { if(button("Open Multiband Compressor",fx+8,effect_button_y,MIXER_PANEL-16,24,0))mixer_effect_open(bus,slot,0);
-        } else if(ui.project.effect_type[bus][slot]==EFFECT_REVERB) {
-            if(button("Open Reverb",fx+8,effect_button_y,MIXER_PANEL-16,24,0))mixer_effect_open(bus,slot,0);
-        } else if(ui.project.effect_type[bus][slot]==EFFECT_TUBE) {
-            if(button("Open Tube",fx+8,effect_button_y,MIXER_PANEL-16,24,0))mixer_effect_open(bus,slot,0);
-        } else if(ui.project.effect_type[bus][slot]==EFFECT_DELAY) {
-            if(button("Open Delay",fx+8,effect_button_y,MIXER_PANEL-16,24,0))mixer_effect_open(bus,slot,0);
-        } else if(ui.project.effect_type[bus][slot]==EFFECT_EQ) {
-            if(button("Open Equalizer",fx+8,effect_button_y,MIXER_PANEL-16,ui.studio_style?20:25,0)) { ui.eq_bus=bus; ui.eq_slot=slot; ui.eq_drag=-1; windows_focus(&ui.windows,5); }
-            if(button("Bypass",fx+8,bypass_y,MIXER_PANEL-16,small_h,ui.project.effect_bypass[bus][slot])) ui.project.effect_bypass[bus][slot]^=1;
-            if(button("Load",fx+8,preset_y,70,small_h,0)) preset_action(PRESET_EQ,bus,slot,0);
-            if(button("Save",fx+82,preset_y,70,small_h,0)) preset_action(PRESET_EQ,bus,slot,1);
-        } else {
-            ChorusSettings *settings=&ui.project.chorus[bus][slot];
-            knob(fx+27,effect_knob_y,&settings->rate,.05f,5,.513f,"Chorus rate (Hz)");
-            knob(fx+78,effect_knob_y,&settings->depth,0,8,1.85f,"Chorus depth (ms)");
-            knob(fx+129,effect_knob_y,&ui.project.effect_mix[bus][slot],0,1,.5f,"Chorus mix");
-            label("Rate",fx+15,effect_label_y,10,muted); label("Depth",fx+64,effect_label_y,10,muted); label("Mix",fx+120,effect_label_y,10,muted);
-            if(button("Bypass",fx+8,bypass_y,MIXER_PANEL-16,small_h,ui.project.effect_bypass[bus][slot])) ui.project.effect_bypass[bus][slot]^=1;
-            if(button("Load",fx+8,preset_y,70,small_h,0)) preset_action(PRESET_CHORUS,bus,slot,0);
-            if(button("Save",fx+82,preset_y,70,small_h,0)) preset_action(PRESET_CHORUS,bus,slot,1);
-        }
-    }
-    }
-    float area=fx-MIXER_LEFT-8,thumb=area*visible/INSERTS,pos=MIXER_LEFT+area*ui.mixer_scroll/INSERTS;
-    if(ui.studio_style)ui_scrollbar(host_draw(),(DrawRect){MIXER_LEFT,height-17,area,9},(DrawRect){pos,height-17,fmaxf(12,thumb),9},ui.mixer_pan || hover(MIXER_LEFT,height-20,area,14));
-    else { host_draw_rectangle(MIXER_LEFT,height-17,area,9,bg); ui_surface(host_draw(),(DrawRect){pos,height-17,fmaxf(12,thumb),9},ui.mixer_pan || hover(MIXER_LEFT,height-20,area,14)?accent:muted); }
-    if(hover(MIXER_LEFT,height-20,area,14)) {
-        snprintf(ui.status,sizeof ui.status,"Mixer: wheel over inserts or drag this scrollbar to browse all 100 inserts");
-        if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)) { ui.mixer_pan=1; ui.mixer_scroll=fmaxf(0,fminf(INSERTS-visible,(ui.mouse.x-MIXER_LEFT-thumb/2)/area*INSERTS)); ui.input_enabled=0; }
-    }
-}
-
-/* The studio mixer keeps Master fixed and translates insert-local controls
-   together. Input, text and drawing share that translation, including partial
-   strips, while the engine and the frozen legacy renderer remain unchanged. */
 void desktop_fx_drag_update(void) {
     Rect root=desktop_editor_rect(3);MixerView v=desktop_mixer_view(root.w,root.h);
     DrawPoint point={ui.mouse.x-root.x,ui.mouse.y-root.y};
@@ -1050,6 +803,5 @@ static void mixer_studio(float width,float height) {
     }
 }
 void mixer(float width,float height) {
-    if(ui.studio_style && ui.windows.workspace.enabled)mixer_studio(width,height);
-    else mixer_legacy(width,height);
+    mixer_studio(width,height);
 }

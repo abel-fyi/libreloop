@@ -38,15 +38,11 @@ int main(void) {
     ui.fm_graph_channel=ui.instrument_channel=0;
     ui.fm_graph_area=(DrawRect){22,514,290,64};
     for(int tab=0;tab<2;tab++)for(int drag=0;drag<3;drag++) {
-        ui.project.fm[0]=initial;ui.studio_style=0;ui.fm_tab=tab;ui.fm_graph_drag=drag;
+        ui.project.fm[0]=initial;ui.fm_tab=1-tab;ui.fm_graph_tab=tab;ui.fm_graph_drag=drag;
         fm_graph_update_at(90+drag*80,540);
-        FMSettings expected=ui.project.fm[0];
-        CHECK(memcmp(&expected,&initial,sizeof expected));
-        ui.project.fm[0]=initial;ui.studio_style=1;ui.fm_tab=1-tab;ui.fm_graph_tab=tab;
-        fm_graph_update_at(90+drag*80,540);
-        CHECK(!memcmp(&expected,&ui.project.fm[0],sizeof expected));
+        CHECK(memcmp(&initial,&ui.project.fm[0],sizeof initial));
     }
-    ui.project.fm[0]=initial;ui.studio_style=1;ui.fm_tab=0;ui.fm_graph_tab=-1;
+    ui.project.fm[0]=initial;ui.fm_tab=0;ui.fm_graph_tab=-1;
     ui.fm_graph_drag=-1;ui.input_enabled=1;pressed=1;
     EnvelopeTimeView timing=adsr_time_view(initial.attack,initial.decay,initial.release,0);
     ui.mouse=(DrawPoint){ui.fm_graph_area.x+8+(ui.fm_graph_area.width-16)*timing.end[0]/timing.seconds,ui.fm_graph_area.y+12};
@@ -64,7 +60,7 @@ int main(void) {
         DrawRect plot={12,336,310,250};double times[4];dx7_envelope_times(&saved.dx7,base,60,100.f/127,times);EnvelopeTimeView v=dx7_time_view(times,0);
         float x=plot.x+8+(plot.width-16)*v.end[stage]/v.seconds;
         float y=plot.y+12+(plot.height-34)*(1-saved.dx7.value[base+4+stage]/99);
-        ui.studio_style=1;ui.input_enabled=1;ui.fm_graph_drag=-1;pressed=1;ui.mouse=(DrawPoint){x,y};
+        ui.input_enabled=1;ui.fm_graph_drag=-1;pressed=1;ui.mouse=(DrawPoint){x,y};
         blue_triangles=grid_lines=0;
         dx7_envelope_graph(&ui.project.fm[0],base,plot);
         CHECK(blue_triangles==10 && grid_lines==9);
@@ -75,7 +71,7 @@ int main(void) {
         CHECK(actual.dx7.value[base+4+stage]<saved.dx7.value[base+4+stage]);
         for(int i=0;i<DX7_PARAMETERS;i++)if(i!=base+stage && i!=base+4+stage)CHECK(actual.dx7.value[i]==saved.dx7.value[i]);
     }
-    ui.studio_style=1;ui.windows.workspace.enabled=1;
+    ui.windows.workspace.enabled=1;
     ui.windows.editors[4].rect=(Rect){1060,84,376,802};
     ui.fm_graph_area=(DrawRect){22,480,332,96};ui.fm_graph_drag=1;ui.fm_graph_tab=0;
     ui.project.fm[0]=initial;fm_graph_update_at(100,540);FMSettings translated=ui.project.fm[0];

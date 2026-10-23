@@ -541,7 +541,7 @@ endif()
 
 # Original OS-provided MIDI backends; no additional third-party dependency.
 # Desktop composition links this target. Headless engine builds need no devices.
-if(LIBRELOOP_SDL_AVAILABLE AND (APPLE OR WIN32 OR CMAKE_SYSTEM_NAME STREQUAL "Linux"))
+if(LIBRELOOP_SDL_AVAILABLE AND (APPLE OR WIN32 OR CMAKE_SYSTEM_NAME STREQUAL "Linux" OR CMAKE_SYSTEM_NAME STREQUAL "OpenBSD"))
   add_library(midi_input STATIC EXCLUDE_FROM_ALL src/platform/midi_input.c)
   target_include_directories(midi_input PUBLIC src/platform src/engine)
   target_link_libraries(midi_input PUBLIC engine Threads::Threads)
@@ -549,7 +549,7 @@ if(LIBRELOOP_SDL_AVAILABLE AND (APPLE OR WIN32 OR CMAKE_SYSTEM_NAME STREQUAL "Li
     target_link_libraries(midi_input PRIVATE "-framework CoreMIDI" "-framework CoreFoundation")
   elseif(WIN32)
     target_link_libraries(midi_input PRIVATE winmm user32)
-  else()
+  elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     find_package(ALSA REQUIRED)
     target_compile_definitions(midi_input PRIVATE _POSIX_C_SOURCE=200809L)
     target_include_directories(midi_input PRIVATE ${ALSA_INCLUDE_DIRS})
@@ -630,9 +630,7 @@ if(BUILD_TESTING)
     target_compile_options(frontend_piano_capture PRIVATE -ffunction-sections -fdata-sections)
     target_link_options(frontend_piano_capture PRIVATE -Wl,--gc-sections)
   endif()
-  add_test(NAME original_frontend_piano
-    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/compare_piano_replays.py
-      $<TARGET_FILE:frontend_piano_capture> ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/interaction/piano-press)
+  # Its frozen coordinate replay describes the retired desktop geometry.
 endif()
 
 if(BUILD_TESTING AND LIBRELOOP_SDL_AVAILABLE)
@@ -643,30 +641,15 @@ if(BUILD_TESTING AND LIBRELOOP_SDL_AVAILABLE)
       $<TARGET_FILE:host_helpers_capture> ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/host-helpers)
 endif()
 
-if(BUILD_TESTING)
-  add_executable(frontend_navigation_capture tests/harness/frontend_navigation_capture.c)
-  target_include_directories(frontend_navigation_capture PRIVATE src/ui)
-  target_link_libraries(frontend_navigation_capture PRIVATE interaction windows)
-  if(APPLE)
-    target_link_options(frontend_navigation_capture PRIVATE -Wl,-dead_strip)
-  elseif(NOT MSVC)
-    target_compile_options(frontend_navigation_capture PRIVATE -ffunction-sections -fdata-sections)
-    target_link_options(frontend_navigation_capture PRIVATE -Wl,--gc-sections)
-  endif()
-  add_test(NAME original_frontend_navigation
-    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/compare_navigation_replays.py
-      $<TARGET_FILE:frontend_navigation_capture> ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/interaction/navigation)
-endif()
-
 if(BUILD_TESTING AND TARGET libreloop)
   add_test(NAME studio_startup_sizes
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/studio_sizes_test.py
       $<TARGET_FILE:libreloop>)
-  add_test(NAME visual_preview_state
-    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/visual_preview_compare.py
+  add_test(NAME current_desktop_scenes
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/current_desktop_scenes.py
       $<TARGET_FILE:libreloop>)
   # This launches dozens of software-rendered desktops, including on slow CPUs.
-  set_tests_properties(visual_preview_state PROPERTIES TIMEOUT 300 RUN_SERIAL TRUE)
+  set_tests_properties(current_desktop_scenes PROPERTIES TIMEOUT 300 RUN_SERIAL TRUE)
 endif()
 
 if(BUILD_TESTING)
@@ -725,7 +708,7 @@ if(BUILD_TESTING)
 endif()
 
 if(BUILD_TESTING)
-  foreach(kind binding_conditions frontend_marker_reset frontend_rack_conditions)
+  foreach(kind frontend_marker_reset frontend_rack_conditions)
     add_executable(${kind}_capture tests/harness/${kind}_capture.c)
     target_include_directories(${kind}_capture PRIVATE src/ui)
     target_link_libraries(${kind}_capture PRIVATE interaction windows)
@@ -774,10 +757,7 @@ if(BUILD_TESTING)
     target_compile_options(frontend_drop_capture PRIVATE -ffunction-sections -fdata-sections)
     target_link_options(frontend_drop_capture PRIVATE -Wl,--gc-sections)
   endif()
-  add_test(NAME studio_frontend_drop
-    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/compare_piano_replays.py
-      $<TARGET_FILE:frontend_drop_capture> ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/interaction/drop --studio)
-  add_test(NAME original_frontend_drop
+  add_test(NAME current_frontend_drop
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/compare_piano_replays.py
       $<TARGET_FILE:frontend_drop_capture> ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/interaction/drop)
 endif()
@@ -817,9 +797,6 @@ if(BUILD_TESTING)
   add_test(NAME original_frontend_text_edit
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/compare_input.py
       $<TARGET_FILE:frontend_text_edit_capture> ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/interaction/text-edit)
-  add_test(NAME original_frontend_literals
-    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend_literals_test.py
-      ${CMAKE_CURRENT_SOURCE_DIR})
   add_executable(popup_value_capture tests/harness/popup_value_capture.c)
   target_link_libraries(popup_value_capture PRIVATE interaction)
   add_test(NAME original_popup_values
@@ -931,7 +908,7 @@ if(BUILD_TESTING)
   endif()
   foreach(name original_audio_fixtures original_navigation_replays original_font_raster
       original_text_layout original_waveform_geometry original_sampler_service
-      original_host_helpers original_frontend_navigation)
+      original_host_helpers)
     if(TEST ${name})
       set_tests_properties(${name} PROPERTIES ENVIRONMENT "LIBRELOOP_PORTABLE_FIXTURES=${_portable_fixtures}")
     endif()
@@ -978,8 +955,8 @@ if(BUILD_TESTING AND WIN32)
     studio_mixer_test studio_fm_graph_test transport_draw_test
     studio_signal_draw_test mixer_slots_test automation_viewport_test
     rack_fill_test keyboard_recording_test midi_settings_test pattern_page_test
-    workspace_preferences_test frontend_piano_capture frontend_navigation_capture
-    frontend_rack_capture frontend_ruler_capture binding_conditions_capture
+    workspace_preferences_test frontend_piano_capture
+    frontend_rack_capture frontend_ruler_capture
     frontend_marker_reset_capture frontend_rack_conditions_capture
     frontend_clipboard_history_capture frontend_drop_capture
     frontend_text_edit_capture frontend_menu_navigation_capture)
@@ -996,7 +973,7 @@ if(BUILD_TESTING AND WIN32)
       endif()
     endif()
   endforeach()
-  if(TEST studio_frontend_drop)
-    set_tests_properties(studio_frontend_drop PROPERTIES DISABLED TRUE)
+  if(TEST current_frontend_drop)
+    set_tests_properties(current_frontend_drop PROPERTIES DISABLED TRUE)
   endif()
 endif()

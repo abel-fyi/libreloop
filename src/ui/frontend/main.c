@@ -88,7 +88,7 @@ int main(int argc,char **argv) {
     float smoke_ui_scale=0;
     float smoke_rack_zoom=0;int smoke_grid_menu=0,smoke_grid=-1,smoke_workspace=0,smoke_fill=0,smoke_count=0;
     int smoke_patterns=0,smoke_record_options=0,smoke_record_armed=0;
-    int smoke=0,visual_preview=0,legacy_ui=0,smoke_scene=0,smoke_width=0,smoke_height=0,smoke_popup=0,profile_frames=0,profile_motion=0;
+    int smoke=0,smoke_scene=0,smoke_width=0,smoke_height=0,smoke_popup=0,profile_frames=0,profile_motion=0;
     for(int i=1;i<argc;i++) {
         if(!strcmp(argv[i],"--smoke")) smoke=1;
         else if(!strcmp(argv[i],"--smoke-record-options"))smoke_record_options=1;
@@ -118,8 +118,10 @@ int main(int argc,char **argv) {
         else if(!strcmp(argv[i],"--smoke-ui-scale") && i+1<argc)smoke_ui_scale=atof(argv[++i]);
         else if(!strcmp(argv[i],"--smoke-popup") && i+1<argc)smoke_popup=atoi(argv[++i]);
         else if(!strcmp(argv[i],"--smoke-scene") && i+1<argc)smoke_scene=atoi(argv[++i]);
-        else if(!strcmp(argv[i],"--visual-preview"))visual_preview=1;
-        else if(!strcmp(argv[i],"--legacy-ui"))legacy_ui=1;
+        else if(!strcmp(argv[i],"--visual-preview") || !strcmp(argv[i],"--legacy-ui")) {
+            fprintf(stderr,"The legacy UI and visual preview flags were removed; LibreLoop always uses the current layout.\n");
+            return 1;
+        }
         else if(!strcmp(argv[i],"--version")) { printf("LibreLoop %s\n",LIBRELOOP_VERSION); return 0; }
     }
     if((smoke_mixer_offset || smoke_fx_scroll || smoke_fx_hidden || smoke_inserts || smoke_routing || smoke_fx_count) && !smoke)return 1;
@@ -146,9 +148,8 @@ int main(int argc,char **argv) {
     double profile_cpu=0,profile_start=0;int profile_count=0;
     unsigned profile_spectra[2]={0};
     double *profile_frame_times=profile_times?profile_times+profile_frames:NULL;
-    ui.studio_style=!legacy_ui && !smoke;
-    if(visual_preview)ui.studio_style=1;
-    if(ui.studio_style)ui.piano_zoom=2;
+
+    ui.piano_zoom=2;
     resource_paths();
     if(smoke && (!host_directory_exists(ui.samples_path) || !host_file_exists(ui.font_path) || !host_file_exists(ui.logo_path))) {
         fprintf(stderr,"Smoke check failed: bundled samples, font or logo are missing.\n"); return 1;
@@ -172,21 +173,21 @@ int main(int argc,char **argv) {
     /* On Linux, raylib 5.5's high-DPI flag rescales mouse/scissors separately
        from our 2D cameras. Keep window coordinates consistent; rasterize fonts
        using actual framebuffer density rather than the monitor's DPI setting. */
-    host_set_config_flags(flags); host_init_window(smoke_width?smoke_width:ui.studio_style?1448:1200,smoke_height?smoke_height:ui.studio_style?1086:675,"LibreLoop " LIBRELOOP_VERSION " - pattern workstation");
+    host_set_config_flags(flags); host_init_window(smoke_width?smoke_width:(1448),smoke_height?smoke_height:(1086),"LibreLoop " LIBRELOOP_VERSION " - pattern workstation");
     HostImage logo_image=host_load_image(ui.logo_path);
     if(logo_image.data) {
         host_set_window_icon(logo_image); host_unload_image(logo_image);
     }
     circles_init(); arcs_init(); cables_init();
-    draw_palette_enable(host_draw(),ui.studio_style);
-    if(ui.studio_style && !theme_draw_init(host_draw()))fprintf(stderr,"Desktop skin texture unavailable.\n");
-    host_set_window_min_size(900,ui.studio_style?562:506);
-    if(ui.studio_style && !smoke)platform_window_fit_display(host_window());
+    draw_palette_enable(host_draw(),1);
+    if((!theme_draw_init(host_draw())))fprintf(stderr,"Desktop skin texture unavailable.\n");
+    host_set_window_min_size(900,(562));
+    if((!smoke))platform_window_fit_display(host_window());
     host_set_target_f_p_s(profile_frames?0:60); host_set_exit_key(HOST_KEY_NULL);
     int audio_ok=audio_start(&ui.project,ui.samples);
     if(!audio_ok) snprintf(ui.status,sizeof ui.status,"Audio device unavailable. Editing and WAV export are available.");
     ui.app_window=host_window();
-    browser_init(&ui.browser,ui.samples_path);if(!smoke && ui.studio_style)ui_scale_load(); midi_initialize(); theme_init(); if(ui.studio_style){theme_studio();ui.browser_width=238;ui.last_sidebar=238;} file_chooser_locations(ui.browser.config); if(smoke){new_project(smoke_new_project?0:1);smoke_scene_prepare(smoke_scene);while(ui.project.pattern_count<smoke_patterns)if(pattern_add(&ui.project)<0)return 1;if(smoke_playing){ui.playing=1;ui.reset=1;}} int frames=0,initialized=0;
+    browser_init(&ui.browser,ui.samples_path);if((!smoke))ui_scale_load(); midi_initialize(); theme_init(); {theme_studio();ui.browser_width=238;ui.last_sidebar=238;} file_chooser_locations(ui.browser.config); if(smoke){new_project(smoke_new_project?0:1);smoke_scene_prepare(smoke_scene);while(ui.project.pattern_count<smoke_patterns)if(pattern_add(&ui.project)<0)return 1;if(smoke_playing){ui.playing=1;ui.reset=1;}} int frames=0,initialized=0;
     float studio_piano_width=0,studio_arrangement_width=0,last_ui_scale=0;
     double last_activity=host_get_time();
     while(!ui.document.quit) {
@@ -221,24 +222,21 @@ int main(int argc,char **argv) {
         fonts_update(raster_scale);
         float width=host_get_screen_width()/scale,height=host_get_screen_height()/scale;
         float sidebar=ui.browser_hidden?24:ui.browser_width;
-        float workspace_top=ui.studio_style?60:42;
-        float picker_top=ui.studio_style?fmaxf(workspace_top+160,height-340):height-24;
+        float workspace_top=60;
+        float picker_top=fmaxf(workspace_top+160,height-340);
         ui.picker_bounds=(Rect){4,picker_top-57,sidebar-8,height-24-picker_top+57};
         Rect desktop={sidebar+6,workspace_top,width-sidebar-10,height-workspace_top-24};
         if(!initialized) {
             windows_init(&ui.windows,width,height);
-            if(ui.studio_style) {
-                studio_workspace_init(&ui.windows,width,height,sidebar);
-                if(!smoke)workspace_load();
-                /* Initial view includes the default C4 entry pitch even on a
-                   short screen. Subsequent resizing never changes row zoom. */
-                if(piano_visible_rows()<13)ui.piano_top=fmaxf(piano_min_top(),60+piano_visible_rows()*.5f);
-            }
-            if(smoke_scene && !ui.studio_style)windows_focus(&ui.windows,smoke_scene>=9 && smoke_scene<=11?3:4);
+            studio_workspace_init(&ui.windows,width,height,sidebar);
+            if(!smoke)workspace_load();
+            /* Initial view includes the default C4 entry pitch even on a
+               short screen. Subsequent resizing never changes row zoom. */
+            if(piano_visible_rows()<13)ui.piano_top=fmaxf(piano_min_top(),60+piano_visible_rows()*.5f);
             if(smoke_scene==9 || smoke_scene==11 || smoke_scene==15 || smoke_scene==16 || smoke_scene==17 || smoke_scene==18 || smoke_scene==19 || smoke_scene==20 || smoke_scene==21 || smoke_scene==22 || smoke_scene==23 || smoke_scene==24){if(ui.windows.workspace.enabled)mixer_effect_open(ui.eq_bus,ui.eq_slot,0);else windows_focus(&ui.windows,5);}
             if(smoke_scene>=29){studio_workspace_float(&ui.windows,4);windows_focus(&ui.windows,4);}
             if(smoke_scene==24){int id=mixer_effect_window(ui.eq_bus,ui.eq_slot);if(id>=5)ui.dynamics_view[id]=1;}
-            if(profile_frames && !ui.studio_style){ui.windows.editors[0].visible=0;windows_focus(&ui.windows,2);windows_focus(&ui.windows,3);windows_focus(&ui.windows,4);}
+
             if(smoke_popup==11)project_file_action(4);
             else if(smoke_popup==2)begin_rename();
             else if(smoke_popup==5)begin_number(&ui.project.bpm,30,300,120,"Tempo (BPM)");
@@ -269,15 +267,13 @@ int main(int argc,char **argv) {
             if(smoke_fill){ui.rack_fill_interval=3;begin_rack_fill(ui.channel);}
             initialized=1;
         }
-        if(ui.studio_style) {
-            ui.windows.workspace.mixer_fx_rows=ui.mixer_fx_hidden?-1:desktop_mixer_fx_rows();
-            studio_workspace_layout(&ui.windows,width,height,sidebar);
-            workspace_view_scale(&studio_arrangement_width,&studio_piano_width);
-        }
+        ui.windows.workspace.mixer_fx_rows=ui.mixer_fx_hidden?-1:desktop_mixer_fx_rows();
+        studio_workspace_layout(&ui.windows,width,height,sidebar);
+        workspace_view_scale(&studio_arrangement_width,&studio_piano_width);
         ui.mouse=host_get_mouse_position(); ui.mouse.x/=scale; ui.mouse.y/=scale; ui.reset=0; ui.popup_opened=0; ui.context_opened=0;
         host_set_mouse_cursor(HOST_MOUSE_CURSOR_DEFAULT);
         if(smoke && frames==0){ui.velocity_lane.height=smoke_velocity;ui.velocity_lane.collapsed=smoke_velocity<0;ui.position_seconds=smoke_seconds;ui.mixer_offset=smoke_mixer_offset;for(int bus=0;bus<=INSERTS;bus++)ui.mixer_fx_scroll[bus]=smoke_fx_scroll;ui.mixer_fx_hidden=smoke_fx_hidden;if(smoke_inserts)ui.project.insert_count=smoke_inserts;if(smoke_fx_count){for(int slot=0;slot<smoke_fx_count;slot++)ui.project.effect_type[1][slot]=slot%2?EFFECT_EQ:EFFECT_CHORUS;ui.mixer_selected=1;}if(smoke_routing){insert_send_add(&ui.project,1,2);insert_send_add(&ui.project,1,3);insert_send_add(&ui.project,2,3);ui.mixer_selected=1;}}
-        if(ui.studio_style)ui.piano_top=fmaxf(piano_min_top(),fminf(127,ui.piano_top));
+        ui.piano_top=fmaxf(piano_min_top(),fminf(127,ui.piano_top));
         desktop_velocity_resize();
         navigate_editors(scale);
         if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT) || host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)) arrangement_release(&ui.arrangement);
@@ -313,7 +309,7 @@ int main(int argc,char **argv) {
             if(!host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT)) ui.track_resize=-1;
         }
         if(ui.fx_press)desktop_fx_drag_update();
-        if(ui.mixer_pan && ui.studio_style && ui.windows.workspace.enabled)desktop_mixer_scrollbar_update();
+        if((ui.mixer_pan) && ui.windows.workspace.enabled)desktop_mixer_scrollbar_update();
         else if(ui.mixer_pan) {
             Rect r=ui.windows.editors[3].rect; float area=r.w-MIXER_PANEL-MIXER_LEFT-8; int visible=fmaxf(1,area/mixer_strip_width()-1);
             ui.mixer_scroll=fmaxf(0,fminf(INSERTS-visible,(ui.mouse.x-r.x-MIXER_LEFT-area*visible/INSERTS/2)/area*INSERTS));
@@ -323,7 +319,7 @@ int main(int argc,char **argv) {
             if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)) ui.cable_drag=-1;
             else if(!host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT)) {
                 int destination=mixer_input_at(ui.mouse);
-                if(destination>=0) snprintf(ui.status,sizeof ui.status,(ui.studio_style?insert_send_add(&ui.project,ui.cable_drag,destination):insert_connect(&ui.project,ui.cable_drag,destination))?"Mixer cable connected.":"Connection blocked: it would create a feedback loop.");
+                if(destination>=0) snprintf(ui.status,sizeof ui.status,((insert_send_add(&ui.project,ui.cable_drag,destination)))?"Mixer cable connected.":"Connection blocked: it would create a feedback loop.");
                 ui.cable_drag=-1;
             }
         }
@@ -396,7 +392,7 @@ int main(int argc,char **argv) {
             desktop=(Rect){sidebar+6,workspace_top,width-sidebar-10,height-workspace_top-24};
             if(!host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT)) ui.browser_resize=0;
         }
-        if(ui.studio_style){ui.windows.workspace.mixer_fx_rows=ui.mixer_fx_hidden?-1:desktop_mixer_fx_rows();studio_workspace_layout(&ui.windows,width,height,sidebar);}
+        {ui.windows.workspace.mixer_fx_rows=ui.mixer_fx_hidden?-1:desktop_mixer_fx_rows();studio_workspace_layout(&ui.windows,width,height,sidebar);}
         if(sidebar!=ui.last_sidebar) {
             Editor *list=&ui.windows.editors[1];
             if(!ui.windows.workspace.enabled && fabsf(list->rect.x-ui.last_sidebar-6)<1 && fabsf(list->rect.w-(width-ui.last_sidebar-10))<1) list->rect=desktop;
@@ -412,7 +408,7 @@ int main(int argc,char **argv) {
         }
         dragging=ui.sample_drag[0]!=0;
         if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)) ui.windows.grab=-1;
-        if(!modal && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)) ui.browser_focus=ui.mouse.x<sidebar && ui.mouse.y>=workspace_top && ui.mouse.y<height-22 && (!ui.studio_style || ui.mouse.y<picker_top);
+        if(!modal && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)) ui.browser_focus=ui.mouse.x<sidebar && ui.mouse.y>=workspace_top && ui.mouse.y<height-22 && ((ui.mouse.y<picker_top));
         if(ui.control_drag)desktop_control_update(ui.control_horizontal?-host_get_mouse_delta().x:host_get_mouse_delta().y,scale,ui.mouse.y);
         if(ui.piano_scroll_drag) {
             ui.piano_pan[ui.pattern]=fmaxf(0,ui.piano_scroll_start+(ui.mouse.x-ui.piano_scroll_x)*ui.piano_scroll_range);
@@ -454,7 +450,7 @@ int main(int argc,char **argv) {
         if(ui.route_drag>=0) {
             ui.project.route[ui.route_drag]=(int)fmaxf(0,fminf(ui.project.insert_count,ui.route_start+(int)((ui.route_y-ui.mouse.y)/3)));
             ui.mixer_selected=ui.project.route[ui.route_drag];
-            if(ui.studio_style && ui.windows.workspace.enabled){
+            if((ui.windows.workspace.enabled)){
                 Rect r=desktop_editor_rect(3);MixerView v=desktop_mixer_view(r.w,r.h);
                 ui.mixer_offset=mixer_reveal_bus(v,ui.mixer_selected);
             } else {
@@ -476,7 +472,7 @@ int main(int argc,char **argv) {
             if(split>=0){host_set_mouse_cursor((split==4 || split==6)?HOST_MOUSE_CURSOR_RESIZE_EW:HOST_MOUSE_CURSOR_RESIZE_NS);snprintf(ui.status,sizeof ui.status,"Drag divider to resize panels; double-click restores the split");}
             if(modal || !host_is_window_focused()){ui.windows.workspace.drag=-1;}
         }
-        if(ui.studio_style)ui.piano_top=fmaxf(piano_min_top(),fminf(127,ui.piano_top));
+        ui.piano_top=fmaxf(piano_min_top(),fminf(127,ui.piano_top));
         if(!modal && !captured() && !dragging && desktop_picker_hit(ui.mouse.x,ui.mouse.y) &&
             (host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT) || host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT))) {
             if(ui.windows.editors[1].visible)windows_focus(&ui.windows,1);ui.browser_focus=0;
@@ -516,93 +512,73 @@ int main(int argc,char **argv) {
         clock_t render_cpu_start=profile_frames?clock():0;
         host_begin_drawing(); host_clear_background(bg); host_begin_mode2_d((HostCamera){.zoom=scale});
         ui.input_enabled=!modal && !dragging && !captured() && ui.windows.grab<0 && ui.mouse.y<workspace_top;
-        if(ui.studio_style && !ui.profile_flat)ui_panel(host_draw(),(DrawRect){0,0,width,workspace_top-2},panel);
+        if((!ui.profile_flat))ui_panel(host_draw(),(DrawRect){0,0,width,workspace_top-2},panel);
         else ui_surface(host_draw(),(DrawRect){0,0,width,workspace_top-2},panel);
         Theme toolbar_theme=ui_theme;
         StudioToolbar toolbar=studio_toolbar_layout(width);
-        if(ui.studio_style) {
+        {
             if(!ui.profile_flat)ui_bevel(host_draw(),(DrawRect){1,1,width-2,57},0);
         }
-        const int menu_y=ui.studio_style?toolbar.menus[0].y:8,menu_h=ui.studio_style?toolbar.menus[0].h:22;
-        const int ty=ui.studio_style?toolbar.stop.y:8,th=ui.studio_style?toolbar.stop.h:22,tw=ui.studio_style?toolbar.stop.w:24;
+        const int menu_h=toolbar.menus[0].h;
+        const int ty=(toolbar.stop.y),th=(toolbar.stop.h),tw=(toolbar.stop.w);
         const int cy=ty+th/2;
-        if(!ui.studio_style)ui_surface(host_draw(),(DrawRect){8,menu_y,176,menu_h},cell);
-        if(button("FILE",ui.studio_style?toolbar.menus[0].x:8,ui.studio_style?toolbar.menus[0].y:menu_y,ui.studio_style?toolbar.menus[0].w:44,menu_h,ui.pattern_popup==1)) open_popup(1);
-        if(hover(ui.studio_style?toolbar.menus[0].x:8,ui.studio_style?toolbar.menus[0].y:menu_y,ui.studio_style?toolbar.menus[0].w:44,menu_h)) snprintf(ui.status,sizeof ui.status,"File: New, Demo, Save, Open, Export or Collect samples");
-        if(button("EDIT",ui.studio_style?toolbar.menus[1].x:52,ui.studio_style?toolbar.menus[1].y:menu_y,ui.studio_style?toolbar.menus[1].w:44,menu_h,ui.pattern_popup==10)) open_popup(10);
-        if(hover(ui.studio_style?toolbar.menus[1].x:52,ui.studio_style?toolbar.menus[1].y:menu_y,ui.studio_style?toolbar.menus[1].w:44,menu_h)) snprintf(ui.status,sizeof ui.status,"Edit: Undo, Redo, Cut, Copy, Paste and Select all");
-        if(button("VIEW",ui.studio_style?toolbar.menus[2].x:96,ui.studio_style?toolbar.menus[2].y:menu_y,ui.studio_style?toolbar.menus[2].w:44,menu_h,ui.pattern_popup==7)) open_popup(7);
-        if(hover(ui.studio_style?toolbar.menus[2].x:96,ui.studio_style?toolbar.menus[2].y:menu_y,ui.studio_style?toolbar.menus[2].w:44,menu_h)) snprintf(ui.status,sizeof ui.status,"View: MIDI recording settings");
-        if(button("HELP",ui.studio_style?toolbar.menus[3].x:140,ui.studio_style?toolbar.menus[3].y:menu_y,ui.studio_style?toolbar.menus[3].w:44,menu_h,ui.pattern_popup==9)) open_popup(9);
-        label(fit_text(host_text_format("%s%s",host_get_file_name(ui.document.path),project_dirty()?" *":""),176,ui.studio_style?9:11),8,ui.studio_style?0:29,ui.studio_style?9:11,muted);
-        const int gap=4,pitch_x=ui.studio_style?toolbar.pitch.x+11:184+gap+KNOB_RADIUS;
-        const int volume_x=ui.studio_style?toolbar.volume.x+11:pitch_x+KNOB_RADIUS*2+gap;
-        const int mode_x=ui.studio_style?toolbar.mode.x:volume_x+KNOB_RADIUS+gap,mode_w=ui.studio_style?toolbar.mode.w:52;
-        const int play_x=ui.studio_style?toolbar.play.x:mode_x+52+gap;
-        const int stop_x=ui.studio_style?toolbar.stop.x:play_x+24+gap;
-        const int record_x=ui.studio_style?toolbar.record.x:stop_x+24+gap;
-        const int metro_x=ui.studio_style?toolbar.metronome.x:record_x+24+3*22+gap;
-        const int tempo_x=ui.studio_style?toolbar.tempo.x:metro_x+22+gap;
-        const int tempo_w=ui.studio_style?toolbar.tempo.w:56;
-        const int tempo_y=ui.studio_style?toolbar.tempo.y:ty,tempo_h=ui.studio_style?toolbar.tempo.h:th;
-        const int position_x=ui.studio_style?toolbar.position.x:tempo_x+56+12;
-        const int position_w=ui.studio_style?toolbar.position.w:88;
-        const int position_y=ui.studio_style?toolbar.position.y:ty,position_h=ui.studio_style?toolbar.position.h:th;
-        const int audio_x=ui.studio_style?toolbar.spectrum.x:position_x+88+12;
-        const int analyzer_width=ui.studio_style?toolbar.spectrum.w:(int)fminf(108,fmaxf(0,width-audio_x-208));
-        const int editors_x=ui.studio_style?toolbar.editors[0].x:audio_x+analyzer_width+gap+40+12;
-        const int editor_pitch=ui.studio_style?toolbar.editors[1].x-toolbar.editors[0].x:24;
-        const int follow_x=ui.studio_style?toolbar.follow.x:editors_x+4*editor_pitch;
-        const int keys_x=ui.studio_style?toolbar.typing.x:follow_x+editor_pitch;
-        const int small_y=ui.studio_style?toolbar.follow.y:ty,small_w=ui.studio_style?toolbar.follow.w:22,small_h=ui.studio_style?toolbar.follow.h:th;
-        label("Pitch",pitch_x-text_width("Pitch",8)/2,ui.studio_style?40:30,8,muted);
-        label("Vol",volume_x-text_width("Vol",8)/2,ui.studio_style?40:30,8,muted);
+        if(button("FILE",(toolbar.menus[0].x),(toolbar.menus[0].y),(toolbar.menus[0].w),menu_h,ui.pattern_popup==1)) open_popup(1);
+        if(hover((toolbar.menus[0].x),(toolbar.menus[0].y),(toolbar.menus[0].w),menu_h)) snprintf(ui.status,sizeof ui.status,"File: New, Demo, Save, Open, Export or Collect samples");
+        if(button("EDIT",(toolbar.menus[1].x),(toolbar.menus[1].y),(toolbar.menus[1].w),menu_h,ui.pattern_popup==10)) open_popup(10);
+        if(hover((toolbar.menus[1].x),(toolbar.menus[1].y),(toolbar.menus[1].w),menu_h)) snprintf(ui.status,sizeof ui.status,"Edit: Undo, Redo, Cut, Copy, Paste and Select all");
+        if(button("VIEW",(toolbar.menus[2].x),(toolbar.menus[2].y),(toolbar.menus[2].w),menu_h,ui.pattern_popup==7)) open_popup(7);
+        if(hover((toolbar.menus[2].x),(toolbar.menus[2].y),(toolbar.menus[2].w),menu_h)) snprintf(ui.status,sizeof ui.status,"View: MIDI recording settings");
+        if(button("HELP",(toolbar.menus[3].x),(toolbar.menus[3].y),(toolbar.menus[3].w),menu_h,ui.pattern_popup==9)) open_popup(9);
+        label(fit_text(host_text_format("%s%s",host_get_file_name(ui.document.path),project_dirty()?" *":""),176,(9)),8,(0),(9),muted);
+        const int gap=4,pitch_x=toolbar.pitch.x+11;
+        const int volume_x=(toolbar.volume.x+11);
+        const int mode_x=(toolbar.mode.x),mode_w=(toolbar.mode.w);
+        const int play_x=(toolbar.play.x);
+        const int stop_x=(toolbar.stop.x);
+        const int record_x=(toolbar.record.x);
+        const int metro_x=(toolbar.metronome.x);
+        const int tempo_x=(toolbar.tempo.x);
+        const int tempo_w=(toolbar.tempo.w);
+        const int tempo_y=(toolbar.tempo.y),tempo_h=(toolbar.tempo.h);
+        const int position_x=(toolbar.position.x);
+        const int position_w=(toolbar.position.w);
+        const int position_y=(toolbar.position.y),position_h=(toolbar.position.h);
+        const int audio_x=(toolbar.spectrum.x);
+        const int analyzer_width=(toolbar.spectrum.w);
+        const int editors_x=(toolbar.editors[0].x);
+        const int editor_pitch=(toolbar.editors[1].x-toolbar.editors[0].x);
+        const int follow_x=(toolbar.follow.x);
+        const int keys_x=(toolbar.typing.x);
+        const int small_y=(toolbar.follow.y),small_w=(toolbar.follow.w),small_h=(toolbar.follow.h);
+        label("Pitch",pitch_x-text_width("Pitch",8)/2,(40),8,muted);
+        label("Vol",volume_x-text_width("Vol",8)/2,(40),8,muted);
         knob_style(pitch_x,cy,&ui.project.master_pitch,-12,12,0,"Master pitch (semitones)",KNOB_CENTER);
         if(hover(pitch_x-11,cy-11,22,22) || ui.control_drag==&ui.project.master_pitch) snprintf(ui.status,sizeof ui.status,"Master pitch: %+.2f semitones (sample speed; right-click to enter)",ui.project.master_pitch);
         knob_style(volume_x,cy,&ui.output_volume,0,VOLUME_KNOB_MAX,1,"LibreLoop output volume",KNOB_VOLUME);
         if(hover(volume_x-11,cy-11,22,22) || ui.control_drag==&ui.output_volume) snprintf(ui.status,sizeof ui.status,"LibreLoop output volume: listening level; Master and WAV export unchanged");
-        if(ui.studio_style) {
+        {
             label("PLAY",mode_x+(mode_w-text_width("PLAY",UI_TEXT_SIZE))/2,ty,UI_TEXT_SIZE,muted);
             int song=segmented_switch("Pattern","Song",(DrawRect){mode_x,ty+16,mode_w,th-16},ui.song,!recording_active(),ui.song?ui_theme.meter_low:ui_theme.meter_mid);
             desktop_playback_mode(song);
-        } else {
-            if(button("",mode_x,ty,mode_w,th,0) && !recording_active())desktop_playback_mode(!ui.song);
-            host_draw_rectangle(mode_x,ty,mode_w,th/2,ui.song?cell:ui_theme.patt);
-            host_draw_rectangle(mode_x,ty+th/2,mode_w,th/2,ui.song?accent:cell);
-            label("Pattern",mode_x+(mode_w-text_width("Pattern",10))/2,ty+(th/2-10)/2,10,ui.song?muted:ui_theme.selected_text);
-            label("Song",mode_x+(mode_w-text_width("Song",10))/2,ty+th/2+(th/2-10)/2,10,ui.song?ui_theme.selected_text:muted);
         }
-        if(hover(mode_x,ty,mode_w,th)) snprintf(ui.status,sizeof ui.status,ui.studio_style?"Playback: choose what Play runs; VIEW changes the editor independently":"Playback source: Pattern (orange) / Song (green); editor tabs change the view independently");
+        if(hover(mode_x,ty,mode_w,th)) snprintf(ui.status,sizeof ui.status,("Playback: choose what Play runs; VIEW changes the editor independently"));
         int transport_active=ui.playing || ui.record_count_in.active || audio_preview_position(ui.audition)>=0 || audio_key_position(127,ui.instrument_channel)>=0;
-        if(button(ui.studio_style?"":transport_active?"||":">",play_x,ty,tw,th,transport_active)) transport_toggle();
-        if(ui.studio_style)icon_button_state(transport_active?ICON_PAUSE:ICON_PLAY,(DrawRect){play_x,ty,tw,th},ink,transport_active,1);
+        if(button((""),play_x,ty,tw,th,transport_active)) transport_toggle();
+        icon_button_state(transport_active?ICON_PAUSE:ICON_PLAY,(DrawRect){play_x,ty,tw,th},ink,transport_active,1);
         if(hover(play_x,ty,tw,th)) snprintf(ui.status,sizeof ui.status,"Play from ruler / stop sources, preserving effect tails (Space)");
-        if(button(ui.studio_style?"":"[]",stop_x,ty,tw,th,0)) transport_stop();
-        if(ui.studio_style)icon_in_button(ICON_STOP,(DrawRect){stop_x,ty,tw,th},ink);
+        if(button((""),stop_x,ty,tw,th,0)) transport_stop();
+        icon_in_button(ICON_STOP,(DrawRect){stop_x,ty,tw,th},ink);
         if(hover(stop_x,ty,tw,th)) snprintf(ui.status,sizeof ui.status,"Stop all audio; press again while stopped to return the start marker to the beginning");
         if(button("",record_x,ty,tw,th,ui.record_enabled || recording_active())) recording_start();
         int record_pressed=ui.record_enabled || recording_active() || (hover(record_x,ty,tw,th) && host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT));
-        if(ui.studio_style)ui_lamp(host_draw(),(DrawPoint){record_x+tw/2+record_pressed,cy+record_pressed},fminf(14,tw*.34f),recording_active()?(DrawColor){255,33,47,255}:ui.record_enabled?(DrawColor){190,45,53,255}:(DrawColor){125,36,44,255});
-        else circle(record_x+tw/2,cy,7,ui_theme.meter_high);
+        ui_lamp(host_draw(),(DrawPoint){record_x+tw/2+record_pressed,cy+record_pressed},fminf(14,tw*.34f),recording_active()?(DrawColor){255,33,47,255}:ui.record_enabled?(DrawColor){190,45,53,255}:(DrawColor){125,36,44,255});
         if(hover(record_x,ty,tw,th) && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT))open_context(31,0,ui.mouse);
-        if(!ui.studio_style) {
-        const int record_icons[]={ICON_WAVE,ICON_PIANO,ICON_AUTOMATION};
-        const char *record_names[]={"Audio from armed mixer tracks","MIDI notes into a new pattern","MIDI / mouse control automation"};
-        int record_input=ui.input_enabled;if(recording_active())ui.input_enabled=0;
-        for(int i=0;i<3;i++){int xx=ui.studio_style?toolbar.record_types[i].x:record_x+24+i*22;
-            int rw=ui.studio_style?toolbar.record_types[i].w:22;
-            if(button_available("",xx,cy-rw/2,rw,rw,ui.record_mask&(1u<<i),!recording_active())){ui.record_mask^=1u<<i;midi_save_settings();}
-            if(ui.studio_style)icon_button_state(record_icons[i],(DrawRect){xx,cy-rw/2,rw,rw},ui.record_mask&(1u<<i)?ui_theme.selected_text:muted,ui.record_mask&(1u<<i),!recording_active());
-            else icon(record_icons[i],xx+rw/2,cy,17,ui.record_mask&(1u<<i)?ui_theme.selected_text:muted);
-            if(hover(xx,cy-rw/2,rw,rw))snprintf(ui.status,sizeof ui.status,"Record %s: %s",record_names[i],ui.record_mask&(1u<<i)?"enabled":"disabled");
-        }ui.input_enabled=record_input;
-        }
+
         if(hover(record_x,ty,tw,th)) snprintf(ui.status,sizeof ui.status,recording_active()?"Recording: click to finish and disarm":ui.record_enabled?"Recording armed: Play starts the take; click to disarm":"Arm recording; right-click for Audio, Notes, Automation and Pattern options");
-        int metro_h=ui.studio_style?(th-2)/2:th;
-        if(button("",metro_x,ty,ui.studio_style?tw:22,metro_h,ui.metronome)) { ui.metronome=!ui.metronome; audio_metronome(ui.metronome); }
-        if(ui.studio_style)icon_button_state(ICON_METRO,(DrawRect){metro_x,ty,tw,metro_h},ui.metronome?ui_theme.selected_text:ink,ui.metronome,1);
-        else icon(ICON_METRO,metro_x+11,ty+metro_h/2,20,ui.metronome?ui_theme.selected_text:ink);
-        if(ui.studio_style) {
+        int metro_h=((th-2)/2);
+        if(button("",metro_x,ty,(tw),metro_h,ui.metronome)) { ui.metronome=!ui.metronome; audio_metronome(ui.metronome); }
+        icon_button_state(ICON_METRO,(DrawRect){metro_x,ty,tw,metro_h},ui.metronome?ui_theme.selected_text:ink,ui.metronome,1);
+        {
             int input=ui.input_enabled;if(recording_active())ui.input_enabled=0;
             if(button_available(host_text_format("IN %.0f",ui.record_count_steps),metro_x,ty+metro_h+2,tw,th-metro_h-2,ui.record_count_enabled,!recording_active())){ui.record_count_enabled^=1;midi_save_settings();}
             if(hover(metro_x,ty+metro_h+2,tw,th-metro_h-2)) {
@@ -611,9 +587,9 @@ int main(int argc,char **argv) {
             }
             ui.input_enabled=input;
         }
-        if(hover(metro_x,ty,ui.studio_style?tw:22,metro_h)) snprintf(ui.status,sizeof ui.status,"Metronome: %s | beat clicks during playback; first beat accented; excluded from WAV export",ui.metronome?"On":"Off");
+        if(hover(metro_x,ty,(tw),metro_h)) snprintf(ui.status,sizeof ui.status,"Metronome: %s | beat clicks during playback; first beat accented; excluded from WAV export",ui.metronome?"On":"Off");
         int tempo_clicked;
-        if(ui.studio_style) {
+        {
             /* Numeric display keeps its dark face during hover/capture. */
             ui_display_well(host_draw(),(DrawRect){tempo_x,tempo_y,tempo_w,tempo_h});
             if(!ui.profile_flat)ui_bevel(host_draw(),(DrawRect){tempo_x,tempo_y,tempo_w,tempo_h},1);
@@ -623,58 +599,54 @@ int main(int argc,char **argv) {
                 host_draw_rectangle_lines_ex((DrawRect){tempo_x,tempo_y,tempo_w,tempo_h},1,ui_theme.signal);
             }
             tempo_clicked=over && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT);
-        } else tempo_clicked=drag_button(host_text_format("%.2f",ui.project.bpm),tempo_x,tempo_y,tempo_w,tempo_h,ui.control_drag==&ui.project.bpm);
+        };
         if(tempo_clicked && !recording_active())capture_control(&ui.project.bpm,30,300,0);
         if(hover(tempo_x,tempo_y,tempo_w,tempo_h) && !recording_active()) {
             ui.project.bpm=fmaxf(30,fminf(300,ui.project.bpm+host_get_mouse_wheel_move()));
             snprintf(ui.status,sizeof ui.status,"Tempo: drag up/down; right-click for Reset or Enter value");
             if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)) control_menu(&ui.project.bpm,30,300,120,"Tempo (BPM)");
         }
-        if(ui.studio_style)label(fit_text(host_text_format("%.2f",ui.project.bpm),tempo_w-16,UI_TEXT_SIZE),tempo_x+8,tempo_y+4,UI_TEXT_SIZE,ui_theme.signal);
+        label(fit_text(host_text_format("%.2f",ui.project.bpm),tempo_w-16,UI_TEXT_SIZE),tempo_x+8,tempo_y+4,UI_TEXT_SIZE,ui_theme.signal);
         uint64_t position_frames=audio_position();
         uint64_t step=(uint64_t)(position_frames/(RATE*60.0/ui.project.bpm/4));
         if(hover(position_x,position_y,position_w,position_h) && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT))ui.position_seconds^=1;
-        if(ui.studio_style)ui_display_well(host_draw(),(DrawRect){position_x,position_y,position_w,position_h});
-        else ui_surface(host_draw(),(DrawRect){position_x,position_y,position_w,position_h},bg);
-        if(ui.studio_style && !ui.profile_flat)ui_bevel(host_draw(),(DrawRect){position_x,position_y,position_w,position_h},1);
+        ui_display_well(host_draw(),(DrawRect){position_x,position_y,position_w,position_h});
+        if((!ui.profile_flat))ui_bevel(host_draw(),(DrawRect){position_x,position_y,position_w,position_h},1);
         const char *position=host_text_format("%03llu:%02llu",(unsigned long long)(step/16+1),(unsigned long long)(step%16+1));
         char seconds_position[32];
-        if(ui.position_seconds){if(ui.studio_style)transport_clock(seconds_position,sizeof seconds_position,position_frames,RATE);else transport_seconds(seconds_position,sizeof seconds_position,position_frames,RATE);position=seconds_position;}
+        if(ui.position_seconds){transport_clock(seconds_position,sizeof seconds_position,position_frames,RATE);position=seconds_position;}
         if(ui.record_count_in.active)position=host_text_format("%d",record_count_in_remaining(&ui.record_count_in,midi_input_time()));
-        if(ui.studio_style)label(fit_text(position,position_w-20,UI_TEXT_SIZE),position_x+10,position_y+6,UI_TEXT_SIZE,ui_theme.signal);
-        else label(position,position_x+10,position_y+3,18,ui_theme.signal);
-        if(hover(position_x,position_y,position_w,position_h)) snprintf(ui.status,sizeof ui.status,ui.position_seconds?(ui.studio_style?"Playback position: minutes:seconds:centiseconds; click for bars and steps":"Playback position: seconds.milliseconds; click for bars and steps"):ui.studio_style?"Playback position: bar and sixteenth-note step; click for minutes:seconds:centiseconds":"Playback position: bar and sixteenth-note step");
-        if(ui.studio_style) {
+        label(fit_text(position,position_w-20,UI_TEXT_SIZE),position_x+10,position_y+6,UI_TEXT_SIZE,ui_theme.signal);
+        if(hover(position_x,position_y,position_w,position_h)) snprintf(ui.status,sizeof ui.status,ui.position_seconds?(("Playback position: minutes:seconds:centiseconds; click for bars and steps")):("Playback position: bar and sixteenth-note step; click for minutes:seconds:centiseconds"));
+        {
             label(ui.record_count_in.active?"COUNT-IN STEPS":ui.position_seconds?"MIN:SEC:CS":"BAR : STEP",position_x+8,position_y+position_h-UI_TEXT_SIZE-2,10,ui_theme.signal);
             label("TEMPO",tempo_x+12,tempo_y+tempo_h-UI_TEXT_SIZE-2,10,ui_theme.signal);
         }
         if(!ui.windows.workspace.enabled)for(int i=0;i<4;i++) { int id=i==1?2:i==2?1:i; editor_button(id,editors_x+i*editor_pitch); }
         if(button("",follow_x,small_y,small_w,small_h,ui.follow_playhead)) { ui.follow_playhead=!ui.follow_playhead; if(!ui.follow_playhead) { ui.arrangement.view_start=fmaxf(0,ui.arrangement.view_start); for(int p=0;p<PATTERNS;p++) ui.piano_pan[p]=fmaxf(0,ui.piano_pan[p]); } }
-        if(ui.studio_style)icon_button_state(ICON_FOLLOW,(DrawRect){follow_x,small_y,small_w,small_h},ui.follow_playhead?ui_theme.selected_text:ink,ui.follow_playhead,1);
-        else icon(ICON_FOLLOW,follow_x+small_w/2,cy,20,ui.follow_playhead?ui_theme.selected_text:ink);
+        icon_button_state(ICON_FOLLOW,(DrawRect){follow_x,small_y,small_w,small_h},ui.follow_playhead?ui_theme.selected_text:ink,ui.follow_playhead,1);
         if(hover(follow_x,small_y,small_w,small_h)) snprintf(ui.status,sizeof ui.status,"Follow playhead: center playback in the Playlist (Song) or Piano Roll (PAT)");
         if(button("",keys_x,small_y,small_w,small_h,ui.typing_keys)) ui.typing_keys=!ui.typing_keys;
-        if(ui.studio_style)icon_button_state(ICON_KEYS,(DrawRect){keys_x,small_y,small_w,small_h},ui.typing_keys?ui_theme.selected_text:ink,ui.typing_keys,1);
-        else icon(ICON_KEYS,keys_x+small_w/2,cy,20,ui.typing_keys?ui_theme.selected_text:ink);
+        icon_button_state(ICON_KEYS,(DrawRect){keys_x,small_y,small_w,small_h},ui.typing_keys?ui_theme.selected_text:ink,ui.typing_keys,1);
         if(hover(keys_x,small_y,small_w,small_h)) snprintf(ui.status,sizeof ui.status,"Typing piano: Z row C3, Q row C4; S/D/G/H/J and 2/3/5/6/7 sharps; disabled in Browser/text fields");
         if(ui.record_count_in.active && host_is_key_pressed(HOST_KEY_ESCAPE))recording_finish();
         recording_poll();midi_poll();
         ui.visual_step=ui.playing && !ui.reset?audio_visual_position()/(RATE*60.0/ui.project.bpm/4):playback_start(); automation_display_update();
         ui.picker_bounds.w=sidebar-8;
-        int browser_hover=!ui.browser_hidden && ui.mouse.x<sidebar && ui.mouse.y>=workspace_top && ui.mouse.y<(ui.studio_style?picker_top:height-22);
+        int browser_hover=!ui.browser_hidden && ui.mouse.x<sidebar && ui.mouse.y>=workspace_top && ui.mouse.y<((picker_top));
         typing_piano(modal || dragging || browser_hover);
         if(analyzer_width>0) {
             host_draw_rectangle(audio_x,ty,analyzer_width,th,bg);
             spectrum_draw(&ui.master_spectrum,(DrawRect){audio_x+2,ty+1,analyzer_width-4,th-2},0);
-            if(ui.studio_style){
+            {
                 ui_bevel(host_draw(),(DrawRect){audio_x,ty,analyzer_width,th},1);
 
             }
-            int mx=audio_x+analyzer_width+gap,meter_width=ui.studio_style?toolbar.levels.w:40,fill_width=meter_width-(ui.studio_style?28:4);
+            int mx=audio_x+analyzer_width+gap,meter_width=(toolbar.levels.w),fill_width=meter_width-((28));
             host_draw_rectangle(mx,ty,meter_width,th,bg);
             for(int side=0;side<2;side++) {
                 float level=fmaxf(0,fminf(1,(20*log10f(fmaxf(.001f,ui.meter_level[0][side]))+60)/60));
-                if(ui.studio_style) {
+                {
                     int row=ty+3+side*18;
                     label(side?"R":"L",mx+3,row-3,UI_TEXT_SIZE,ui_theme.signal);
                     ui_display_well(host_draw(),(DrawRect){mx+14,row,fill_width,13});
@@ -682,25 +654,24 @@ int main(int argc,char **argv) {
                     float hold=fmaxf(0,fminf(1,(20*log10f(fmaxf(.001f,ui.meter_hold[0][side]))+60)/60));
                     ui_meter_marks(host_draw(),(DrawRect){mx+14,row,fill_width,13},hold,ui.meter_hold[0][side]>1,0);
                     for(int tick=0;tick<=5;tick++)host_draw_line(mx+14+tick*fill_width/5,row+14,mx+14+tick*fill_width/5,row+16,(DrawColor){90,126,100,255});
-                } else host_draw_rectangle(mx+2,ty+2+side*(th/2),36*level,7,accent);
-                if(!ui.studio_style && ui.meter_hold[0][side]>=1) host_draw_rectangle(mx+meter_width-4,ty+(ui.studio_style?3+side*18:2+side*(th/2)),2,ui.studio_style?8:7,ui_theme.meter_high);
+                };
             }
-            if(ui.studio_style)ui_bevel(host_draw(),(DrawRect){mx,ty,meter_width,th},1);
+            ui_bevel(host_draw(),(DrawRect){mx,ty,meter_width,th},1);
             if(hover(audio_x,ty,analyzer_width+gap+meter_width,th)) snprintf(ui.status,sizeof ui.status,audio_ok?"Master frequency spectrum and stereo level · red indicates clipping":"Audio device unavailable");
         }
         ui_theme=toolbar_theme;
         Theme browser_theme=ui_theme;
-        if(ui.studio_style){ui_theme.text=(DrawColor){227,234,232,255};ui_theme.secondary=(DrawColor){174,190,189,255};}
-        ui.input_enabled=!modal && !ui.pattern_popup && !ui.context_kind && !dragging && !captured() && ui.windows.grab<0 && ui.mouse.x<sidebar+6 && ui.mouse.y>=workspace_top && (!ui.studio_style || ui.mouse.y<picker_top);
-        if(ui.studio_style && !ui.profile_flat)ui_panel(host_draw(),(DrawRect){0,workspace_top,sidebar,height-workspace_top-24},ui_theme.browser);
+        ui_theme.text=(DrawColor){227,234,232,255};ui_theme.secondary=(DrawColor){174,190,189,255};
+        ui.input_enabled=!modal && !ui.pattern_popup && !ui.context_kind && !dragging && !captured() && ui.windows.grab<0 && ui.mouse.x<sidebar+6 && ui.mouse.y>=workspace_top && ui.mouse.y<picker_top;
+        if(!ui.profile_flat)ui_panel(host_draw(),(DrawRect){0,workspace_top,sidebar,height-workspace_top-24},ui_theme.browser);
         else host_draw_rectangle(0,workspace_top,sidebar,height-workspace_top-24,ui_theme.browser);
         if(!ui.browser_hidden) {
             if(hover(0,workspace_top,sidebar,height-workspace_top-24)) snprintf(ui.status,sizeof ui.status,"Browser: click to preview; drag to load | Up/Down or j/k: select | Left/Right or h/l: fold");
-            if(ui.studio_style)ui_titlebar(host_draw(),(DrawRect){8,workspace_top+4,sidebar-16,STUDIO_TITLE},ui.browser_focus);
-            label("Browser",ui.studio_style?16:10,workspace_top+(ui.studio_style?5:8),14,ui.studio_style?theme_foreground(ui_theme.title):ink);
-            if(button(ui.studio_style?"+":"+ Add folder",ui.studio_style?sidebar-30:8,workspace_top+(ui.studio_style?7:34),ui.studio_style?18:sidebar-16,ui.studio_style?18:23,0)) { snprintf(ui.folder_text,sizeof ui.folder_text,"%s",ui.browser.path); ui.rename_select_all=1; open_popup(3); }
-            if(ui.studio_style && hover(sidebar-30,workspace_top+7,18,18))snprintf(ui.status,sizeof ui.status,"Add a folder as a new Browser tree root");
-            int fy=workspace_top+(ui.studio_style?34:66),rows=fmaxf(1,(picker_top-fy-74)/23);
+            ui_titlebar(host_draw(),(DrawRect){8,workspace_top+4,sidebar-16,STUDIO_TITLE},ui.browser_focus);
+            label("Browser",16,workspace_top+5,14,theme_foreground(ui_theme.title));
+            if(button("+",sidebar-30,workspace_top+7,18,18,0)) { snprintf(ui.folder_text,sizeof ui.folder_text,"%s",ui.browser.path); ui.rename_select_all=1; open_popup(3); }
+            if(hover(sidebar-30,workspace_top+7,18,18))snprintf(ui.status,sizeof ui.status,"Add a folder as a new Browser tree root");
+            int fy=workspace_top+34,rows=fmaxf(1,(picker_top-fy-74)/23);
             if(!modal && !ui.pattern_popup && !ui.context_kind && (ui.browser_focus || browser_hover) && !dragging && !captured() && !command_down()) {
                 if(host_is_key_pressed(HOST_KEY_UP) || host_is_key_pressed(HOST_KEY_K)) audition_entry((int)fmaxf(0,ui.browser.selected-1));
                 if(host_is_key_pressed(HOST_KEY_DOWN) || host_is_key_pressed(HOST_KEY_J)) audition_entry((int)fminf(ui.browser.items-1,ui.browser.selected+1));
@@ -725,7 +696,7 @@ int main(int argc,char **argv) {
                     else host_draw_triangle((DrawPoint){indent,y+6},(DrawPoint){indent,y+14},(DrawPoint){indent+6,y+10},color);
                 }
                 int name_x=indent+14;
-                if(ui.studio_style) {
+                {
                     int ix=indent+12;
                     if(node->dir) {
                         ui_folder_icon(host_draw(),ix,y+6);
@@ -766,11 +737,10 @@ int main(int argc,char **argv) {
             }
         }
         int resize_hover=hover(sidebar,workspace_top,6,height-workspace_top-24);
-        if(!ui.studio_style)host_draw_rectangle(sidebar,workspace_top,6,height-workspace_top-24,ui.browser_resize || resize_hover?accent:cell);
-        if(ui.studio_style)ui_divider_grip(host_draw(),(DrawRect){sidebar,workspace_top,6,height-workspace_top-24},1,ui.browser_resize || resize_hover);
+        ui_divider_grip(host_draw(),(DrawRect){sidebar,workspace_top,6,height-workspace_top-24},1,ui.browser_resize || resize_hover);
         if(resize_hover || ui.browser_resize) { host_set_mouse_cursor(HOST_MOUSE_CURSOR_RESIZE_EW); snprintf(ui.status,sizeof ui.status,"Drag to resize Browser; below minimum width collapses it; drag outward to restore"); }
         ui_theme=browser_theme;
-        if(ui.studio_style && !ui.browser_hidden) {
+        if(!ui.browser_hidden) {
             ui_surface(host_draw(),(DrawRect){0,picker_top,sidebar,height-picker_top-24},panel);
             Rect r=ui.picker_bounds;DrawPoint pointer=ui.mouse;
             ui.input_enabled=!modal && !ui.pattern_popup && !ui.context_kind && !dragging && !ui.sample_drag[0] && !captured() && !ui.midi_take.active && ui.windows.grab<0 && desktop_picker_hit(pointer.x,pointer.y);
@@ -817,7 +787,7 @@ int main(int argc,char **argv) {
                 qsort(profile_frame_times,profile_frames,sizeof *profile_frame_times,profile_order);
                 double profile_duration=host_get_time()-profile_start;
                 printf("{\"style\":\"%s\",\"motion\":%s,\"decorative_edges\":%s,\"width\":%d,\"height\":%d,\"frames\":%d,\"warmup\":40,\"audio_device_started\":%s,\"render_cpu_seconds\":%.6f,\"p50_ms\":%.6f,\"p99_ms\":%.6f,\"max_ms\":%.6f,\"frame_p50_ms\":%.6f,\"frame_p99_ms\":%.6f,\"master_updates_per_second\":%.3f,\"eq_updates_per_second\":%.3f}\n",
-                    ui.studio_style?"classic":"legacy",profile_motion?"true":"false",ui.profile_flat?"false":"true",host_get_screen_width(),host_get_screen_height(),profile_frames,audio_ok?"true":"false",profile_cpu,
+                    "classic",profile_motion?"true":"false",ui.profile_flat?"false":"true",host_get_screen_width(),host_get_screen_height(),profile_frames,audio_ok?"true":"false",profile_cpu,
                     profile_times[profile_frames/2]*1000,profile_times[(int)((profile_frames-1)*.99)]*1000,profile_times[profile_frames-1]*1000,
                     profile_frame_times[profile_frames/2]*1000,profile_frame_times[(int)((profile_frames-1)*.99)]*1000,
                     (ui.spectrum_updates[0]-profile_spectra[0])/profile_duration,(ui.spectrum_updates[1]-profile_spectra[1])/profile_duration);
@@ -836,7 +806,7 @@ int main(int argc,char **argv) {
             if(stage==3) windows_focus(&ui.windows,3);
         }
     }
-    if(ui.studio_style && !smoke)workspace_save();
+    if(!smoke)workspace_save();
     free(profile_times);
     recording_finish();midi_panic();midi_input_wake(NULL);midi_input_close(); history_clear(&ui.edit_history); file_chooser_close(&ui.file_picker);
     if(ui.sampler_job.busy) { host_thread_join(ui.sampler_job.thread,NULL); sample_free(ui.sampler_job.input); sample_free(ui.sampler_job.result); }

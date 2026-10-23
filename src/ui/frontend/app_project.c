@@ -172,7 +172,7 @@ void drop_sample(const char *path) {
     if(target==1) {
         Rect r=desktop_editor_rect(1);
         float gx=r.x+playlist_grid_x(),gy=r.y+playlist_grid_top(),gridw=r.w-playlist_grid_x()-24;
-        Rect picker=ui.studio_style?ui.picker_bounds:r;
+        Rect picker=(ui.picker_bounds);
         int list=ui.mouse.x>=picker.x+4 && ui.mouse.x<picker.x+4+picker_width() && ui.mouse.y>=picker.y+PLAYLIST_GRID_TOP && ui.mouse.y<picker.y+picker.h-picker_bottom();
         if(!list && (ui.mouse.x<gx || ui.mouse.x>=gx+gridw || ui.mouse.y<gy || ui.mouse.y>=r.y+r.h-PLAYLIST_BOTTOM)) { snprintf(ui.status,sizeof ui.status,"Drop audio onto the Playlist grid or Audio list."); return; }
         if(!list) {
@@ -296,7 +296,7 @@ void install_project(Project *next,Sample fresh[CHANNELS],Sample processed[CHANN
     memset(ui.keyboard_notes,0,sizeof ui.keyboard_notes); ui.piano_note_length=2; if(ui.edit_clipboard.kind==COPY_CLIPS) ui.edit_clipboard.kind=COPY_EMPTY;
     ui.picker_tab=ui.picker_scroll=0; ui.picker_drag=-1; ui.automation_selected=ui.automation_node=ui.automation_lane=ui.automation_clip=-1; ui.sample_drag[0]=0;
     ui.rack_hdrag=ui.rack_vdrag=ui.playlist_pan=ui.playlist_vpan=ui.piano_scroll_drag=ui.piano_vdrag=ui.mixer_pan=0;
-    ui.piano_scroll_remainder=0; ui.track_zoom=1;ui.piano_zoom=ui.studio_style?2:1; ui.row_zoom_drag=-1; memset(ui.track_heights,0,sizeof ui.track_heights);
+    ui.piano_scroll_remainder=0; ui.track_zoom=1;ui.piano_zoom=(2); ui.row_zoom_drag=-1; memset(ui.track_heights,0,sizeof ui.track_heights);
     ui.navigation_active=0; ui.navigation_drag=-1; ui.track_resize=-1; ui.selected_track=-1; ui.ruler_loop_drag=0; ui.stop_armed=0; ui.ruler_last_id=-1;
     ui.pattern_hit_active=0;ui.pattern_channel_scroll=0;memset(ui.pattern_hits,0,sizeof ui.pattern_hits);
     ui.visual_step=0;
@@ -308,7 +308,7 @@ void install_project(Project *next,Sample fresh[CHANNELS],Sample processed[CHANN
         ui.sample_generation[c]++; ui.sampler_generation[c]=ui.sample_generation[c]; ui.sampler_applied[c]=next->sampler[c];
     }
     ui.project=*next; project_document_saved(&ui.document,&ui.project,filename);
-    ui.project.insert_count=ui.studio_style?next->insert_count:INSERTS; ui.rack_scroll=0; ui.rack_scroll_remainder=0; ui.rack_filter=0; ui.channel=fmaxf(0,fminf(ui.channel,ui.project.channel_count-1));
+    ui.project.insert_count=next->insert_count; ui.rack_scroll=0; ui.rack_scroll_remainder=0; ui.rack_filter=0; ui.channel=fmaxf(0,fminf(ui.channel,ui.project.channel_count-1));
     ui.piano_channel=ui.instrument_channel=ui.channel;
     for(int i=0;i<PATTERNS;i++) { ui.piano_span[i]=fmaxf(STEPS,next->pattern_steps[i]); ui.piano_pan[i]=0; ui.piano_range[i]=0; }
     memset(ui.note_selected,0,sizeof ui.note_selected); ui.piano_gesture=PIANO_IDLE; ui.playlist_start=0; memset(ui.piano_start,0,sizeof ui.piano_start); memset(ui.song_loop,0,sizeof ui.song_loop); memset(ui.pattern_loop,0,sizeof ui.pattern_loop); ui.marker_drag=-1;
@@ -428,7 +428,7 @@ int preset_commit(const char *chosen,int save) {
     }
     if(!preset_load(chosen,&preset) || preset.kind!=ui.preset_kind) { snprintf(ui.status,sizeof ui.status,"Invalid preset or wrong device type"); return 0; }
     if(ui.preset_kind==PRESET_FM) {
-        if(ui.studio_style && ui.project.fm[owner].engine!=preset.fm.engine){snprintf(ui.status,sizeof ui.status,"Preset belongs to a different instrument; use Replace instrument first.");return 0;}
+        if((ui.project.fm[owner].engine!=preset.fm.engine)){snprintf(ui.status,sizeof ui.status,"Preset belongs to a different instrument; use Replace instrument first.");return 0;}
         ui.project.fm[owner]=preset.fm;
     }
     else if(ui.preset_kind==PRESET_PHASER){ui.project.phaser[owner][slot]=preset.phaser;ui.project.effect_mix[owner][slot]=preset.mix;ui.project.effect_bypass[owner][slot]=0;}

@@ -1,4 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
+#ifdef __OpenBSD__
+/* OpenBSD's audioio.h uses BSD types hidden by strict POSIX feature macros. */
+#define _BSD_SOURCE
+#endif
 #ifdef _WIN32
 #define MA_NO_ASIO
 #define MA_NO_DSOUND

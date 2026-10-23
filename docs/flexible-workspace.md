@@ -1,5 +1,8 @@
 # Shared editor region, flexible splits and effect popups
 
+> Historical design record. The preview and legacy layout flags described below
+> were removed; launch and smoke now use the single current desktop layout.
+
 Historical layout: the page design in [pattern-workspace.md](pattern-workspace.md)
 supersedes the Rack/Piano split and inspector docking described below.
 

@@ -54,6 +54,16 @@ def main():
     args = parser.parse_args()
     if args.jobs < 1:
         parser.error('--jobs must be at least 1')
+    if args.test and sys.platform.startswith('openbsd'):
+        # Some render tests place large Player state on the stack. OpenBSD's
+        # default 4 MiB soft limit is smaller than the other desktop hosts'.
+        import resource
+        soft, hard = resource.getrlimit(resource.RLIMIT_STACK)
+        needed = 8 * 1024 * 1024
+        if soft < needed:
+            if hard != resource.RLIM_INFINITY and hard < needed:
+                parser.error('OpenBSD tests need an 8 MiB stack limit')
+            resource.setrlimit(resource.RLIMIT_STACK, (needed, hard))
     for tool in ('cmake', 'ninja'):
         if not shutil.which(tool):
             parser.error(tool + ' was not found. Install the build tools listed for your OS in README.md.')

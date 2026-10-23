@@ -29,19 +29,17 @@ void resource_paths(void) {
 #ifdef __APPLE__
     snprintf(ui.logo_path,sizeof ui.logo_path,"%sbranding/logo.png",base);
     snprintf(ui.samples_path,sizeof ui.samples_path,"%ssamples",base);
-    if(ui.studio_style)snprintf(ui.font_path,sizeof ui.font_path,"%sfonts/PxPlus_IBM_VGA_8x16.ttf",base);
-    else snprintf(ui.font_path,sizeof ui.font_path,"%sfonts/LiberationSans-Regular.ttf",base);
+    snprintf(ui.font_path,sizeof ui.font_path,"%sfonts/PxPlus_IBM_VGA_8x16.ttf",base);
 #else
     snprintf(ui.logo_path,sizeof ui.logo_path,"%s../share/libreloop/branding/logo.png",base);
     snprintf(ui.samples_path,sizeof ui.samples_path,"%s../share/libreloop/samples",base);
-    if(ui.studio_style)snprintf(ui.font_path,sizeof ui.font_path,"%s../share/libreloop/fonts/PxPlus_IBM_VGA_8x16.ttf",base);
-    else snprintf(ui.font_path,sizeof ui.font_path,"%s../share/libreloop/fonts/LiberationSans-Regular.ttf",base);
+    snprintf(ui.font_path,sizeof ui.font_path,"%s../share/libreloop/fonts/PxPlus_IBM_VGA_8x16.ttf",base);
 #endif
     if(!host_file_exists(ui.logo_path))snprintf(ui.logo_path,sizeof ui.logo_path,"%s",LIBRELOOP_LOGO);
     if(!host_directory_exists(ui.samples_path) || !host_file_exists(ui.font_path)) {
         snprintf(ui.samples_path,sizeof ui.samples_path,"%s",LIBRELOOP_SAMPLES);
 #ifdef LIBRELOOP_STUDIO_FONT
-        snprintf(ui.font_path,sizeof ui.font_path,"%s",ui.studio_style?LIBRELOOP_STUDIO_FONT:LIBRELOOP_FONT);
+        snprintf(ui.font_path,sizeof ui.font_path,"%s",LIBRELOOP_STUDIO_FONT);
 #else
         snprintf(ui.font_path,sizeof ui.font_path,"%s",LIBRELOOP_FONT);
 #endif
@@ -58,7 +56,7 @@ float *playback_loop(void) { return ui.song?ui.song_loop:ui.pattern_loop[ui.patt
 
 int captured(void) { return ui.dynamics_drag || ui.fx_press || ui.velocity_lane.dragging || (ui.windows.workspace.enabled && ui.windows.workspace.drag>=0) || ui.fm_graph_drag>=0 || ui.row_zoom_drag>=0 || ui.eq_drag>=0 || ui.automation_node>=0 || ui.picker_drag>=0 || ui.navigation_drag>=0 || ui.track_resize>=0 || ui.rack_hdrag || ui.rack_vdrag || ui.piano_key_drag || ui.control_drag || ui.route_drag>=0 || ui.note_drag || ui.velocity_drag>=0 || ui.arrangement.gesture || ui.playlist_pan || ui.browser_resize || ui.rack_paint>=0 || ui.cable_drag>0 || ui.playlist_vpan || ui.mixer_pan || ui.piano_scroll_drag || ui.piano_vdrag || ui.piano_gesture || ui.marker_drag>=0 || ui.pattern_hit_active; }
 
-float ui_scale(void) { if(ui.studio_style)return studio_ui_scale(host_get_screen_width(),host_get_screen_height(),ui.ui_scale_preference);return fmaxf(1,fminf(host_get_screen_width()/(ui.studio_style?1448.f:1200.f),host_get_screen_height()/(ui.studio_style?1086.f:675.f))); }
+float ui_scale(void) { return studio_ui_scale(host_get_screen_width(),host_get_screen_height(),ui.ui_scale_preference); }
 
 float playback_start(void) {
     float start=ui.song?ui.playlist_start*STEPS:ui.piano_start[ui.pattern];
@@ -85,7 +83,7 @@ void draw_editor(int id,float scale) {
     int saved_bus=ui.eq_bus,saved_slot=ui.eq_slot,saved_band=ui.eq_band;
     if(ui.windows.workspace.enabled && id>=5){ui.eq_bus=ui.effect_windows[id].bus;ui.eq_slot=ui.effect_windows[id].slot;ui.eq_band=ui.effect_windows[id].band;}
     ui.knob_context=id;
-    if(id==4 && (!ui.windows.workspace.enabled || ui.windows.workspace.floating[id])) { int voice=ui.studio_style && ui.instrument_voice_page[ui.instrument_channel];e->minh=ui.studio_style?studio_instrument_height(voice,ui.project.instrument[ui.instrument_channel]==INSTRUMENT_FM,ui.project.fm[ui.instrument_channel].engine==1):ui.project.instrument[ui.instrument_channel]==INSTRUMENT_FM?420:sampler_min_height(0); e->rect.h=voice?e->minh:fmaxf(e->minh,e->rect.h); }
+    if(id==4 && (!ui.windows.workspace.enabled || ui.windows.workspace.floating[id])) { int voice=(ui.instrument_voice_page[ui.instrument_channel]);e->minh=(studio_instrument_height(voice,ui.project.instrument[ui.instrument_channel]==INSTRUMENT_FM,ui.project.fm[ui.instrument_channel].engine==1)); e->rect.h=voice?e->minh:fmaxf(e->minh,e->rect.h); }
     Rect r=e->rect,frame=r;int title=windows_title_height(&ui.windows); int top=windows_count(&ui.windows)-1;
     while(top>0 && !ui.windows.editors[ui.windows.order[top]].visible) top--;
     int focused=(ui.windows.editors[ui.windows.focused].visible?ui.windows.focused:ui.windows.order[top])==id;
@@ -93,12 +91,12 @@ void draw_editor(int id,float scale) {
     ui.text_origin=(DrawPoint){r.x*scale,r.y*scale};
     host_begin_mode2_d((HostCamera){.offset=ui.text_origin,.zoom=scale});
     DrawColor body=id==0?ui_theme.rack:id==3?ui_theme.mixer:panel;
-    if(ui.studio_style && !ui.profile_flat)ui_panel(host_draw(),(DrawRect){0,0,r.w,r.h},body);
+    if((!ui.profile_flat))ui_panel(host_draw(),(DrawRect){0,0,r.w,r.h},body);
     else ui_surface(host_draw(),(DrawRect){0,0,r.w,r.h},body);
-    if(ui.studio_style && !ui.profile_flat)ui_titlebar(host_draw(),(DrawRect){0,0,r.w,title},focused);
+    if((!ui.profile_flat))ui_titlebar(host_draw(),(DrawRect){0,0,r.w,title},focused);
     else ui_surface(host_draw(),(DrawRect){0,0,r.w,title},focused?ui_theme.title_focus:ui_theme.title);
-    DrawColor title_ink=ui.studio_style?theme_foreground(focused?ui_theme.title_focus:ui_theme.title):ink;
-    if(ui.studio_style && !ui.profile_flat)for(int slot=0;slot<3;slot++) {
+    DrawColor title_ink=theme_foreground(focused?ui_theme.title_focus:ui_theme.title);
+    if((!ui.profile_flat))for(int slot=0;slot<3;slot++) {
         if(ui.windows.workspace.enabled && id<4)continue;
         if(ui.windows.workspace.enabled && id>=4 && slot!=2)continue;
         DrawRect chrome_rect=ui.windows.workspace.enabled?(DrawRect){r.w-21,3,18,18}:(DrawRect){r.w-54+slot*18,2,16,TITLE-4};
@@ -117,11 +115,11 @@ void draw_editor(int id,float scale) {
         if(page!=(id==1))windows_focus(&ui.windows,page?1:2);
         if(id==2)label(fit_text(host_text_format("%s / %s",ui.project.pattern_names[ui.pattern],ui.project.channel_names[ui.piano_channel]),r.w-260,title_size),252,title_y,title_size,title_ink);
     }
-    else if(id==4 && ui.studio_style){
+    else if(id==4){
         const char *name=channel_instrument_name(&ui.project,ui.instrument_channel),*channel=ui.project.channel_names[ui.instrument_channel];
         label(fit_text(!strcmp(name,channel)?name:host_text_format("%s · %s",name,channel),r.w-48,title_size),8,title_y,title_size,title_ink);
     }
-    else if(id==2 && ui.studio_style)label(fit_text(host_text_format("Pattern · %s / %s",ui.project.pattern_names[ui.pattern],ui.project.channel_names[ui.piano_channel]),r.w-16,title_size),8,title_y,title_size,title_ink);
+    else if(id==2)label(fit_text(host_text_format("Pattern · %s / %s",ui.project.pattern_names[ui.pattern],ui.project.channel_names[ui.piano_channel]),r.w-16,title_size),8,title_y,title_size,title_ink);
     else if(id>=5 && ui.windows.workspace.enabled)label(fit_text(host_text_format("%s · %s / %d",effect_descriptor(ui.project.effect_type[ui.eq_bus][ui.eq_slot])?effect_descriptor(ui.project.effect_type[ui.eq_bus][ui.eq_slot])->name:"Effect",mixer_name(ui.eq_bus),ui.eq_slot+1),r.w-48,title_size),8,title_y,title_size,title_ink);
     else label(host_text_format("%s%s",id==4 && ui.project.instrument[ui.instrument_channel]==INSTRUMENT_FM?"FM Synth":titles[id],e->pinned?" (on top)":""),8,title_y,title_size,title_ink);
     int rack_title_knob=id==0 && ((ui.mouse.x>=r.x+r.w-72-SWING_RADIUS-1 && ui.mouse.x<r.x+r.w-72+SWING_RADIUS+1) || (ui.mouse.x>=r.x+124 && ui.mouse.x<r.x+180));
@@ -141,10 +139,11 @@ void draw_editor(int id,float scale) {
     DrawColor hover_ink=theme_foreground(ui_theme.hover);
     if(!ui.windows.workspace.enabled)host_draw_line_ex((DrawPoint){r.w-49,9},(DrawPoint){r.w-41,9},2,hover_slot==0?hover_ink:ink);
     int mx=r.w-27; DrawColor maximize_ink=hover_slot==1?hover_ink:ink;
-    if(ui.windows.workspace.enabled) {}
-    else if(e->maximized) { host_draw_rectangle_lines(mx-2,4,7,7,maximize_ink); host_draw_rectangle(mx-4,6,7,7,hover_slot==1?ui_theme.hover:cell); host_draw_rectangle_lines(mx-4,6,7,7,maximize_ink); }
-    else host_draw_rectangle_lines(mx-4,5,8,8,maximize_ink);
-    int close_pressed=ui.studio_style && hover_slot==2 && host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT);
+    if(!ui.windows.workspace.enabled) {
+        if(e->maximized) { host_draw_rectangle_lines(mx-2,4,7,7,maximize_ink); host_draw_rectangle(mx-4,6,7,7,hover_slot==1?ui_theme.hover:cell); host_draw_rectangle_lines(mx-4,6,7,7,maximize_ink); }
+        else host_draw_rectangle_lines(mx-4,5,8,8,maximize_ink);
+    }
+    int close_pressed=hover_slot==2 && host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT);
     if(!ui.windows.workspace.enabled || id>=4)symbol("x",r.w-(ui.windows.workspace.enabled?12:9)+close_pressed,title/2+close_pressed,ui.windows.workspace.enabled?ink:hover_slot==2?hover_ink:ink);
     ui.input_enabled=ui.input_enabled && ui.windows.owner==id && ui.windows.grab<0 && !ui.velocity_lane.dragging;
     r=desktop_editor_rect(id);
@@ -161,7 +160,7 @@ void draw_editor(int id,float scale) {
     ui.input_enabled=ui.input_enabled && ui.mouse.y>=TITLE && !(!ui.windows.workspace.enabled && ui.mouse.x>r.w-12 && ui.mouse.y>r.h-12);
     if(ui.midi_take.active && id<=2) ui.input_enabled=0;
     if(id==0) rack(r.w,r.h); else if(id==1) playlist(r.w,r.h,scale); else if(id==2) {
-        if(ui.studio_style) {
+        {
             int content_input=ui.input_enabled;
             ui.input_enabled=content_input && ui.mouse.x<166;
             piano_tool_panel(166,r.h);
@@ -174,12 +173,12 @@ void draw_editor(int id,float scale) {
             host_begin_scissor_mode(r.x*scale,r.y*scale,r.w*scale,r.h*scale);
             ui.text_origin=(DrawPoint){r.x*scale,r.y*scale};
             host_begin_mode2_d((HostCamera){.offset=ui.text_origin,.zoom=scale});
-        } else piano(r.w,r.h);
-    } else if(id==3) mixer(r.w,r.h); else if(id>=5) effect_editor(r.w,r.h); else if(ui.studio_style && ui.instrument_voice_page[ui.instrument_channel])instrument_voice_editor(r.w,r.h); else if(ui.project.instrument[ui.instrument_channel]==INSTRUMENT_FM) fm_editor(r.w,r.h); else sampler(r.w,r.h);
+        }
+    } else if(id==3) mixer(r.w,r.h); else if(id>=5) effect_editor(r.w,r.h); else if(ui.instrument_voice_page[ui.instrument_channel])instrument_voice_editor(r.w,r.h); else if(ui.project.instrument[ui.instrument_channel]==INSTRUMENT_FM) fm_editor(r.w,r.h); else sampler(r.w,r.h);
     ui.mouse=global;
     r=frame;ui.text_origin=(DrawPoint){r.x*scale,r.y*scale};
     host_begin_mode2_d((HostCamera){.offset=ui.text_origin,.zoom=scale});
-    if(ui.studio_style && !ui.profile_flat) {
+    if(!ui.profile_flat) {
         draw_border(host_draw(),(DrawRect){0,0,r.w,r.h},1,ui_theme.border);
     }
     if(!ui.windows.workspace.enabled)host_draw_line(r.w-9,r.h-2,r.w-2,r.h-9,muted);
@@ -193,7 +192,7 @@ void navigate_editors(float scale) {
         .browser_focus=ui.browser_focus,.last={ui.navigation_last.x,ui.navigation_last.y},
         .track_scroll=ui.track_scroll,.track_zoom=ui.track_zoom,.piano_zoom=ui.piano_zoom,
         .piano_remainder=ui.piano_scroll_remainder,.piano_top=ui.piano_top,
-        .rack_enabled=ui.studio_style,.rack_count=0,.rack_scroll=ui.rack_scroll+ui.rack_scroll_remainder};
+        .rack_enabled=1,.rack_count=0,.rack_scroll=ui.rack_scroll+ui.rack_scroll_remainder};
     memcpy(state.track_heights,ui.track_heights,sizeof ui.track_heights);
     memcpy(state.piano_span,ui.piano_span,sizeof ui.piano_span);
     memcpy(state.piano_pan,ui.piano_pan,sizeof ui.piano_pan);

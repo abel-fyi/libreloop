@@ -17,7 +17,7 @@ int host_is_mouse_button_down(int button){return button==HOST_MOUSE_BUTTON_LEFT 
 #include "../src/ui/frontend/ui_widgets.c"
 #define CHECK(x) do{if(!(x)){fprintf(stderr,"%d: %s\n",__LINE__,#x);return 1;}}while(0)
 int main(void) {
-    ui.studio_style=1;
+
     ui.font_scale=1;ui.icon_large=28;ui.icon_medium=20;ui.icon_small=16;
     for(int size=20;size<=42;size+=2) {
         icon_in_button(ICON_PLAY,(DrawRect){2,3,size,size},(DrawColor){255,255,255,255});

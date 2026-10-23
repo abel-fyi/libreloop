@@ -52,11 +52,12 @@ int main(void) {
     original.eq[3][2].bands[6].shape=EQ_HIGH_CUT; original.effect_mix[3][2]=.375f;
     CHECK(automation_create(&original,(ParameterTarget){PARAM_FM_ATTACK_DEPTH,0,0},"Strike",16)>=0);
     original.midi_binding_count=1; original.midi_bindings[0]=(MidiBinding){2,10,{PARAM_CHANNEL_VOLUME,0,0}};
-    original.automations[AUTOMATIONS-1].points[AUTOMATION_POINTS-1]=(AutomationPoint){FLT_TRUE_MIN,FLT_MAX};
+    float smallest=nextafterf(0.0f,1.0f);
+    original.automations[AUTOMATIONS-1].points[AUTOMATION_POINTS-1]=(AutomationPoint){smallest,FLT_MAX};
     CHECK(project_save(path,&original)); char *saved=read_file(); CHECK(saved);
     CHECK(strstr(saved,"LIBRELOOP_PROJECT 1\n") && strstr(saved,"bpm f32 1\n") && strlen(saved)<200000);
     CHECK(project_load(path,&loaded) && project_equal(&original,&loaded));
-    CHECK(loaded.automations[AUTOMATIONS-1].points[AUTOMATION_POINTS-1].step==FLT_TRUE_MIN);
+    CHECK(loaded.automations[AUTOMATIONS-1].points[AUTOMATION_POINTS-1].step==smallest);
     CHECK(loaded.automations[AUTOMATIONS-1].points[AUTOMATION_POINTS-1].value==FLT_MAX);
     /* Same musical state yields the same samples, including effects and FM engines. */
     Sample samples[CHANNELS]={0}; Player *a=calloc(1,sizeof *a),*b=calloc(1,sizeof *b); CHECK(a && b);

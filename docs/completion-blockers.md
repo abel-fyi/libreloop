@@ -1,5 +1,8 @@
 # Completion audit and external blockers
 
+> Historical design record. The preview and legacy layout flags described below
+> were removed; launch and smoke now use the single current desktop layout.
+
 The complete user objective is not achieved. This audit preserves the shipping,
 feel, visual and platform requirements; it does not redefine success as the
 current developer build or passing component tests.

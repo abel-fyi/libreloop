@@ -36,7 +36,7 @@ DrawContext *host_draw(void){return NULL;}
 #include "../src/ui/frontend/ui_mixer.c"
 #define CHECK(x) do{if(!(x)){fprintf(stderr,"Failed line %d: %s\n",__LINE__,#x);return 1;}}while(0)
 int main(void) {
-    ui.studio_style=1;
+
     MixerView full=mixer_view_rows(1200,456,8,0,0,0);studio_mixer_scale(full);
     CHECK(scale_count==8);
     const int expected[]={6,0,-6,-12,-24,-36,-48,-60};

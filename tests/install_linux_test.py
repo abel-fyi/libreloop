@@ -30,7 +30,7 @@ with tempfile.TemporaryDirectory(prefix='libreloop-linux-install-') as temporary
     env = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_RENDER_DRIVER='software',
                XDG_CONFIG_HOME=str(root / 'config'))
     env.pop('LD_LIBRARY_PATH', None)
-    subprocess.run([str(moved / 'bin/libreloop'), '--smoke', '--visual-preview'],
+    subprocess.run([str(moved / 'bin/libreloop'), '--smoke'],
                    cwd=working, env=env, check=True, timeout=60)
     assert (working / 'libreloop-smoke.llp').stat().st_size > 0
     for name in ('libreloop-smoke.png', 'libreloop-view-1.png',

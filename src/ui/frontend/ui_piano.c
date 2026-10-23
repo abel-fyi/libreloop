@@ -3,7 +3,6 @@
 #include "rack.h"
 
 void desktop_velocity_resize(void) {
-    if(!ui.studio_style)return;
     Rect r=desktop_piano_rect();float top=r.y+r.h-22-desktop_velocity_height();
     int over=ui.windows.editors[2].visible && windows_hit(&ui.windows,ui.mouse.x,ui.mouse.y)==2 &&
         ui.mouse.x>=r.x+4 && ui.mouse.x<r.x+r.w-24 && fabsf(ui.mouse.y-(top-5))<=4;
@@ -142,8 +141,6 @@ void piano(float width,float height) {
     float extent=ui.piano_span[ui.pattern];
     Rect r=desktop_piano_rect(); float scale=ui_scale();
     const char *tips[]={"Pencil: draw one note; drag note bodies to move; edges to resize","Brush: drag to paint notes on the visible grid","Select: drag a rectangle; drag selected notes together; Shift adds; Delete deletes"};
-    if(!ui.studio_style)for(int i=0;i<3;i++) if(tool_button(i,ui.piano_tool,8+i*24,tips[i])) ui.piano_tool=i;
-    if(!ui.studio_style)label(fit_text(host_text_format("%s / %s",ui.project.channel_names[channel],ui.project.pattern_names[ui.pattern]),width-158,12),88,30,12,muted);
     if(ui.windows.workspace.enabled) {
         for(int i=0;i<3;i++)if(tool_button(i,ui.piano_tool,8+i*24,tips[i]))ui.piano_tool=i;
         grid_selector(2,88,26,110,22);
@@ -182,19 +179,16 @@ void piano(float width,float height) {
         int active=ui.keyboard_notes[channel][pitch] || ui.playing_keys[channel][pitch] || (ui.piano_key==pitch && ui.piano_key_channel==channel);
         DrawColor base=black?ui_theme.piano_black:pitch%12==0?ui_theme.piano_c:ui_theme.piano_white;
         host_draw_rectangle_rec(key,active?accent:base);
-        if(ui.studio_style && !ui.profile_flat && !active && key.height>3) {
+        if((!ui.profile_flat) && !active && key.height>3) {
             if(!black)ui_gradient(host_draw(),key,base,.12f,1);
             host_draw_line_ex((DrawPoint){key.x+1,key.y+1},(DrawPoint){key.x+key.width-1,key.y+1},1,black?(DrawColor){67,80,90,255}:(DrawColor){232,237,240,255});
             host_draw_line_ex((DrawPoint){key.x+key.width-1,key.y+1},(DrawPoint){key.x+key.width-1,key.y+key.height-1},1,black?(DrawColor){0,0,0,255}:(DrawColor){111,124,133,255});
         }
         if(!active && hovered_key==pitch) host_draw_rectangle_rec(key,host_fade(accent,.22f));
         if(!black) host_draw_line_ex((DrawPoint){key.x,key.y+key.height},(DrawPoint){key.x+key.width,key.y+key.height},1,host_fade(ui_theme.piano_black,.15f));
-        if(!ui.studio_style && pitch%12==0) {
-            const char *name=host_text_format("C%d",pitch/12-1);
-            label(name,gx-5-text_width(name,10),fmaxf(gy,fminf(gy+rh*piano_visible_rows()-10,gy+(row+.5f)*rh-5)),10,active?ui_theme.selected_text:ui_theme.piano_black);
-        }
+
     }
-    if(ui.studio_style)for(int pitch=0;pitch<=120;pitch+=12) {
+    for(int pitch=0;pitch<=120;pitch+=12) {
         DrawRect key=piano_key_rect(pitch,rh);
         float top=fmaxf(gy,key.y),bottom=fminf(gy+rh*piano_visible_rows(),key.y+key.height);
         if(bottom-top>1) {
@@ -212,7 +206,7 @@ void piano(float width,float height) {
         if(pitch>=0 && pitch<=127 && (ui.keyboard_notes[channel][pitch] || ui.playing_keys[channel][pitch] ||
            (ui.piano_key==pitch && ui.piano_key_channel==channel)))
             host_draw_rectangle_rec((DrawRect){gx,y,gridw,rh},host_fade(accent,.15f));
-        host_draw_line_ex((DrawPoint){gx,y},(DrawPoint){gx+gridw,y},1,host_fade(ui_theme.grid_minor,ui.studio_style?1:.45f));
+        host_draw_line_ex((DrawPoint){gx,y},(DrawPoint){gx+gridw,y},1,host_fade(ui_theme.grid_minor,(1)));
         if(partial>end) { float left=fmaxf(gx,gx+(end-view)*cw),right=fminf(gx+gridw,gx+(partial-view)*cw); if(right>left) host_draw_rectangle_rec((DrawRect){left,y,right-left,rh-1},ui_theme.disabled); }
         if(pc==0) host_draw_line_ex((DrawPoint){gx,y+rh},(DrawPoint){gx+gridw,y+rh},1,ui_theme.grid_major);
     }
@@ -237,7 +231,7 @@ void piano(float width,float height) {
         float inset=fminf(1,rh*.15f),note_height=rh-2*inset;
         if(ui.note_selected[ui.pattern][channel][i]) host_draw_rectangle_lines_ex((DrawRect){left,y,right-left,rh},fminf(1,rh*.25f),ink);
         int selected=n==ui.note_drag || ui.note_selected[ui.pattern][channel][i];
-        DrawColor note_color=ui.studio_style?ui_note_velocity_color(n->velocity,selected):selected?ui_theme.note_drag:ui_theme.note;
+        DrawColor note_color=(ui_note_velocity_color(n->velocity,selected));
         host_draw_rectangle_rec((DrawRect){left+1,y+inset,fmaxf(1,right-left-2),note_height},note_color);
         host_draw_rectangle_lines_ex((DrawRect){left+1,y+inset,fmaxf(1,right-left-2),note_height},fminf(1,rh*.25f),host_fade(ui_theme.signal,.45f));
         int edge=grid_over && !(ui.windows.workspace.enabled && ui.pattern_hits[channel]) && !shortcut_down() && hover(x+w-7,y,7,rh);
@@ -277,13 +271,13 @@ void piano(float width,float height) {
 
     host_begin_scissor_mode(r.x*scale,r.y*scale,r.w*scale,r.h*scale);
     float vh=desktop_velocity_height(),vs=velocity_lane_scale(vh),vy=height-22-vh;
-    if(ui.studio_style){
+    {
         ui_divider_grip(host_draw(),(DrawRect){4,vy-9,width-28,8},0,ui.velocity_lane.dragging || hover(4,vy-9,width-28,8));
     }
     if(vh>0) {
-    label(ui.studio_style?"VEL":"Velocity",6,vy+4,10,muted);
+    label(("VEL"),6,vy+4,10,muted);
     host_begin_scissor_mode((r.x+gx)*scale,(r.y+vy)*scale,gridw*scale,vh*scale);
-    host_draw_rectangle(gx,vy,gridw,vh,ui.studio_style?ui_skin.graph:ui_theme.piano_row[0]);
+    host_draw_rectangle(gx,vy,gridw,vh,(ui_skin.graph));
     for(int line=1;line<5;line++) host_draw_line(gx,vy+line*vh/5,gx+gridw,vy+line*vh/5,host_fade(ui_theme.grid_minor,.6f));
     timeline_grid_choice(ui.piano_grid,view,extent,gx,vy,gridw,vh);
     if(partial>end) { float left=fmaxf(gx,gx+(end-view)*cw),right=fminf(gx+gridw,gx+(partial-view)*cw); if(right>left) host_draw_rectangle(left,vy,right-left,vh,ui_theme.disabled); }
@@ -292,9 +286,9 @@ void piano(float width,float height) {
         float x=gx+(n.start-view)*cw;
         if(x<gx-10 || x>gx+gridw) continue;
         float top=vy+vh-n.velocity*vs;
-        DrawColor color=ui.studio_style?ui_note_velocity_color(n.velocity,ui.note_selected[ui.pattern][channel][i]):ui.note_selected[ui.pattern][channel][i]?ui_theme.note_drag:ui_theme.note;
+        DrawColor color=(ui_note_velocity_color(n.velocity,ui.note_selected[ui.pattern][channel][i]));
         host_draw_rectangle_rec((DrawRect){x,top,2,n.velocity*vs},color);
-        circle(x+1,top,2.5f,color); circle(x+1,top,1.25f,ui.studio_style?ui_skin.graph:ui_theme.piano_row[0]);
+        circle(x+1,top,2.5f,color); circle(x+1,top,1.25f,(ui_skin.graph));
     }
     if(hover(gx,vy,gridw,vh)) {
         snprintf(ui.status,sizeof ui.status,"Velocity: left-drag paints; right-drag draws a straight ramp");
@@ -314,8 +308,7 @@ void piano(float width,float height) {
     host_begin_scissor_mode(r.x*scale,r.y*scale,r.w*scale,r.h*scale);
     }
     float rail_top=gy-14,varea=rh*piano_visible_rows()+14,vthumb=varea*fminf(128,piano_visible_rows())/128,vypos=rail_top+(127-ui.piano_top)/128.f*varea;
-    if(ui.studio_style)ui_scrollbar(host_draw(),(DrawRect){width-4-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_top,EDITOR_SCROLLBAR,varea},(DrawRect){width-4-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,vypos,EDITOR_SCROLLBAR,vthumb},ui.piano_vdrag || hover(width-4-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_top,EDITOR_SCROLLBAR,varea));
-    else { host_draw_rectangle_rec((DrawRect){width-4-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_top,EDITOR_SCROLLBAR,varea},bg); ui_surface(host_draw(),(DrawRect){width-4-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,vypos,EDITOR_SCROLLBAR,vthumb},ui.piano_vdrag || hover(width-4-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_top,EDITOR_SCROLLBAR,varea)?accent:muted); }
+    ui_scrollbar(host_draw(),(DrawRect){width-4-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_top,EDITOR_SCROLLBAR,varea},(DrawRect){width-4-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,vypos,EDITOR_SCROLLBAR,vthumb},ui.piano_vdrag || hover(width-4-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_top,EDITOR_SCROLLBAR,varea));
     if(hover(width-4-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_top,EDITOR_SCROLLBAR,varea)) {
         snprintf(ui.status,sizeof ui.status,"Drag to scroll higher or lower pitches");
         if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)) {
@@ -324,8 +317,7 @@ void piano(float width,float height) {
         }
     }
     float rail_width=width-4-EDITOR_CORNER-gx,thumb=timeline_thumb(rail_width,extent,ui.piano_range[ui.pattern]),travel=rail_width-thumb,maximum=ui.piano_range[ui.pattern]-extent,x=gx+(maximum>0?fmaxf(0,ui.piano_pan[ui.pattern])/maximum*travel:0);
-    if(ui.studio_style)ui_scrollbar(host_draw(),(DrawRect){gx,gy-14-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_width,EDITOR_SCROLLBAR},(DrawRect){x,gy-14-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,thumb,EDITOR_SCROLLBAR},ui.piano_scroll_drag || hover(gx,gy-14-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_width,EDITOR_SCROLLBAR));
-    else { host_draw_rectangle_rec((DrawRect){gx,gy-14-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_width,EDITOR_SCROLLBAR},bg); ui_surface(host_draw(),(DrawRect){x,gy-14-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,thumb,EDITOR_SCROLLBAR},ui.piano_scroll_drag || hover(gx,gy-14-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_width,EDITOR_SCROLLBAR)?accent:muted); }
+    ui_scrollbar(host_draw(),(DrawRect){gx,gy-14-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_width,EDITOR_SCROLLBAR},(DrawRect){x,gy-14-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,thumb,EDITOR_SCROLLBAR},ui.piano_scroll_drag || hover(gx,gy-14-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_width,EDITOR_SCROLLBAR));
     if(hover(gx,gy-14-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_width,EDITOR_SCROLLBAR)) {
         snprintf(ui.status,sizeof ui.status,"Drag to pan the zoomed Piano Roll; wheel over notes to zoom; the timeline grows as you navigate");
         if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)) {

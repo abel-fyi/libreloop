@@ -1,5 +1,8 @@
 # Docked workspace and mixer effect slots
 
+> Historical design record. The preview and legacy layout flags described below
+> were removed; launch and smoke now use the single current desktop layout.
+
 This is the user's approved move from startup-only tiling to persistent workspace
 regions. It applies to the default/studio UI, including `--visual-preview`.
 `--legacy-ui` keeps the reference floating-window behavior.

@@ -2,7 +2,7 @@
 #include "ui_internal.h"
 
 DrawColor source_rgb(uint32_t rgb) {
-    if(ui.studio_style)for(int i=0;i<COLOR_COUNT;i++)if(rgb==pattern_palette[i])return ui_source_palette_color(i);
+    for(int i=0;i<COLOR_COUNT;i++)if(rgb==pattern_palette[i])return ui_source_palette_color(i);
     DrawColor color={rgb>>16,(rgb>>8)&255,rgb&255,255};
     DrawHSV hsv=host_color_to_h_s_v(color);
     /* Keep source identity soft, including colors saved in existing projects. */

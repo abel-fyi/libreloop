@@ -83,7 +83,7 @@ enum { KNOB_NORMAL,KNOB_SWING,KNOB_PAN,KNOB_WIDTH,KNOB_CENTER,KNOB_VOLUME,KNOB_L
 
 typedef struct {
     char samples_path[LL_PATH_CAPACITY],font_path[LL_PATH_CAPACITY],logo_path[LL_PATH_CAPACITY];
-    int studio_style,profile_flat;
+    int profile_flat;
     Rect picker_bounds;
     unsigned pending_clicks[8],frame_clicks[8];
     int requested_cursor,current_cursor;
@@ -291,19 +291,19 @@ static inline int pattern_channel_at(float x,float y) {
    Caption and channel-sidebar offsets translate that content as a unit. */
 static inline Rect desktop_piano_rect(void) {
     Rect r=desktop_editor_rect(2);
-    if(ui.studio_style){r.x+=166;r.w-=166;if(!ui.windows.workspace.enabled){r.y-=34;r.h+=34;}}
+    r.x+=166;r.w-=166;
     return r;
 }
 void piano_tool_panel(float width,float height);
 void pattern_hit_update(float step);
-static inline int playlist_grid_x(void){return ui.studio_style?148:212;}
-static inline int playlist_grid_top(void){return ui.studio_style?74:PLAYLIST_GRID_TOP;}
-static inline int playlist_header_x(void){return ui.studio_style?4:120;}
-static inline float picker_width(void){return ui.studio_style?ui.picker_bounds.w-8:112;}
-static inline int picker_bottom(void){return ui.studio_style?28:66;}
+static inline int playlist_grid_x(void){return 148;}
+static inline int playlist_grid_top(void){return 74;}
+static inline int playlist_header_x(void){return 4;}
+static inline float picker_width(void){return ui.picker_bounds.w-8;}
+static inline int picker_bottom(void){return 28;}
 static inline int desktop_picker_hit(float x,float y) {
     Rect r=ui.picker_bounds;
-    return ui.studio_style && !ui.browser_hidden && x>=r.x && x<r.x+r.w && y>=r.y+57 && y<r.y+r.h;
+    return !ui.browser_hidden && x>=r.x && x<r.x+r.w && y>=r.y+57 && y<r.y+r.h;
 }
 static inline int desktop_window_hit(float x,float y){return desktop_picker_hit(x,y)?1:windows_hit(&ui.windows,x,y);}
 void playlist_picker(Rect rect,float height);
@@ -322,11 +322,8 @@ static inline MixerView desktop_mixer_view(float width,float height) {
     if(ui.windows.workspace.enabled && ui.windows.workspace.mixer_fx_rows>=0 && rows>ui.windows.workspace.mixer_fx_rows)rows=ui.windows.workspace.mixer_fx_rows;
     return mixer_view_rows(width,height,ui.project.insert_count,ui.mixer_offset,ui.mixer_fx_hidden,rows);
 }
-static inline int mixer_strip_width(void){
-    if(!ui.studio_style)return 51;
-    return MIXER_STRIDE;
-}
-static inline float mixer_route_y(float height){return height-(ui.studio_style?37:46);}
+static inline int mixer_strip_width(void){return MIXER_STRIDE;}
+static inline float mixer_route_y(float height){return height-37;}
 
 int shortcut_down(void);
 int command_down(void);
@@ -353,8 +350,8 @@ float desktop_rack_step_width(void);
 int desktop_rack_channels(int *rows);
 int desktop_rack_channel_at(int row);
 /* Default studio content: 276px pane + 34px toolbar translation - 180px padding. */
-static inline float desktop_piano_reference_area(void) { return ui.studio_style?130.f:0.f; }
-static inline float desktop_velocity_height(void) { return ui.studio_style?(ui.velocity_lane.collapsed?0:velocity_lane_height(ui.velocity_lane.height,desktop_piano_rect().h)):62; }
+static inline float desktop_piano_reference_area(void) { return 130.f; }
+static inline float desktop_velocity_height(void) { return ui.velocity_lane.collapsed?0:velocity_lane_height(ui.velocity_lane.height,desktop_piano_rect().h); }
 static inline Rect desktop_piano_grid_rect(void) { Rect r=desktop_piano_rect();r.h-=desktop_velocity_height()-62;return r; }
 
 void desktop_velocity_resize(void);
@@ -553,7 +550,6 @@ float eq_y(float gain,DrawRect r);
 void eq_editor(float width,float height);
 float meter_height(float level);
 void meter_draw(int id,int x,int top,int bottom,int bar_width);
-void selected_meter(float height);
 void mixer(float width,float height);
 void delete_pattern(int target);
 void draw_context_content(void);

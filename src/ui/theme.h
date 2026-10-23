@@ -19,7 +19,6 @@ extern DesktopSkin ui_skin;
 void theme_init(void);
 void theme_studio(void);
 /* Review preview only: original geometry/font/behavior and legacy default stay. */
-void theme_visual_preview(void);
 DrawColor theme_foreground(DrawColor background);
 enum { UI_SOURCE_COLORS=8 };
 DrawColor ui_source_palette_color(int index);

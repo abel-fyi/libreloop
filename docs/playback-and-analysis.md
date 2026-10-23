@@ -81,7 +81,7 @@ The development render profiler also reports complete frame p50/p99 times and
 fresh Master/EQ analysis updates per second. For example:
 
 ```sh
-./build-linux/libreloop --smoke --visual-preview --smoke-scene 11 \
+./build-linux/libreloop --smoke --smoke-scene 11 \
   --smoke-playing --render-profile 200
 ```
 

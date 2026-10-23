@@ -20,7 +20,7 @@ int main(int argc,char **argv) {
     SDL_Surface *surface=SDL_CreateSurface((int)(1200*density),(int)(675*density),SDL_PIXELFORMAT_RGBA32);
     SDL_Renderer *native=surface?SDL_CreateSoftwareRenderer(surface):NULL;if(!native)return 2;
     DrawContext *draw=draw_create(native);UIRender *render=ui_render_create(draw,argv[1]);if(!render)return 2;
-    theme_init();theme_visual_preview();project_new(&project);project.pattern_steps[0]=128;
+    theme_init();theme_studio();project_new(&project);project.pattern_steps[0]=128;
     for(int i=0;i<NOTES;i++)project.notes[0][0][i]=(Note){48+i%24,40+i%88,(float)i,.5f+(i%4)*.5f};
     Windows windows;windows_init(&windows,1200,675);windows_focus(&windows,2);Rect rect=windows.editors[2].rect;
     Note before[NOTES]={0},velocity_before[NOTES]={0};uint8_t selected[NOTES]={0},selection_before[NOTES]={0};

@@ -1,4 +1,7 @@
 > Current direction: the user selected **2.png alone**, authorizing a close
+
+> Historical design record. The preview and legacy layout flags described below
+> were removed; launch and smoke now use the single current desktop layout.
 > replication of its classic gray DAW layout with LibreLoop's existing features.
 > The earlier blend and geometry-preserving preview described below are historical.
 > See [the current layout record](phase-3-layout-proposal.md).

@@ -57,7 +57,7 @@ int main(void) {
     Windows expected=ui.windows;FILE *f=fopen("workspace-prefs/workspace.txt","w");CHECK(f);
     fputs("1 nan .5 168 334 4\n",f);fclose(f);workspace_load();CHECK(!memcmp(&expected,&ui.windows,sizeof expected));
     remove("workspace-prefs/workspace.txt");
-    float aw=0,pw=0;ui.studio_style=1;ui.arrangement.zoom=1;
+    float aw=0,pw=0;ui.arrangement.zoom=1;
     for(int i=0;i<PATTERNS;i++)ui.piano_span[i]=64;
     workspace_view_scale(&aw,&pw);float old_a=aw*ui.arrangement.zoom,old_p=pw/ui.piano_span[0];
     studio_workspace_layout(&ui.windows,1600,1200,238);workspace_view_scale(&aw,&pw);

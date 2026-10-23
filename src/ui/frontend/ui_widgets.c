@@ -6,12 +6,12 @@
 
 void fonts_update(float scale) {
     if(ui.font_scale==scale) return;
-    if(ui.studio_style){text_fonts_large_captions(host_fonts());text_fonts_pixel_sampling(host_fonts());text_fonts_em_metrics(host_fonts());}
+    {text_fonts_large_captions(host_fonts());text_fonts_pixel_sampling(host_fonts());text_fonts_em_metrics(host_fonts());}
     ui.font_scale=scale; icons_init(scale); text_fonts_update(host_fonts(),ui.font_path,scale);
 }
 
 static int caption_size(int size) {
-    if(!ui.studio_style)return size;
+    (void)size;
     return UI_TEXT_SIZE;
 }
 int text_width(const char *text,int size) {
@@ -55,13 +55,13 @@ void circle(float x,float y,float radius,DrawColor color) {
 
 void icons_init(float scale) {
     UIIcons icons={0}; if(ui.icons.id)host_unload_texture(ui.icons);
-    if(!(ui.studio_style?icons_build_classic(host_draw(),scale,&icons):icons_build(host_draw(),scale,&icons))){ui.icons=(HostTexture){0};return;}
-    ui.icons=(HostTexture){icons.texture,(ui.studio_style?ICON_CLASSIC_COUNT:ICON_COUNT)*icons.large,icons.large+icons.medium+icons.small};
+    if(!((icons_build_classic(host_draw(),scale,&icons)))){ui.icons=(HostTexture){0};return;}
+    ui.icons=(HostTexture){icons.texture,((ICON_CLASSIC_COUNT))*icons.large,icons.large+icons.medium+icons.small};
     ui.icon_large=icons.large;ui.icon_medium=icons.medium;ui.icon_small=icons.small;
 }
 
 static void paint_icon(int id,float x,float y,int variant,float size,DrawColor color) {
-    if(ui.studio_style)color=(DrawColor){255,255,255,color.a};
+    color=(DrawColor){255,255,255,color.a};
     int pixels=variant==2?ui.icon_small:variant==1?ui.icon_medium:ui.icon_large;
     if(size<=0)size=pixels/ui.font_scale;
     float left=raster_position(x-size/2,ui.text_origin.x),top=raster_position(y-size/2,ui.text_origin.y);
@@ -206,17 +206,16 @@ static int button_color_state(const char *text,int x,int y,int w,int h,int activ
     int pressed=enabled && (active || (over && host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT)));
     /* Desktop push buttons retain their neutral face on hover. Selection is
        sunken; only menu choices use the selection fill. Hit bounds unchanged. */
-    if(ui.studio_style && menu_item<0)surface=enabled && active?ui_theme.highlight:base;
-    int list_row=ui.studio_style &&
-        ((!memcmp(&base,&ui_theme.browser,sizeof base)) || (!memcmp(&base,&ui_skin.field,sizeof base)));
-    if(ui.studio_style && !ui.profile_flat && menu_item<0 && !list_row) {
+    if((menu_item<0))surface=enabled && active?ui_theme.highlight:base;
+    int list_row=(((!memcmp(&base,&ui_theme.browser,sizeof base)) || (!memcmp(&base,&ui_skin.field,sizeof base))));
+    if((!ui.profile_flat) && menu_item<0 && !list_row) {
         ui_button_face(host_draw(),(DrawRect){x,y,w,h},surface,pressed);
     } else ui_surface(host_draw(),(DrawRect){x,y,w,h},surface);
-    DrawColor foreground=(menu_item>=0?focused:active || highlighted)?theme_foreground(surface):ui.studio_style?theme_foreground(surface):ink;
+    DrawColor foreground=theme_foreground(surface);
     if(!enabled)foreground=ui_theme.secondary;
-    int offset=ui.studio_style && menu_item<0 && pressed?1:0;
-    int action=ui.studio_style && !list_row?icon_action(text):-1;
-    if(ui.studio_style && menu_item>=0 && w>=56) {
+    int offset=(menu_item<0) && pressed?1:0;
+    int action=(!list_row)?icon_action(text):-1;
+    if((menu_item>=0) && w>=56) {
         /* Every menu row shares one icon gutter, including rows without icons. */
         if(action>=0)icon(action,x+12,y+h/2,16,foreground);
         const char *caption=fit_text(!strncmp(text,"+ ",2)?text+2:text,w-44,UI_TEXT_SIZE);
@@ -231,7 +230,7 @@ static int button_color_state(const char *text,int x,int y,int w,int h,int activ
     else if(action>=0)icon_button_state(action,(DrawRect){x,y,w,h},foreground,active,enabled);
     else if(w>52 || !symbol(text,x+w/2+offset,y+h/2+offset,foreground)) {
         int available=w-(w<=72?8:16);
-        int size=ui.studio_style?UI_TEXT_SIZE:text_button_size(host_fonts(),text,available,h);
+        int size=(UI_TEXT_SIZE);
         const char *caption=fit_text(text,available,size);
         label(caption,x+((w<=72 || !strcmp(text,"+"))?(w-text_width(caption,size))/2:8)+offset,y+(h-size)/2+offset,size,foreground);
     }
@@ -242,7 +241,7 @@ static int button_color_state(const char *text,int x,int y,int w,int h,int activ
 /* One shared frame, two explicit choices; clicking the current choice is inert. */
 int segmented_switch(const char *first,const char *second,DrawRect r,int selected,int enabled,DrawColor selection) {
     selected=!!selected;
-    if(ui.studio_style && !ui.profile_flat)ui_button_face(host_draw(),r,cell,0);
+    if((!ui.profile_flat))ui_button_face(host_draw(),r,cell,0);
     else {ui_surface(host_draw(),r,cell);draw_border(host_draw(),r,1,ui_theme.border);}
     float half=r.width/2;
     ui_surface(host_draw(),(DrawRect){r.x+selected*half+1,r.y+1,half-2,r.height-2},selection);
@@ -269,7 +268,6 @@ int button(const char *text,int x,int y,int w,int h,int active) {
 }
 
 int choice_button(const char *text,int x,int y,int w,int h) {
-    if(!ui.studio_style)return button(text,x,y,w,h,0);
     int clicked=button("",x,y,w,h,0);
     int pressed=hover(x,y,w,h) && host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT);
     ui_choice_face(host_draw(),(DrawRect){x,y,w,h},pressed);
@@ -286,10 +284,10 @@ int drag_button(const char *text,int x,int y,int w,int h,int active) {
 }
 
 int color_picker(int x,int y,int width,uint32_t selected) {
-    int columns=ui.studio_style?UI_SOURCE_COLORS/2:COLOR_HUES;
-    int swatches=ui.studio_style?UI_SOURCE_COLORS:COLOR_COUNT;
+    int columns=UI_SOURCE_COLORS/2;
+    int swatches=UI_SOURCE_COLORS;
     int chosen=-1,spacing=width/columns,selected_index=-1;
-    if(ui.studio_style)for(int i=0;i<COLOR_COUNT;i++)if(selected==pattern_palette[i])selected_index=i%UI_SOURCE_COLORS;
+    for(int i=0;i<COLOR_COUNT;i++)if(selected==pattern_palette[i])selected_index=i%UI_SOURCE_COLORS;
     int hover_index=-1;
     for(int i=0;i<swatches;i++)
         if(hover(x+(i%columns)*spacing,y+(i/columns)*28,spacing-4,24)) hover_index=i;
@@ -298,7 +296,7 @@ int color_picker(int x,int y,int width,uint32_t selected) {
         DrawRect swatch={x+(i%columns)*spacing,y+(i/columns)*28,spacing-4,24};
         int over=hover(swatch.x,swatch.y,swatch.width,swatch.height);
         ui_surface(host_draw(),swatch,color);
-        if(hover_index>=0?i==hover_index:(ui.studio_style?i==selected_index:selected==rgb)) host_draw_rectangle_lines_ex((DrawRect){swatch.x+2,swatch.y+2,swatch.width-4,swatch.height-4},2,clip_foreground(color));
+        if(hover_index>=0?i==hover_index:((i==selected_index))) host_draw_rectangle_lines_ex((DrawRect){swatch.x+2,swatch.y+2,swatch.width-4,swatch.height-4},2,clip_foreground(color));
         if(over) { host_set_mouse_cursor(HOST_MOUSE_CURSOR_POINTING_HAND); snprintf(ui.status,sizeof ui.status,"Choose color #%06X",rgb); if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)) chosen=i; }
     }
     return chosen;
@@ -307,7 +305,7 @@ int color_picker(int x,int y,int width,uint32_t selected) {
 int picker_button(int y,DrawColor color,int selected) {
     int over=hover(4,y,picker_width(),50);
     if(over) host_set_mouse_cursor(HOST_MOUSE_CURSOR_POINTING_HAND);
-    if(ui.studio_style && !ui.profile_flat)ui_gradient(host_draw(),(DrawRect){4,y,picker_width(),50},color,.45f,0);
+    if((!ui.profile_flat))ui_gradient(host_draw(),(DrawRect){4,y,picker_width(),50},color,.45f,0);
     else ui_surface(host_draw(),(DrawRect){4,y,picker_width(),50},color);
     if(over || selected) host_draw_rectangle_lines_ex((DrawRect){4,y,picker_width(),50},2,WHITE);
     return over && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT);
@@ -333,11 +331,11 @@ void mute_light(float x,float y,uint8_t *states,int count,int selected,const cha
     DrawColor color=enabled?(state&2?ui_theme.meter_mid:ui_theme.signal):cell;
     if(enabled && !(state&2) && !over)
         color=host_color_alpha_blend(cell,host_fade(color,.48f),WHITE);
-    if(ui.studio_style) {
+    {
         ui_surface(host_draw(),(DrawRect){x-7,y-7,14,14},color);
         if(!ui.profile_flat)host_draw_rectangle_lines(x-7,y-7,14,14,over?ink:ui_theme.border);
         icon(state&2?ICON_SOLO:ICON_SPEAKER,x,y,16,enabled?WHITE:host_fade(WHITE,.5f));
-    } else { circle(x,y,6,over?ink:state&2?ui_theme.meter_mid:ui_theme.border); circle(x,y,5,color); }
+    }
     if(over) {
         snprintf(ui.status,sizeof ui.status,"%s: %s | Left-click: mute/unmute; right-click: %s",name,state&1?"Muted":state&2?"Solo":solo?"Silenced by solo":"Enabled",states==ui.project.lane_mute?"add/remove solo":"automation / solo menu");
         if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)) { states[selected]^=1; ui.input_enabled=0; }
@@ -393,7 +391,7 @@ int editor_button(int id,int x) {
         if(ui.windows.editors[other].visible && ui.windows.editors[other].pinned==ui.windows.editors[id].pinned) { front=other==id; break; }
     }
     StudioToolbar toolbar=studio_toolbar_layout(host_get_screen_width()/ui_scale());
-    int y=ui.studio_style?toolbar.editors[0].y:8,h=ui.studio_style?toolbar.editors[0].h:22,w=h;
+    int y=(toolbar.editors[0].y),h=(toolbar.editors[0].h),w=h;
     int clicked=button("",x,y,w,h,0);
     if(clicked) { if(ui.windows.workspace.enabled) {windows_focus(&ui.windows,id);}else if(front) ui.windows.editors[id].visible=0; else windows_focus(&ui.windows,id); }
     icon(id,x+w/2,y+h/2,20,ink);
@@ -412,7 +410,7 @@ int preset_directory(char *out,size_t capacity,int kind) {
     char root[LL_PATH_CAPACITY];
     if(snprintf(root,sizeof root,"%.*s/presets",(int)(slash-ui.browser.config),ui.browser.config)>=(int)sizeof root || host_make_directory(root)) return 0;
     const char *device=kind==PRESET_PHASER?"Phaser":kind==PRESET_FLANGER?"Flanger":kind==PRESET_DYNAMICS?"Multiband Compressor":kind==PRESET_REVERB?"Reverb":kind==PRESET_TUBE?"Tube":kind==PRESET_DELAY?"Delay":kind==PRESET_FM?"FM Synth":kind==PRESET_EQ?"Equalizer":kind==PRESET_CHORUS?"Chorus":"Sampler";
-    if(kind==PRESET_FM && ui.studio_style && ui.preset_owner>=0 && ui.preset_owner<ui.project.channel_count && ui.project.instrument[ui.preset_owner]==INSTRUMENT_FM)
+    if((kind==PRESET_FM) && ui.preset_owner>=0 && ui.preset_owner<ui.project.channel_count && ui.project.instrument[ui.preset_owner]==INSTRUMENT_FM)
         device=channel_instrument_name(&ui.project,ui.preset_owner);
     if(snprintf(out,capacity,"%s/%s",root,device)>=(int)capacity || host_make_directory(out)) return 0;
     if(kind==PRESET_PHASER)for(unsigned i=0;i<3;i++){char factory[LL_PATH_CAPACITY];if(snprintf(factory,sizeof factory,"%s/%s.llpreset",out,phaser_factory_name(i))<(int)sizeof factory && !host_file_exists(factory)){DevicePreset preset={.kind=PRESET_PHASER,.phaser=phaser_factory(i),.mix=.5f};preset_save(factory,&preset);}}
@@ -425,10 +423,10 @@ int preset_directory(char *out,size_t capacity,int kind) {
         }
     }
     int synth_engine=ui.project.fm[ui.preset_owner>=0 && ui.preset_owner<ui.project.channel_count?ui.preset_owner:0].engine;
-    if(kind==PRESET_FM) for(int i=0;i<(ui.studio_style?fm_family_factory_count(synth_engine):FM_FACTORY_COUNT);i++) {
+    if(kind==PRESET_FM) for(int i=0;i<((fm_family_factory_count(synth_engine)));i++) {
         char factory[LL_PATH_CAPACITY];
-        if(snprintf(factory,sizeof factory,"%s/%s.llpreset",out,ui.studio_style?fm_family_factory_name(synth_engine,i):fm_factory_name(i))<(int)sizeof factory && !host_file_exists(factory)) {
-            DevicePreset preset={.kind=PRESET_FM,.fm=ui.studio_style?fm_family_factory(synth_engine,i):fm_factory(i)}; preset_save(factory,&preset);
+        if(snprintf(factory,sizeof factory,"%s/%s.llpreset",out,(fm_family_factory_name(synth_engine,i)))<(int)sizeof factory && !host_file_exists(factory)) {
+            DevicePreset preset={.kind=PRESET_FM,.fm=(fm_family_factory(synth_engine,i))}; preset_save(factory,&preset);
         }
     }
     return 1;
@@ -481,7 +479,7 @@ void knob_sized(int x,int y,float *value,float low,float high,float initial,cons
     int centered=style==KNOB_PAN || style==KNOB_WIDTH || style==KNOB_CENTER;
     float origin=centered?PI/2:style==KNOB_SWING?2.4f:style==KNOB_VOLUME?PI/2:-PI/2;
     float angle=origin+fraction*(style==KNOB_SWING?4.6f:2*PI);
-    if(ui.studio_style && !ui.profile_flat) {
+    if((!ui.profile_flat)) {
         ui_knob_face(host_draw(),x,y,radius,angle,over || ui.control_drag==value);
         if(style==KNOB_VOLUME) {
             float unity=origin+.75f*2*PI;
@@ -525,7 +523,7 @@ void knob(int x,int y,float *value,float low,float high,float initial,const char
 }
 
 void label_key(const char *text,DrawRect bounds,DrawColor color) {
-    int maximum=ui.studio_style?UI_TEXT_SIZE:12;
+    int maximum=(UI_TEXT_SIZE);
     DrawFont *font=text_font(host_fonts(),text,maximum);FontPoint p;float size;
     if(font_fit_ink(draw_font_layout(font),text,(GlyphRect){bounds.x,bounds.y,bounds.width,bounds.height},maximum,&p,&size))
         host_draw_text_ex(font,text,(DrawPoint){p.x,p.y},size,0,color);
@@ -533,15 +531,9 @@ void label_key(const char *text,DrawRect bounds,DrawColor color) {
 
 void grid_selector(int id,int x,int y,int width,int height) {
     int choice=id==1?ui.playlist_grid:ui.piano_grid;
-    if(ui.studio_style) {
+    {
         if(choice_button(grid_choice_name(choice),x,y,width,height))
             open_context(24,id,(DrawPoint){ui.mouse.x+desktop_editor_rect(id).x,ui.mouse.y+desktop_editor_rect(id).y});
-    } else {
-        if(button("",x,y,width,height,0))
-            open_context(24,id,(DrawPoint){ui.mouse.x+desktop_editor_rect(id).x,ui.mouse.y+desktop_editor_rect(id).y});
-        label(fit_text(grid_choice_name(choice),width-26,10),x+6,y+(height-12)/2,10,ink);
-        float arrow=x+width-11,mid=y+height/2;
-        host_draw_triangle((DrawPoint){arrow-3,mid-2},(DrawPoint){arrow,mid+2},(DrawPoint){arrow+3,mid-2},ink);
     }
     if(hover(x,y,width,height))snprintf(ui.status,sizeof ui.status,"Grid / snap: %s | choose Auto, a fixed division, or None",grid_choice_name(choice));
 }

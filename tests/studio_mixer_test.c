@@ -11,7 +11,7 @@ int host_check_collision_point_rec(DrawPoint p,DrawRect r) {
 int main(void) {
     project_new(&ui.project);ui.project.insert_count=INSERTS; /* Exercise high scrolled bus IDs. */
     ui.windows.editors[3].visible=1;
-    ui.studio_style=1;ui.mixer_scroll=37;
+    ui.mixer_scroll=37;
     ui.windows.editors[3].rect=(Rect){244,854,1200,208};
     ui.windows.workspace.enabled=1;
     ui.mixer_offset=37*112+0.5f;
@@ -30,11 +30,6 @@ int main(void) {
     CHECK(ui.project.insert_output[37]==44);
     ui.windows.editors[3].visible=0;
     CHECK(mixer_input_at(insert)==-1);
-    ui.windows.editors[3].visible=1;ui.windows.workspace.enabled=0;
-    ui.studio_style=0;ui.mixer_scroll=11;
-    ui.windows.editors[3].rect=(Rect){180,351,720,300};
-    CHECK(mixer_input_at((DrawPoint){306,611})==12);
-    CHECK(mixer_input_at((DrawPoint){714,611})==-1);
-    puts("Classic and legacy routing target margins and scrolled bus IDs passed.");
+    puts("Current mixer routing target margins and scrolled bus IDs passed.");
     return 0;
 }

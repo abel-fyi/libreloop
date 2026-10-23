@@ -14,7 +14,7 @@ with tempfile.TemporaryDirectory(prefix="libreloop-studio-sizes-") as root:
     for width, height in ((900, 562), (1200, 800), (1448, 1086)):
         directory = Path(root) / f"{width}x{height}"
         directory.mkdir()
-        subprocess.run([exe, "--smoke", "--visual-preview", "--smoke-size", f"{width}x{height}"],
+        subprocess.run([exe, "--smoke", "--smoke-size", f"{width}x{height}"],
                        cwd=directory, env=env, check=True, timeout=30)
         for name in ("libreloop-smoke.png", "libreloop-view-1.png", "libreloop-view-2.png", "libreloop-view-3.png"):
             data = (directory / name).read_bytes()

@@ -58,7 +58,7 @@ cmake --build build-windows --target benchmark_engine libreloop --parallel 2
 Push-Location build-windows
 .\benchmark_engine.exe fm_8 5 512
 .\benchmark_engine.exe fm_32 5 512
-.\libreloop.exe --smoke --visual-preview --smoke-new-project --render-profile 180
+.\libreloop.exe --smoke --smoke-new-project --render-profile 180
 Pop-Location
 ```
 

@@ -12,8 +12,7 @@ int host_is_mouse_button_down(int button){return button==HOST_MOUSE_BUTTON_LEFT 
 int main(void) {
     project_new(&ui.project);windows_init(&ui.windows,1448,1086);studio_workspace_init(&ui.windows,1448,1086,238);
     int saved_count=ui.project.insert_count;float saved_width=ui.windows.editors[3].rect.w;
-    CHECK(mixer_strip_width()==51);
-    ui.studio_style=1;
+
     for(int width=652;width<=1800;width+=37)for(int count=1;count<=INSERTS;count++) {
         ui.windows.editors[3].rect.w=width;ui.project.insert_count=count;
         MixerView view=mixer_view(width,360,count,0,0);
@@ -21,7 +20,7 @@ int main(void) {
         CHECK(view.maximum==fmaxf(0,count*112-view.viewport));
 
     }
-    ui.windows.editors[3].rect.w=saved_width;ui.project.insert_count=saved_count;ui.studio_style=0;
+    ui.windows.editors[3].rect.w=saved_width;ui.project.insert_count=saved_count;
     EffectChainList chain=effect_chain_list(&ui.project,1);CHECK(chain.count==0 && chain.add_slot==0);
     for(int slot=0;slot<STUDIO_FX_SLOTS;slot++) {
         ui.project.effect_type[2][slot]=EFFECT_CHORUS;chain=effect_chain_list(&ui.project,2);
@@ -59,7 +58,7 @@ int main(void) {
     windows_focus(&ui.windows,1);CHECK(ui.windows.focused==1 && ui.windows.order[WINDOW_CAPACITY-1]==a);
     mixer_effect_open(1,2,1);CHECK(!ui.windows.editors[b].visible && ui.windows.editors[a].visible && ui.windows.editors[c].visible);
     mixer_effect_open(1,2,1);CHECK(mixer_effect_window(1,2)>=5);
-    ui.studio_style=1;ui.windows.workspace.mixer_fx_rows=3;
+    ui.windows.workspace.mixer_fx_rows=3;
     Rect root=desktop_editor_rect(3);MixerView view=desktop_mixer_view(root.w,root.h);
     ui.midi_learn_target=(ParameterTarget){PARAM_CHORUS_RATE,1,1};ui.automation_target=(ParameterTarget){PARAM_EFFECT_MIX,1,3};
     ui.fx_press=1;ui.fx_slot=1;ui.fx_bus=1;ui.fx_press_point=(DrawPoint){root.x+view.insert_x+50,root.y+view.fx_top+33};

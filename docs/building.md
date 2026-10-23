@@ -59,6 +59,16 @@ files. If XScreenSaver support is unavailable, `-DSDL_X11_XSCRNSAVER=OFF`
 disables it in a manual CMake build. Audio uses miniaudio's host backends;
 MIDI currently uses ALSA.
 
+## OpenBSD dependencies
+
+Install CMake, Ninja, Python 3 and SDL3 with
+`doas pkg_add cmake ninja python%3 sdl3`, then run
+`python3 tools/build.py --system-sdl`. Audio uses miniaudio's OpenBSD backends;
+MIDI input reads raw `/dev/rmidi*` devices accessible to the user. The installed
+application is `stage/bin/libreloop`.
+The build helper raises OpenBSD's default stack limit to 8 MiB when running
+tests. For manual `ctest` runs, use `ulimit -s 8192` first.
+
 ## Requirements
 
 - A C11 compiler and CMake 3.20 or newer, plus the build tool CMake selects.
@@ -152,7 +162,7 @@ cmake --install build-windows --prefix stage-windows
 The staged layout uses `bin/` and `share/libreloop/`, including bundled assets
 and licenses. Move the entire folder together. An installed shared SDL SDK
 also installs its SDL DLL beside the executable. CMake performs no downloads.
-MSVC and BSD builds are not validated reference configurations.
+MSVC and other BSD builds are not validated reference configurations.
 See [Windows performance measurements](windows-performance.md) for the local
 audio/rendering baseline, measured optimization and profiling commands.
 

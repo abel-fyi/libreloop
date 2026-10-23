@@ -1,4 +1,7 @@
 > Subsequent user-directed changes: the current single-strip toolbar and updated
+
+> Historical design record. The preview and legacy layout flags described below
+> were removed; launch and smoke now use the single current desktop layout.
 > workspace geometry are documented in [colorful-console-review.md](colorful-console-review.md).
 > This earlier layout record remains historical; its 98-unit workspace top is superseded by 60.
 

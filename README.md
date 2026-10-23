@@ -1,11 +1,14 @@
 # LibreLoop
 
 LibreLoop is a free, open-source digital audio workstation for **Windows,
-macOS and Linux**. It has built-in instruments and effects, a piano roll,
+macOS, Linux and OpenBSD**. It has built-in instruments and effects, a piano roll,
 an arrangement timeline, audio and MIDI recording, and a mixer.
 
 It is written in C11 using SDL3 and miniaudio. It is still being developed,
 so expect rough edges.
+
+LibreLoop has one desktop layout. A normal launch and `--smoke` use the same UI.
+The retired `--legacy-ui` and `--visual-preview` options are rejected.
 
 ## Build and run
 
@@ -53,20 +56,32 @@ brew install cmake ninja python
 </details>
 
 <details>
-<summary><strong>Linux: Ubuntu / Debian</strong></summary>
+<summary><strong>Linux</strong></summary>
 
-Open a terminal and run:
+Use your distribution's package manager to install the development packages
+that provide:
+
+- A C11 compiler, CMake 3.20 or newer, Ninja, Python 3 and pkg-config.
+- ALSA development headers (used for MIDI).
+- X11 development headers for Xlib, Xext, Xrandr, Xcursor, Xfixes, Xi,
+  XScreenSaver and Xtst.
+- Wayland client and protocol headers, xkbcommon and libdecor headers.
+- EGL and OpenGL development files, plus udev development headers.
+
+Package names vary between distributions. These are build-time dependencies;
+the build helper downloads the pinned SDL source on the first build. For
+backend details and manual build options, see the [Linux build notes](docs/building.md#linux-dependencies).
+
+</details>
+
+<details>
+<summary><strong>OpenBSD</strong></summary>
+
+Install CMake, Ninja, Python 3 and SDL3:
 
 ```sh
-sudo apt update
-sudo apt install build-essential cmake ninja-build python3 pkg-config \
-  libasound2-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev \
-  libxfixes-dev libxi-dev libxss-dev libxtst-dev libxkbcommon-dev \
-  libwayland-dev wayland-protocols libdecor-0-dev libegl1-mesa-dev \
-  libgl1-mesa-dev libudev-dev
+doas pkg_add cmake ninja python%3 sdl3
 ```
-
-For Gentoo and other distributions, see the [Linux build notes](docs/building.md#linux-dependencies).
 
 </details>
 
@@ -98,8 +113,15 @@ On **macOS or Linux**, run:
 python3 tools/build.py
 ```
 
-The first build downloads SDL and checks its checksum before using it. Later
-builds reuse it. Building can take a while on a slow computer.
+On **OpenBSD**, run:
+
+```sh
+python3 tools/build.py --system-sdl
+```
+
+On Windows, macOS and Linux, the first build downloads SDL and checks its
+checksum before using it. Later builds reuse it. OpenBSD uses the installed
+SDL3 package. Building can take a while on a slow computer.
 
 ### 4. Open LibreLoop
 
@@ -108,6 +130,7 @@ builds reuse it. Building can take a while on a slow computer.
 | Windows | `./stage-windows/bin/libreloop.exe` |
 | macOS | `open stage/LibreLoop.app` |
 | Linux | `./stage/bin/libreloop` |
+| OpenBSD | `./stage/bin/libreloop` |
 
 On Windows, you can also double-click `libreloop.exe` inside `stage-windows/bin`.
 Keep the whole `stage-windows` folder together; `share` contains the app's fonts,

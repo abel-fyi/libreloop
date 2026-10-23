@@ -28,7 +28,7 @@ with tempfile.TemporaryDirectory(prefix='libreloop-windows-install-') as tempora
     # Exclude build tool directories so missing runtime DLLs cannot be hidden.
     env = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_RENDER_DRIVER='software',
                APPDATA=str(root / 'config'), PATH=str(Path(os.environ['SystemRoot']) / 'System32'))
-    subprocess.run([str(moved / 'bin/libreloop.exe'), '--smoke', '--visual-preview'],
+    subprocess.run([str(moved / 'bin/libreloop.exe'), '--smoke'],
                    cwd=working, env=env, check=True, timeout=60)
     assert (working / 'libreloop-smoke.llp').stat().st_size > 0
     for name in ('libreloop-smoke.png', 'libreloop-view-1.png',

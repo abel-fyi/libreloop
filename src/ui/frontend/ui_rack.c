@@ -5,7 +5,7 @@
 
 static RackState desktop_rack_state(void) {
     return (RackState){ui.pattern,ui.rack_filter,ui.rack_scroll,ui.rack_paint,ui.rack_paint_channel,
-        ui.rack_view[ui.pattern],ui.rack_paint_step,ui.piano_channels[ui.pattern],ui.studio_style?ui.rack_step_width[ui.pattern]:0};
+        ui.rack_view[ui.pattern],ui.rack_paint_step,ui.piano_channels[ui.pattern],(ui.rack_step_width[ui.pattern])};
 }
 float desktop_rack_step_width(void){RackState state=desktop_rack_state();return rack_step_width(&state);}
 int desktop_rack_channels(int *rows){RackState state=desktop_rack_state();return rack_channels(&state,&ui.project,rows);}
@@ -20,7 +20,7 @@ void channel_route(int c,int x,int y) {
 }
 
 void channel_controls(int c,float width) {
-    if(ui.studio_style && button(ui.instrument_voice_page[c]?"Sound":"Voice",12,52,110,22,ui.instrument_voice_page[c])){
+    if((button(ui.instrument_voice_page[c]?"Sound":"Voice",12,52,110,22,ui.instrument_voice_page[c]))){
         ui.instrument_voice_page[c]^=1;
         ui.windows.editors[4].rect.h=studio_instrument_height(ui.instrument_voice_page[c],ui.project.instrument[c]==INSTRUMENT_FM,ui.project.fm[c].engine==1);
     }
@@ -74,7 +74,6 @@ void rack(float width,float height) {
     ui.rack_range[ui.pattern]=fmaxf(ui.rack_range[ui.pattern],fmaxf(view+span*2,ui.project.pattern_steps[ui.pattern]+span));
     timeline_ruler(0,view,span,200,TITLE,gridw,1);
     int visible=fmaxf(1,(height-RACK_TOP-48)/28),rows[CHANNELS],count=desktop_rack_channels(rows);
-    if(!ui.studio_style && hover(0,RACK_TOP,width,height-RACK_TOP-18)) ui.rack_scroll-=host_get_mouse_wheel_move();
     ui.rack_scroll=fmaxf(0,fminf(fmaxf(0,count-visible),ui.rack_scroll));
     for(int index=ui.rack_scroll;index<count && index<ui.rack_scroll+visible;index++) {
         int c=rows[index],row=RACK_TOP+(index-ui.rack_scroll)*28;
@@ -153,7 +152,7 @@ void rack(float width,float height) {
             }
         }
     }
-    if(ui.studio_style) {
+    {
         if(button("-",106,height-22,24,18,0))rack_zoom(&ui.rack_step_width[ui.pattern],&ui.rack_view[ui.pattern],gridw,-2,.5f);
         if(button("+",132,height-22,24,18,0))rack_zoom(&ui.rack_step_width[ui.pattern],&ui.rack_view[ui.pattern],gridw,2,.5f);
         if(button(host_text_format("%.0f%%",stepw/16*100),158,height-22,38,18,0)) {

@@ -151,15 +151,15 @@ void draw_browser_drag(void) {
 }
 
 int tool_button(int tool,int active,int x,const char *tip) {
-    int y=ui.studio_style && ui.knob_context==2 && !ui.windows.workspace.enabled?48:28;
+    int y=(ui.knob_context==2) && !ui.windows.workspace.enabled?48:28;
     int over=hover(x,y,20,20);
     if(over) host_set_mouse_cursor(HOST_MOUSE_CURSOR_POINTING_HAND);
     DrawColor surface=active==tool?accent:over?ui_theme.hover:cell;
     DrawColor c=active==tool || over?theme_foreground(surface):ink;
     ui_surface(host_draw(),(DrawRect){x,y,20,20},surface);
     int pressed=active==tool || (over && host_is_mouse_button_down(HOST_MOUSE_BUTTON_LEFT));
-    if(ui.studio_style && !ui.profile_flat)ui_button_face(host_draw(),(DrawRect){x,y,20,20},active==tool?ui_theme.highlight:cell,pressed);
-    icon(tool==PENCIL?ICON_PENCIL:tool==BRUSH?ICON_BRUSH:tool==CUT?ICON_CUT:tool==STRETCH?ICON_STRETCH:ICON_SELECT,x+10+(ui.studio_style && pressed),y+10+(ui.studio_style && pressed),20,c);
+    if((!ui.profile_flat))ui_button_face(host_draw(),(DrawRect){x,y,20,20},active==tool?ui_theme.highlight:cell,pressed);
+    icon(tool==PENCIL?ICON_PENCIL:tool==BRUSH?ICON_BRUSH:tool==CUT?ICON_CUT:tool==STRETCH?ICON_STRETCH:ICON_SELECT,x+10+((pressed)),y+10+((pressed)),20,c);
     if(over) snprintf(ui.status,sizeof ui.status,"%s",tip);
     return over && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT);
 }
@@ -175,18 +175,18 @@ void row_zoom_button(int id,float width,float top) {
     int over=hover(x,top,EDITOR_CORNER,EDITOR_CORNER),active=over || ui.row_zoom_drag==id;
     DrawColor surface=ui.row_zoom_drag==id?(over?ui_theme.active_hover:accent):over?ui_theme.hover:cell;
     ui_surface(host_draw(),(DrawRect){x,top,EDITOR_CORNER,EDITOR_CORNER},surface);
-    if(ui.studio_style && !ui.profile_flat)ui_button_face(host_draw(),(DrawRect){x,top,EDITOR_CORNER,EDITOR_CORNER},surface,ui.row_zoom_drag==id);
+    if((!ui.profile_flat))ui_button_face(host_draw(),(DrawRect){x,top,EDITOR_CORNER,EDITOR_CORNER},surface,ui.row_zoom_drag==id);
     if(over && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)) {
         ui.row_zoom_drag=id; ui.row_zoom_y=ui.mouse.y+(id==2?desktop_piano_rect().y:desktop_editor_rect(id).y);
         ui.row_zoom_start=id==1?ui.track_zoom:ui.piano_zoom; ui.row_zoom_anchor=track_at(ui.track_scroll); ui.input_enabled=0;
     }
-    if(ui.studio_style && id==1 && over && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)) {
+    if((id==1) && over && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)) {
         float anchor=track_at(ui.track_scroll);
         memset(ui.track_heights,0,sizeof ui.track_heights);ui.track_zoom=1;
         ui.track_scroll=track_position(anchor);ui.row_zoom_drag=-1;ui.input_enabled=0;
     }
     icon(ICON_ROW_ZOOM,x+EDITOR_CORNER/2,top+EDITOR_CORNER/2,16,active?theme_foreground(surface):muted);
-    if(active) { host_set_mouse_cursor(HOST_MOUSE_CURSOR_RESIZE_NS); snprintf(ui.status,sizeof ui.status,ui.studio_style?"Vertical zoom: drag up for taller %s, down to show more%s":"Vertical zoom: drag up for taller %s, down to show more",id==1?"tracks":"notes",id==1?"; right-click resets all track heights":""); }
+    if(active) { host_set_mouse_cursor(HOST_MOUSE_CURSOR_RESIZE_NS); snprintf(ui.status,sizeof ui.status,("Vertical zoom: drag up for taller %s, down to show more%s"),id==1?"tracks":"notes",id==1?"; right-click resets all track heights":""); }
 }
 
 static RulerState desktop_ruler_state(void) {
@@ -228,7 +228,7 @@ void timeline_ruler(int id,float start,float span,float gx,float y,float width,f
         if(step>=0 && x>=gx && x<gx+width) {
             const char *number=host_text_format("%.0f",step/STEPS+1);
             int major=fmodf(step,STEPS*4)==0,size=major?11:10;
-            if(x+3+text_width(number,size)<=gx+width) label(number,x+3,y+1,size,ui.studio_style?(major?(DrawColor){222,233,231,255}:(DrawColor){162,179,178,255}):major?ink:muted);
+            if(x+3+text_width(number,size)<=gx+width) label(number,x+3,y+1,size,major?(DrawColor){222,233,231,255}:(DrawColor){162,179,178,255});
         }
     }
     if(hover(gx,y,width,14)) {
@@ -334,8 +334,8 @@ void playlist(float width,float height,float scale) {
         if(pos-track_position(lane)<3 && lane>0) divider=lane-1;
         else if(track_position(lane+1)-pos<3) divider=lane;
         if(divider>=0) {
-            host_set_mouse_cursor(HOST_MOUSE_CURSOR_RESIZE_NS); snprintf(ui.status,sizeof ui.status,ui.studio_style?"Drag divider to resize Track %d; right-click to reset height":"Drag divider to resize Track %d",divider+1);
-            if(ui.studio_style && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)) {ui.track_heights[divider]=0;ui.track_resize=-1;ui.input_enabled=0;}
+            host_set_mouse_cursor(HOST_MOUSE_CURSOR_RESIZE_NS); snprintf(ui.status,sizeof ui.status,("Drag divider to resize Track %d; right-click to reset height"),divider+1);
+            if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_RIGHT)) {ui.track_heights[divider]=0;ui.track_resize=-1;ui.input_enabled=0;}
             if(host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)) { ui.track_resize=divider; ui.track_resize_y=ui.mouse.y+rect.y; ui.track_resize_height=track_height(divider); ui.input_enabled=0; }
         }
     }
@@ -348,33 +348,31 @@ void playlist(float width,float height,float scale) {
     const char *tips[]={"Pencil: place one clip or drag a clip to move it","Brush: drag to paint copies of the last clicked clip","Select: drag a rectangle, then drag the selected clips together","Cut: click to split a clip at the snap position","Stretch: drag an audio edge; uses the sampler Resample/Stretch mode"};
     for(int i=0;i<5;i++) if(tool_button(i,ui.arrangement.tool,8+i*24,tips[i])) ui.arrangement.tool=i;
 
-    if(ui.studio_style)grid_selector(1,136,24,124,20);
-    if(ui.studio_style) {
+    grid_selector(1,136,24,124,20);
+    {
         ui_bevel(host_draw(),(DrawRect){playlist_header_x()+3,50,gx-playlist_header_x()-16,21},1);
         for(int i=0;i<3;i++)host_draw_line(gx-35,55+i*3,gx-22,55+i*3,muted);
     }
-    label("Tracks",playlist_header_x()+8,ui.studio_style?53:63,12,muted);
-    if(!ui.studio_style)playlist_picker(rect,height);
+    label("Tracks",playlist_header_x()+8,(53),12,muted);
     timeline_ruler(1,ui.arrangement.view_start*STEPS,span*STEPS,gx,gy-14,gridw,ui.arrangement.snap);
     for(int l=fmaxf(0,track_at(ui.track_scroll));l<LANES;l++) {
         float y=gy+track_position(l)-ui.track_scroll,rowh=track_height(l);
         if(y>=height-PLAYLIST_BOTTOM) break;
         host_begin_scissor_mode(rect.x*scale,(rect.y+gy)*scale,gx*scale,track_area*scale);
         host_draw_rectangle_rec((DrawRect){hx,y,gx-hx-2,rowh-1},cell);
-        if(ui.studio_style){
+        {
             ui_panel(host_draw(),(DrawRect){hx,y,gx-hx-2,rowh-1},cell);
             host_draw_line(hx+1,y+1,gx-3,y+1,(DrawColor){180,185,189,255});
             host_draw_line(hx,y+rowh-1,gx-2,y+rowh-1,ui_theme.border);
             host_draw_line(hx,y,hx,y+rowh-1,ui_theme.border);
         }
-        label(fit_text(ui.project.track_names[l],gx-hx-(ui.studio_style?56:22),12),hx+8,y+fmaxf(1,(rowh-12)/2),12,ink);
+        label(fit_text(ui.project.track_names[l],gx-hx-((56)),12),hx+8,y+fmaxf(1,(rowh-12)/2),12,ink);
         float brightness=fmaxf(ui.track_active_ui[l]?.32f:0,ui.track_flash[l]);
         DrawRect activity={gx-9,y+1,8,rowh-2};
         host_draw_rectangle_rec(activity,ui_theme.track);
         if(brightness>.005f) host_draw_rectangle_rec(activity,host_fade(WHITE,brightness));
         if(ui.selected_track==l) host_draw_rectangle_lines_ex(activity,1,accent);
-        if(ui.studio_style)mute_solo_buttons(gx-48,y+rowh-23,ui.project.lane_mute,LANES,l,host_text_format("Playlist track %d",l+1));
-        else mute_light(gx-18,y+rowh-10,ui.project.lane_mute,LANES,l,host_text_format("Playlist track %d",l+1));
+        mute_solo_buttons(gx-48,y+rowh-23,ui.project.lane_mute,LANES,l,host_text_format("Playlist track %d",l+1));
         host_begin_scissor_mode((rect.x+gx)*scale,(rect.y+gy)*scale,gridw*scale,track_area*scale);
         host_draw_rectangle_rec((DrawRect){gx,y,gridw,rowh},ui_theme.track);
         timeline_grid_choice(ui.playlist_grid,ui.arrangement.view_start*STEPS,span*STEPS,gx,y,gridw,rowh-1);
@@ -384,7 +382,7 @@ void playlist(float width,float height,float scale) {
             float left=fmaxf(gx,x),right=fminf(gx+gridw,x+w);
             DrawRect bounds={left,y,fmaxf(1,right-left),rowh-1};
             float top=fmaxf(gy,y),bottom=fminf(height-PLAYLIST_BOTTOM,y+rowh-1);
-            if(ui.studio_style && !ui.profile_flat) {
+            if((!ui.profile_flat)) {
                 ui_gradient(host_draw(),bounds,source_color(pat),.45f,0);
                 host_draw_line(left+1,y+1,right-1,y+1,host_fade(WHITE,.40f));
             } else host_draw_rectangle_rec(bounds,source_color(pat));
@@ -568,16 +566,14 @@ void playlist(float width,float height,float scale) {
     if(ui.playing && ui.song) { float x=gx+(ui.visual_step/STEPS-ui.arrangement.view_start)*barw; if(x>=gx && x<=gx+gridw) host_draw_line_ex((DrawPoint){x,gy},(DrawPoint){x,height-PLAYLIST_BOTTOM},1.5f,ui_theme.signal); }
     float rail_top=gy-14,rail_height=track_area+14;
     float vthumb=timeline_thumb(rail_height,track_area,total_height),travel_y=rail_height-vthumb,maximum_y=fmaxf(0,total_height-track_area),vy=rail_top+(maximum_y>0?ui.track_scroll/maximum_y*travel_y:0);
-    if(ui.studio_style)ui_scrollbar(host_draw(),(DrawRect){width-4-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_top,EDITOR_SCROLLBAR,rail_height},(DrawRect){width-4-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,vy,EDITOR_SCROLLBAR,fmaxf(12,vthumb)},ui.playlist_vpan || hover(width-4-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_top,EDITOR_SCROLLBAR,rail_height));
-    else { host_draw_rectangle_rec((DrawRect){width-4-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_top,EDITOR_SCROLLBAR,rail_height},bg); ui_surface(host_draw(),(DrawRect){width-4-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,vy,EDITOR_SCROLLBAR,fmaxf(12,vthumb)},ui.playlist_vpan || hover(width-4-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_top,EDITOR_SCROLLBAR,rail_height)?accent:muted); }
+    ui_scrollbar(host_draw(),(DrawRect){width-4-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_top,EDITOR_SCROLLBAR,rail_height},(DrawRect){width-4-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,vy,EDITOR_SCROLLBAR,fmaxf(12,vthumb)},ui.playlist_vpan || hover(width-4-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_top,EDITOR_SCROLLBAR,rail_height));
     if(hover(width-4-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_top,EDITOR_SCROLLBAR,rail_height)) snprintf(ui.status,sizeof ui.status,"Drag to scroll through the 100 Playlist tracks");
     if(hover(width-4-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_top,EDITOR_SCROLLBAR,rail_height) && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)) {
         if(ui.mouse.y<vy || ui.mouse.y>vy+vthumb) ui.track_scroll=fmaxf(0,fminf(maximum_y,(ui.mouse.y-rail_top-vthumb/2)/fmaxf(1,travel_y)*maximum_y));
         ui.playlist_vpan=1; ui.playlist_vpan_y=ui.mouse.y+rect.y; ui.playlist_vpan_start=ui.track_scroll;
     }
     float rail_width=width-4-EDITOR_CORNER-gx,thumbw=timeline_thumb(rail_width,span,ui.arrangement.range),travel=rail_width-thumbw,maximum=ui.arrangement.range-span,thumbx=gx+(maximum>0?fmaxf(0,ui.arrangement.view_start)/maximum*travel:0);
-    if(ui.studio_style)ui_scrollbar(host_draw(),(DrawRect){gx,gy-14-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_width,EDITOR_SCROLLBAR},(DrawRect){thumbx,gy-14-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,thumbw,EDITOR_SCROLLBAR},ui.playlist_pan || hover(gx,gy-14-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_width,EDITOR_SCROLLBAR));
-    else { host_draw_rectangle_rec((DrawRect){gx,gy-14-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_width,EDITOR_SCROLLBAR},bg); ui_surface(host_draw(),(DrawRect){thumbx,gy-14-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,thumbw,EDITOR_SCROLLBAR},ui.playlist_pan || hover(gx,gy-14-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_width,EDITOR_SCROLLBAR)?accent:muted); }
+    ui_scrollbar(host_draw(),(DrawRect){gx,gy-14-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_width,EDITOR_SCROLLBAR},(DrawRect){thumbx,gy-14-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,thumbw,EDITOR_SCROLLBAR},ui.playlist_pan || hover(gx,gy-14-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_width,EDITOR_SCROLLBAR));
     if(hover(gx,gy-14-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_width,EDITOR_SCROLLBAR)) snprintf(ui.status,sizeof ui.status,"Drag to scroll along the Playlist timeline");
     if(hover(gx,gy-14-(EDITOR_CORNER+EDITOR_SCROLLBAR)/2,rail_width,EDITOR_SCROLLBAR) && host_is_mouse_button_pressed(HOST_MOUSE_BUTTON_LEFT)) {
         if(ui.mouse.x<thumbx || ui.mouse.x>thumbx+thumbw) ui.arrangement.view_start=fmaxf(0,fminf(maximum,(ui.mouse.x-gx-thumbw/2)/fmaxf(1,travel)*maximum));
@@ -592,9 +588,9 @@ void playlist_picker(Rect rect,float height) {
     const char *picker_names[]={"Patterns","Audio clips","Automation"};
     const int picker_icons[]={ICON_PIANO,ICON_WAVE,ICON_AUTOMATION};
     for(int t=0;t<3;t++) {
-        if(button("",4+t*(ui.studio_style?(picker_width()+2)/3:38),57,ui.studio_style?(picker_width()+2)/3-2:36,23,ui.picker_tab==t)) { ui.picker_tab=t; ui.picker_scroll=0; ui.picker_drag=-1; if(t==0) { ui.arrangement.source_pattern=ui.pattern; ui.arrangement.source_steps=ui.project.pattern_steps[ui.pattern]; ui.arrangement.source_offset=0; } }
-        icon(picker_icons[t],ui.studio_style?4+(t+.5f)*(picker_width()+2)/3:22+t*38,68,18,ui.picker_tab==t?ui_theme.selected_text:ink);
-        if(hover(4+t*(ui.studio_style?(picker_width()+2)/3:38),57,ui.studio_style?(picker_width()+2)/3-2:36,23)) snprintf(ui.status,sizeof ui.status,"%s%s",picker_names[t],"");
+        if(button("",4+t*(picker_width()+2)/3,57,(picker_width()+2)/3-2,23,ui.picker_tab==t)) { ui.picker_tab=t; ui.picker_scroll=0; ui.picker_drag=-1; if(t==0) { ui.arrangement.source_pattern=ui.pattern; ui.arrangement.source_steps=ui.project.pattern_steps[ui.pattern]; ui.arrangement.source_offset=0; } }
+        icon(picker_icons[t],4+(t+.5f)*(picker_width()+2)/3,68,18,ui.picker_tab==t?ui_theme.selected_text:ink);
+        if(hover(4+t*(picker_width()+2)/3,57,(picker_width()+2)/3-2,23)) snprintf(ui.status,sizeof ui.status,"%s%s",picker_names[t],"");
     }
     int audio_ids[CHANNELS],audio_count=0;
     for(int c=0;c<ui.project.channel_count;c++) if(channel_has_audio(&ui.project,c)) audio_ids[audio_count++]=c;
