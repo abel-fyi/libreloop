@@ -30,6 +30,18 @@ int main(void) {
     Rect page=w.editors[1].rect,desktop={244,60,1200,1002};
     windows_focus(&w,0);CHECK(w.focused==2 && w.editors[2].visible && !w.editors[1].visible && !w.editors[0].visible);
     CHECK(!memcmp(&page,&w.editors[2].rect,sizeof page));
+    /* Dragging Mixer to its top stop must leave the Pattern controls and
+       piano grid room to render, with or without an expanded FX shelf. */
+    for(int rows=0;rows<=3;rows++) {
+        w.workspace.mixer_fx_rows=rows;w.workspace.mixer=1;
+        studio_workspace_layout(&w,1448,1086,238);
+        CHECK(w.editors[2].rect.h>=300 && !overlap(w.editors[2].rect,w.editors[3].rect));
+        studio_workspace_layout(&w,900,562,238);
+        CHECK(w.editors[2].rect.h>=202 && !overlap(w.editors[2].rect,w.editors[3].rect));
+    }
+    w.workspace.mixer_fx_rows=0;w.workspace.mixer=studio_workspace_default_mixer(1086);
+    studio_workspace_layout(&w,1448,1086,238);
+    page=w.editors[2].rect;
     CHECK(studio_workspace_split(&w,page.x+100,page.y-3)==-1);
     studio_workspace_hide(&w,2);studio_workspace_maximize(&w,2);CHECK(w.editors[2].visible && !w.editors[2].maximized);
     windows_focus(&w,1);CHECK(w.editors[1].visible && !w.editors[2].visible);

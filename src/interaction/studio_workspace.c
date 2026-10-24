@@ -23,7 +23,11 @@ void studio_workspace_layout(Windows *w,float width,float height,float sidebar) 
     float x=sidebar+6,y=60,full=width-x-4,area=height-84;
     if(s->mixer_fx_rows>=0)s->mixer_fx_rows=fmaxf(0,fminf(s->mixer_fx_rows,fminf(3,floorf((area-128-256)/22)-1)));
     float extra=s->mixer_fx_rows<0?0:(1+s->mixer_fx_rows)*22;
-    float mixer=s->show[3]?clamp(area*s->mixer,182,fmaxf(182,area-128-extra))+extra:STUDIO_TITLE;
+    /* The Pattern channel row ends at 102, with its footer starting at
+       height-96. Keep at least four units between them and a positive piano
+       grid; use more space when the window can afford it. */
+    float page_min=s->show[2]?fmaxf(202,fminf(300,area-6-(182+extra))):128;
+    float mixer=s->show[3]?clamp(area*s->mixer,182,fmaxf(182,area-page_min-6-extra))+extra:STUDIO_TITLE;
     w->editors[3].minh=182+extra;
     w->editors[3].rect=(Rect){x,height-24-mixer,full,mixer};w->editors[3].visible=s->show[3];
     Rect page={x,y,full,area-mixer-6};
