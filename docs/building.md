@@ -67,7 +67,9 @@ Install CMake, Ninja, Python 3 and SDL3 with
 MIDI input reads raw `/dev/rmidi*` devices accessible to the user. The installed
 application is `stage/bin/libreloop`.
 The build helper raises OpenBSD's default stack limit to 8 MiB when running
-tests. For manual `ctest` runs, use `ulimit -s 8192` first.
+tests. For manual `ctest` runs, use `ulimit -s 8192` first. Large Project
+objects are kept off stack-limited desktop paths; tests that need a Project
+fixture use static storage where appropriate.
 
 ## Requirements
 

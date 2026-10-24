@@ -58,6 +58,10 @@ dynamic shelf height. Older preferences subtract their former reserved 88-unit
 shelf before the new shelf is added. Project serialization is unaffected by
 this geometry change. Workspace tests explicitly cover automatic growth,
 shrinkage, divider resizing/reset, minimum page size and floating-editor bounds.
+When Pattern is active, the divider preserves at least 202 logical units for
+the channel row, footer and a positive Piano Roll grid; it keeps 300 units when
+the window and visible FX rows leave enough room. This prevents Mixer controls
+from drawing over Pattern at the divider's top stop.
 
 ## Routing and controls
 

@@ -100,8 +100,15 @@ sample-load activity, and periodically while idle. In the same local setup,
 median whole-frame time fell from about 63 ms to 33 ms. The render profiler
 reports the renderer and the time spent in these stages; drawing remains the
 main limit on that machine. The multiband curve fill takes the loudest input
-from the latest 64 monitor entries so a short click remains visible across
-more than one display frame.
+from recent monitor entries so a short click remains visible across more than
+one display frame. Older peaks decay by about 2 dB per monitor entry (256 audio
+frames), so the fill follows the click down instead of holding its peak flat.
+
+Replaying the selected Browser sample reuses its decoded audio and waveform.
+Clip movement updates only the clip arrays instead of copying the complete
+Project. Project creation, loading, undo/redo and recording setup keep large
+Project objects off stack-limited UI paths. These changes are in shared code and
+apply to every desktop platform.
 
 Regression checks cover Master effects/fader/mute and analyzer routing for the
 click, callback block-size independence, a stalled analyzer reader, distinct 60 Hz windows between 75 ms callbacks,
