@@ -17,11 +17,13 @@ void dynamics_band_bounds(float low,float high,float lowcut,float bounds[4]){
     bounds[2]=fmaxf(bounds[1],clamp(logf(high/20)/logf(1000),0,1));bounds[3]=1;
 }
 float dynamics_monitor_position(unsigned age,float control){return 1-age*dynamics_monitor_speed(control)/255.f;}
-float dynamics_recent_input_peak(const DynamicsMonitor *monitor,int band,unsigned samples){
+float dynamics_recent_input_envelope(const DynamicsMonitor *monitor,int band,unsigned samples){
     if(!monitor || band<0 || band>=4 || !monitor->count || !samples)return -72;
     unsigned first=monitor->count>samples?monitor->count-samples:0;
     float peak=-72;
-    for(unsigned i=first;i<monitor->count;i++)peak=fmaxf(peak,monitor->input[band][i]);
+    /* Each monitor entry spans 256 frames. Decay old peaks by about 2 dB per
+       entry so a click remains visible for a few UI frames without freezing. */
+    for(unsigned i=first;i<monitor->count;i++)peak=fmaxf(peak,monitor->input[band][i]-2.f*(monitor->count-1-i));
     return peak;
 }
 float dynamics_meter_height(const DynamicsBand *band,float input_db,float position){

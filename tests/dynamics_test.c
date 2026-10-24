@@ -63,10 +63,12 @@ int main(void){
     DynamicsMonitor recent={.count=80};
     for(unsigned i=0;i<recent.count;i++)recent.input[3][i]=-72;
     recent.input[3][24]=-3;
-    CHECK(dynamics_recent_input_peak(&recent,3,64)==-3);
-    CHECK(dynamics_recent_input_peak(&recent,3,55)==-72);
-    CHECK(dynamics_recent_input_peak(&recent,2,64)==0);
-    CHECK(dynamics_recent_input_peak(&recent,3,0)==-72);
+    CHECK(dynamics_recent_input_envelope(&recent,3,64)==-72);
+    recent.input[3][76]=-3;
+    CHECK(dynamics_recent_input_envelope(&recent,3,64)==-9);
+    CHECK(dynamics_recent_input_envelope(&recent,3,3)==-72);
+    CHECK(dynamics_recent_input_envelope(&recent,2,64)==0);
+    CHECK(dynamics_recent_input_envelope(&recent,3,0)==-72);
     float bounds[4];dynamics_band_bounds(200,2500,0,bounds);CHECK(bounds[0]==0 && bounds[3]==1);
     float original=bounds[1];dynamics_band_bounds(200,2500,100,bounds);
     CHECK(bounds[0]>0 && bounds[0]<bounds[1] && bounds[1]==original);

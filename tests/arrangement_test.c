@@ -8,6 +8,12 @@
 int main(void) {
     /* Several Project fixtures exceed Linux's usual 8 MiB stack together. */
     static Project p; project_default(&p); memset(p.clips,0,sizeof p.clips);
+    int free_slot=arrangement_can_place(&p,0,1,16);
+    CHECK(free_slot>=0 && !p.clips[0][free_slot]);
+    CHECK(arrangement_place(&p,0,1,0,16)==free_slot);
+    CHECK(arrangement_can_place(&p,0,1,16)<0);
+    CHECK(arrangement_can_place(&p,0,2,16)==2);
+    p.clips[0][free_slot]=0;
     Arrangement a={.source_pattern=-1,.source_steps=STEPS,.snap=16};
     arrangement_press(&a,&p,1.2,.4,0,0,0,0); arrangement_drag(&a,&p,5.2,1.4); arrangement_release(&a);
     CHECK(p.clips[1][5]==1 && !p.clips[0][1]);

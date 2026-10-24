@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 int main(void) {
-    Project p; Sample samples[CHANNELS],decoded={0}; project_default(&p); for(int b=0;b<32;b++) p.clips[0][b]=1; samples_default(samples);
+    static Project p; Sample samples[CHANNELS],decoded={0}; project_default(&p); for(int b=0;b<32;b++) p.clips[0][b]=1; samples_default(samples);
     int ok=export_wav("decoder-fixture.wav",&p,samples) && sample_load("decoder-fixture.wav",&decoded);
     ok=ok && decoded.frames==32*2*RATE && decoded.channels==2;
     Sample processed={0};

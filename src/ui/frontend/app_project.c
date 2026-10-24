@@ -95,6 +95,11 @@ void audition_entry(int entry) {
     if(entry<0 || entry>=ui.browser.items) return;
     const char *path=ui.browser.nodes[entry].path;
     if(!host_is_file_extension(path,".wav;.flac;.mp3") || host_directory_exists(path)) return;
+    if(ui.audition.data && !strcmp(path,ui.audition_path)) {
+        audio_preview(ui.audition);
+        snprintf(ui.status,sizeof ui.status,"Preview: %.140s",host_get_file_name(path));
+        return;
+    }
     Sample next;
     if(!sample_load(path,&next)) { snprintf(ui.status,sizeof ui.status,"Cannot preview %.120s",host_get_file_name(path)); return; }
     audio_preview(next); sample_free(ui.audition); ui.audition=next;
@@ -199,8 +204,7 @@ void drop_sample(const char *path) {
         int slot=-1;
         if(!list) {
             /* Check placement before decoding or creating a channel. */
-            Project next=ui.project; next.channel_count++; next.channel_audio[c]=1; next.audio_seconds[c]=.001f;
-            slot=arrangement_place(&next,lane,start,PATTERNS+c,.001f*ui.project.bpm/15);
+            slot=arrangement_can_place(&ui.project,lane,start,.001f*ui.project.bpm/15);
             if(slot<0) { snprintf(ui.status,sizeof ui.status,"No space here: choose an empty part of the track."); return; }
         }
         if(!import_sample(path,c)) return;
@@ -322,28 +326,32 @@ void install_project(Project *next,Sample fresh[CHANNELS],Sample processed[CHANN
 }
 
 void new_project(int demo) {
-    Project next; Sample fresh[CHANNELS]={0},processed[CHANNELS]={0};
-    if(demo) { project_demo(&next); samples_default(fresh); }
-    else project_new(&next);
+    Project *next=malloc(sizeof *next); Sample fresh[CHANNELS]={0},processed[CHANNELS]={0};
+    if(!next) { snprintf(ui.status,sizeof ui.status,"Project unchanged: insufficient memory."); return; }
+    if(demo) { project_demo(next); samples_default(fresh); }
+    else project_new(next);
 
     for(int c=0;c<CHANNELS;c++) {
-        if((demo && c<4 && !fresh[c].data) || !sample_process(fresh[c],next.sampler[c],&processed[c])) {
+        if((demo && c<4 && !fresh[c].data) || !sample_process(fresh[c],next->sampler[c],&processed[c])) {
             for(int i=0;i<CHANNELS;i++) { sample_free(fresh[i]); sample_free(processed[i]); }
+            free(next);
             snprintf(ui.status,sizeof ui.status,"Project unchanged: could not prepare samples."); return;
         }
     }
-    ui.pattern=ui.channel=0; ui.song=1; install_project(&next,fresh,processed,demo?"demo" PROJECT_FILE_SUFFIX:"project" PROJECT_FILE_SUFFIX); ui.document.saved_on_disk=0;
+    ui.pattern=ui.channel=0; ui.song=1; install_project(next,fresh,processed,demo?"demo" PROJECT_FILE_SUFFIX:"project" PROJECT_FILE_SUFFIX); free(next); ui.document.saved_on_disk=0;
     if(ui.windows.workspace.enabled)windows_focus(&ui.windows,1);
     snprintf(ui.status,sizeof ui.status,demo?"Demo loaded: press Play to hear the eight-bar groove.":"New project: load a sample to get started.");
 }
 
 int load_project(const char *path) {
-    Project next; Sample fresh[CHANNELS]={0},processed[CHANNELS]={0}; int missing=0;
-    if(strlen(path)>=sizeof ui.document.path || !project_load_assets(path,&next,fresh,processed,sample_load,&missing)) {
+    Project *next=malloc(sizeof *next); Sample fresh[CHANNELS]={0},processed[CHANNELS]={0}; int missing=0;
+    if(!next) { snprintf(ui.status,sizeof ui.status,"Project unchanged: insufficient memory."); return 0; }
+    if(strlen(path)>=sizeof ui.document.path || !project_load_assets(path,next,fresh,processed,sample_load,&missing)) {
+        free(next);
         snprintf(ui.status,sizeof ui.status,"Project unchanged: invalid project, sample path too long or processing failed: %.100s",path); return 0;
     }
     char filename[LL_PATH_CAPACITY]; snprintf(filename,sizeof filename,"%s",path);
-    install_project(&next,fresh,processed,filename);
+    install_project(next,fresh,processed,filename); free(next);
     if(missing) snprintf(ui.status,sizeof ui.status,"Loaded with %d missing samples. Right-click a channel and choose Relink sample, or drop its file onto the channel.",missing);
     return 1;
 }
@@ -381,24 +389,25 @@ void undo_redo(int direction) {
     if(recording_active() || captured()) { snprintf(ui.status,sizeof ui.status,"Finish the current edit or recording before undo/redo."); return; }
     if(!history_checkpoint()) return;
     uint8_t keep[CHANNELS]={0}; uint64_t current_stamps[CHANNELS]; history_stamps(current_stamps);
-    Project next; Sample retained[CHANNELS],fresh[CHANNELS]={0},processed[CHANNELS]={0};
-    if(!history_peek(&ui.edit_history,direction,&next,retained)) { snprintf(ui.status,sizeof ui.status,direction<0?"Nothing to undo.":"Nothing to redo."); return; }
+    Project *next=malloc(sizeof *next); Sample retained[CHANNELS],fresh[CHANNELS]={0},processed[CHANNELS]={0};
+    if(!next) { snprintf(ui.status,sizeof ui.status,"Undo/redo unchanged: insufficient memory."); return; }
+    if(!history_peek(&ui.edit_history,direction,next,retained)) { free(next); snprintf(ui.status,sizeof ui.status,direction<0?"Nothing to undo.":"Nothing to redo."); return; }
     for(int c=0;c<CHANNELS;c++) {
-        if(history_source_matches(&ui.edit_history,direction,c,ui.originals[c],current_stamps[c]) && sampler_processing_equal(next.sampler[c],ui.sampler_applied[c])) {
-            keep[c]=1; fresh[c]=ui.originals[c]; processed[c]=ui.samples[c]; sample_duration(&next,c,ui.samples[c],ui.originals[c]); continue;
+        if(history_source_matches(&ui.edit_history,direction,c,ui.originals[c],current_stamps[c]) && sampler_processing_equal(next->sampler[c],ui.sampler_applied[c])) {
+            keep[c]=1; fresh[c]=ui.originals[c]; processed[c]=ui.samples[c]; sample_duration(next,c,ui.samples[c],ui.originals[c]); continue;
         }
         fresh[c]=sample_copy(retained[c]);
-        if((retained[c].frames && !fresh[c].data) || !sample_process(fresh[c],next.sampler[c],&processed[c])) goto failed;
-        sample_duration(&next,c,processed[c],fresh[c]);
+        if((retained[c].frames && !fresh[c].data) || !sample_process(fresh[c],next->sampler[c],&processed[c])) goto failed;
+        sample_duration(next,c,processed[c],fresh[c]);
     }
     if(ui.sampler_job.busy) { host_thread_join(ui.sampler_job.thread,NULL); sample_free(ui.sampler_job.input); sample_free(ui.sampler_job.result); ui.sampler_job.busy=0; }
-    audio_channels(&next,processed);
+    audio_channels(next,processed);
     for(int c=0;c<CHANNELS;c++) {
         if(keep[c]) continue;
         sample_free(ui.samples[c]); sample_free(ui.originals[c]); ui.samples[c]=processed[c]; ui.originals[c]=fresh[c];
-        ui.sample_generation[c]++; ui.sampler_generation[c]=ui.sample_generation[c]; ui.sampler_applied[c]=next.sampler[c];
+        ui.sample_generation[c]++; ui.sampler_generation[c]=ui.sample_generation[c]; ui.sampler_applied[c]=next->sampler[c];
     }
-    ui.project=next; history_step(&ui.edit_history,direction);
+    ui.project=*next; free(next); history_step(&ui.edit_history,direction);
     uint64_t stamps[CHANNELS]; history_stamps(stamps); history_rebind(&ui.edit_history,ui.originals,stamps);
     ui.pattern=fmaxf(0,fminf(ui.pattern,ui.project.pattern_count-1)); ui.channel=fmaxf(0,fminf(ui.channel,ui.project.channel_count-1));
     ui.piano_channel=ui.instrument_channel=ui.channel; ui.automation_selected=ui.automation_node=-1; ui.picker_drag=-1;
@@ -409,6 +418,7 @@ void undo_redo(int direction) {
     snprintf(ui.status,sizeof ui.status,direction<0?"Undone.":"Redone."); return;
 failed:
     for(int c=0;c<CHANNELS;c++) if(!keep[c]) { sample_free(fresh[c]); sample_free(processed[c]); }
+    free(next);
     snprintf(ui.status,sizeof ui.status,"Undo/redo unchanged: could not prepare audio.");
 }
 

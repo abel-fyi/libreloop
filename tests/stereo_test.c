@@ -31,7 +31,7 @@ int main(void) {
     CHECK(trimmed.frames==3 && trimmed.data==boundaries); /* Either channel protects both edges. */
     Waveform wave={0}; CHECK(waveform_build(&wave,(Sample){tail,3,2}));
     CHECK(waveform_range(&wave,(Sample){tail,3,2},1,2).high==.5f); free(wave.tree);
-    Project project; project_default(&project); memset(project.notes,0,sizeof project.notes);
+    static Project project; project_default(&project); memset(project.notes,0,sizeof project.notes);
     project.volume[0]=project.master=1; project.route[0]=0; project.channel_audio[0]=1;
     project.audio_seconds[0]=1; project.clips[0][0]=PATTERNS+1;
     Sample samples[CHANNELS]={{tail,3,2}}; Player player; float pcm[6];

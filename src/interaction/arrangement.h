@@ -11,10 +11,11 @@ typedef struct {
     uint8_t selected[LANES][CLIPS],before[LANES][CLIPS],selection_before[LANES][CLIPS];
     int additive;
     float zoom,view_start,range;
-    float lengths[LANES][CLIPS],starts[LANES][CLIPS],offsets[LANES][CLIPS],caps[LANES][CLIPS];
+    float lengths[LANES][CLIPS],starts[LANES][CLIPS],offsets[LANES][CLIPS],steps[LANES][CLIPS],caps[LANES][CLIPS];
     uint8_t moved[LANES][CLIPS];
 } Arrangement;
 int arrangement_place(Project *p,int lane,float bar,int source,float steps);
+int arrangement_can_place(const Project *p,int lane,float bar,float steps);
 int arrangement_hit(const Project *p,int lane,float bar);
 float arrangement_edit_steps(const Arrangement *a,const Project *p,int pattern);
 void arrangement_select_press(Arrangement *a,float bar,float lane,int additive);

@@ -68,12 +68,14 @@ void recording_start_audio(float start) {
     if(!sampler_flush()) { snprintf(ui.status,sizeof ui.status,"Wait for sample processing before recording."); return; }
     if(host_make_directory("recordings")!=0) { snprintf(ui.status,sizeof ui.status,"Cannot create recordings/ in the working directory."); return; }
     char directory[LL_PATH_CAPACITY]; if(!host_realpath("recordings",directory)) { snprintf(ui.status,sizeof ui.status,"Cannot open recordings/ in the working directory."); return; }
-    Project next=ui.project;
-    if(!recording_prepare(&ui.recording_ui,&next,buses,count,start,directory)) goto failed;
+    Project *next=malloc(sizeof *next);
+    if(!next) goto failed;
+    *next=ui.project;
+    if(!recording_prepare(&ui.recording_ui,next,buses,count,start,directory)) goto failed;
     char error[256]={0};
     /* Record the selected transport; Song takes run freely, Pattern keeps looping. */
     for(int i=0;i<count;i++) audio_sample(ui.recording_ui.takes[i].channel,(Sample){0});
-    if(!audio_record_start(&next,buses,count,start,ui.output_volume,ui.song,ui.pattern,ui.record_loop[0],ui.record_loop[1],error)) {
+    if(!audio_record_start(next,buses,count,start,ui.output_volume,ui.song,ui.pattern,ui.record_loop[0],ui.record_loop[1],error)) {
         audio_channels(&ui.project,ui.samples);
         audio_update(&ui.project,ui.playing,ui.song,ui.pattern,1,ui.output_volume,playback_start(),playback_loop()[0],playback_loop()[1]);
         snprintf(ui.status,sizeof ui.status,"%s",error); goto cleanup;
@@ -85,9 +87,9 @@ void recording_start_audio(float start) {
     }
     for(int i=0;i<count;i++) {
         int c=ui.recording_ui.takes[i].channel; sample_free(ui.samples[c]); sample_free(ui.originals[c]);
-        ui.samples[c]=ui.originals[c]=(Sample){0}; ui.sampler_applied[c]=next.sampler[c];
+        ui.samples[c]=ui.originals[c]=(Sample){0}; ui.sampler_applied[c]=next->sampler[c];
     }
-    ui.project=next; ui.recording_ui.active=1; ui.recording_ui.bpm=ui.project.bpm; ui.recording_ui.start=start;
+    ui.project=*next; free(next); ui.recording_ui.active=1; ui.recording_ui.bpm=ui.project.bpm; ui.recording_ui.start=start;
     ui.playing=1; ui.reset=0;
     if(ui.song){ui.playlist_start=start/STEPS;memset(ui.song_loop,0,sizeof ui.song_loop);}
     memset(ui.arrangement.selected,0,sizeof ui.arrangement.selected);
@@ -98,6 +100,7 @@ void recording_start_audio(float start) {
     ui.browser_focus=0;
     snprintf(ui.status,sizeof ui.status,"Recording %d armed mixer tracks; Stop or Record finishes the takes.",count); return;
 failed:
+    free(next);
     snprintf(ui.status,sizeof ui.status,"Cannot prepare recording: free Playlist tracks, memory or writable disk space required.");
 cleanup:
     recording_cancel(&ui.recording_ui);
